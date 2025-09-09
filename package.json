@@ -1,0 +1,15 @@
+{
+  "name": "tf-lang",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Monorepo for TF-Lang L0 runtimes (TypeScript + Rust)",
+  "license": "MIT",
+  "workspaces": [
+    "packages/*",
+    "services/*"
+  ],
+  "scripts": {
+    "build": "pnpm -r --filter ./packages/* run build || true",
+    "test": "pnpm -r --filter ./packages/* run test || true"
+  }
+}

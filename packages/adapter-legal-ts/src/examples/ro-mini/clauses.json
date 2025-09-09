@@ -1,0 +1,42 @@
+[
+  {
+    "id": "C1",
+    "act_id": "A1",
+    "path": "Art.10(1)",
+    "text": "Se interzice fumatul in cladirile institutiilor publice.",
+    "jurisdiction": "RO",
+    "effective_from": "2024-01-01",
+    "effective_to": null,
+    "source_ref": "https://gov.ro/lege-sanatate#art10"
+  },
+  {
+    "id": "C2",
+    "act_id": "A2",
+    "path": "Art.5",
+    "text": "Este permis fumatul in spatii desemnate ale institutiilor publice.",
+    "jurisdiction": "RO/Bucuresti",
+    "effective_from": "2024-06-15",
+    "effective_to": null,
+    "source_ref": "https://bucuresti.ro/hcl-fumat#art5"
+  },
+  {
+    "id": "C3",
+    "act_id": "A3",
+    "path": "Art.2",
+    "text": "Este permis fumatul in spatii desemnate ale institutiilor publice.",
+    "jurisdiction": "RO/Bucuresti/S1",
+    "effective_from": "2024-06-15",
+    "effective_to": null,
+    "source_ref": "https://s1.ro/hcl-restrictii#art2"
+  },
+  {
+    "id": "C4",
+    "act_id": "A3",
+    "path": "Art.3",
+    "text": "Fumatul poate fi interzis la decizia administratorului cladirii.",
+    "jurisdiction": "RO/Bucuresti/S1",
+    "effective_from": "2024-06-15",
+    "effective_to": null,
+    "source_ref": "https://s1.ro/hcl-restrictii#art3"
+  }
+]

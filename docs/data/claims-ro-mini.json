@@ -1,0 +1,103 @@
+{
+  "dataset_version": "ro-mini-2025-09-09",
+  "claims": [
+    {
+      "id": "C1",
+      "kind": "DEONTIC",
+      "modality": "FORBIDDEN",
+      "scope": {
+        "jurisdiction": "RO"
+      },
+      "effective": {
+        "from": "2024-01-01",
+        "to": null
+      },
+      "status": "determinate",
+      "explanation": null,
+      "evidence": [
+        {
+          "source_uri": "https://gov.ro/lege-sanatate#art10",
+          "span": null,
+          "hash": "b8395a9234b7b33300dda4a0d382ec09",
+          "rule_id": "regex.v1"
+        }
+      ],
+      "dataset_version": "ro-mini-2025-09-09",
+      "query_hash": "0"
+    },
+    {
+      "id": "C2",
+      "kind": "DEONTIC",
+      "modality": "PERMITTED",
+      "scope": {
+        "jurisdiction": "RO/Bucuresti"
+      },
+      "effective": {
+        "from": "2024-06-15",
+        "to": null
+      },
+      "status": "determinate",
+      "explanation": null,
+      "evidence": [
+        {
+          "source_uri": "https://bucuresti.ro/hcl-fumat#art5",
+          "span": null,
+          "hash": "c5efa0a4b498e3f2831507ce22b081c3",
+          "rule_id": "regex.v1"
+        }
+      ],
+      "dataset_version": "ro-mini-2025-09-09",
+      "query_hash": "0"
+    },
+    {
+      "id": "C3",
+      "kind": "DEONTIC",
+      "modality": "PERMITTED",
+      "scope": {
+        "jurisdiction": "RO/Bucuresti/S1"
+      },
+      "effective": {
+        "from": "2024-06-15",
+        "to": null
+      },
+      "status": "determinate",
+      "explanation": null,
+      "evidence": [
+        {
+          "source_uri": "https://s1.ro/hcl-restrictii#art2",
+          "span": null,
+          "hash": "c5efa0a4b498e3f2831507ce22b081c3",
+          "rule_id": "regex.v1"
+        }
+      ],
+      "dataset_version": "ro-mini-2025-09-09",
+      "query_hash": "0"
+    },
+    {
+      "id": "C4",
+      "kind": "DEONTIC",
+      "modality": "FORBIDDEN",
+      "scope": {
+        "jurisdiction": "RO/Bucuresti/S1"
+      },
+      "effective": {
+        "from": "2024-06-15",
+        "to": null
+      },
+      "status": "ambiguous",
+      "explanation": {
+        "why": "modal hedge ('poate fi')"
+      },
+      "evidence": [
+        {
+          "source_uri": "https://s1.ro/hcl-restrictii#art3",
+          "span": null,
+          "hash": "60be943c5fc73a117eb695af958d2b1e",
+          "rule_id": "regex.v1"
+        }
+      ],
+      "dataset_version": "ro-mini-2025-09-09",
+      "query_hash": "0"
+    }
+  ]
+}

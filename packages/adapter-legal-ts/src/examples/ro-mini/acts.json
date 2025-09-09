@@ -1,0 +1,29 @@
+[
+  {
+    "id": "A1",
+    "title": "Legea Sanatatii Publice",
+    "issuer": "NATIONAL",
+    "jurisdiction": "RO",
+    "in_force_from": "2024-01-01",
+    "in_force_to": null,
+    "source_ref": "https://gov.ro/lege-sanatate"
+  },
+  {
+    "id": "A2",
+    "title": "Hotarare Consiliu Local Bucuresti",
+    "issuer": "LOCAL",
+    "jurisdiction": "RO/Bucuresti",
+    "in_force_from": "2024-06-01",
+    "in_force_to": null,
+    "source_ref": "https://bucuresti.ro/hcl-fumat"
+  },
+  {
+    "id": "A3",
+    "title": "Hotarare CL Bucuresti Sector 1",
+    "issuer": "LOCAL",
+    "jurisdiction": "RO/Bucuresti/S1",
+    "in_force_from": "2024-06-01",
+    "in_force_to": null,
+    "source_ref": "https://s1.ro/hcl-restrictii"
+  }
+]

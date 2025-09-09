@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Claims Explorer — TF-Lang</title>
+<style>
+  :root { color-scheme: dark light; --bg:#0b0b0c; --fg:#eaeaea; --muted:#9aa0a6; --accent:#7cc0ff; --badge:#333b; --card:#1114; --ok:#39d98a; --warn:#f5c451; --err:#ff6b6b; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial; margin: 0; background: var(--bg); color: var(--fg); }
+  header { padding: 20px 24px; border-bottom: 1px solid #fff1; position: sticky; top: 0; backdrop-filter: blur(6px); background: linear-gradient(180deg, #0008, #0000); }
+  h1 { margin: 0 0 6px; font-size: 20px; }
+  .muted { color: var(--muted); font-size: 12px; }
+  main { padding: 20px 24px; display: grid; gap: 16px; }
+  .filters { display: grid; grid-template-columns: repeat(4, minmax(180px, 1fr)); gap: 12px; align-items: end; }
+  label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 6px; }
+  select, input[type="date"] { width: 100%; padding: 8px 10px; background: #111; color: var(--fg); border: 1px solid #fff2; border-radius: 8px; }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .card { padding: 14px; background: var(--card); border: 1px solid #fff1; border-radius: 14px; }
+  .metric { font-size: 28px; font-weight: 700; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; background: var(--badge); font-size: 12px; color: var(--muted); margin-left: 8px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 10px 8px; border-bottom: 1px solid #fff1; vertical-align: top; }
+  th { text-align: left; font-weight: 600; font-size: 12px; color: var(--muted); }
+  tr:hover { background: #fff0; }
+  a { color: var(--accent); text-decoration: none; }
+  .status { font-weight: 600; }
+  .status.determinate { color: var(--ok); }
+  .status.ambiguous { color: var(--warn); }
+  .status.contradictory { color: var(--err); }
+  details { background: #0004; border-radius: 10px; padding: 8px 10px; }
+  summary { cursor: pointer; }
+  footer { padding: 24px; color: var(--muted); border-top: 1px solid #fff1; }
+  @media (max-width: 1100px) { .cards { grid-template-columns: repeat(2, 1fr); } .filters { grid-template-columns: repeat(2, 1fr);} }
+  @media (max-width: 700px) { .cards { grid-template-columns: 1fr; }  .filters { grid-template-columns: 1fr;} }
+</style>
+</head>
+<body>
+<header>
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <div>
+  <h1>Claims Explorer <span class="badge">zero-backend demo</span></h1>
+  <div class="muted">Dataset: <span id="datasetVersion">loading…</span> • Source: <code>docs/data/claims-ro-mini.json</code></div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <a href="./config.html" class="muted" style="text-decoration:none">⚙️ Config</a>
+      <button id="copyCurl" style="padding:6px 10px;border-radius:10px;background:#1b1b1f;color:#fff;border:1px solid #fff2;cursor:pointer;">Copy cURL</button>
+      <span id="copied" class="muted" style="display:none">Copied!</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="filters">
+    <div>
+      <label for="source">Source</label>
+      <select id="source">
+        <option value="static">Static file</option>
+        <option value="api">Live API</option>
+      </select>
+    </div>
+    <div>
+      <label for="apiBase">API base</label>
+      <input id="apiBase" placeholder="http://localhost:8787" />
+    </div>
+    <div>
+      <label for="at">Effective at date</label>
+      <input type="date" id="at" />
+    </div>
+    <div>
+      <label for="jur">Jurisdiction</label>
+      <select id="jur"></select>
+    </div>
+    <div>
+      <label for="mod">Modality</label>
+      <select id="mod">
+        <option value="*">Any</option>
+        <option value="FORBIDDEN">FORBIDDEN</option>
+        <option value="PERMITTED">PERMITTED</option>
+        <option value="OBLIGATORY">OBLIGATORY</option>
+        <option value="EXEMPT">EXEMPT</option>
+      </select>
+    </div>
+    <div>
+      <label>&nbsp;</label>
+      <button id="reset" style="width:100%;padding:9px 12px;border-radius:10px;background:#1b1b1f;color:#fff;border:1px solid #fff2;cursor:pointer;">Reset filters</button>
+    </div>
+  </section>
+
+  <section class="cards">
+    <div class="card"><div class="muted">Count</div><div id="metricCount" class="metric">0</div></div>
+    <div class="card"><div class="muted">Ambiguous</div><div id="metricAmb" class="metric">0</div></div>
+    <div class="card"><div class="muted">Contradictory</div><div id="metricCon" class="metric">0</div></div>
+  </section>
+
+  <section class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div class="muted">Claims</div>
+      <div class="muted" id="resultInfo">0 items</div>
+    </div>
+    <table>
+      <thead><tr>
+        <th>ID</th><th>Modality</th><th>Jurisdiction</th><th>Effective</th><th>Status</th><th>Why / Evidence</th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </section>
+</main>
+
+<footer>
+  Built for the TF-Lang MVP. No backend; loads a static JSON file and computes Counts → Drilldown → Why in-browser.
+</footer>
+
+<script>
+const DATA_URL = './data/claims-ro-mini.json';
+let SOURCE = 'static';
+let API_BASE = '';
+// Load persisted settings (if any)
+const SRC_KEY = 'tfl_source';
+const API_KEY = 'tfl_api_base';
+function persist(){ try { localStorage.setItem(SRC_KEY, SOURCE); localStorage.setItem(API_KEY, API_BASE); } catch(_){} }
+function loadPersist(){ try { const s = localStorage.getItem(SRC_KEY); const a = localStorage.getItem(API_KEY); if(s) SOURCE = s; if(a) API_BASE = a; } catch(_){} }
+function buildCurl(params){
+  const url = new URL('/claims/list', API_BASE || 'http://localhost:8787');
+  if(params.modality && params.modality!=='*') url.searchParams.set('modality', params.modality);
+  if(params.jurisdiction && params.jurisdiction!=='*') url.searchParams.set('jurisdiction', params.jurisdiction);
+  if(params.at) url.searchParams.set('at', params.at);
+  url.searchParams.set('limit', '50');
+  return `curl '${'`'}${url.toString()}${'`'}`; // template with quotes
+}
+
+async function apiFetchCount(params){
+  const url = new URL('/claims/count', API_BASE);
+  if(params.modality && params.modality!=='*') url.searchParams.set('modality', params.modality);
+  if(params.jurisdiction && params.jurisdiction!=='*') url.searchParams.set('jurisdiction', params.jurisdiction);
+  if(params.at) url.searchParams.set('at', params.at);
+  const r = await fetch(url.toString());
+  if(!r.ok) throw new Error('count '+r.status);
+  return await r.json();
+}
+async function apiFetchList(params){
+  const url = new URL('/claims/list', API_BASE);
+  if(params.modality && params.modality!=='*') url.searchParams.set('modality', params.modality);
+  if(params.jurisdiction && params.jurisdiction!=='*') url.searchParams.set('jurisdiction', params.jurisdiction);
+  if(params.at) url.searchParams.set('at', params.at);
+  url.searchParams.set('limit', '200');
+  const r = await fetch(url.toString());
+  if(!r.ok) throw new Error('list '+r.status);
+  return await r.json();
+}
+
+const $ = sel => document.querySelector(sel);
+
+let ALL = [];
+let DATASET_VERSION = '';
+
+function effectiveActive(c, at) {
+  if (!at) return true;
+  const fromOk = c.effective?.from ? c.effective.from <= at : true;
+  const toOk = !c.effective?.to || at <= c.effective.to;
+  return fromOk && toOk;
+}
+
+function uniqueJurisdictions(claims) {
+  const set = new Set(claims.map(c => c.scope?.jurisdiction).filter(Boolean));
+  return ['*', ...Array.from(set)];
+}
+
+async function applyFilters() {
+  const at = $('#at').value || null;
+  const jur = $('#jur').value;
+  const mod = $('#mod').value;
+  let items = [];
+  let total = 0;
+  const jur = $('#jur').value;
+  const mod = $('#mod').value;
+
+  if (SOURCE === 'static') {
+    items = ALL.filter(c => effectiveActive(c, at));
+    if (jur && jur !== '*') items = items.filter(c => c.scope?.jurisdiction === jur);
+    if (mod && mod !== '*') items = items.filter(c => c.modality === mod);
+    total = items.length;
+  } else {
+    const params = { at, jurisdiction: jur, modality: mod };
+    const [cnt, lst] = await Promise.all([ apiFetchCount(params), apiFetchList(params) ]);
+    total = cnt.n;
+    items = lst.items || [];
+  }
+  const amb = items.filter(c => c.status === 'ambiguous').length;
+  const con = items.filter(c => c.status === 'contradictory').length;
+  $('#metricCount').textContent = String(total);
+  $('#metricAmb').textContent = String(amb);
+  $('#metricCon').textContent = String(con);
+  $('#resultInfo').textContent = total + ' items';
+  const tbody = $('#rows'); tbody.innerHTML = '';
+  for (const c of items) {
+    const tr = document.createElement('tr');
+    const eff = (c.effective?.from || '—') + (c.effective?.to ? ' → ' + c.effective.to : '');
+    tr.innerHTML = `
+      <td><code>${c.id}</code></td>
+      <td>${c.modality}</td>
+      <td>${c.scope?.jurisdiction || '—'}</td>
+      <td>${eff}</td>
+      <td class="status ${c.status}">${c.status}</td>
+      <td>
+        <details>
+          <summary>Why</summary>
+          <div style="margin-top:6px">
+            ${c.explanation?.why ? `<div class="muted">${c.explanation.why}</div>` : ''}
+            ${(c.evidence||[]).map(e => `<div>source: <a target="_blank" href="${e.source_uri}">${e.source_uri}</a></div>`).join('')}
+            <div class="muted">dataset_version: ${c.dataset_version}</div>
+          </div>
+        </details>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+async function main() {
+  const resp = await fetch(DATA_URL);
+  const data = await resp.json();
+  ALL = data.claims || [];
+  DATASET_VERSION = data.dataset_version || '';
+  $('#datasetVersion').textContent = DATASET_VERSION;
+
+  // populate filters
+  const jurSel = $('#jur'); jurSel.innerHTML = '';
+  for (const j of uniqueJurisdictions(ALL)) {
+    const opt = document.createElement('option');
+    opt.value = j; opt.textContent = j === '*' ? 'Any' : j;
+    jurSel.appendChild(opt);
+  }
+
+  // defaults
+  loadPersist();
+  $('#at').value = '2025-09-09';
+  $('#mod').value = '*';
+  $('#jur').value = '*';
+  $('#source').value = SOURCE || 'static';
+  $('#apiBase').value = API_BASE || 'http://localhost:8787';
+  SOURCE = $('#source').value;
+  API_BASE = $('#apiBase').value;
+
+  await applyFilters();
+
+  $('#at').addEventListener('change', () => applyFilters());
+  $('#jur').addEventListener('change', () => applyFilters());
+  $('#mod').addEventListener('change', () => applyFilters());
+  $('#source').addEventListener('change', async () => { SOURCE = $('#source').value; persist(); await applyFilters(); });
+  $('#apiBase').addEventListener('change', async () => { API_BASE = $('#apiBase').value; persist(); await applyFilters(); });
+  document.getElementById('copyCurl').addEventListener('click', async () => {
+    const at = $('#at').value || null; const jurisdiction = $('#jur').value; const modality = $('#mod').value; const text = buildCurl({ at, jurisdiction, modality });
+    try { await navigator.clipboard.writeText(text); } catch(_) { console.log('clipboard failed'); }
+    const c = document.getElementById('copied'); c.style.display='inline'; setTimeout(()=>{c.style.display='none';}, 800);
+  });
+  $('#reset').addEventListener('click', async () => {
+    $('#at').value = '2025-09-09';
+    $('#jur').value = '*';
+    $('#mod').value = '*';
+    $('#source').value = 'static';
+    SOURCE = 'static';
+    await applyFilters();
+  });
+}
+
+main().catch(err => {
+  console.error(err);
+  alert('Failed to load data: ' + err.message);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: services/claims-api-ts/Dockerfile
+    ports:
+      - "8787:8787"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8787
+    restart: unless-stopped
+
+  docs:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./docs:/usr/share/nginx/html:ro
+    restart: unless-stopped

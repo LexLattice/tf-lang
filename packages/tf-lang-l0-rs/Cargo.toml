@@ -1,0 +1,22 @@
+
+[package]
+name = "tf-lang-l0"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "TF-Lang L0: minimal deterministic kernel (VM + checker + model)"
+repository = "https://example.com/lexlattice/tf-lang-l0"
+
+[lib]
+name = "tflang_l0"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow = "1"
+thiserror = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+blake3 = "1.5"
+
+[dev-dependencies]
+pretty_assertions = "1"

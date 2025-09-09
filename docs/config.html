@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>TF-Lang Config</title>
+<style>
+  :root { color-scheme: dark light; --bg:#0b0b0c; --fg:#eaeaea; --muted:#9aa0a6; --accent:#7cc0ff; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial; margin: 0; background: var(--bg); color: var(--fg); display: grid; place-items: center; min-height: 100vh; }
+  .card { width: min(680px, 92vw); padding: 22px; border: 1px solid #fff2; border-radius: 14px; background: #1115; }
+  h1 { margin: 0 0 12px; font-size: 20px; }
+  p { color: var(--muted); margin-top: 4px; }
+  label { font-size: 12px; color: var(--muted); display:block; margin-bottom: 6px; }
+  select, input { width: 100%; padding: 10px 12px; background: #111; color: var(--fg); border: 1px solid #fff2; border-radius: 10px; }
+  .grid { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; }
+  .row { margin: 12px 0; }
+  .actions { display:flex; gap: 10px; justify-content: flex-end; margin-top: 14px; }
+  button { padding: 10px 14px; border-radius: 10px; border: 1px solid #fff2; background:#1b1b1f; color:#fff; cursor:pointer; }
+  a { color: var(--accent); text-decoration: none; }
+  .muted { color: var(--muted); }
+</style>
+</head>
+<body>
+  <section class="card">
+    <h1>TF-Lang — Config</h1>
+    <p>These settings are stored in <code>localStorage</code> and used by the Claims Explorer.</p>
+
+    <div class="grid">
+      <div class="row">
+        <label for="source">Source</label>
+        <select id="source">
+          <option value="static">Static file</option>
+          <option value="api">Live API</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="apiBase">API base</label>
+        <input id="apiBase" placeholder="http://localhost:8787" />
+      </div>
+    </div>
+
+    <div class="actions">
+      <a href="./claims-explorer.html" class="muted" style="align-self:center">← Back to Explorer</a>
+      <button id="reset">Reset</button>
+      <button id="save">Save</button>
+    </div>
+
+    <p class="muted" id="status"></p>
+  </section>
+
+<script>
+const $ = s => document.querySelector(s);
+
+function load() {
+  const src = localStorage.getItem('tfl_source') || 'static';
+  const base = localStorage.getItem('tfl_api_base') || 'http://localhost:8787';
+  $('#source').value = src;
+  $('#apiBase').value = base;
+}
+
+function save() {
+  const src = $('#source').value;
+  const base = $('#apiBase').value;
+  localStorage.setItem('tfl_source', src);
+  localStorage.setItem('tfl_api_base', base);
+  $('#status').textContent = 'Saved to localStorage.';
+  setTimeout(() => { $('#status').textContent = ''; }, 1500);
+}
+
+function reset() {
+  localStorage.removeItem('tfl_source');
+  localStorage.removeItem('tfl_api_base');
+  load();
+  $('#status').textContent = 'Reset to defaults.';
+  setTimeout(() => { $('#status').textContent = ''; }, 1500);
+}
+
+document.getElementById('save').addEventListener('click', save);
+document.getElementById('reset').addEventListener('click', reset);
+load();
+</script>
+</body>
+</html>

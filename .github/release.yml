@@ -1,0 +1,52 @@
+{
+  "changelog": {
+    "categories": [
+      {
+        "title": "\ud83d\ude80 Features",
+        "labels": [
+          "feat",
+          "feature"
+        ]
+      },
+      {
+        "title": "\ud83e\uddf0 Enhancements",
+        "labels": [
+          "enhancement",
+          "improvement"
+        ]
+      },
+      {
+        "title": "\ud83d\udc1b Fixes",
+        "labels": [
+          "fix",
+          "bug"
+        ]
+      },
+      {
+        "title": "\ud83e\uddea Tests",
+        "labels": [
+          "test"
+        ]
+      },
+      {
+        "title": "\ud83e\uddf1 Build",
+        "labels": [
+          "build",
+          "ci"
+        ]
+      },
+      {
+        "title": "\ud83d\udcda Docs",
+        "labels": [
+          "docs"
+        ]
+      },
+      {
+        "title": "\ud83d\udd12 Security",
+        "labels": [
+          "security"
+        ]
+      }
+    ]
+  }
+}

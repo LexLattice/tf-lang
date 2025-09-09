@@ -1,0 +1,14 @@
+{
+  "version": "0.1",
+  "regs": 2,
+  "instrs": [
+    {
+      "op": "CONST",
+      "dst": 0,
+      "value": null
+    },
+    {
+      "op": "HALT"
+    }
+  ]
+}

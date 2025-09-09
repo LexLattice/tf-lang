@@ -30,6 +30,7 @@ jobs:
             packages/claims-core-ts/**
             packages/adapter-legal-ts/**
             docs/data/**
+            .golden/**
 
   ts:
     needs: changed

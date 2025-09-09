@@ -13,31 +13,31 @@ if [[ "${FAST_PATH_DISABLE:-0}" == "1" ]]; then
 fi
 
 # Pre-push passes refs on stdin as: <local_ref> <local_sha> <remote_ref> <remote_sha>
-local_sha=""
-remote_sha=""
+local_shas=()
+remote_shas=()
 while read -r lref lsha rref rsha; do
-  local_sha="$lsha"
-  remote_sha="$rsha"
+  local_shas+=("$lsha")
+  remote_shas+=("$rsha")
 done
 
-# Determine diff range
-range=""
-if [[ -n "${local_sha}" ]]; then
-  if [[ -z "${remote_sha}" || "${remote_sha}" =~ ^0+$ ]]; then
-    # New branch / no remote SHA: fallback to last 20 commits or single commit
-    if git rev-parse HEAD~20 >/dev/null 2>&1; then
-      range="$(git rev-parse HEAD~20)..${local_sha}"
+# Collect changed files across all refs
+FILES=()
+if [[ ${#local_shas[@]} -gt 0 ]]; then
+  for i in "${!local_shas[@]}"; do
+    lsha="${local_shas[$i]}"
+    rsha="${remote_shas[$i]}"
+    if [[ -z "$rsha" || "$rsha" =~ ^0+$ ]]; then
+      if git rev-parse "${lsha}^" >/dev/null 2>&1; then
+        mapfile -t diff_files < <(git diff --name-only "${lsha}^" "${lsha}")
+      else
+        mapfile -t diff_files < <(git show --name-only --pretty='' "${lsha}")
+      fi
     else
-      range="${local_sha}^!"
+      mapfile -t diff_files < <(git diff --name-only "${rsha}..${lsha}")
     fi
-  else
-    range="${remote_sha}..${local_sha}"
-  fi
-fi
-
-# Collect changed files
-if [[ -n "${range}" ]]; then
-  mapfile -t FILES < <(git diff --name-only ${range})
+    FILES+=("${diff_files[@]}")
+  done
+  mapfile -t FILES < <(printf '%s\n' "${FILES[@]}" | sort -u)
 else
   # Fallback: compare working HEAD against merge-base with origin/main (best effort)
   base="$(git merge-base HEAD origin/main 2>/dev/null || true)"
@@ -53,25 +53,32 @@ if [[ ${#FILES[@]} -eq 0 ]]; then
   exec scripts/test-all.sh
 fi
 
-echo "[changed] Detected ${#FILES[@]} changed files in range: ${range:-'(fallback)'}"
+echo "[changed] Detected ${#FILES[@]} changed files"
 
 NEED_TS=0
 NEED_RUST=0
 NEED_GOLDEN=0
+ONLY_DOCS=1
 
 for f in "${FILES[@]}"; do
   case "$f" in
-    packages/tf-lang-l0-ts/*) NEED_TS=1 ;;
-    packages/tf-lang-l0-rs/*) NEED_RUST=1 ;;
-    packages/adapter-legal-ts/*|packages/claims-core-ts/*) NEED_GOLDEN=1 ;;
-    docs/data/*) NEED_GOLDEN=1 ;;  # if dataset changes, enforce golden
-    .github/*|scripts/*|Makefile|package.json|pnpm-workspace.yaml) : ;;
-    *) : ;;
+    packages/tf-lang-l0-ts/*) NEED_TS=1; ONLY_DOCS=0 ;;
+    packages/tf-lang-l0-rs/*) NEED_RUST=1; ONLY_DOCS=0 ;;
+    packages/adapter-legal-ts/*|packages/claims-core-ts/*) NEED_GOLDEN=1; ONLY_DOCS=0 ;;
+    docs/data/*) NEED_GOLDEN=1; ONLY_DOCS=0 ;;  # dataset changes require golden
+    .golden/*) NEED_GOLDEN=1; ONLY_DOCS=0 ;;
+    *.md|docs/*) : ;;  # ignore docs
+    .github/*|scripts/*|Makefile|package.json|pnpm-workspace.yaml) ONLY_DOCS=0 ;;
+    *) ONLY_DOCS=0 ;;
   esac
 done
 
-# If neither TS nor Rust flagged but we touched core infra, be safe and run both
+# If nothing requires tests, decide whether to skip or run full suite
 if [[ $NEED_TS -eq 0 && $NEED_RUST -eq 0 && $NEED_GOLDEN -eq 0 ]]; then
+  if [[ $ONLY_DOCS -eq 1 ]]; then
+    echo "[changed] Only documentation changes detected; skipping tests."
+    exit 0
+  fi
   echo "[changed] No targeted packages flagged; running full suite for safety."
   exec scripts/test-all.sh
 fi

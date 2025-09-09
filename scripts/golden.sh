@@ -15,11 +15,14 @@ echo "[golden] building claims-core-ts and adapter-legal-ts..."
 pnpm -C packages/claims-core-ts build >/dev/null
 pnpm -C packages/adapter-legal-ts build >/dev/null
 
+TMP_OUTPUT="$(mktemp)"
+trap 'rm -f "$TMP_OUTPUT"' EXIT
+
 echo "[golden] generating current output..."
-node packages/adapter-legal-ts/dist/examples/ro-mini/build.js > /tmp/ro-mini.out.txt
+node packages/adapter-legal-ts/dist/examples/ro-mini/build.js > "$TMP_OUTPUT"
 
 echo "[golden] diffing against .golden/ro-mini.out.txt..."
-if diff -u .golden/ro-mini.out.txt /tmp/ro-mini.out.txt ; then
+if diff -u .golden/ro-mini.out.txt "$TMP_OUTPUT" ; then
   echo "[golden] OK: outputs match."
   exit 0
 else

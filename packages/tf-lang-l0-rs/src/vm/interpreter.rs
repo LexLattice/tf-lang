@@ -22,7 +22,10 @@ impl<'h> VM<'h> {
         let mut regs: Vec<Value> = vec![serde_json::Value::Null; prog.regs as usize];
 
         let get = |r: u16, regs: &Vec<Value>| -> anyhow::Result<&Value> {
-            regs.get(r as usize).ok_or_else(|| VmError::RegOutOfBounds(r, regs.len()).into())
+            match regs.get(r as usize) {
+                Some(v) => Ok(v),
+                None => Err(VmError::RegOutOfBounds(r, regs.len()).into()),
+            }
         };
 
         for ins in &prog.instrs {

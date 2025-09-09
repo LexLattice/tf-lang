@@ -65,19 +65,19 @@ impl<'h> VM<'h> {
                     regs[*dst as usize] = serde_json::json!(content_hash(&bytes));
                 }
                 Instr::SnapMake { dst, state } => {
-                    let snap = self.host.snapshot_make(get(*state, &regs) )?;
+                    let snap = self.host.snapshot_make(get(*state, &regs)? )?;
                     regs[*dst as usize] = snap;
                 }
                 Instr::SnapId { dst, snapshot } => {
-                    let id = self.host.snapshot_id(get(*snapshot, &regs))?;
+                    let id = self.host.snapshot_id(get(*snapshot, &regs)? )?;
                     regs[*dst as usize] = serde_json::json!(id);
                 }
                 Instr::LensProj { dst, state, region } => {
-                    let sub = self.host.lens_project(get(*state, &regs), region)?;
+                    let sub = self.host.lens_project(get(*state, &regs)? , region)?;
                     regs[*dst as usize] = sub;
                 }
                 Instr::LensMerge { dst, state, region, sub } => {
-                    let merged = self.host.lens_merge(get(*state, &regs), region, get(*sub, &regs))?;
+                    let merged = self.host.lens_merge(get(*state, &regs)? , region, get(*sub, &regs)? )?;
                     regs[*dst as usize] = merged;
                 }
                 Instr::PlanSim { dst_delta, dst_world, world, plan } => {
@@ -88,17 +88,17 @@ impl<'h> VM<'h> {
                     regs[*dst_world as usize] = obj.get("world").cloned().unwrap_or(serde_json::Value::Null);
                 }
                 Instr::DiffApply { dst, state, delta } => {
-                    let out = self.host.diff_apply(get(*state, &regs), get(*delta, &regs))?;
+                    let out = self.host.diff_apply(get(*state, &regs)? , get(*delta, &regs)? )?;
                     regs[*dst as usize] = out;
                 }
                 Instr::DiffInvert { dst, delta } => {
-                    let inv = self.host.diff_invert(get(*delta, &regs))?;
+                    let inv = self.host.diff_invert(get(*delta, &regs)? )?;
                     regs[*dst as usize] = inv;
                 }
                 Instr::JournalRec { dst, plan, delta, snap0, snap1, meta } => {
-                    let s0 = get(*snap0, &regs).and_then(|v| v.as_str().ok_or_else(|| VmError::Invalid("snap0 not string".into()).into()))?;
-                    let s1 = get(*snap1, &regs).and_then(|v| v.as_str().ok_or_else(|| VmError::Invalid("snap1 not string".into()).into()))?;
-                    let j = self.host.journal_record(get(*plan, &regs), get(*delta, &regs), s0, s1, get(*meta, &regs))?;
+                    let s0 = get(*snap0, &regs)?.as_str().ok_or_else(|| VmError::Invalid("snap0 not string".into()))?;
+                    let s1 = get(*snap1, &regs)?.as_str().ok_or_else(|| VmError::Invalid("snap1 not string".into()))?;
+                    let j = self.host.journal_record(get(*plan, &regs)? , get(*delta, &regs)? , s0, s1, get(*meta, &regs)? )?;
                     regs[*dst as usize] = j.0;
                 }
                 Instr::JournalRew { dst, world, entry } => {

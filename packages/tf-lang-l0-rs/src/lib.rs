@@ -5,7 +5,4 @@ pub mod check;
 pub mod hash;
 pub mod util;
 
-pub use model::*;
-pub use vm::*;
-pub use check::*;
-pub use hash::*;
+// Avoid glob re-exports at crate root to prevent ambiguous names (e.g., `types`).

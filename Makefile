@@ -14,17 +14,17 @@ help:
 	@echo "  docker-down - docker compose down"
 
 setup:
-        pnpm i --frozen-lockfile=false
-        git config core.hooksPath .githooks
+	pnpm i --frozen-lockfile=false
+	git config core.hooksPath .githooks
 
 build:
-        pnpm -C packages/claims-core-ts build
-        pnpm -C packages/adapter-legal-ts build
-        pnpm -C packages/tf-lang-l0-ts build
+	pnpm -C packages/claims-core-ts build
+	pnpm -C packages/adapter-legal-ts build
+	pnpm -C packages/tf-lang-l0-ts build
 
 test:
-        pnpm -C packages/tf-lang-l0-ts test
-        cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
+	pnpm -C packages/tf-lang-l0-ts test
+	cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
 
 golden:
 	scripts/golden.sh

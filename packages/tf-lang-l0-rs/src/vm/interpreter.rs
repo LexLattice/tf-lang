@@ -21,12 +21,13 @@ impl<'h> VM<'h> {
     pub fn run(&self, prog: &Program) -> anyhow::Result<Value> {
         let mut regs: Vec<Value> = vec![serde_json::Value::Null; prog.regs as usize];
 
-        let get = |r: u16, regs: &Vec<Value>| -> anyhow::Result<&Value> {
+        // helper to read a register with explicit lifetime
+        fn get<'a>(r: u16, regs: &'a Vec<Value>) -> anyhow::Result<&'a Value> {
             match regs.get(r as usize) {
                 Some(v) => Ok(v),
                 None => Err(VmError::RegOutOfBounds(r, regs.len()).into()),
             }
-        };
+        }
 
         for ins in &prog.instrs {
             match ins {

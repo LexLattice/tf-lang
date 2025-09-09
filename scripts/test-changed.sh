@@ -27,7 +27,7 @@ if [[ ${#local_shas[@]} -gt 0 ]]; then
     lsha="${local_shas[$i]}"
     rsha="${remote_shas[$i]}"
     if [[ -z "$rsha" || "$rsha" =~ ^0+$ ]]; then
-      if git rev-parse "${lsha}^" >/dev/null 2>&1; then
+      if git rev-parse --verify --quiet "${lsha}^"; then
         mapfile -t diff_files < <(git diff --name-only "${lsha}^" "${lsha}")
       else
         mapfile -t diff_files < <(git show --name-only --pretty='' "${lsha}")

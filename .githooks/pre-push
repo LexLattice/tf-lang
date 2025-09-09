@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Pre-push guard: run only tests relevant to changed paths when possible.
+set -euo pipefail
+
+# Allow bypass in emergencies
+if [[ "${GIT_BYPASS_TESTS:-0}" == "1" ]]; then
+  echo "[pre-push] bypassed via GIT_BYPASS_TESTS=1"
+  exit 0
+fi
+
+ROOT_DIR="$(git rev-parse --show-toplevel)"
+cd "$ROOT_DIR"
+
+# Skip in CI unless explicitly forced
+if [[ -n "${CI:-}" && "${FORCE_LOCAL_HOOKS:-0}" != "1" ]]; then
+  exit 0
+fi
+
+echo "[pre-push] deciding fast-path vs full tests..."
+if [[ -x scripts/test-changed.sh ]]; then
+  # Pass the refs from stdin to the script so it can determine the push range
+  scripts/test-changed.sh
+else
+  scripts/test-all.sh
+fi
+
+echo "[pre-push] OK"

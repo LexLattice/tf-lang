@@ -10,6 +10,9 @@
   ],
   "scripts": {
     "build": "pnpm -r --filter ./packages/* run build || true",
-    "test": "pnpm -r --filter ./packages/* run test || true"
+    "test": "pnpm -r --filter ./packages/* run test || true",
+    "golden": "bash scripts/golden.sh",
+    "hooks:enable": "git config core.hooksPath .githooks",
+    "docs:serve": "python -m http.server 8080 -d docs"
   }
 }

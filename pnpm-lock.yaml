@@ -6,7 +6,11 @@ settings:
 
 importers:
 
-  .: {}
+  .:
+    devDependencies:
+      typescript:
+        specifier: ^5.5.3
+        version: 5.9.2
 
   packages/adapter-legal-ts:
     dependencies:

@@ -62,17 +62,30 @@ fastify.get('/claims/list', async (req, reply) => {
     modality: (req.query as any).modality,
     jurisdiction: (req.query as any).jurisdiction,
     at: (req.query as any).at,
-    limit: (req.query as any).limit ? Number((req.query as any).limit) : 50,
-    offset: (req.query as any).offset ? Number((req.query as any).offset) : 0,
+    limit: (req.query as any).limit,
+    offset: (req.query as any).offset,
   };
   const where = toWhere(f);
-  const res = qList(DATA.claims, where).items;
-  const items = res.slice(f.offset, f.offset + f.limit);
+  const rows = qList(DATA.claims, where).items;
+
+  const offset = Number.isFinite(Number(f.offset)) ? Math.max(0, Number(f.offset)) : 0;
+  const limit0 = Number.isFinite(Number(f.limit)) ? Number(f.limit) : 10;
+  const limit  = Math.min(Math.max(1, limit0), 200);
+  const items = rows.slice(offset, offset + limit);
+
+  const responseFilters: Filters = {
+    modality: f.modality,
+    jurisdiction: f.jurisdiction,
+    at: f.at,
+    offset: offset,
+    limit: limit,
+  }
+
   return {
     dataset_version: DATA.dataset_version,
-    query_hash: queryHash(f),
-    filters: f,
-    total: res.length,
+    query_hash: queryHash(responseFilters),
+    filters: responseFilters,
+    total: rows.length,
     items,
   };
 });

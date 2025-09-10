@@ -1,5 +1,4 @@
-
-import type { Program, Instr } from '../model/bytecode.js';
+import type { Program } from '../model/bytecode.js';
 import type { Host } from './opcode.js';
 import type { Value, World, JournalEntry } from '../model/types.js';
 import { canonicalJson, contentHash } from '../hash.js';
@@ -12,8 +11,10 @@ export class VM {
     return regs[idx];
   }
 
-  async run(prog: Program): Promise<Value> {
+  async run(prog: Program): Promise<Value | null> {
     const regs: Value[] = Array.from({ length: prog.regs }, () => null);
+    let initialState = structuredClone(regs[0]);
+    let initCaptured = false;
 
     for (const ins of prog.instrs) {
       switch (ins.op) {
@@ -79,8 +80,19 @@ export class VM {
           throw new Error('unknown opcode');
         }
       }
+      if (!initCaptured && regs[0] !== null) {
+        initialState = structuredClone(regs[0]);
+        initCaptured = true;
+      }
     }
 
-    return regs[0] ?? null;
+    const finalState = regs[0];
+    // Compute delta locally to mirror Rust VM:
+    // identity => null; otherwise full replace
+    if (JSON.stringify(initialState) === JSON.stringify(finalState)) {
+      return null;
+    }
+    return { replace: finalState };
   }
 }
+

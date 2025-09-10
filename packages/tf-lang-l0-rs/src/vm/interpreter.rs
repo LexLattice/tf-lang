@@ -1,8 +1,9 @@
 
-use crate::model::{Program, Value, World, JournalEntry};
+use crate::model::{Program, World, JournalEntry};
 use crate::vm::opcode::Host;
 use crate::hash::{canonical_json, content_hash};
 use crate::model::bytecode::Instr;
+use serde_json::Value;
 
 /// Simple VM running SSA bytecode with JSON values as registers.
 pub struct VM<'h> {
@@ -20,13 +21,16 @@ pub enum VmError {
 impl<'h> VM<'h> {
     pub fn run(&self, prog: &Program) -> anyhow::Result<Value> {
         let mut regs: Vec<Value> = vec![serde_json::Value::Null; prog.regs as usize];
+        let mut initial_state = regs[0].clone();
+        let mut init_captured = false;
 
-        let get = |r: u16, regs: &Vec<Value>| -> anyhow::Result<&Value> {
+        // helper to read a register with explicit lifetime
+        fn get<'a>(r: u16, regs: &'a Vec<Value>) -> anyhow::Result<&'a Value> {
             match regs.get(r as usize) {
                 Some(v) => Ok(v),
                 None => Err(VmError::RegOutOfBounds(r, regs.len()).into()),
             }
-        };
+        }
 
         for ins in &prog.instrs {
             match ins {
@@ -55,7 +59,7 @@ impl<'h> VM<'h> {
                     if found_tag != tag {
                         return Err(VmError::Invalid(format!("UNPACK tag mismatch: expected {}, got {}", tag, found_tag)).into());
                     }
-                    let values = o.get("values").and_then(|v| v.as_array()).ok_or_else(|| VmError::Invalid("UNPACK missing values".into()))?;
+                    let values = o.get("values").and_then(|v| v.as_array()).ok_or_else(|| VmError::Invalid("UNPACK missing values".into()))?.clone();
                     if values.len() != dsts.len() {
                         return Err(VmError::Invalid("UNPACK arity mismatch".into()).into());
                     }
@@ -117,8 +121,19 @@ impl<'h> VM<'h> {
                     regs[*dst as usize] = out;
                 }
             }
+            if !init_captured && regs[0] != serde_json::Value::Null {
+                initial_state = regs[0].clone();
+                init_captured = true;
+            }
         }
 
-        Ok(regs.get(0).cloned().unwrap_or(serde_json::Value::Null))
+        let final_state = regs.get(0).cloned().unwrap_or(serde_json::Value::Null);
+        let out = if final_state == initial_state {
+            serde_json::Value::Null
+        } else {
+            serde_json::json!({ "replace": final_state })
+        };
+
+        Ok(out)
     }
 }

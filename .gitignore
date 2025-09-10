@@ -1,0 +1,57 @@
+# --- OS cruft ---
+.DS_Store
+Thumbs.db
+Icon?
+*.swp
+*.swo
+
+# --- Logs & caches ---
+*.log
+logs/
+.npmrc
+.npm/_logs/
+.pnpm-debug.log*
+.nyc_output/
+.vitest/
+.cache/
+.tmp/
+*.pid
+*.pid.lock
+
+# --- Node / pnpm ---
+node_modules/
+**/node_modules/
+.pnpm-store/
+**/.pnpm-store/
+
+# Build outputs (TS/JS apps & libs)
+dist/
+**/dist/
+build/
+**/build/
+.out/
+.next/
+out/
+
+# TypeScript
+*.tsbuildinfo
+
+# --- Rust ---
+target/
+**/target/
+# NOTE: We intentionally DO NOT ignore Cargo.lock (recommended to commit)
+
+# --- Python (used for simple docs serving) ---
+__pycache__/
+*.pyc
+
+# --- Editors/IDE ---
+.vscode/
+.idea/
+
+# --- Env / local config (keep your real secrets out of git) ---
+.env
+.env.*.local
+
+# --- Docker / artifacts ---
+*.zip

@@ -1,0 +1,10 @@
+FORBIDDEN counts @ 2025-09-09
+{ RO: 1, 'RO/Bucuresti': 0, 'RO/Bucuresti/S1': 0 }
+Unresolved contradictions: []
+Samples: [
+  {
+    id: 'C1',
+    text: 'https://gov.ro/lege-sanatate#art10',
+    status: 'determinate'
+  }
+]

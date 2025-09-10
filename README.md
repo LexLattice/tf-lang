@@ -122,3 +122,64 @@ git push origin v0.1.0
 ```
 
 GitHub Actions will create a release with auto-notes. You can paste [`RELEASE_NOTES_v0.1.0.md`](./RELEASE_NOTES_v0.1.0.md) into the description if you want a curated overview.
+
+---
+
+## Claims Explorer (zero-backend)
+
+The Explorer is a static page that loads a small dataset and can also talk to the live API:
+
+- Page: `docs/claims-explorer.html`
+- Config panel: `docs/config.html` (persists **Source** and **API base** in `localStorage`)
+- Toggle **Source** between:
+  - **Static file** → `docs/data/claims-ro-mini.json`
+  - **Live API** → defaults to `http://localhost:8787`
+
+---
+
+## Idempotent behavior guard (golden check)
+
+We lock demo behavior with `.golden/ro-mini.out.txt`. Recompute and diff:
+
+```bash
+pnpm -C packages/claims-core-ts build
+pnpm -C packages/adapter-legal-ts build
+node packages/adapter-legal-ts/dist/examples/ro-mini/build.js | diff -u .golden/ro-mini.out.txt -
+```
+
+If the diff isn’t empty, the change alters behavior. Don’t update `.golden` unless it’s intentional and justified by tests.
+
+---
+
+## Local dev shortcuts
+
+```bash
+make setup      # install deps + enable git hooks
+make build      # build TS packages
+make test       # TS + Rust tests
+make golden     # behavior lock check
+make api        # start API on :8787
+make docs-up    # serve docs on :8080
+make docker-up  # compose stack
+```
+
+### Git hooks
+
+- **pre-commit** runs the golden check.
+- **pre-push** uses a **fast-path**: only tests packages changed in the push range (TS, Rust, or golden).  
+  Enable once per clone:
+  ```bash
+  pnpm run hooks:enable
+  ```
+  Bypass locally if needed (CI still enforces):
+  ```bash
+  GIT_BYPASS_GOLDEN=1 git commit -m "wip"   # skip pre-commit golden
+  FAST_PATH_DISABLE=1 git push              # force full tests instead of fast-path
+  GIT_BYPASS_TESTS=1 git push               # skip pre-push tests
+  ```
+
+---
+
+## CI fast-path
+
+You can keep your main workflow and also run a **path-gated** CI (`.github/workflows/ci_fast.yml`) that only triggers relevant jobs (TS, Rust, or golden) when those areas change. Use **Workflow dispatch** to run everything on demand.

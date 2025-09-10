@@ -145,7 +145,7 @@ fn law_rewind_apply_id_pair_ids_equal() -> Result<()> {
     };
     let vm = VM { host: &DummyHost };
     let out = vm.run(&prog)?;
-    let obj = out.as_object().expect("Pair object");
+    let obj = out.get("replace").and_then(|v| v.as_object()).expect("Pair object");
     assert_eq!(obj.get("tag").and_then(|t| t.as_str()), Some("Pair"));
     let vals = obj.get("values").and_then(|v| v.as_array()).expect("values");
     assert_eq!(vals[0], vals[1], "snapshot ids should be equal after rewind");

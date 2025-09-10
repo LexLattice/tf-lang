@@ -7,7 +7,6 @@ export interface Host {
 
   snapshot_make(state: Value): Value | Promise<Value>;
   snapshot_id(snapshot: Value): string | Promise<string>;
-
   diff_apply(state: Value, delta: Value): Value | Promise<Value>;
   diff_invert(delta: Value): Value | Promise<Value>;
 

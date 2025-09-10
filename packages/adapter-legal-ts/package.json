@@ -6,13 +6,13 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "demo": "node dist/examples/ro-mini/build.js"
+    "build": "tsc -p tsconfig.json && node -e \"require('fs').cpSync('src/examples/ro-mini','dist/examples/ro-mini',{recursive:true})\""
   },
   "dependencies": {
     "claims-core-ts": "workspace:*"
   },
   "devDependencies": {
+    "@types/node": "^24.3.1",
     "typescript": "^5.5.0"
   }
 }

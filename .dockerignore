@@ -1,11 +1,17 @@
-
 **/node_modules
-**/dist
-**/.turbo
-**/.next
 **/.DS_Store
 **/*.log
 **/target
-**/Cargo.lock
+# keep Cargo.lock for reproducible Rust builds
+# **/Cargo.lock
+packages/**/tsconfig.tsbuildinfo
+.githooks
+.github
+.git
+pnpm-store
+coverage
+**/.vite
+**/.turbo
+**/dist
 docs
 !docs/data

@@ -1,29 +1,41 @@
+# syntax=docker/dockerfile:1.7
 
-# Multi-workspace build for claims-api using pnpm
-FROM node:20-alpine AS base
+########################
+# build (with deploy)
+########################
+FROM node:20-alpine AS build
 ENV PNPM_HOME=/root/.local/share/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 RUN corepack enable
+WORKDIR /repo
 
-WORKDIR /app
-
-# Copy workspace manifests
-COPY package.json pnpm-workspace.yaml ./
+# copy manifests first for caching
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY packages/claims-core-ts/package.json packages/claims-core-ts/package.json
 COPY services/claims-api-ts/package.json services/claims-api-ts/package.json
 
-# Install workspace deps (no lockfile in this skeleton; allow network resolutions)
-RUN pnpm install --frozen-lockfile=false
+# fetch deps into PNPM store cache
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+    pnpm fetch
 
-# Copy sources
+# bring sources
 COPY packages/ ./packages/
 COPY services/ ./services/
 
-# Build TypeScript packages we need
-RUN pnpm -C packages/claims-core-ts build && pnpm -C services/claims-api-ts build
+# install, build, and deploy only the service to /deploy
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+    pnpm i --frozen-lockfile && \
+    pnpm -r -F "claims-core-ts" -F "claims-api-ts" build && \
+    pnpm deploy --legacy --filter claims-api-ts /deploy
 
+########################
+# runtime
+########################
+FROM node:20-alpine AS runtime
+ENV NODE_ENV=production
 ENV PORT=8787
 ENV HOST=0.0.0.0
+WORKDIR /app
+COPY --from=build /deploy ./
 EXPOSE 8787
-
-CMD ["node", "services/claims-api-ts/dist/server.js"]
+CMD ["node", "dist/server.js"]

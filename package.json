@@ -1,18 +1,17 @@
 {
-  "name": "tf-lang",
-  "version": "0.1.0",
-  "private": true,
-  "description": "Monorepo for TF-Lang L0 runtimes (TypeScript + Rust)",
-  "license": "MIT",
-  "workspaces": [
-    "packages/*",
-    "services/*"
-  ],
-  "scripts": {
-    "build": "pnpm -r --filter ./packages/* run build",
-    "test": "pnpm -r --filter ./packages/* run test",
-    "golden": "bash scripts/golden.sh",
-    "hooks:enable": "git config core.hooksPath .githooks",
-    "docs:serve": "cd docs && python -m http.server 8080"
-  }
+	"name": "tf-lang",
+	"private": true,
+	"scripts": {
+		"test": "pnpm run --recursive test",
+		"build": "pnpm run --recursive build",
+		"preinstall": "npx only-allow pnpm"
+	},
+	"devDependencies": {
+		"typescript": "^5.5.3"
+	},
+	"pnpm": {
+		"allowScripts": {
+			"esbuild": true
+		}
+	}
 }

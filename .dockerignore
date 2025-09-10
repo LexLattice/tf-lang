@@ -1,14 +1,17 @@
-.git
-.github
+**/node_modules
+**/.DS_Store
+**/*.log
+**/target
+# keep Cargo.lock for reproducible Rust builds
+# **/Cargo.lock
+packages/**/tsconfig.tsbuildinfo
 .githooks
-node_modules
+.github
+.git
 pnpm-store
-pnpm-lock.yaml.orig
-**/dist
-**/coverage
+coverage
 **/.vite
 **/.turbo
-packages/**/tsconfig.tsbuildinfo
-target
-*.log
-.golden
+**/dist
+docs
+!docs/data

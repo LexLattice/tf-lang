@@ -1,23 +1,41 @@
-### build
-FROM node:22-alpine as build
-WORKDIR /app
-RUN npm i -g pnpm@9.5
-COPY . .
-RUN pnpm i --frozen-lockfile
-RUN pnpm --filter claims-core-ts build
-RUN pnpm --filter claims-api-ts build
+# syntax=docker/dockerfile:1.7
 
-### deploy
-FROM node:22-alpine as deploy
-WORKDIR /app
-RUN npm i -g pnpm@9.5
-COPY --from=build /app .
-RUN pnpm deploy --filter ...claims-api-ts --prod /deploy
+########################
+# build (with deploy)
+########################
+FROM node:20-alpine AS build
+ENV PNPM_HOME=/root/.local/share/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+RUN corepack enable
+WORKDIR /repo
 
-### runtime
-FROM node:22-alpine
-WORKDIR /app
-COPY --from=deploy /deploy .
+# copy manifests first for caching
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+COPY packages/claims-core-ts/package.json packages/claims-core-ts/package.json
+COPY services/claims-api-ts/package.json services/claims-api-ts/package.json
+
+# fetch deps into PNPM store cache
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+    pnpm fetch
+
+# bring sources
+COPY packages/ ./packages/
+COPY services/ ./services/
+
+# install, build, and deploy only the service to /deploy
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+    pnpm i --frozen-lockfile && \
+    pnpm -r -F "claims-core-ts" -F "claims-api-ts" build && \
+    pnpm deploy --legacy --filter claims-api-ts /deploy
+
+########################
+# runtime
+########################
+FROM node:20-alpine AS runtime
 ENV NODE_ENV=production
+ENV PORT=8787
+ENV HOST=0.0.0.0
+WORKDIR /app
+COPY --from=build /deploy ./
 EXPOSE 8787
 CMD ["node", "dist/server.js"]

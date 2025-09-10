@@ -67,9 +67,10 @@ fastify.get('/claims/list', async (req, reply) => {
   };
   const where = toWhere(f);
   const rows = qList(DATA.claims, where).items;
-
-  const offset = Number.isFinite(Number(f.offset)) ? Math.max(0, Number(f.offset)) : 0;
-  const limit0 = Number.isFinite(Number(f.limit)) ? Number(f.limit) : 10;
+  const rawOffset = Number(f.offset);
+  const offset = Number.isFinite(rawOffset) ? Math.max(0, rawOffset) : 0;
+  const rawLimit = Number(f.limit);
+  const limit0 = Number.isFinite(rawLimit) ? rawLimit : 10;
   const limit  = Math.min(Math.max(1, limit0), 200);
   const items = rows.slice(offset, offset + limit);
 

@@ -1,6 +1,6 @@
 
-import fs from 'node:fs';
-import path from 'node:path';
+import fs from 'fs';
+import path from 'path';
 import { buildClaims, legalPrecedence, Query } from '../../legal.js';
 import { conflictDetect } from 'claims-core-ts';
 

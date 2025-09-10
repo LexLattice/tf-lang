@@ -68,7 +68,7 @@ describe('VM', () => {
     };
     const vm = new VM(DummyHost);
     const out: any = await vm.run(prog);
-    expect(out?.tag).toBe('Pair');
-    expect(out?.values?.[0]).toEqual(out?.values?.[1]);
+    expect(out?.replace?.tag).toBe('Pair');
+    expect(out?.replace?.values?.[0]).toEqual(out?.replace?.values?.[1]);
   });
 });

@@ -153,17 +153,24 @@ const $ = sel => document.querySelector(sel);
 let ALL = [];
 let DATASET_VERSION = '';
 
+function effFrom(c) { return c.effective?.from ?? c.effective_from ?? null; }
+function effTo(c) { return c.effective?.to ?? c.effective_to ?? null; }
+function getJur(c) { return c.scope?.jurisdiction ?? c.jurisdiction ?? ''; }
+
 function effectiveActive(c, at) {
   if (!at) return true;
-  const fromOk = c.effective?.from ? c.effective.from <= at : true;
-  const toOk = !c.effective?.to || at <= c.effective.to;
+  const from = effFrom(c);
+  const to = effTo(c);
+  const fromOk = from ? from <= at : true;
+  const toOk = !to || at <= to;
   return fromOk && toOk;
 }
 
 function uniqueJurisdictions(claims) {
-  const set = new Set(claims.map(c => c.scope?.jurisdiction).filter(Boolean));
+  const set = new Set(claims.map(getJur).filter(Boolean));
   return ['*', ...Array.from(set)];
 }
+
 
 async function applyFilters() {
   const at = $('#at').value || null;
@@ -171,17 +178,15 @@ async function applyFilters() {
   const mod = $('#mod').value;
   let items = [];
   let total = 0;
-  const jur = $('#jur').value;
-  const mod = $('#mod').value;
 
   if (SOURCE === 'static') {
     items = ALL.filter(c => effectiveActive(c, at));
-    if (jur && jur !== '*') items = items.filter(c => c.scope?.jurisdiction === jur);
+    if (jur && jur !== '*') items = items.filter(c => getJur(c) === jur);
     if (mod && mod !== '*') items = items.filter(c => c.modality === mod);
     total = items.length;
   } else {
     const params = { at, jurisdiction: jur, modality: mod };
-    const [cnt, lst] = await Promise.all([ apiFetchCount(params), apiFetchList(params) ]);
+    const [cnt, lst] = await Promise.all([apiFetchCount(params), apiFetchList(params)]);
     total = cnt.n;
     items = lst.items || [];
   }
@@ -193,25 +198,26 @@ async function applyFilters() {
   $('#resultInfo').textContent = total + ' items';
   const tbody = $('#rows'); tbody.innerHTML = '';
   for (const c of items) {
+    const from = effFrom(c), to = effTo(c);
+    const eff = (from || '—') + (to ? ' → ' + to : '');
     const tr = document.createElement('tr');
-    const eff = (c.effective?.from || '—') + (c.effective?.to ? ' → ' + c.effective.to : '');
     tr.innerHTML = `
-      <td><code>${c.id}</code></td>
-      <td>${c.modality}</td>
-      <td>${c.scope?.jurisdiction || '—'}</td>
-      <td>${eff}</td>
-      <td class="status ${c.status}">${c.status}</td>
-      <td>
-        <details>
-          <summary>Why</summary>
-          <div style="margin-top:6px">
-            ${c.explanation?.why ? `<div class="muted">${c.explanation.why}</div>` : ''}
-            ${(c.evidence||[]).map(e => `<div>source: <a target="_blank" href="${e.source_uri}">${e.source_uri}</a></div>`).join('')}
-            <div class="muted">dataset_version: ${c.dataset_version}</div>
-          </div>
-        </details>
-      </td>
-    `;
+    <td><code>${c.id}</code></td>
+    <td>${c.modality}</td>
+    <td>${getJur(c) || '—'}</td>
+    <td>${eff}</td>
+    <td class="status ${c.status}">${c.status}</td>
+    <td>
+      <details>
+        <summary>Why</summary>
+        <div style="margin-top:6px">
+          ${c.explanation?.why ? `<div class="muted">${c.explanation.why}</div>` : ''}
+          ${(c.evidence || []).map(e => `<div>source: <a target="_blank" href="${e.source_uri}">${e.source_uri}</a></div>`).join('')}
+          <div class="muted">dataset_version: ${c.dataset_version}</div>
+        </div>
+      </details>
+    </td>
+  `;
     tbody.appendChild(tr);
   }
 }

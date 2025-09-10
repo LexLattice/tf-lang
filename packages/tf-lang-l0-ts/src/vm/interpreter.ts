@@ -1,5 +1,4 @@
-
-import type { Program, Instr } from '../model/bytecode.js';
+import type { Program } from '../model/bytecode.js';
 import type { Host } from './opcode.js';
 import type { Value, World, JournalEntry } from '../model/types.js';
 import { canonicalJson, contentHash } from '../hash.js';
@@ -12,47 +11,10 @@ export class VM {
     return regs[idx];
   }
 
-  async run(prog: Program): Promise<Value> {
+  async run(prog: Program): Promise<Value | null> {
     const regs: Value[] = Array.from({ length: prog.regs }, () => null);
-
-    for (const ins of prog.instrs) {
-      switch (ins.op) {
-        case 'HALT': break;
-        case 'CONST': regs[ins.dst] = structuredClone(ins.value); break;
-        case 'PACK': {
-          const arr = ins.regs.map(r => structuredClone(this.get(regs, r)));
-          regs[ins.dst] = { tag: ins.tag, values: arr };
-          break;
-        }
-        case 'UNPACK': {
-          const v = this.get(regs, ins.src);
-          if (!v || typeof v !== 'object' || v.tag !== ins.tag || !Array.isArray(v.values)) {
-            throw new Error('UNPACK expects {tag,values[]} with matching tag');
-          }
-          if (v.values.length !== ins.dsts.length) throw new Error('UNPACK arity mismatch');
-          v.values.forEach((vv: any, i: number) => { regs[ins.dsts[i]] = structuredClone(vv); });
-          break;
-        }
-        case 'ID_HASH': {
-          const json = canonicalJson(this.get(regs, ins.src));
-          regs[ins.dst] = contentHash(json);
-          break;
-        }
-        case 'SNAP_MAKE': regs[ins.dst] = await this.host.snapshot_make(this.get(regs, ins.state)); break;
-        case 'SNAP_ID': regs[ins.dst] = await this.host.snapshot_id(this.get(regs, ins.snapshot)); break;
-        case 'LENS_PROJ': regs[ins.dst] = await this.host.lens_project(this.get(regs, ins.state), ins.region); break;
-        case 'LENS_MERGE': regs[ins.dst] = await this.host.lens_merge(this.get(regs, ins.state), ins.region, this.get(regs, ins.sub)); break;
-        case 'PLAN_SIM': {
-          const res: any = await this.host.call_tf("tf://plan/simulate@0.1", [this.get(regs, ins.world), this.get(regs, ins.plan)]);
-          regs[ins.dst_delta] = res?.delta ?? null;
-          regs[ins.dst_world] = res?.world ?? null;
-          break;
-        }
-        case 'DIFF_APPLY': regs[ins.dst] = await this.host.diff_apply(this.get(regs, ins.state), this.get(regs, ins.delta)); break;
-        case 'DIFF_INVERT': regs[ins.dst] = await this.host.diff_invert(this.get(regs, ins.delta)); break;
-        async run(prog: Program): Promise<Value> {
-    const regs: Value[] = Array.from({ length: prog.regs }, () => null);
-    const initialState = structuredClone(regs[0]);
+    let initialState = structuredClone(regs[0]);
+    let initCaptured = false;
 
     for (const ins of prog.instrs) {
       switch (ins.op) {
@@ -118,36 +80,19 @@ export class VM {
           throw new Error('unknown opcode');
         }
       }
-    }
-
-    const finalState = regs[0];
-    const delta = await this.host.diff(initialState, finalState);
-    return delta ?? null;
-  }
-        case 'JOURNAL_REW': {
-          const w: World = { value: this.get(regs, ins.world) };
-          const j: JournalEntry = { value: this.get(regs, ins.entry) };
-          const prev = await this.host.journal_rewind(w, j);
-          regs[ins.dst] = prev.value;
-          break;
-        }
-        case 'CALL': {
-          const args = ins.args.map(a => this.get(regs, a));
-          regs[ins.dst] = await this.host.call_tf(ins.tf_id, args);
-          break;
-        }
-        case 'ASSERT': {
-          const v = this.get(regs, ins.pred);
-          if (v !== true) throw new Error(`ASSERT failed: ${ins.msg}`);
-          break;
-        }
-        default: {
-          const _: never = ins;
-          throw new Error('unknown opcode');
-        }
+      if (!initCaptured && regs[0] !== null) {
+        initialState = structuredClone(regs[0]);
+        initCaptured = true;
       }
     }
 
-    return regs[0] ?? null;
+    const finalState = regs[0];
+    // Compute delta locally to mirror Rust VM:
+    // identity => null; otherwise full replace
+    if (JSON.stringify(initialState) === JSON.stringify(finalState)) {
+      return null;
+    }
+    return { replace: finalState };
   }
 }
+

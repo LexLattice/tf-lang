@@ -87,8 +87,12 @@ export class VM {
     }
 
     const finalState = regs[0];
-    const delta = await this.host.diff(initialState, finalState);
-    return delta ?? null;
+    // Compute delta locally to mirror Rust VM:
+    // identity => null; otherwise full replace
+    if (JSON.stringify(initialState) === JSON.stringify(finalState)) {
+      return null;
+    }
+    return { replace: finalState };
   }
 }
 

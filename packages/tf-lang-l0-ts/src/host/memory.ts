@@ -1,19 +1,10 @@
 import type { Host } from '../vm/index.js';
-import type { Value } from '../model/index.js';
-
-function deepEqual(a: unknown, b: unknown): boolean {
-  try { return JSON.stringify(a) === JSON.stringify(b); } catch { return false; }
-}
 
 export const DummyHost: Host = {
   lens_project: async (state, region) => ({ region, state }),
   lens_merge: async (state, _region, sub) => ({ orig: state, sub }),
   snapshot_make: async (state) => state,
   snapshot_id: async (snap) => `id:${JSON.stringify(snap)}`,
-  diff: async (a, b) => {
-    if (deepEqual(a, b)) return null;
-    return { replace: b };
-  },
   diff_apply: async (state, delta) => {
     if (delta == null) return state;                 // identity
     if (delta && typeof delta === 'object' && 'replace' in delta) return (delta as any).replace;

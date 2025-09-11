@@ -1,7 +1,7 @@
 import type { Program } from '../model/bytecode.js';
 import type { Host } from './opcode.js';
 import type { Value, World, JournalEntry } from '../model/types.js';
-import { canonicalJson, contentHash } from '../hash.js';
+import { canonicalJsonBytes, blake3hex } from '../canon/index.js';
 
 export class VM {
   constructor(public host: Host) {}
@@ -35,8 +35,8 @@ export class VM {
           break;
         }
         case 'ID_HASH': {
-          const json = canonicalJson(this.get(regs, ins.src));
-          regs[ins.dst] = contentHash(json);
+          const bytes = canonicalJsonBytes(this.get(regs, ins.src));
+          regs[ins.dst] = blake3hex(bytes);
           break;
         }
         case 'SNAP_MAKE': regs[ins.dst] = await this.host.snapshot_make(this.get(regs, ins.state)); break;

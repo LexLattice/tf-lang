@@ -35,6 +35,10 @@ importers:
         version: 2.1.9(@types/node@24.3.1)
 
   packages/tf-lang-l0-ts:
+    dependencies:
+      '@noble/hashes':
+        specifier: ^2.0.0
+        version: 2.0.0
     devDependencies:
       typescript:
         specifier: ^5.5.0
@@ -210,6 +214,10 @@ packages:
 
   '@jridgewell/sourcemap-codec@1.5.5':
     resolution: {integrity: sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og==}
+
+  '@noble/hashes@2.0.0':
+    resolution: {integrity: sha512-h8VUBlE8R42+XIDO229cgisD287im3kdY6nbNZJFjc6ZvKIXPYXe6Vc/t+kyjFdMFyt5JpapzTsEg8n63w5/lw==}
+    engines: {node: '>= 20.19.0'}
 
   '@rollup/rollup-android-arm-eabi@4.50.1':
     resolution: {integrity: sha512-HJXwzoZN4eYTdD8bVV22DN8gsPCAj3V20NHKOs8ezfXanGpmVPR7kalUHd+Y31IJp9stdB87VKPFbsGY3H/2ag==}
@@ -789,6 +797,8 @@ snapshots:
       fast-deep-equal: 3.1.3
 
   '@jridgewell/sourcemap-codec@1.5.5': {}
+
+  '@noble/hashes@2.0.0': {}
 
   '@rollup/rollup-android-arm-eabi@4.50.1':
     optional: true

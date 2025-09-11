@@ -148,7 +148,7 @@ Next suggested step:
     - formatting completed
     - all tests passed (8 total)
 - Challenges / Notes:
-  - none
+  - corrected vector semantics: version tag L0, RFC 6901 pointers, reg0 final state, array subs, null deltas where appropriate
 - Next suggested step:
   - A3
 
@@ -179,3 +179,31 @@ Next suggested step:
   - serde_json parses "-0" as float; had to special-case in encoder
 - Next suggested step:
   - A3
+
+## [A3] Conformance vectors (shared fixtures)
+- Start: 2025-09-11 02:40 UTC
+- End:   2025-09-11 02:50 UTC
+- Lessons consulted:
+  - A1 – canonicalization rules
+  - A2 – VM hashing parity
+- Plan:
+  - create shared vector fixtures for lens update, snapshot determinism, journal record, match assert
+  - ensure each JSON includes name, bytecode, inputs, expected.{delta,effect}
+  - parse JSON to verify validity
+- Changes:
+  - Files touched:
+    - tests/vectors/lens_update.json
+    - tests/vectors/snapshot_determinism.json
+    - tests/vectors/journal_record.json
+    - tests/vectors/match_assert.json
+  - Key decisions:
+    - drafted minimal bytecode programs covering core operations
+- Verification:
+  - Commands run:
+    - node -e "const fs=require('fs'), path=require('path'), dir='tests/vectors'; fs.readdirSync(dir).filter(f => f.endsWith('.json')).forEach(f => JSON.parse(fs.readFileSync(path.join(dir, f)))); console.log('ok');"
+  - Results:
+    - JSON parsed without error
+- Challenges / Notes:
+  - corrected vector semantics: version tag L0, RFC 6901 pointers, reg0 final state, array subs, null deltas where appropriate
+- Next suggested step:
+  - A4

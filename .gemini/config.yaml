@@ -1,0 +1,10 @@
+code_review:
+  comment_severity_threshold: MEDIUM
+  max_review_comments: 60
+  pull_request_opened:
+    summary: true
+    code_review: true
+ignore_patterns:
+  - "**/dist/**"
+  - "**/build/**"
+  - "**/target/**"

@@ -45,7 +45,7 @@ export function probeDeltaBounded([seq, bound]: Value[]): boolean {
     const b = seq[i];
     expectInt(a);
     expectInt(b);
-    const d = Math.abs(a - b);
+    const d = a >= b ? a - b : b - a;
     if (d > bound) throw new Error(`delta ${d} at index ${i}`);
   }
   return true;
@@ -54,17 +54,23 @@ export function probeDeltaBounded([seq, bound]: Value[]): boolean {
 export function correctSaturate([x, opts]: Value[]): number {
   expectInt(x);
   let v = x;
-  if (opts && opts.min !== undefined) { expectInt(opts.min); if (v < opts.min) v = opts.min; }
-  if (opts && opts.max !== undefined) { expectInt(opts.max); if (v > opts.max) v = opts.max; }
+  if (opts?.min !== undefined) {
+    expectInt(opts.min);
+    v = Math.max(v, opts.min);
+  }
+  if (opts?.max !== undefined) {
+    expectInt(opts.max);
+    v = Math.min(v, opts.max);
+  }
   return v;
 }
 
 export const registry = new TfRegistry()
-  .register('tf://assert/dimension_eq@0.1', args => assertDimensionEq(args))
-  .register('tf://lens/mod@0.1', args => lensMod(args))
-  .register('tf://assert/bounds@0.1', args => assertBounds(args))
-  .register('tf://probe/delta_bounded@0.1', args => probeDeltaBounded(args))
-  .register('tf://correct/saturate@0.1', args => correctSaturate(args));
+  .register('tf://assert/dimension_eq@0.1', assertDimensionEq)
+  .register('tf://lens/mod@0.1', lensMod)
+  .register('tf://assert/bounds@0.1', assertBounds)
+  .register('tf://probe/delta_bounded@0.1', probeDeltaBounded)
+  .register('tf://correct/saturate@0.1', correctSaturate);
 
 export const ops = {
   assertDimensionEq,

@@ -15,6 +15,7 @@
   "inputs": {},
   "expected": {
     "delta": null,
-    "effect": { "read": [], "write": [], "external": ["tf://eq/json@0.1"] }
+    "effect": { "read": [], "write": [], "external": ["tf://eq/json@0.1"] },
+    "journal": []
   }
 }

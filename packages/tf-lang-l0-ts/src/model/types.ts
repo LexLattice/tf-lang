@@ -37,9 +37,9 @@ export class TfRegistry {
   register(id: string, f: (args: Value[]) => Value | Promise<Value>) {
     this.funcs.set(id, f); return this;
   }
-  async call(id: string, args: Value[]): Promise<Value> {
+  async call(id: string, args: Value[]): Promise<Value | null> {
     const f = this.funcs.get(id);
-    if (!f) throw new Error(`unknown tf: ${id}`);
+    if (!f) return null;
     return await f(args);
   }
 }

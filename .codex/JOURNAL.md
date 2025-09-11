@@ -440,3 +440,21 @@ Next suggested step:
   - tests and vectors passed
 - Next suggested step:
   - Ontology review
+
+## [A7] Guardrail ops - consolidation
+- Start: 2025-09-11 17:00 UTC
+- End:   2025-09-11 17:30 UTC
+- Lessons consulted:
+  - A1–A7
+- Changes:
+  - Propagate guardrail errors from DummyHost; TfRegistry returns null for unknown IDs
+  - Added overflow-safe delta checks and idiomatic ops in TS and Rust
+  - Journal saturation corrections and added negative vectors for bounds and delta
+  - Effects lists normalized and deduped; vectors capture journal entries
+- Verification:
+  - pnpm -C packages/tf-lang-l0-ts vectors
+  - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
+- Results:
+  - vectors and tests passed
+- Next suggested step:
+  - none

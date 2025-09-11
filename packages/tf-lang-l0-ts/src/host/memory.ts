@@ -38,10 +38,6 @@ export const DummyHost: Host = {
       const b = canonicalJsonBytes(args[1]);
       return Buffer.from(a).equals(Buffer.from(b));
     }
-    try {
-      return await opsRegistry.call(id, args);
-    } catch {
-      return null;
-    }
+    return await opsRegistry.call(id, args);
   },
 };

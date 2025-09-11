@@ -98,6 +98,7 @@ struct EffectHost<H: Host> {
     reads: RefCell<BTreeSet<String>>,
     writes: RefCell<BTreeSet<String>>,
     externals: RefCell<BTreeSet<String>>,
+    journal: RefCell<Vec<Value>>,
 }
 
 impl<H: Host> EffectHost<H> {
@@ -107,6 +108,7 @@ impl<H: Host> EffectHost<H> {
             reads: RefCell::new(BTreeSet::new()),
             writes: RefCell::new(BTreeSet::new()),
             externals: RefCell::new(BTreeSet::new()),
+            journal: RefCell::new(Vec::new()),
         }
     }
     fn normalize(&self) -> Effect {
@@ -158,7 +160,9 @@ impl<H: Host> Host for EffectHost<H> {
         s1: &str,
         meta: &Value,
     ) -> Result<tflang_l0::model::JournalEntry> {
-        self.inner.journal_record(plan, delta, s0, s1, meta)
+        let entry = self.inner.journal_record(plan, delta, s0, s1, meta)?;
+        self.journal.borrow_mut().push(delta.clone());
+        Ok(entry)
     }
     fn journal_rewind(
         &self,
@@ -183,8 +187,10 @@ struct Vector {
 
 #[derive(Deserialize)]
 struct Expected {
-    delta: Value,
+    delta: Option<Value>,
     effect: Effect,
+    error: Option<String>,
+    journal: Option<Vec<Value>>,
 }
 
 #[derive(Serialize)]
@@ -194,6 +200,8 @@ struct ReportEntry {
     effect: Effect,
     delta_hash: String,
     effect_hash: String,
+    journal: Vec<Value>,
+    journal_hash: String,
 }
 
 fn unescape(s: &str) -> String {
@@ -321,21 +329,23 @@ fn lint_vector(v: &Vector) -> Result<()> {
             ptr(k)?;
         }
     }
-    if v.expected.delta != Value::Null {
-        let first_const0 = v.bytecode.instrs.iter().find(|ins| match ins {
+    if let Some(d) = &v.expected.delta {
+        if *d != Value::Null {
+            let first_const0 = v.bytecode.instrs.iter().find(|ins| match ins {
             Instr::Const { dst, .. } if *dst == 0 => true,
             _ => false,
-        });
-        if first_const0.is_none() {
-            bail!("missing CONST dst:0 for initial state");
-        }
-        let has_lens = v
-            .bytecode
-            .instrs
-            .iter()
-            .any(|ins| matches!(ins, Instr::LensProj { .. } | Instr::LensMerge { .. }));
-        if !has_lens {
-            bail!("expected state change but no LENS_* op found");
+            });
+            if first_const0.is_none() {
+                bail!("missing CONST dst:0 for initial state");
+            }
+            let has_lens = v
+                .bytecode
+                .instrs
+                .iter()
+                .any(|ins| matches!(ins, Instr::LensProj { .. } | Instr::LensMerge { .. }));
+            if !has_lens {
+                bail!("expected state change but no LENS_* op found");
+            }
         }
     }
     Ok(())
@@ -399,32 +409,57 @@ fn vectors() -> Result<()> {
 
         let host = EffectHost::new(DummyHost);
         let vm = VM { host: &host };
-        let delta = vm.run(&vec.bytecode)?;
+        let run_res = vm.run(&vec.bytecode);
+        let (delta, err_msg) = match run_res {
+            Ok(d) => (d, None),
+            Err(e) => (Value::Null, Some(e.to_string())),
+        };
         let effect = host.normalize();
+        let journal = host.journal.borrow().clone();
 
-        let expected = json!({ "delta": vec.expected.delta, "effect": vec.expected.effect });
-        let actual = json!({ "delta": delta, "effect": effect.clone() });
-
-        let exp_bytes = canonical_json_bytes(&expected)?;
-        let act_bytes = canonical_json_bytes(&actual)?;
-        if exp_bytes != act_bytes {
-            println!("\u{2717} {}", vec.name);
-            println!("{}", to_hex(&exp_bytes));
-            println!("{}", to_hex(&act_bytes));
-            panic!("vector mismatch");
-        } else {
-            println!("\u{2713} {}", vec.name);
+        let mut ok = false;
+        if let Some(expected_err) = vec.expected.error.clone() {
+            if err_msg.as_deref() == Some(expected_err.as_str()) {
+                let exp_eff = canonical_json_bytes(&json!(vec.expected.effect))?;
+                let act_eff = canonical_json_bytes(&json!(effect.clone()))?;
+                let exp_j = canonical_json_bytes(&json!(vec.expected.journal.clone().unwrap_or_default()))?;
+                let act_j = canonical_json_bytes(&json!(journal.clone()))?;
+                ok = exp_eff == act_eff && exp_j == act_j;
+            }
+        } else if err_msg.is_none() {
+            let expected_json = json!({
+                "delta": vec.expected.delta.clone().unwrap_or(Value::Null),
+                "effect": vec.expected.effect,
+                "journal": vec.expected.journal.clone().unwrap_or_default()
+            });
+            let actual_json = json!({
+                "delta": delta,
+                "effect": effect.clone(),
+                "journal": journal.clone()
+            });
+            ok = canonical_json_bytes(&expected_json)? == canonical_json_bytes(&actual_json)?;
         }
 
-        let delta_hash = blake3_hex(&canonical_json_bytes(&actual["delta"])?);
-        let effect_val = serde_json::to_value(&actual["effect"])?;
+        if ok {
+            println!("\u{2713} {}", vec.name);
+        } else {
+            println!("\u{2717} {}", vec.name);
+            if let Some(e) = err_msg { println!("error: {}", e); }
+            panic!("vector mismatch");
+        }
+
+        let delta_hash = blake3_hex(&canonical_json_bytes(&delta)?);
+        let effect_val = serde_json::to_value(&effect)?;
         let effect_hash = blake3_hex(&canonical_json_bytes(&effect_val)?);
+        let journal_hash = blake3_hex(&canonical_json_bytes(&json!(journal))?);
         report.push(ReportEntry {
             name: vec.name,
-            delta: actual["delta"].clone(),
+            delta,
             effect,
             delta_hash,
             effect_hash,
+            journal: journal.clone(),
+            journal_hash,
         });
     }
 

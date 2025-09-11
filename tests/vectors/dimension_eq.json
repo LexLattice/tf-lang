@@ -1,0 +1,20 @@
+{
+  "name": "dimension equality succeeds",
+  "bytecode": {
+    "version": "L0",
+    "regs": 5,
+    "instrs": [
+      { "op": "CONST", "dst": 0, "value": {} },
+      { "op": "CONST", "dst": 1, "value": [1,2] },
+      { "op": "CONST", "dst": 2, "value": [3,4] },
+      { "op": "CALL", "dst": 3, "tf_id": "tf://assert/dimension_eq@0.1", "args": [1,2] },
+      { "op": "ASSERT", "pred": 3, "msg": "dims" },
+      { "op": "HALT" }
+    ]
+  },
+  "inputs": {},
+  "expected": {
+    "delta": null,
+    "effect": { "read": [], "write": [], "external": ["tf://assert/dimension_eq@0.1"] }
+  }
+}

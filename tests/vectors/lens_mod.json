@@ -1,0 +1,20 @@
+{
+  "name": "lens mod writes reduced value",
+  "bytecode": {
+    "version": "L0",
+    "regs": 6,
+    "instrs": [
+      { "op": "CONST", "dst": 0, "value": { "x": 5 } },
+      { "op": "CONST", "dst": 1, "value": 5 },
+      { "op": "CONST", "dst": 2, "value": 4 },
+      { "op": "CALL", "dst": 3, "tf_id": "tf://lens/mod@0.1", "args": [1,2] },
+      { "op": "LENS_MERGE", "dst": 0, "state": 0, "region": "/x", "sub": 3 },
+      { "op": "HALT" }
+    ]
+  },
+  "inputs": {},
+  "expected": {
+    "delta": { "replace": { "x": 1 } },
+    "effect": { "read": ["/x"], "write": ["/x"], "external": ["tf://lens/mod@0.1"] }
+  }
+}

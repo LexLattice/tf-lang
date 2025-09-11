@@ -16,3 +16,4 @@
 - [A4/A5][2025-09-11] Rule: "ptrSet validates indices; pad arrays with objects." Guardrail: ptr:set_pad_arrays
 - [A4/A5][2025-09-11] Rule: "Dummy host parity TS↔Rust (delta NF; plan/delta TF)." Guardrail: host:parity
 - [A4/A5][2025-09-11] Rule: "LENS ops restricted to dst:0; explicit opcode whitelist." Guardrail: lens:dst_only+opcode_whitelist
+- [A7][2025-09-11] Rule: "Guardrail ops return null on invalid params instead of throwing." Guardrail: ops:null_on_invalid

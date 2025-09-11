@@ -81,6 +81,31 @@ impl Host for DummyHost {
                     Ok(json!({ "replace": rhs }))
                 }
             }
+            "tf://assert/dimension_eq@0.1" => {
+                let a = args.get(0).cloned().unwrap_or(Value::Null);
+                let b = args.get(1).cloned().unwrap_or(Value::Null);
+                Ok(Value::Bool(tflang_l0::ops::dimension_eq::dimension_eq(&a, &b)))
+            }
+            "tf://lens/mod@0.1" => {
+                let x = args.get(0).cloned().unwrap_or(Value::Null);
+                let m = args.get(1).cloned().unwrap_or(Value::Null);
+                tflang_l0::ops::lens_mod::lens_mod(&x, &m)
+            },
+            "tf://assert/bounds@0.1" => {
+                let x = args.get(0).cloned().unwrap_or(Value::Null);
+                let opts = args.get(1).cloned().unwrap_or(Value::Null);
+                Ok(Value::Bool(tflang_l0::ops::bounds::bounds(&x, &opts)))
+            },
+            "tf://probe/delta_bounded@0.1" => {
+                let arr = args.get(0).cloned().unwrap_or(Value::Null);
+                let b = args.get(1).cloned().unwrap_or(Value::Null);
+                Ok(Value::Bool(tflang_l0::ops::delta_bounded::delta_bounded(&arr, &b)))
+            },
+            "tf://correct/saturate@0.1" => {
+                let x = args.get(0).cloned().unwrap_or(Value::Null);
+                let opts = args.get(1).cloned().unwrap_or(Value::Null);
+                tflang_l0::ops::saturate::saturate(&x, &opts)
+            },
             _ => Ok(Value::Null),
         }
     }

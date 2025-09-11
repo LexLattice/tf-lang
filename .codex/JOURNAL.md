@@ -420,3 +420,11 @@ Next suggested step:
     - Rust tests passed and rs-report.json emitted
     - reports match
     - no startsWith('LENS_') found
+## [A7] Guardrail ops
+- Added dimension_eq, lens_mod, bounds, delta_bounded, saturate in TS & Rust
+- Created conformance vectors and updated dummy hosts
+- Verification:
+  - `pnpm -C packages/tf-lang-l0-ts build`
+  - `pnpm -C packages/tf-lang-l0-ts test`
+  - `pnpm -C packages/tf-lang-l0-ts vectors`
+  - `cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml`

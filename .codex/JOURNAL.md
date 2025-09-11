@@ -207,3 +207,94 @@ Next suggested step:
   - corrected vector semantics: version tag L0, RFC 6901 pointers, reg0 final state, array subs, null deltas where appropriate
 - Next suggested step:
   - A4
+
+## [A4] TS conformance runner
+- Start: 2025-09-11 02:50 UTC
+- End:   2025-09-11 03:15 UTC
+- Lessons consulted:
+  - A1 – canonical JSON + BLAKE3
+  - A2 – snapshot hashing parity across runtimes
+  - A3 – vector structure, delta/effect expectations
+- Plan:
+  - implement runner script that loads vectors and executes VM
+  - track and normalize effects (reads/writes/external)
+  - compare delta and effect via canonicalJsonBytes; print hex diff on mismatch
+  - wire up package script `vectors`
+- Changes:
+  - Files touched:
+    - packages/tf-lang-l0-ts/scripts/run-vectors.ts
+    - packages/tf-lang-l0-ts/package.json
+    - pnpm-lock.yaml
+  - Key decisions:
+    - wrap DummyHost to track effects
+    - use `tsx` for TypeScript execution
+- Verification:
+  - Commands run:
+    - pnpm -C packages/tf-lang-l0-ts build
+    - pnpm -C packages/tf-lang-l0-ts vectors
+  - Results:
+    - build succeeded
+    - vectors runner reported ✓ for all vectors
+- Challenges / Notes:
+  - none
+- Next suggested step:
+  - A5
+
+## [A5] Vector report & lint
+- Start: 2025-09-11 03:15 UTC
+- End:   2025-09-11 03:35 UTC
+- Lessons consulted:
+  - A1 – canonical JSON + BLAKE3
+  - A4 – conformance runner structure
+- Plan:
+  - lint vectors for version tag, pointer format, and CONST→LENS dst:0 pattern
+  - emit machine-readable run summary with hashes for delta and effect
+- Changes:
+  - Files touched:
+    - packages/tf-lang-l0-ts/scripts/run-vectors.ts
+  - Key decisions:
+    - blake3 hashes computed from canonical JSON bytes
+    - write report to tests/vectors/.out/ts-report.json
+- Verification:
+  - Commands run:
+    - pnpm -C packages/tf-lang-l0-ts build
+    - pnpm -C packages/tf-lang-l0-ts vectors
+  - Results:
+    - build succeeded
+    - vectors runner produced ts-report.json and ✓ for all vectors
+- Challenges / Notes:
+  - installed missing tsx dependency before running vectors
+- Next suggested step:
+  - A6
+## [A5-rs] Rust conformance test
+- Start: 2025-09-11 04:05 UTC
+- End:   2025-09-11 04:45 UTC
+- Lessons consulted:
+  - A4 – conformance runner structure
+  - A5 – vector lint and reporting
+- Plan:
+  - load shared vector fixtures and execute VM with effect-tracking host
+  - normalize delta/effect and compare via canonical bytes
+  - emit rs-report.json for cross-runtime hashing
+  - run cargo tests
+- Changes:
+  - Files touched:
+    - packages/tf-lang-l0-rs/tests/vectors.rs
+  - Key decisions:
+    - implemented RFC 6901 pointer get/set with overwrite semantics
+    - recorded read/write/external effects via interior-mutability wrapper
+- Verification:
+  - Commands run:
+    - cargo fmt --manifest-path packages/tf-lang-l0-rs/Cargo.toml
+    - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml --tests -- --nocapture
+    - pnpm -C packages/tf-lang-l0-ts build
+    - pnpm -C packages/tf-lang-l0-ts vectors
+  - Results:
+    - formatting completed
+    - all Rust tests passed including vectors (1)
+    - TypeScript build succeeded
+    - TypeScript vectors runner reported ✓ for all fixtures
+- Challenges / Notes:
+  - missing tsx binary resolved with pnpm install
+- Next suggested step:
+  - A6

@@ -360,3 +360,63 @@ Next suggested step:
     - cross-runtime compare ok
 - Commit:
   - ci: fix pnpm setup and harden conformance workflow (A6)
+
+## [A4/A5] Review fixes – pointer validation, integer detection, host parity
+- Start: 2025-09-11 14:00 UTC
+- End:   2025-09-11 14:30 UTC
+- Lessons consulted:
+  - A1 – float rejection
+  - A2 – mirrored TS/Rust semantics
+  - A4/A5 – conformance runners and vectors
+- Plan:
+  - Harden JSON Pointer helpers in TS and Rust runners
+  - Fix integer vs float detection in Rust vectors
+  - Align dummy host delta and TF behaviors with TS
+  - Enforce explicit LENS opcode checks in TS runner
+  - Verify cross-runtime reports
+- Changes:
+  - Files touched:
+    - packages/tf-lang-l0-ts/scripts/run-vectors.ts
+    - packages/tf-lang-l0-rs/tests/vectors.rs
+    - .codex/JOURNAL.md
+  - Key decisions:
+    - Return null for invalid pointer traversals
+    - Validate array indices via Number/parse and pad with objects
+    - Apply delta NF and plan/delta TF in Rust dummy host
+    - Restrict LENS ops to dst:0 explicitly
+- Verification:
+  - Commands run:
+    - pnpm -C packages/tf-lang-l0-ts build
+    - pnpm -C packages/tf-lang-l0-ts vectors
+    - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml --tests -- --nocapture
+    - node .codex/compare-reports.mjs
+  - Results:
+    - build succeeded
+    - vectors ✓ and ts-report.json emitted
+    - Rust tests passed and rs-report.json emitted
+    - reports match
+- Challenges / Notes:
+  - needed pnpm install to restore tsx
+- Next suggested step:
+  - B1
+
+## [A4/A5] Follow-up review fixes – diff_apply concision, ptrSet padding, explicit LENS checks
+- Start: 2025-09-11 15:19 UTC
+- End:   2025-09-11 15:21 UTC
+- Changes:
+  - Rust: simplified diff_apply using .get("replace")
+  - TS: optimized array padding loop in ptrSet
+  - TS: replaced startsWith('LENS_') with explicit opcode checks
+- Verification:
+  - Commands run:
+    - pnpm -C packages/tf-lang-l0-ts build
+    - pnpm -C packages/tf-lang-l0-ts vectors
+    - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml --tests -- --nocapture
+    - node .codex/compare-reports.mjs
+    - git grep -n "startsWith('LENS_')" packages/tf-lang-l0-ts/scripts/run-vectors.ts || true
+  - Results:
+    - build succeeded
+    - vectors ✓ and ts-report.json emitted
+    - Rust tests passed and rs-report.json emitted
+    - reports match
+    - no startsWith('LENS_') found

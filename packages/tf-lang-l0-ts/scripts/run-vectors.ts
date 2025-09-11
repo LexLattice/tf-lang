@@ -12,10 +12,17 @@ const unesc = (s: string) => s.replace(/~1/g, '/').replace(/~0/g, '~');
 function ptrGet(obj: any, ptr: string): any {
   if (ptr === '/') return structuredClone(obj);
   const parts = ptr.split('/').slice(1).map(unesc);
-  let cur = obj;
+  let cur: any = obj;
   for (const p of parts) {
-    if (cur == null || typeof cur !== 'object') return undefined;
-    cur = Array.isArray(cur) ? cur[Number(p)] : cur[p];
+    if (cur == null || typeof cur !== 'object') return null;
+    if (Array.isArray(cur)) {
+      const idx = Number(p);
+      if (!Number.isInteger(idx) || idx < 0 || idx >= cur.length) return null;
+      cur = cur[idx];
+    } else {
+      if (!(p in cur)) return null;
+      cur = cur[p];
+    }
   }
   return structuredClone(cur);
 }
@@ -28,16 +35,31 @@ function ptrSet(obj: any, ptr: string, val: any): any {
     const p = parts[i];
     if (Array.isArray(cur)) {
       const idx = Number(p);
-      if (!cur[idx]) cur[idx] = {};
+      if (!Number.isInteger(idx) || idx < 0) return null;
+      if (cur[idx] == null) cur[idx] = {};
+      else if (typeof cur[idx] !== 'object') return null;
       cur = cur[idx];
-    } else {
-      if (!(p in cur)) cur[p] = {};
+    } else if (cur && typeof cur === 'object') {
+      if (cur[p] == null) cur[p] = {};
+      else if (typeof cur[p] !== 'object') return null;
       cur = cur[p];
+    } else {
+      return null;
     }
   }
   const last = parts[parts.length - 1];
-  if (Array.isArray(cur)) cur[Number(last)] = structuredClone(val);
-  else cur[last] = structuredClone(val);
+  if (Array.isArray(cur)) {
+    const idx = Number(last);
+    if (!Number.isInteger(idx) || idx < 0) return null;
+    if (idx >= cur.length) {
+      for (let i = cur.length; i < idx; i++) cur[i] = {};
+    }
+    cur[idx] = structuredClone(val);
+  } else if (cur && typeof cur === 'object') {
+    cur[last] = structuredClone(val);
+  } else {
+    return null;
+  }
   return res;
 }
 
@@ -109,7 +131,7 @@ function lintVector(vec: any) {
   };
   for (const ins of vec.bytecode.instrs) {
     if ('region' in ins) ptr(ins.region);
-    if (ins.op && ins.op.startsWith('LENS_') && ins.dst !== 0) {
+    if ((ins.op === 'LENS_PROJ' || ins.op === 'LENS_MERGE') && ins.dst !== 0) {
       throw new Error('LENS ops must write to dst:0');
     }
   }
@@ -123,7 +145,9 @@ function lintVector(vec: any) {
       (ins: any) => ins.op === 'CONST' && ins.dst === 0
     );
     if (!firstConst0) throw new Error('missing CONST dst:0 for initial state');
-    const hasLens = vec.bytecode.instrs.some((ins: any) => ins.op?.startsWith('LENS_'));
+    const hasLens = vec.bytecode.instrs.some(
+      (ins: any) => ins.op === 'LENS_PROJ' || ins.op === 'LENS_MERGE'
+    );
     if (!hasLens) throw new Error('expected state change but no LENS_* op found');
   }
 }

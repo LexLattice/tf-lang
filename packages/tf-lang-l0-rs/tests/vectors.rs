@@ -28,8 +28,14 @@ impl Host for DummyHost {
         let bytes = canonical_json_bytes(snapshot)?;
         Ok(format!("id:{}", blake3_hex(&bytes)))
     }
-    fn diff_apply(&self, _state: &Value, delta: &Value) -> Result<Value> {
-        Ok(delta.clone())
+    fn diff_apply(&self, state: &Value, delta: &Value) -> Result<Value> {
+        if delta.is_null() {
+            return Ok(state.clone());
+        }
+        if let Some(replace_val) = delta.get("replace") {
+            return Ok(replace_val.clone());
+        }
+        bail!("E_DELTA_FORM")
     }
     fn diff_invert(&self, delta: &Value) -> Result<Value> {
         Ok(json!({ "invert": delta }))
@@ -63,6 +69,17 @@ impl Host for DummyHost {
                 let ca = canonical_json_bytes(&a)?;
                 let cb = canonical_json_bytes(&b)?;
                 Ok(Value::Bool(ca == cb))
+            }
+            "tf://plan/delta@0.1" => {
+                let lhs = args.get(0).cloned().unwrap_or(Value::Null);
+                let rhs = args.get(1).cloned().unwrap_or(Value::Null);
+                let lbytes = canonical_json_bytes(&lhs)?;
+                let rbytes = canonical_json_bytes(&rhs)?;
+                if lbytes == rbytes {
+                    Ok(Value::Null)
+                } else {
+                    Ok(json!({ "replace": rhs }))
+                }
             }
             _ => Ok(Value::Null),
         }
@@ -199,11 +216,15 @@ fn ptr_get(value: &Value, ptr: &str) -> Value {
                 }
             }
             Value::Array(arr) => {
-                let idx: usize = p.parse().unwrap_or(usize::MAX);
-                if let Some(next) = arr.get(idx) {
-                    cur = next;
-                } else {
-                    return Value::Null;
+                match p.parse::<usize>() {
+                    Ok(idx) => {
+                        if let Some(next) = arr.get(idx) {
+                            cur = next;
+                        } else {
+                            return Value::Null;
+                        }
+                    }
+                    Err(_) => return Value::Null,
                 }
             }
             _ => return Value::Null,
@@ -227,7 +248,10 @@ fn ptr_set(value: &Value, ptr: &str, sub: &Value) -> Value {
                     .or_insert(Value::Object(serde_json::Map::new()));
             }
             Value::Array(arr) => {
-                let idx: usize = p.parse().unwrap_or(0);
+                let idx: usize = match p.parse() {
+                    Ok(i) => i,
+                    Err(_) => return Value::Null,
+                };
                 if idx >= arr.len() {
                     arr.resize(idx + 1, Value::Object(serde_json::Map::new()));
                 }
@@ -242,13 +266,16 @@ fn ptr_set(value: &Value, ptr: &str, sub: &Value) -> Value {
             map.insert(last.clone(), sub.clone());
         }
         Value::Array(arr) => {
-            let idx: usize = last.parse().unwrap_or(0);
+            let idx: usize = match last.parse() {
+                Ok(i) => i,
+                Err(_) => return Value::Null,
+            };
             if idx >= arr.len() {
-                arr.resize(idx + 1, Value::Null);
+                arr.resize(idx + 1, Value::Object(serde_json::Map::new()));
             }
             arr[idx] = sub.clone();
         }
-        _ => {}
+        _ => return Value::Null,
     }
     out
 }
@@ -317,8 +344,8 @@ fn lint_vector(v: &Vector) -> Result<()> {
 fn ensure_no_floats(v: &Value) -> Result<()> {
     match v {
         Value::Number(n) => {
-            if n.as_i64().is_none() {
-                bail!("E_L0_FLOAT");
+            if n.is_f64() {
+                bail!("E_L0_FLOAT: non-integer number found: {}", n);
             }
         }
         Value::Array(arr) => {

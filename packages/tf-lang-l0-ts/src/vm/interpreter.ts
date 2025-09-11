@@ -89,7 +89,9 @@ export class VM {
     const finalState = regs[0];
     // Compute delta locally to mirror Rust VM:
     // identity => null; otherwise full replace
-    if (JSON.stringify(initialState) === JSON.stringify(finalState)) {
+    const a = canonicalJsonBytes(initialState);
+    const b = canonicalJsonBytes(finalState);
+    if (Buffer.from(a).equals(Buffer.from(b))) {
       return null;
     }
     return { replace: finalState };

@@ -67,3 +67,52 @@ Challenges / Notes:
 
 Next suggested step:
 - A2
+[A1] Edge-case locks
+Start: 2025-09-11 01:18 UTC
+
+End: 2025-09-11 01:30 UTC
+
+Plan:
+- remove non-deterministic JSON.stringify uses
+- expand canonicalJsonBytes tests for edge cases
+- use canonical bytes for snapshot ids and equality
+- expose canonicalJsonBytes and blake3hex from package root
+
+Changes:
+- replaced runtime JSON.stringify with canonicalJsonBytes + blake3hex
+- added tests for -0, NaN/Infinity, BigInt/function/symbol rejection, deep key ordering
+- compared VM states via canonical bytes and explicit exports
+
+Files touched:
+- packages/tf-lang-l0-ts/src/canon/json.ts
+- packages/tf-lang-l0-ts/src/host/memory.ts
+- packages/tf-lang-l0-ts/src/index.ts
+- packages/tf-lang-l0-ts/src/vm/interpreter.ts
+- packages/tf-lang-l0-ts/tests/canon.test.ts
+
+Key decisions:
+- normalize -0 to 0 instead of rejecting
+- throw 'E_L0_TYPE' for unsupported data types
+- derive snapshot_id via blake3hex(canonicalJsonBytes)
+
+Verification:
+- git grep -n "JSON.stringify" packages/tf-lang-l0-ts/src | grep -v tests || true
+- pnpm -C packages/tf-lang-l0-ts build
+- pnpm -C packages/tf-lang-l0-ts test
+
+Commands run:
+- git grep -n "JSON.stringify" packages/tf-lang-l0-ts/src | grep -v tests || true
+- pnpm install
+- pnpm -C packages/tf-lang-l0-ts build
+- pnpm -C packages/tf-lang-l0-ts test
+
+Results:
+- only canonical JSON uses remain
+- build succeeded
+- tests passed (10 total)
+
+Challenges / Notes:
+- reinstalling dependencies was required before build
+
+Next suggested step:
+- A2

@@ -19,6 +19,6 @@ function canonical(v: any): string {
     const entries = keys.map(k => JSON.stringify(k) + ':' + canonical(v[k]));
     return '{' + entries.join(',') + '}';
   }
-  throw new Error('E_JSON_TYPE');
+  throw new Error('E_L0_TYPE');
 }
 

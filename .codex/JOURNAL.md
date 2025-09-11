@@ -420,3 +420,18 @@ Next suggested step:
     - Rust tests passed and rs-report.json emitted
     - reports match
     - no startsWith('LENS_') found
+## [A7] Guardrail ops baseline
+- Start: 2025-09-11 16:30 UTC
+- End:   2025-09-11 17:15 UTC
+- Lessons consulted:
+  - A1–A6 for canonicalization, vectors, and host parity
+- Changes:
+  - Added TS/Rust implementations for dimension_eq, lens_mod, bounds, delta_bounded, saturate
+  - Extended dummy hosts and exported ops
+  - Added conformance vectors for each op
+- Verification:
+  - `pnpm -C packages/tf-lang-l0-ts test`
+  - `pnpm -C packages/tf-lang-l0-ts vectors`
+  - `cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml`
+- Next suggested step:
+  - Review for concept drift and polish

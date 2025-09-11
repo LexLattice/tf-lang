@@ -1,6 +1,7 @@
 import type { Host } from '../vm/index.js';
 import { canonicalJsonBytes } from '../canon/json.js';
 import { blake3hex } from '../canon/hash.js';
+import { dimensionEq, lensMod, bounds, deltaBounded, saturate } from '../ops/index.js';
 
 export const DummyHost: Host = {
   lens_project: async (state, region) => ({ region, state }),
@@ -36,6 +37,21 @@ export const DummyHost: Host = {
       const a = canonicalJsonBytes(args[0]);
       const b = canonicalJsonBytes(args[1]);
       return Buffer.from(a).equals(Buffer.from(b));
+    }
+    if (id === 'tf://assert/dimension_eq@0.1') {
+      return dimensionEq(args[0], args[1]);
+    }
+    if (id === 'tf://lens/mod@0.1') {
+      return lensMod(args[0], args[1]);
+    }
+    if (id === 'tf://assert/bounds@0.1') {
+      return bounds(args[0], args[1]);
+    }
+    if (id === 'tf://probe/delta_bounded@0.1') {
+      return deltaBounded(args[0], args[1]);
+    }
+    if (id === 'tf://correct/saturate@0.1') {
+      return saturate(args[0], args[1], args[2], args[3]);
     }
     return null;
   },

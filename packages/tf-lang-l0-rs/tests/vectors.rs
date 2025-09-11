@@ -10,6 +10,7 @@ use tflang_l0::canon::{blake3_hex, canonical_json_bytes};
 use tflang_l0::model::{Instr, Program};
 use tflang_l0::vm::interpreter::VM;
 use tflang_l0::vm::opcode::Host;
+use tflang_l0::ops;
 
 // Basic host used in unit tests
 struct DummyHost;
@@ -80,6 +81,33 @@ impl Host for DummyHost {
                 } else {
                     Ok(json!({ "replace": rhs }))
                 }
+            }
+            "tf://assert/dimension_eq@0.1" => {
+                let a = args.get(0).cloned().unwrap_or(Value::Null);
+                let b = args.get(1).cloned().unwrap_or(Value::Null);
+                ops::dimension_eq::dimension_eq(&a, &b)
+            }
+            "tf://lens/mod@0.1" => {
+                let x = args.get(0).cloned().unwrap_or(Value::Null);
+                let m = args.get(1).cloned().unwrap_or(Value::Null);
+                ops::lens_mod::lens_mod(&x, &m)
+            }
+            "tf://assert/bounds@0.1" => {
+                let x = args.get(0).cloned().unwrap_or(Value::Null);
+                let o = args.get(1).cloned().unwrap_or(Value::Null);
+                ops::bounds::bounds(&x, &o)
+            }
+            "tf://probe/delta_bounded@0.1" => {
+                let s = args.get(0).cloned().unwrap_or(Value::Null);
+                let b = args.get(1).cloned().unwrap_or(Value::Null);
+                ops::delta_bounded::delta_bounded(&s, &b)
+            }
+            "tf://correct/saturate@0.1" => {
+                let x = args.get(0).cloned().unwrap_or(Value::Null);
+                let min = args.get(1).cloned().unwrap_or(Value::Null);
+                let max = args.get(2).cloned().unwrap_or(Value::Null);
+                let field = args.get(3).cloned().unwrap_or(Value::Null);
+                ops::saturate::saturate(&x, &min, &max, &field)
             }
             _ => Ok(Value::Null),
         }

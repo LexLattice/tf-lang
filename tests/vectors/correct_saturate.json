@@ -1,0 +1,23 @@
+{
+  "name": "saturate value into bounds",
+  "bytecode": {
+    "version": "L0",
+    "regs": 7,
+    "instrs": [
+      { "op": "CONST", "dst": 0, "value": { "x": 10 } },
+      { "op": "CONST", "dst": 1, "value": 10 },
+      { "op": "CONST", "dst": 2, "value": 0 },
+      { "op": "CONST", "dst": 3, "value": 5 },
+      { "op": "CONST", "dst": 6, "value": "/x" },
+      { "op": "CALL", "dst": 4, "tf_id": "tf://correct/saturate@0.1", "args": [1,2,3,6] },
+      { "op": "UNPACK", "src": 4, "tag": "sat", "dsts": [4,5] },
+      { "op": "LENS_MERGE", "dst": 0, "state": 0, "region": "/x", "sub": 4 },
+      { "op": "HALT" }
+    ]
+  },
+  "inputs": {},
+  "expected": {
+    "delta": { "replace": { "x": 5 } },
+    "effect": { "read": ["/x"], "write": ["/x"], "external": ["tf://correct/saturate@0.1"] }
+  }
+}

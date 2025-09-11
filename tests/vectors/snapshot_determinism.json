@@ -13,6 +13,7 @@
   "inputs": {},
   "expected": {
     "delta": null,
-    "effect": { "read": ["/"], "write": [], "external": [] }
+    "effect": { "read": ["/"], "write": [], "external": [] },
+    "journal": []
   }
 }

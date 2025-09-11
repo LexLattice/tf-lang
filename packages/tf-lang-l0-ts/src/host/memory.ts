@@ -1,6 +1,7 @@
 import type { Host } from '../vm/index.js';
 import { canonicalJsonBytes } from '../canon/json.js';
 import { blake3hex } from '../canon/hash.js';
+import { registry as opsRegistry } from '../ops/index.js';
 
 export const DummyHost: Host = {
   lens_project: async (state, region) => ({ region, state }),
@@ -37,6 +38,6 @@ export const DummyHost: Host = {
       const b = canonicalJsonBytes(args[1]);
       return Buffer.from(a).equals(Buffer.from(b));
     }
-    return null;
+    return await opsRegistry.call(id, args);
   },
 };

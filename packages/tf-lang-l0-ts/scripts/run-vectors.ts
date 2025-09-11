@@ -68,6 +68,7 @@ class EffectHost implements Host {
   reads = new Set<string>();
   writes = new Set<string>();
   externals = new Set<string>();
+  journal: any[] = [];
 
   private addRead(r: string) { this.reads.add(r); }
   private addWrite(r: string) { this.writes.add(r); }
@@ -97,7 +98,21 @@ class EffectHost implements Host {
     return this.inner.diff_invert(delta);
   }
   async journal_record(plan: any, delta: any, s0: string, s1: string, meta: any) {
-    return this.inner.journal_record(plan, delta, s0, s1, meta);
+    const entry = await this.inner.journal_record(plan, delta, s0, s1, meta);
+    if (
+      delta &&
+      typeof delta === 'object' &&
+      'field' in delta &&
+      'before' in delta &&
+      'after' in delta &&
+      'reason' in delta
+    ) {
+      const { field, before, after, reason } = delta as any;
+      this.journal.push({ field, before, after, reason });
+    } else {
+      this.journal.push(delta);
+    }
+    return entry;
   }
   async journal_rewind(world: any, entry: any) {
     return this.inner.journal_rewind(world, entry);
@@ -157,21 +172,39 @@ async function runVector(file: string) {
   lintVector(vec);
   const host = new EffectHost(DummyHost);
   const vm = new VM(host);
-  const delta = await vm.run(vec.bytecode);
+  let delta: any = null;
+  let err: any = null;
+  try {
+    delta = await vm.run(vec.bytecode);
+  } catch (e) {
+    err = e;
+  }
   const effect = normalizeEffect(host);
-  const actual = { delta, effect };
+  const journal = host.journal;
   const expected = vec.expected;
-  const ok = Buffer.from(canonicalJsonBytes(expected)).equals(
-    Buffer.from(canonicalJsonBytes(actual))
-  );
+  let ok = false;
+  if (expected.error) {
+    ok = err?.message === expected.error &&
+         Buffer.from(canonicalJsonBytes(expected.effect ?? {})).equals(Buffer.from(canonicalJsonBytes(effect))) &&
+         Buffer.from(canonicalJsonBytes(expected.journal ?? [])).equals(Buffer.from(canonicalJsonBytes(journal)));
+  } else if (!err) {
+    ok = Buffer.from(canonicalJsonBytes({ delta, effect, journal })).equals(
+      Buffer.from(canonicalJsonBytes({ delta: expected.delta, effect: expected.effect, journal: expected.journal ?? [] }))
+    );
+  }
   if (ok) {
     console.log(`\u2713 ${vec.name}`);
   } else {
     console.error(`\u2717 ${vec.name}`);
-    console.error(toHex(canonicalJsonBytes(expected)));
-    console.error(toHex(canonicalJsonBytes(actual)));
+    if (expected.error) {
+      console.error('expected error:', expected.error);
+      console.error('actual error:', err?.message);
+    } else {
+      console.error(toHex(canonicalJsonBytes({ delta: expected.delta, effect: expected.effect, journal: expected.journal ?? [] })));
+      console.error(toHex(canonicalJsonBytes({ delta, effect, journal })));
+    }
   }
-  return { ok, name: vec.name, delta, effect };
+  return { ok, name: vec.name, delta, effect, journal };
 }
 
 async function main() {
@@ -186,8 +219,10 @@ async function main() {
       name: res.name,
       delta: res.delta,
       effect: res.effect,
+      journal: res.journal,
       delta_hash: blake3hex(canonicalJsonBytes(res.delta ?? null)),
       effect_hash: blake3hex(canonicalJsonBytes(res.effect)),
+      journal_hash: blake3hex(canonicalJsonBytes(res.journal ?? [])),
     });
     if (!res.ok) allOk = false;
   }

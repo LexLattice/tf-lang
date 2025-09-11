@@ -1,0 +1,28 @@
+{
+  "name": "saturate clamps value into bounds and journals",
+  "bytecode": {
+    "version": "L0",
+    "regs": 10,
+    "instrs": [
+      { "op": "CONST", "dst": 0, "value": { "x": 15 } },
+      { "op": "SNAP_MAKE", "dst": 1, "state": 0 },
+      { "op": "SNAP_ID", "dst": 2, "snapshot": 1 },
+      { "op": "CONST", "dst": 3, "value": 15 },
+      { "op": "CONST", "dst": 4, "value": { "min": 0, "max": 10 } },
+      { "op": "CALL", "dst": 5, "tf_id": "tf://correct/saturate@0.1", "args": [3, 4] },
+      { "op": "LENS_MERGE", "dst": 0, "state": 0, "region": "/x", "sub": 5 },
+      { "op": "SNAP_MAKE", "dst": 6, "state": 0 },
+      { "op": "SNAP_ID", "dst": 7, "snapshot": 6 },
+      { "op": "CONST", "dst": 8, "value": {} },
+      { "op": "CONST", "dst": 9, "value": { "field": "/x", "before": 15, "after": 10, "reason": "saturate[min=0,max=10]" } },
+      { "op": "JOURNAL_REC", "dst": 5, "plan": 8, "delta": 9, "snap0": 2, "snap1": 7, "meta": 8 },
+      { "op": "HALT" }
+    ]
+  },
+  "inputs": {},
+  "expected": {
+    "delta": { "replace": { "x": 10 } },
+    "effect": { "read": ["/x"], "write": ["/x"], "external": ["tf://correct/saturate@0.1"] },
+    "journal": [ { "field": "/x", "before": 15, "after": 10, "reason": "saturate[min=0,max=10]" } ]
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "bounds assert passes within range",
+  "bytecode": {
+    "version": "L0",
+    "regs": 5,
+    "instrs": [
+      { "op": "CONST", "dst": 0, "value": {} },
+      { "op": "CONST", "dst": 1, "value": 5 },
+      { "op": "CONST", "dst": 2, "value": { "min": 0, "max": 10 } },
+      { "op": "CALL", "dst": 3, "tf_id": "tf://assert/bounds@0.1", "args": [1, 2] },
+      { "op": "HALT" }
+    ]
+  },
+  "inputs": {},
+  "expected": {
+    "delta": null,
+    "effect": { "read": [], "write": [], "external": ["tf://assert/bounds@0.1"] },
+    "journal": []
+  }
+}

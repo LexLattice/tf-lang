@@ -29,17 +29,13 @@ impl Host for DummyHost {
         Ok(format!("id:{}", blake3_hex(&bytes)))
     }
     fn diff_apply(&self, state: &Value, delta: &Value) -> Result<Value> {
-        match delta {
-            Value::Null => Ok(state.clone()),
-            Value::Object(map) => {
-                if let Some(final_val) = map.get("replace") {
-                    Ok(final_val.clone())
-                } else {
-                    bail!("E_DELTA_FORM")
-                }
-            }
-            _ => bail!("E_DELTA_FORM"),
+        if delta.is_null() {
+            return Ok(state.clone());
         }
+        if let Some(replace_val) = delta.get("replace") {
+            return Ok(replace_val.clone());
+        }
+        bail!("E_DELTA_FORM")
     }
     fn diff_invert(&self, delta: &Value) -> Result<Value> {
         Ok(json!({ "invert": delta }))

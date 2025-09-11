@@ -52,7 +52,7 @@ function ptrSet(obj: any, ptr: string, val: any): any {
     const idx = Number(last);
     if (!Number.isInteger(idx) || idx < 0) return null;
     if (idx >= cur.length) {
-      for (let i = cur.length; i <= idx; i++) cur[i] = {};
+      for (let i = cur.length; i < idx; i++) cur[i] = {};
     }
     cur[idx] = structuredClone(val);
   } else if (cur && typeof cur === 'object') {
@@ -145,7 +145,9 @@ function lintVector(vec: any) {
       (ins: any) => ins.op === 'CONST' && ins.dst === 0
     );
     if (!firstConst0) throw new Error('missing CONST dst:0 for initial state');
-    const hasLens = vec.bytecode.instrs.some((ins: any) => ins.op?.startsWith('LENS_'));
+    const hasLens = vec.bytecode.instrs.some(
+      (ins: any) => ins.op === 'LENS_PROJ' || ins.op === 'LENS_MERGE'
+    );
     if (!hasLens) throw new Error('expected state change but no LENS_* op found');
   }
 }

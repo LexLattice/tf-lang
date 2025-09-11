@@ -399,3 +399,24 @@ Next suggested step:
   - needed pnpm install to restore tsx
 - Next suggested step:
   - B1
+
+## [A4/A5] Follow-up review fixes – diff_apply concision, ptrSet padding, explicit LENS checks
+- Start: 2025-09-11 15:19 UTC
+- End:   2025-09-11 15:21 UTC
+- Changes:
+  - Rust: simplified diff_apply using .get("replace")
+  - TS: optimized array padding loop in ptrSet
+  - TS: replaced startsWith('LENS_') with explicit opcode checks
+- Verification:
+  - Commands run:
+    - pnpm -C packages/tf-lang-l0-ts build
+    - pnpm -C packages/tf-lang-l0-ts vectors
+    - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml --tests -- --nocapture
+    - node .codex/compare-reports.mjs
+    - git grep -n "startsWith('LENS_')" packages/tf-lang-l0-ts/scripts/run-vectors.ts || true
+  - Results:
+    - build succeeded
+    - vectors ✓ and ts-report.json emitted
+    - Rust tests passed and rs-report.json emitted
+    - reports match
+    - no startsWith('LENS_') found

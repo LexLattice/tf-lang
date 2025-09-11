@@ -200,7 +200,7 @@ Next suggested step:
     - drafted minimal bytecode programs covering core operations
 - Verification:
   - Commands run:
-    - node -e "const fs=require('fs');['tests/vectors/lens_update.json','tests/vectors/snapshot_determinism.json','tests/vectors/journal_record.json','tests/vectors/match_assert.json'].forEach(f=>JSON.parse(fs.readFileSync(f)));console.log('ok');"
+    - node -e "const fs=require('fs'), path=require('path'), dir='tests/vectors'; fs.readdirSync(dir).filter(f => f.endsWith('.json')).forEach(f => JSON.parse(fs.readFileSync(path.join(dir, f)))); console.log('ok');"
   - Results:
     - JSON parsed without error
 - Challenges / Notes:

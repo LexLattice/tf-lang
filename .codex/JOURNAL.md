@@ -333,3 +333,30 @@ Next suggested step:
   - needed pnpm install to restore tsx before running vectors
 - Next suggested step:
   - B1
+## [A6-fix] CI conformance workflow hardening
+- Start: 2025-09-11 13:24 UTC
+- End:   2025-09-11 13:24 UTC
+- Lessons consulted:
+  - A6 – cross-runtime compare and artifact upload
+  - Node 20 + pnpm cache via actions/setup-node@v4
+  - Official pnpm/action-setup@v4 with run_install to avoid missing pnpm
+- Changes:
+  - Updated `.github/workflows/conformance.yml` to use `pnpm/action-setup@v4` with `version: 10.15.1` and `run_install: true`
+  - Kept `actions/setup-node@v4` with `node-version: '20'` and `cache: 'pnpm'`
+  - Ensured helper scripts are invoked with `node` (`node .codex/lint-vectors.mjs`, `node .codex/compare-reports.mjs`)
+  - Preserved cargo cache, TS build + vectors, Rust tests, artifact upload, and cross-compare steps
+- Verification:
+  - Commands run:
+    - node .codex/lint-vectors.mjs
+    - pnpm -C packages/tf-lang-l0-ts build
+    - pnpm -C packages/tf-lang-l0-ts vectors
+    - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml --tests -- --nocapture
+    - node .codex/compare-reports.mjs
+  - Results:
+    - vector lint ok
+    - TS build succeeded
+    - TS vectors ✓ and ts-report.json emitted
+    - Rust tests passed and rs-report.json emitted
+    - cross-runtime compare ok
+- Commit:
+  - ci: fix pnpm setup and harden conformance workflow (A6)

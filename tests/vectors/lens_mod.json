@@ -15,6 +15,7 @@
   "inputs": {},
   "expected": {
     "delta": { "replace": { "n": 2 } },
-    "effect": { "read": ["/n"], "write": ["/n"], "external": ["tf://lens/mod@0.1"] }
+    "effect": { "read": ["/n"], "write": ["/n"], "external": ["tf://lens/mod@0.1"] },
+    "journal": []
   }
 }

@@ -13,5 +13,5 @@ export interface Host {
   journal_record(plan: Value, delta: Value, s0: string, s1: string, meta: Value): JournalEntry | Promise<JournalEntry>;
   journal_rewind(world: World, entry: JournalEntry): World | Promise<World>;
 
-  call_tf(tf_id: string, args: Value[]): Value | Promise<Value>;
+  call_tf(tf_id: string, args: Value[]): Value | null | Promise<Value | null>;
 }

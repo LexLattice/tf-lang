@@ -20,6 +20,7 @@
   "inputs": {},
   "expected": {
     "delta": { "replace": { "data": 2 } },
-    "effect": { "read": ["/data"], "write": ["/data"], "external": [] }
+    "effect": { "read": ["/data"], "write": ["/data"], "external": [] },
+    "journal": [ { "replace": { "data": 2 } } ]
   }
 }

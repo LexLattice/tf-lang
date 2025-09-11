@@ -11,11 +11,10 @@ fn expect_int(v: &Value) -> Result<i64> {
 fn assert_dimension_eq(args: &[Value]) -> Result<Value> {
     let a = args.get(0).ok_or_else(|| anyhow::anyhow!("arg0"))?;
     let b = args.get(1).ok_or_else(|| anyhow::anyhow!("arg1"))?;
-    if !a.is_array() || !b.is_array() {
-        bail!("E_TYPE")
-    }
-    if a.as_array().unwrap().len() != b.as_array().unwrap().len() {
-        bail!("dimension mismatch: {} != {}", a.as_array().unwrap().len(), b.as_array().unwrap().len());
+    let a_arr = a.as_array().ok_or_else(|| anyhow::anyhow!("E_TYPE"))?;
+    let b_arr = b.as_array().ok_or_else(|| anyhow::anyhow!("E_TYPE"))?;
+    if a_arr.len() != b_arr.len() {
+        bail!("dimension mismatch: {} != {}", a_arr.len(), b_arr.len());
     }
     Ok(Value::Bool(true))
 }
@@ -26,11 +25,7 @@ fn lens_mod(args: &[Value]) -> Result<Value> {
     if m <= 0 {
         bail!("E_MOD_BOUNDS")
     }
-    let mut r = x % m;
-    if r < 0 {
-        r += m;
-    }
-    Ok(Value::from(r))
+    Ok(Value::from(x.rem_euclid(m)))
 }
 
 fn assert_bounds(args: &[Value]) -> Result<Value> {
@@ -56,11 +51,15 @@ fn probe_delta_bounded(args: &[Value]) -> Result<Value> {
     let seq = args.get(0).ok_or_else(|| anyhow::anyhow!("arg0"))?;
     let bound = expect_int(args.get(1).ok_or_else(|| anyhow::anyhow!("arg1"))?)?;
     let arr = seq.as_array().ok_or_else(|| anyhow::anyhow!("E_TYPE"))?;
-    for i in 1..arr.len() {
-        let a = expect_int(&arr[i - 1])?;
-        let b = expect_int(&arr[i])?;
-        let d = (a - b).abs();
-        if d > bound { bail!("delta {} at index {}", d, i); }
+    for (i, window) in arr.windows(2).enumerate() {
+        let a = expect_int(&window[0])?;
+        let b = expect_int(&window[1])?;
+        let d = if a >= b {
+            a.checked_sub(b).ok_or_else(|| anyhow::anyhow!("overflow"))?
+        } else {
+            b.checked_sub(a).ok_or_else(|| anyhow::anyhow!("overflow"))?
+        };
+        if d > bound { bail!("delta {} at index {}", d, i + 1); }
     }
     Ok(Value::Bool(true))
 }
@@ -71,11 +70,11 @@ fn correct_saturate(args: &[Value]) -> Result<Value> {
     let mut v = x;
     if let Some(min) = opts.get("min") {
         let minv = expect_int(min)?;
-        if v < minv { v = minv; }
+        v = std::cmp::max(v, minv);
     }
     if let Some(max) = opts.get("max") {
         let maxv = expect_int(max)?;
-        if v > maxv { v = maxv; }
+        v = std::cmp::min(v, maxv);
     }
     Ok(Value::from(v))
 }

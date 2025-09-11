@@ -13,6 +13,7 @@
   "inputs": {},
   "expected": {
     "delta": { "replace": { "legal": { "clauses": [ { "id": 1 } ] } } },
-    "effect": { "read": ["/legal/clauses"], "write": ["/legal/clauses"], "external": [] }
+    "effect": { "read": ["/legal/clauses"], "write": ["/legal/clauses"], "external": [] },
+    "journal": []
   }
 }

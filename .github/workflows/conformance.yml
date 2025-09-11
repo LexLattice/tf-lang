@@ -1,4 +1,4 @@
-name: conformance
+name: Conformance (TS ↔ Rust)
 
 on:
   push:
@@ -9,19 +9,23 @@ jobs:
   conformance:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.1
+          run_install: true
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'pnpm'
 
-      - uses: pnpm/action-setup@v2
-        with:
-          version: 10
-
-      - name: Install dependencies
-        run: pnpm install
+      - name: pnpm version
+        run: pnpm -v
 
       - name: Cache cargo
         uses: actions/cache@v4
@@ -34,22 +38,41 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('packages/tf-lang-l0-rs/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-
 
-      - name: Lint vectors
+      - name: Lint vectors (schema sanity)
         run: node .codex/lint-vectors.mjs
 
-      - name: TS vectors
-        run: pnpm -C packages/tf-lang-l0-ts build && pnpm -C packages/tf-lang-l0-ts vectors
+      - name: Build TS kernel
+        run: pnpm -C packages/tf-lang-l0-ts build
 
-      - name: Rust tests
-        run: cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml --tests -- --nocapture
+      - name: Run TS vectors
+        run: pnpm -C packages/tf-lang-l0-ts vectors
 
-      - name: Compare reports
-        run: node .codex/compare-reports.mjs
-
-      - name: Upload reports
+      - name: Upload TS report
         uses: actions/upload-artifact@v4
         with:
-          name: conformance-reports
-          path: |
-            tests/vectors/.out/ts-report.json
-            tests/vectors/.out/rs-report.json
+          name: ts-report
+          path: tests/vectors/.out/ts-report.json
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cargo tests (includes vectors)
+        run: cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml --tests -- --nocapture
+
+      - name: Upload RS report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rs-report
+          path: tests/vectors/.out/rs-report.json
+
+      - name: Cross-compare TS vs RS reports
+        run: node .codex/compare-reports.mjs
+
+      - name: Print reports on failure
+        if: failure()
+        run: |
+          echo '--- ts-report ---'
+          cat tests/vectors/.out/ts-report.json || true
+          echo '--- rs-report ---'
+          cat tests/vectors/.out/rs-report.json || true

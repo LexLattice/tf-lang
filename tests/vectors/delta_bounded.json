@@ -1,0 +1,19 @@
+{
+  "name": "delta bounded probe passes",
+  "bytecode": {
+    "version": "L0",
+    "regs": 5,
+    "instrs": [
+      { "op": "CONST", "dst": 0, "value": {} },
+      { "op": "CONST", "dst": 1, "value": [0, 1, 2, 3] },
+      { "op": "CONST", "dst": 2, "value": 2 },
+      { "op": "CALL", "dst": 3, "tf_id": "tf://probe/delta_bounded@0.1", "args": [1, 2] },
+      { "op": "HALT" }
+    ]
+  },
+  "inputs": {},
+  "expected": {
+    "delta": null,
+    "effect": { "read": [], "write": [], "external": ["tf://probe/delta_bounded@0.1"] }
+  }
+}

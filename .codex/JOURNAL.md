@@ -414,9 +414,29 @@ Next suggested step:
     - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml --tests -- --nocapture
     - node .codex/compare-reports.mjs
     - git grep -n "startsWith('LENS_')" packages/tf-lang-l0-ts/scripts/run-vectors.ts || true
-  - Results:
+- Results:
     - build succeeded
     - vectors ✓ and ts-report.json emitted
     - Rust tests passed and rs-report.json emitted
     - reports match
     - no startsWith('LENS_') found
+- Next suggested step:
+  - A7
+
+## [A7] Guardrail ops
+- Start: 2025-09-11 16:00 UTC
+- End:   2025-09-11 16:30 UTC
+- Lessons consulted:
+  - A1–A6 for determinism, runners, and pointer rules
+- Changes:
+  - Added TS and Rust implementations for five guardrail ops
+  - Wired dummy hosts to dispatch new ops
+  - Added conformance vectors exercising each op
+- Verification:
+  - pnpm -C packages/tf-lang-l0-ts test
+  - pnpm -C packages/tf-lang-l0-ts vectors
+  - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
+- Results:
+  - tests and vectors passed
+- Next suggested step:
+  - Ontology review

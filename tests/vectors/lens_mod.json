@@ -1,0 +1,20 @@
+{
+  "name": "lens mod canonicalizes negative numbers",
+  "bytecode": {
+    "version": "L0",
+    "regs": 5,
+    "instrs": [
+      { "op": "CONST", "dst": 0, "value": { "n": -3 } },
+      { "op": "CONST", "dst": 1, "value": -3 },
+      { "op": "CONST", "dst": 2, "value": 5 },
+      { "op": "CALL", "dst": 3, "tf_id": "tf://lens/mod@0.1", "args": [1, 2] },
+      { "op": "LENS_MERGE", "dst": 0, "state": 0, "region": "/n", "sub": 3 },
+      { "op": "HALT" }
+    ]
+  },
+  "inputs": {},
+  "expected": {
+    "delta": { "replace": { "n": 2 } },
+    "effect": { "read": ["/n"], "write": ["/n"], "external": ["tf://lens/mod@0.1"] }
+  }
+}

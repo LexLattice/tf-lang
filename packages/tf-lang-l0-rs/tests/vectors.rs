@@ -81,7 +81,7 @@ impl Host for DummyHost {
                     Ok(json!({ "replace": rhs }))
                 }
             }
-            _ => Ok(Value::Null),
+            _ => tflang_l0::ops::call(tf_id, args),
         }
     }
 }

@@ -1,8 +1,7 @@
-
-pub mod model;
-pub mod vm;
+pub mod canon;
 pub mod check;
-pub mod hash;
+pub mod model;
 pub mod util;
+pub mod vm;
 
 // Avoid glob re-exports at crate root to prevent ambiguous names (e.g., `types`).

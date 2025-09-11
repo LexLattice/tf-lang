@@ -207,3 +207,216 @@ Next suggested step:
   - corrected vector semantics: version tag L0, RFC 6901 pointers, reg0 final state, array subs, null deltas where appropriate
 - Next suggested step:
   - A4
+
+## [A4] TS conformance runner
+- Start: 2025-09-11 02:50 UTC
+- End:   2025-09-11 03:15 UTC
+- Lessons consulted:
+  - A1 – canonical JSON + BLAKE3
+  - A2 – snapshot hashing parity across runtimes
+  - A3 – vector structure, delta/effect expectations
+- Plan:
+  - implement runner script that loads vectors and executes VM
+  - track and normalize effects (reads/writes/external)
+  - compare delta and effect via canonicalJsonBytes; print hex diff on mismatch
+  - wire up package script `vectors`
+- Changes:
+  - Files touched:
+    - packages/tf-lang-l0-ts/scripts/run-vectors.ts
+    - packages/tf-lang-l0-ts/package.json
+    - pnpm-lock.yaml
+  - Key decisions:
+    - wrap DummyHost to track effects
+    - use `tsx` for TypeScript execution
+- Verification:
+  - Commands run:
+    - pnpm -C packages/tf-lang-l0-ts build
+    - pnpm -C packages/tf-lang-l0-ts vectors
+  - Results:
+    - build succeeded
+    - vectors runner reported ✓ for all vectors
+- Challenges / Notes:
+  - none
+- Next suggested step:
+  - A5
+
+## [A5] Vector report & lint
+- Start: 2025-09-11 03:15 UTC
+- End:   2025-09-11 03:35 UTC
+- Lessons consulted:
+  - A1 – canonical JSON + BLAKE3
+  - A4 – conformance runner structure
+- Plan:
+  - lint vectors for version tag, pointer format, and CONST→LENS dst:0 pattern
+  - emit machine-readable run summary with hashes for delta and effect
+- Changes:
+  - Files touched:
+    - packages/tf-lang-l0-ts/scripts/run-vectors.ts
+  - Key decisions:
+    - blake3 hashes computed from canonical JSON bytes
+    - write report to tests/vectors/.out/ts-report.json
+- Verification:
+  - Commands run:
+    - pnpm -C packages/tf-lang-l0-ts build
+    - pnpm -C packages/tf-lang-l0-ts vectors
+  - Results:
+    - build succeeded
+    - vectors runner produced ts-report.json and ✓ for all vectors
+- Challenges / Notes:
+  - installed missing tsx dependency before running vectors
+- Next suggested step:
+  - A6
+## [A5-rs] Rust conformance test
+- Start: 2025-09-11 04:05 UTC
+- End:   2025-09-11 04:45 UTC
+- Lessons consulted:
+  - A4 – conformance runner structure
+  - A5 – vector lint and reporting
+- Plan:
+  - load shared vector fixtures and execute VM with effect-tracking host
+  - normalize delta/effect and compare via canonical bytes
+  - emit rs-report.json for cross-runtime hashing
+  - run cargo tests
+- Changes:
+  - Files touched:
+    - packages/tf-lang-l0-rs/tests/vectors.rs
+  - Key decisions:
+    - implemented RFC 6901 pointer get/set with overwrite semantics
+    - recorded read/write/external effects via interior-mutability wrapper
+- Verification:
+  - Commands run:
+    - cargo fmt --manifest-path packages/tf-lang-l0-rs/Cargo.toml
+    - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml --tests -- --nocapture
+    - pnpm -C packages/tf-lang-l0-ts build
+    - pnpm -C packages/tf-lang-l0-ts vectors
+  - Results:
+    - formatting completed
+    - all Rust tests passed including vectors (1)
+    - TypeScript build succeeded
+    - TypeScript vectors runner reported ✓ for all fixtures
+- Challenges / Notes:
+  - missing tsx binary resolved with pnpm install
+- Next suggested step:
+  - A6
+## [A6] CI conformance workflow
+- Start: 2025-09-11 04:45 UTC
+- End:   2025-09-11 05:10 UTC
+- Lessons consulted:
+  - A4 – TS vector runner with effect normalization
+  - A5 – Rust vector reporting and hashes
+  - A1 – canonical bytes for comparisons
+- Plan:
+  - create compare-reports script to assert cross-runtime parity
+  - add conformance workflow invoking lint, TS vectors, Rust tests, comparison, artifacts
+  - verify locally in CI order
+- Changes:
+  - Files touched:
+    - .codex/compare-reports.mjs
+    - .github/workflows/conformance.yml
+  - Key decisions:
+    - compare reports via structural equality and hash checks
+    - cache pnpm and cargo dependencies in workflow
+- Verification:
+  - Commands run:
+    - node .codex/lint-vectors.mjs
+    - pnpm -C packages/tf-lang-l0-ts build
+    - pnpm -C packages/tf-lang-l0-ts vectors
+    - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml --tests -- --nocapture
+    - node .codex/compare-reports.mjs
+  - Results:
+    - lint ok
+    - TS build succeeded
+    - TS vectors ✓ and ts-report.json emitted
+    - Rust tests passed and rs-report.json emitted
+    - reports matched
+- Challenges / Notes:
+  - needed pnpm install to restore tsx before running vectors
+- Next suggested step:
+  - B1
+## [A6-fix] CI conformance workflow hardening
+- Start: 2025-09-11 13:24 UTC
+- End:   2025-09-11 13:24 UTC
+- Lessons consulted:
+  - A6 – cross-runtime compare and artifact upload
+  - Node 20 + pnpm cache via actions/setup-node@v4
+  - Official pnpm/action-setup@v4 with run_install to avoid missing pnpm
+- Changes:
+  - Updated `.github/workflows/conformance.yml` to use `pnpm/action-setup@v4` with `version: 10.15.1` and `run_install: true`
+  - Kept `actions/setup-node@v4` with `node-version: '20'` and `cache: 'pnpm'`
+  - Ensured helper scripts are invoked with `node` (`node .codex/lint-vectors.mjs`, `node .codex/compare-reports.mjs`)
+  - Preserved cargo cache, TS build + vectors, Rust tests, artifact upload, and cross-compare steps
+- Verification:
+  - Commands run:
+    - node .codex/lint-vectors.mjs
+    - pnpm -C packages/tf-lang-l0-ts build
+    - pnpm -C packages/tf-lang-l0-ts vectors
+    - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml --tests -- --nocapture
+    - node .codex/compare-reports.mjs
+  - Results:
+    - vector lint ok
+    - TS build succeeded
+    - TS vectors ✓ and ts-report.json emitted
+    - Rust tests passed and rs-report.json emitted
+    - cross-runtime compare ok
+- Commit:
+  - ci: fix pnpm setup and harden conformance workflow (A6)
+
+## [A4/A5] Review fixes – pointer validation, integer detection, host parity
+- Start: 2025-09-11 14:00 UTC
+- End:   2025-09-11 14:30 UTC
+- Lessons consulted:
+  - A1 – float rejection
+  - A2 – mirrored TS/Rust semantics
+  - A4/A5 – conformance runners and vectors
+- Plan:
+  - Harden JSON Pointer helpers in TS and Rust runners
+  - Fix integer vs float detection in Rust vectors
+  - Align dummy host delta and TF behaviors with TS
+  - Enforce explicit LENS opcode checks in TS runner
+  - Verify cross-runtime reports
+- Changes:
+  - Files touched:
+    - packages/tf-lang-l0-ts/scripts/run-vectors.ts
+    - packages/tf-lang-l0-rs/tests/vectors.rs
+    - .codex/JOURNAL.md
+  - Key decisions:
+    - Return null for invalid pointer traversals
+    - Validate array indices via Number/parse and pad with objects
+    - Apply delta NF and plan/delta TF in Rust dummy host
+    - Restrict LENS ops to dst:0 explicitly
+- Verification:
+  - Commands run:
+    - pnpm -C packages/tf-lang-l0-ts build
+    - pnpm -C packages/tf-lang-l0-ts vectors
+    - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml --tests -- --nocapture
+    - node .codex/compare-reports.mjs
+  - Results:
+    - build succeeded
+    - vectors ✓ and ts-report.json emitted
+    - Rust tests passed and rs-report.json emitted
+    - reports match
+- Challenges / Notes:
+  - needed pnpm install to restore tsx
+- Next suggested step:
+  - B1
+
+## [A4/A5] Follow-up review fixes – diff_apply concision, ptrSet padding, explicit LENS checks
+- Start: 2025-09-11 15:19 UTC
+- End:   2025-09-11 15:21 UTC
+- Changes:
+  - Rust: simplified diff_apply using .get("replace")
+  - TS: optimized array padding loop in ptrSet
+  - TS: replaced startsWith('LENS_') with explicit opcode checks
+- Verification:
+  - Commands run:
+    - pnpm -C packages/tf-lang-l0-ts build
+    - pnpm -C packages/tf-lang-l0-ts vectors
+    - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml --tests -- --nocapture
+    - node .codex/compare-reports.mjs
+    - git grep -n "startsWith('LENS_')" packages/tf-lang-l0-ts/scripts/run-vectors.ts || true
+  - Results:
+    - build succeeded
+    - vectors ✓ and ts-report.json emitted
+    - Rust tests passed and rs-report.json emitted
+    - reports match
+    - no startsWith('LENS_') found

@@ -116,3 +116,66 @@ Challenges / Notes:
 
 Next suggested step:
 - A2
+## [A2] Rust canonical JSON + BLAKE3
+- Start: 2025-09-11 01:30 UTC
+- End:   2025-09-11 01:55 UTC
+- Lessons consulted:
+  - A1 – float rejection in canonical encoder
+  - A1 – -0→0 normalization
+  - A1 – canonical snapshot hashing via BLAKE3
+- Plan:
+  - implement canonical_json_bytes and blake3_hex modules
+  - remove placeholder hash module and update VM
+  - add tests for key ordering, float rejection, hashing
+  - run cargo test
+- Changes:
+  - Files touched:
+    - packages/tf-lang-l0-rs/src/canon/json.rs
+    - packages/tf-lang-l0-rs/src/canon/hash.rs
+    - packages/tf-lang-l0-rs/src/canon/mod.rs
+    - packages/tf-lang-l0-rs/src/lib.rs
+    - packages/tf-lang-l0-rs/src/vm/interpreter.rs
+    - packages/tf-lang-l0-rs/tests/canon.rs
+    - removed packages/tf-lang-l0-rs/src/hash.rs
+  - Key decisions:
+    - reject non-integer numbers with "E_L0_FLOAT"
+    - sort object keys for deterministic bytes
+- Verification:
+  - Commands run:
+    - cargo fmt --manifest-path packages/tf-lang-l0-rs/Cargo.toml
+    - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
+  - Results:
+    - formatting completed
+    - all tests passed (8 total)
+- Challenges / Notes:
+  - none
+- Next suggested step:
+  - A3
+
+## [A2-fix] Rust canonical JSON follow-up
+- Start: 2025-09-11 02:00 UTC
+- End:   2025-09-11 02:20 UTC
+- Lessons consulted:
+  - A1 – canonical snapshot hashing via BLAKE3
+  - A1 – deep key-ordering invariance
+- Plan:
+  - switch test host snapshot_id and eq/json to canonical bytes
+  - cover serde_json::from_str("-0") vs "0" and nested key order
+  - adjust encoder to accept float zero
+  - run cargo fmt and test
+- Changes:
+  - updated tests/laws.rs to hash snapshots and compare states via canonical bytes
+  - expanded tests/canon.rs with from_str("-0") case and nested array/object example
+  - canonical_json_bytes now normalizes float zero values
+- Verification:
+  - git grep -nE "to_string\\(|serde_json::to_string" packages/tf-lang-l0-rs/src || true
+  - cargo fmt --manifest-path packages/tf-lang-l0-rs/Cargo.toml
+  - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
+- Results:
+  - grep shows only allowed to_string uses
+  - formatting completed
+  - tests passed (9 total)
+- Challenges / Notes:
+  - serde_json parses "-0" as float; had to special-case in encoder
+- Next suggested step:
+  - A3

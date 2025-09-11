@@ -1,0 +1,23 @@
+{
+  "name": "journal record captures delta and snapshots",
+  "bytecode": {
+    "version": "L0",
+    "regs": 7,
+    "instrs": [
+      { "op": "CONST", "dst": 0, "value": { "data": 1 } },
+      { "op": "SNAP_MAKE", "dst": 1, "state": 0 },
+      { "op": "CONST", "dst": 2, "value": 2 },
+      { "op": "LENS_MERGE", "dst": 0, "state": 0, "region": "/data", "sub": 2 },
+      { "op": "SNAP_MAKE", "dst": 3, "state": 0 },
+      { "op": "CONST", "dst": 4, "value": {} },
+      { "op": "CONST", "dst": 5, "value": { "replace": { "data": 2 } } },
+      { "op": "JOURNAL_REC", "dst": 6, "plan": 4, "delta": 5, "snap0": 1, "snap1": 3, "meta": 4 },
+      { "op": "HALT" }
+    ]
+  },
+  "inputs": {},
+  "expected": {
+    "delta": { "replace": { "data": 2 } },
+    "effect": { "read": ["/data"], "write": ["/data"], "external": [] }
+  }
+}

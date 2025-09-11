@@ -1,0 +1,18 @@
+{
+  "name": "lens update merges nested property",
+  "bytecode": {
+    "version": "L0",
+    "regs": 4,
+    "instrs": [
+      { "op": "CONST", "dst": 0, "value": { "legal": { "clauses": [] } } },
+      { "op": "CONST", "dst": 1, "value": [ { "id": 1 } ] },
+      { "op": "LENS_MERGE", "dst": 0, "state": 0, "region": "/legal/clauses", "sub": 1 },
+      { "op": "HALT" }
+    ]
+  },
+  "inputs": {},
+  "expected": {
+    "delta": { "replace": { "legal": { "clauses": [ { "id": 1 } ] } } },
+    "effect": { "read": ["/legal/clauses"], "write": ["/legal/clauses"], "external": [] }
+  }
+}

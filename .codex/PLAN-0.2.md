@@ -62,6 +62,10 @@ A6. CI: conformance workflow
 Files: .github/workflows/conformance.yml
 Done when: PRs & main run TS + RS vectors.
 
+A7. Guardrail ops: units/mod/bounds/delta/saturate
+Files: packages/tf-lang-l0-ts/src/ops/, packages/tf-lang-l0-rs/src/ops/, tests/vectors/*.json
+Done when: TS/Rust ops + vectors added; pnpm -C packages/tf-lang-l0-ts vectors and cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml pass locally and in CI conformance.
+
 EPIC B — Proof Tags (observability)
 B1. Tag interfaces (no behavior change)
 Files:

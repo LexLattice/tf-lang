@@ -471,3 +471,19 @@ Next suggested step:
   - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
 - Results:
   - vectors and tests passed
+
+## [B1] Tag interfaces
+- Start: 2025-09-11 22:50 UTC
+- End:   2025-09-11 22:52 UTC
+- Changes:
+  - added proof tag definitions in TS and Rust
+  - exported proof modules and added union/enum types
+  - added unit tests for tag shapes
+- Verification:
+  - pnpm -C packages/tf-lang-l0-ts test
+  - pnpm -C packages/tf-lang-l0-ts vectors
+  - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
+- Results:
+  - tests and vectors passed
+- Next suggested step:
+  - emit tags when DEV_PROOFS=1 (B2)

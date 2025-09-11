@@ -12,6 +12,7 @@ You are the Implementer for v0.2 of TF-Lang. Work inside this repo with these ru
 ## Process
 - Read `.codex/PLAN-0.2.md`. Choose the next task in order.
 - Before coding, write a short “Plan for this task” section in the journal entry.
+- Before coding each task, scan `.codex/JOURNAL.md` for prior entries’ **Challenges / Notes** and **Next suggested step** relevant to this task. Start your new entry by listing 2–3 **Lessons consulted** (referencing the task IDs), and explain how you will apply them.
 - Implement only that task; keep the change small.
 - Run the verifications listed on the card.
 - If something blocks you, write a “Challenges” note and propose a small plan change (don’t proceed until resolved).
@@ -26,30 +27,19 @@ You are the Implementer for v0.2 of TF-Lang. Work inside this repo with these ru
 - **Docker:** if affected, build images success.
 
 ## Journal Template (append one per task)
-[TASK-ID] Title
-Start: 2025-09-__ HH:MM
-
-End: 2025-09-__ HH:MM
-
-Plan: (1–5 bullets)
-
-Changes:
-
-Files touched:
-
-Key decisions:
-
-Verification:
-
-Commands run:
-
-Results:
-
-Challenges / Notes:
-
-Next suggested step:
-
-
+## [TASK-ID] Title
+- Start: 2025-09-__ HH:MM
+- End:   2025-09-__ HH:MM
+- Lessons consulted: (e.g., A1 – float rejection; snapshot hashing; -0→0)
+- Plan:  (1–5 bullets)
+- Changes:
+  - Files touched:
+  - Key decisions:
+- Verification:
+  - Commands run:
+  - Results:
+- Challenges / Notes:
+- Next suggested step:
 
 ## Laws (hard constraints)
 - Do not remove or skip tests; add to them if needed.

@@ -45,7 +45,7 @@ export function probeDeltaBounded([seq, bound]: Value[]): boolean {
     const b = seq[i];
     expectInt(a);
     expectInt(b);
-    const d = a >= b ? a - b : b - a;
+    const d = Math.abs(a - b);
     if (d > bound) throw new Error(`delta ${d} at index ${i}`);
   }
   return true;

@@ -458,3 +458,16 @@ Next suggested step:
   - vectors and tests passed
 - Next suggested step:
   - none
+
+## [A7] Polish — delta abs & journal shape
+- Start: 2025-09-11 18:00 UTC
+- End:   2025-09-11 18:20 UTC
+- Changes:
+  - Used Math.abs for delta calculation in TS probe
+  - Sanitized saturate journal entries to {field,before,after,reason}
+  - Dropped redundant clones in Rust vector tests
+- Verification:
+  - pnpm -C packages/tf-lang-l0-ts vectors
+  - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
+- Results:
+  - vectors and tests passed

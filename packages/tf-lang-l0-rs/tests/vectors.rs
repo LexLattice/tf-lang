@@ -161,7 +161,22 @@ impl<H: Host> Host for EffectHost<H> {
         meta: &Value,
     ) -> Result<tflang_l0::model::JournalEntry> {
         let entry = self.inner.journal_record(plan, delta, s0, s1, meta)?;
-        self.journal.borrow_mut().push(delta.clone());
+        let mut j = self.journal.borrow_mut();
+        if let (Some(field), Some(before), Some(after), Some(reason)) = (
+            delta.get("field"),
+            delta.get("before"),
+            delta.get("after"),
+            delta.get("reason"),
+        ) {
+            j.push(json!({
+                "field": field,
+                "before": before,
+                "after": after,
+                "reason": reason
+            }));
+        } else {
+            j.push(delta.clone());
+        }
         Ok(entry)
     }
     fn journal_rewind(
@@ -416,26 +431,27 @@ fn vectors() -> Result<()> {
         };
         let effect = host.normalize();
         let journal = host.journal.borrow().clone();
+        let empty: Vec<Value> = Vec::new();
 
         let mut ok = false;
-        if let Some(expected_err) = vec.expected.error.clone() {
+        if let Some(expected_err) = &vec.expected.error {
             if err_msg.as_deref() == Some(expected_err.as_str()) {
                 let exp_eff = canonical_json_bytes(&json!(vec.expected.effect))?;
-                let act_eff = canonical_json_bytes(&json!(effect.clone()))?;
-                let exp_j = canonical_json_bytes(&json!(vec.expected.journal.clone().unwrap_or_default()))?;
-                let act_j = canonical_json_bytes(&json!(journal.clone()))?;
+                let act_eff = canonical_json_bytes(&json!(&effect))?;
+                let exp_j = canonical_json_bytes(&json!(vec.expected.journal.as_ref().unwrap_or(&empty)))?;
+                let act_j = canonical_json_bytes(&json!(&journal))?;
                 ok = exp_eff == act_eff && exp_j == act_j;
             }
         } else if err_msg.is_none() {
             let expected_json = json!({
-                "delta": vec.expected.delta.clone().unwrap_or(Value::Null),
-                "effect": vec.expected.effect,
-                "journal": vec.expected.journal.clone().unwrap_or_default()
+                "delta": vec.expected.delta.as_ref().unwrap_or(&Value::Null),
+                "effect": &vec.expected.effect,
+                "journal": vec.expected.journal.as_ref().unwrap_or(&empty)
             });
             let actual_json = json!({
-                "delta": delta,
-                "effect": effect.clone(),
-                "journal": journal.clone()
+                "delta": &delta,
+                "effect": &effect,
+                "journal": &journal
             });
             ok = canonical_json_bytes(&expected_json)? == canonical_json_bytes(&actual_json)?;
         }
@@ -451,14 +467,14 @@ fn vectors() -> Result<()> {
         let delta_hash = blake3_hex(&canonical_json_bytes(&delta)?);
         let effect_val = serde_json::to_value(&effect)?;
         let effect_hash = blake3_hex(&canonical_json_bytes(&effect_val)?);
-        let journal_hash = blake3_hex(&canonical_json_bytes(&json!(journal))?);
+        let journal_hash = blake3_hex(&canonical_json_bytes(&json!(&journal))?);
         report.push(ReportEntry {
             name: vec.name,
             delta,
             effect,
             delta_hash,
             effect_hash,
-            journal: journal.clone(),
+            journal,
             journal_hash,
         });
     }

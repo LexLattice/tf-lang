@@ -99,7 +99,19 @@ class EffectHost implements Host {
   }
   async journal_record(plan: any, delta: any, s0: string, s1: string, meta: any) {
     const entry = await this.inner.journal_record(plan, delta, s0, s1, meta);
-    this.journal.push(delta);
+    if (
+      delta &&
+      typeof delta === 'object' &&
+      'field' in delta &&
+      'before' in delta &&
+      'after' in delta &&
+      'reason' in delta
+    ) {
+      const { field, before, after, reason } = delta as any;
+      this.journal.push({ field, before, after, reason });
+    } else {
+      this.journal.push(delta);
+    }
     return entry;
   }
   async journal_rewind(world: any, entry: any) {

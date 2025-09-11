@@ -14,7 +14,7 @@
       { "op": "SNAP_MAKE", "dst": 6, "state": 0 },
       { "op": "SNAP_ID", "dst": 7, "snapshot": 6 },
       { "op": "CONST", "dst": 8, "value": {} },
-      { "op": "CONST", "dst": 9, "value": { "field": "/x", "before": 15, "after": 10, "reason": "saturate" } },
+      { "op": "CONST", "dst": 9, "value": { "field": "/x", "before": 15, "after": 10, "reason": "saturate[min=0,max=10]" } },
       { "op": "JOURNAL_REC", "dst": 5, "plan": 8, "delta": 9, "snap0": 2, "snap1": 7, "meta": 8 },
       { "op": "HALT" }
     ]
@@ -23,6 +23,6 @@
   "expected": {
     "delta": { "replace": { "x": 10 } },
     "effect": { "read": ["/x"], "write": ["/x"], "external": ["tf://correct/saturate@0.1"] },
-    "journal": [ { "field": "/x", "before": 15, "after": 10, "reason": "saturate" } ]
+    "journal": [ { "field": "/x", "before": 15, "after": 10, "reason": "saturate[min=0,max=10]" } ]
   }
 }

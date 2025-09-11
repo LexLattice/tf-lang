@@ -10,6 +10,13 @@ use tflang_l0::canon::{blake3_hex, canonical_json_bytes};
 use tflang_l0::model::{Instr, Program};
 use tflang_l0::vm::interpreter::VM;
 use tflang_l0::vm::opcode::Host;
+use tflang_l0::ops::{
+    bounds::assert_bounds,
+    delta_bounded::delta_bounded,
+    dimension_eq::dimension_eq,
+    lens_mod::lens_mod,
+    saturate::saturate,
+};
 
 // Basic host used in unit tests
 struct DummyHost;
@@ -80,6 +87,31 @@ impl Host for DummyHost {
                 } else {
                     Ok(json!({ "replace": rhs }))
                 }
+            }
+            "tf://assert/dimension_eq@0.1" => {
+                let a = args.get(0).unwrap_or(&Value::Null);
+                let b = args.get(1).unwrap_or(&Value::Null);
+                dimension_eq(a, b)
+            }
+            "tf://lens/mod@0.1" => {
+                let x = args.get(0).unwrap_or(&Value::Null);
+                let m = args.get(1).unwrap_or(&Value::Null);
+                lens_mod(x, m)
+            }
+            "tf://assert/bounds@0.1" => {
+                let v = args.get(0).unwrap_or(&Value::Null);
+                let opts = args.get(1).unwrap_or(&Value::Null);
+                assert_bounds(v, opts)
+            }
+            "tf://probe/delta_bounded@0.1" => {
+                let seq = args.get(0).unwrap_or(&Value::Null);
+                let b = args.get(1).unwrap_or(&Value::Null);
+                delta_bounded(seq, b)
+            }
+            "tf://correct/saturate@0.1" => {
+                let v = args.get(0).unwrap_or(&Value::Null);
+                let opts = args.get(1).unwrap_or(&Value::Null);
+                saturate(v, opts)
             }
             _ => Ok(Value::Null),
         }

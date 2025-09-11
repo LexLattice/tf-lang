@@ -1,6 +1,7 @@
 import type { Host } from '../vm/index.js';
 import { canonicalJsonBytes } from '../canon/json.js';
 import { blake3hex } from '../canon/hash.js';
+import { ops } from '../ops/index.js';
 
 export const DummyHost: Host = {
   lens_project: async (state, region) => ({ region, state }),
@@ -36,6 +37,9 @@ export const DummyHost: Host = {
       const a = canonicalJsonBytes(args[0]);
       const b = canonicalJsonBytes(args[1]);
       return Buffer.from(a).equals(Buffer.from(b));
+    }
+    if (id in ops) {
+      return ops[id](...args);
     }
     return null;
   },

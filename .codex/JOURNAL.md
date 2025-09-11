@@ -420,3 +420,25 @@ Next suggested step:
     - Rust tests passed and rs-report.json emitted
     - reports match
     - no startsWith('LENS_') found
+
+## [A7] Guardrail ops
+- Start: 2025-09-11 19:50 UTC
+- End:   2025-09-11 20:14 UTC
+- Lessons consulted:
+  - A1–A2: integer-only canonicalization
+  - A4/A5: runner pointer semantics and effect tracking
+- Plan:
+  - implement five guardrail ops in TS/Rust and expose via host CALL
+  - add conformance vectors exercising each op
+  - ensure cross-runtime reports match
+- Changes:
+  - added TS and Rust ops modules and host dispatch
+  - extended vector suite with guardrail cases
+- Verification:
+  - node .codex/lint-vectors.mjs
+  - pnpm -C packages/tf-lang-l0-ts build
+  - pnpm -C packages/tf-lang-l0-ts vectors
+  - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml --tests -- --nocapture
+  - node .codex/compare-reports.mjs
+- Result: all commands passed; TS/Rust reports match
+- Next suggested step: B1

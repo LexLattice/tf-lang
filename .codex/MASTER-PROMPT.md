@@ -56,5 +56,3 @@ Next suggested step:
 - Do not change public API surfaces without updating docs and gates.
 - Do not change 0.1 semantics.
 - Maintain mirrored behavior across TS and Rust.
-
-Begin by producing a “Task Zero” journal entry that restates the plan, confirms environment, and lists the first 3 tasks you will do (A1, A2, A3). Then proceed with A1.

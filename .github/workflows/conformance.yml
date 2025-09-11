@@ -1,0 +1,55 @@
+name: conformance
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  conformance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin
+            ~/.cargo/registry
+            ~/.cargo/git
+            packages/tf-lang-l0-rs/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('packages/tf-lang-l0-rs/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Lint vectors
+        run: node .codex/lint-vectors.mjs
+
+      - name: TS vectors
+        run: pnpm -C packages/tf-lang-l0-ts build && pnpm -C packages/tf-lang-l0-ts vectors
+
+      - name: Rust tests
+        run: cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml --tests -- --nocapture
+
+      - name: Compare reports
+        run: node .codex/compare-reports.mjs
+
+      - name: Upload reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-reports
+          path: |
+            tests/vectors/.out/ts-report.json
+            tests/vectors/.out/rs-report.json

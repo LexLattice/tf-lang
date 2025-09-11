@@ -298,3 +298,38 @@ Next suggested step:
   - missing tsx binary resolved with pnpm install
 - Next suggested step:
   - A6
+## [A6] CI conformance workflow
+- Start: 2025-09-11 04:45 UTC
+- End:   2025-09-11 05:10 UTC
+- Lessons consulted:
+  - A4 – TS vector runner with effect normalization
+  - A5 – Rust vector reporting and hashes
+  - A1 – canonical bytes for comparisons
+- Plan:
+  - create compare-reports script to assert cross-runtime parity
+  - add conformance workflow invoking lint, TS vectors, Rust tests, comparison, artifacts
+  - verify locally in CI order
+- Changes:
+  - Files touched:
+    - .codex/compare-reports.mjs
+    - .github/workflows/conformance.yml
+  - Key decisions:
+    - compare reports via structural equality and hash checks
+    - cache pnpm and cargo dependencies in workflow
+- Verification:
+  - Commands run:
+    - node .codex/lint-vectors.mjs
+    - pnpm -C packages/tf-lang-l0-ts build
+    - pnpm -C packages/tf-lang-l0-ts vectors
+    - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml --tests -- --nocapture
+    - node .codex/compare-reports.mjs
+  - Results:
+    - lint ok
+    - TS build succeeded
+    - TS vectors ✓ and ts-report.json emitted
+    - Rust tests passed and rs-report.json emitted
+    - reports matched
+- Challenges / Notes:
+  - needed pnpm install to restore tsx before running vectors
+- Next suggested step:
+  - B1

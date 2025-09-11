@@ -225,8 +225,9 @@ async function applyFilters() {
 async function main() {
   const resp = await fetch(DATA_URL);
   const data = await resp.json();
-  ALL = data.claims || [];
-  DATASET_VERSION = data.dataset_version || '';
+  const version = data.dataset_version ?? data.version ?? data.meta?.dataset_version ?? '—';
+  ALL = (data.claims || []).map(c => ({ ...c, dataset_version: version }));
+  DATASET_VERSION = version;
   $('#datasetVersion').textContent = DATASET_VERSION;
 
   // populate filters

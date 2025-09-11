@@ -1,10 +1,12 @@
 import type { Host } from '../vm/index.js';
+import { canonicalJsonBytes } from '../canon/json.js';
+import { blake3hex } from '../canon/hash.js';
 
 export const DummyHost: Host = {
   lens_project: async (state, region) => ({ region, state }),
   lens_merge: async (state, _region, sub) => ({ orig: state, sub }),
   snapshot_make: async (state) => state,
-  snapshot_id: async (snap) => `id:${JSON.stringify(snap)}`,
+  snapshot_id: async (snap) => `id:${blake3hex(canonicalJsonBytes(snap))}`,
   diff_apply: async (state, delta) => {
     if (delta == null) return state;                 // identity
     if (delta && typeof delta === 'object' && 'replace' in delta) return (delta as any).replace;
@@ -31,7 +33,9 @@ export const DummyHost: Host = {
       return { delta: args[1] ?? null, world: args[0] ?? null };
     }
     if (id === 'tf://eq/json@0.1') {
-      return JSON.stringify(args[0]) === JSON.stringify(args[1]);
+      const a = canonicalJsonBytes(args[0]);
+      const b = canonicalJsonBytes(args[1]);
+      return Buffer.from(a).equals(Buffer.from(b));
     }
     return null;
   },

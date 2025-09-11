@@ -17,3 +17,4 @@
 - [A4/A5][2025-09-11] Rule: "Dummy host parity TS↔Rust (delta NF; plan/delta TF)." Guardrail: host:parity
 - [A4/A5][2025-09-11] Rule: "LENS ops restricted to dst:0; explicit opcode whitelist." Guardrail: lens:dst_only+opcode_whitelist
 - [A7][2025-09-11] Rule: "Guardrail ops must propagate errors; hosts must not swallow them." Guardrail: host:propagate_guardrail_errors
+- [B1][2025-09-11] Rule: "Proof tags dev-only and excluded from hashes." Guardrail: proof:dev_only_no_hash

@@ -471,3 +471,20 @@ Next suggested step:
   - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
 - Results:
   - vectors and tests passed
+## [B1] Proof tags
+- Start: 2025-09-11 22:40 UTC
+- End:   2025-09-11 22:55 UTC
+- Lessons consulted:
+  - A1–A7
+- Changes:
+  - Added proof tag interfaces in TS and Rust with exports
+  - Added unit tests demonstrating tag construction
+- Verification:
+  - pnpm -C packages/tf-lang-l0-ts build
+  - pnpm -C packages/tf-lang-l0-ts test
+  - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml --tests
+- Results:
+  - build succeeded
+  - tests passed
+- Next suggested step:
+  - B2

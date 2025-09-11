@@ -471,3 +471,22 @@ Next suggested step:
   - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
 - Results:
   - vectors and tests passed
+
+## [B1] Tag interfaces
+- Start: 2025-09-11 22:40 UTC
+- End:   2025-09-11 22:51 UTC
+- Lessons consulted:
+  - A1 – canonicalization baseline
+  - A2 – cross-runtime parity
+  - A3 – vector expectations
+- Changes:
+  - added proof tag interfaces in TS and Rust
+  - re-exported proof modules
+  - added unit tests for tag construction
+- Verification:
+  - pnpm -C packages/tf-lang-l0-ts test
+  - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
+- Results:
+  - tests passed
+- Next suggested step:
+  - B2

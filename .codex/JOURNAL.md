@@ -500,3 +500,27 @@ Next suggested step:
   - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
 - Results:
   - tests and vectors passed
+## [B2] Proof tag emission
+- Start: 2025-09-11 23:00 UTC
+- End:   2025-09-11 23:30 UTC
+- Changes:
+  - added DEV_PROOFS-gated proof log in TS and Rust
+  - VMs emit Witness, Normalization, Transport, Refutation, and Conservativity tags
+  - tests cover tag emission toggled by DEV_PROOFS
+- Verification:
+  - pnpm -C packages/tf-lang-l0-ts test
+  - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
+- Results:
+  - tests passed
+## [B2-polish] Cache DEV_PROOFS
+- Start: 2025-09-11 23:40 UTC
+- End:   2025-09-11 23:55 UTC
+- Changes:
+  - centralized cached DEV_PROOFS flag in TS and Rust runtimes
+  - scoped env helpers for tests and JSON shape lock
+- Verification:
+  - pnpm -C packages/tf-lang-l0-ts test
+  - pnpm -C packages/tf-lang-l0-ts vectors
+  - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
+- Results:
+  - tests and vectors passed

@@ -2,6 +2,7 @@ import type { Program } from '../model/bytecode.js';
 import type { Host } from './opcode.js';
 import type { Value, World, JournalEntry } from '../model/types.js';
 import { canonicalJsonBytes, blake3hex } from '../canon/index.js';
+import { emit } from '../proof/index.js';
 
 export class VM {
   constructor(public host: Host) {}
@@ -41,8 +42,16 @@ export class VM {
         }
         case 'SNAP_MAKE': regs[ins.dst] = await this.host.snapshot_make(this.get(regs, ins.state)); break;
         case 'SNAP_ID': regs[ins.dst] = await this.host.snapshot_id(this.get(regs, ins.snapshot)); break;
-        case 'LENS_PROJ': regs[ins.dst] = await this.host.lens_project(this.get(regs, ins.state), ins.region); break;
-        case 'LENS_MERGE': regs[ins.dst] = await this.host.lens_merge(this.get(regs, ins.state), ins.region, this.get(regs, ins.sub)); break;
+        case 'LENS_PROJ': {
+          regs[ins.dst] = await this.host.lens_project(this.get(regs, ins.state), ins.region);
+          emit({ kind: 'Transport', op: 'LENS_PROJ', region: ins.region });
+          break;
+        }
+        case 'LENS_MERGE': {
+          regs[ins.dst] = await this.host.lens_merge(this.get(regs, ins.state), ins.region, this.get(regs, ins.sub));
+          emit({ kind: 'Transport', op: 'LENS_MERGE', region: ins.region });
+          break;
+        }
         case 'PLAN_SIM': {
           const res: any = await this.host.call_tf("tf://plan/simulate@0.1", [this.get(regs, ins.world), this.get(regs, ins.plan)]);
           regs[ins.dst_delta] = res?.delta ?? null;
@@ -67,12 +76,20 @@ export class VM {
         }
         case 'CALL': {
           const args = ins.args.map(a => this.get(regs, a));
-          regs[ins.dst] = await this.host.call_tf(ins.tf_id, args);
+          try {
+            regs[ins.dst] = await this.host.call_tf(ins.tf_id, args);
+          } catch (e: any) {
+            emit({ kind: 'Conservativity', callee: ins.tf_id, expected: 'ok', found: String(e) });
+            throw e;
+          }
           break;
         }
         case 'ASSERT': {
           const v = this.get(regs, ins.pred);
-          if (v !== true) throw new Error(`ASSERT failed: ${ins.msg}`);
+          if (v !== true) {
+            emit({ kind: 'Refutation', code: 'ASSERT', msg: ins.msg });
+            throw new Error(`ASSERT failed: ${ins.msg}`);
+          }
           break;
         }
         default: {
@@ -91,10 +108,10 @@ export class VM {
     // identity => null; otherwise full replace
     const a = canonicalJsonBytes(initialState);
     const b = canonicalJsonBytes(finalState);
-    if (Buffer.from(a).equals(Buffer.from(b))) {
-      return null;
-    }
-    return { replace: finalState };
+    const delta = Buffer.from(a).equals(Buffer.from(b)) ? null : { replace: finalState };
+    emit({ kind: 'Witness', delta, effect: { read: [], write: [], external: [] } });
+    ['delta', 'effect'].forEach(target => emit({ kind: 'Normalization', target: target as any }));
+    return delta;
   }
 }
 

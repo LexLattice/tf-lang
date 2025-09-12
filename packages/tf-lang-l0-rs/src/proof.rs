@@ -42,3 +42,19 @@ pub enum ProofTag {
     Refutation { code: String, msg: Option<String> },
     Conservativity { callee: String, expected: String, found: String },
 }
+
+use once_cell::sync::Lazy;
+use std::sync::Mutex;
+use crate::env::dev_proofs_enabled;
+
+pub static PROOF_LOG: Lazy<Mutex<Vec<ProofTag>>> = Lazy::new(|| Mutex::new(Vec::new()));
+
+pub fn emit(tag: ProofTag) {
+    if dev_proofs_enabled() {
+        PROOF_LOG.lock().unwrap().push(tag);
+    }
+}
+
+pub fn flush() -> Vec<ProofTag> {
+    PROOF_LOG.lock().unwrap().drain(..).collect()
+}

@@ -15,7 +15,7 @@ OUT_DIR=".codex/runs"
 WIN_DIR="$OUT_DIR/winner"
 mkdir -p "$WIN_DIR"
 
-FILES=("REPORT.md" "B2-COMPLIANCE.md" "OBS_LOG.md" "CHANGES.md")
+FILES=("REPORT.md" "COMPLIANCE.md" "OBS_LOG.md" "CHANGES.md")
 PRS_SPEC=()
 DO_COMMIT=0
 COMMIT_MSG="codex: collect parallel run reports"

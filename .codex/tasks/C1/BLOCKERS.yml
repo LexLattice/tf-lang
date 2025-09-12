@@ -5,5 +5,6 @@
 - Outputs must be deterministic (canonical JSON bytes & hashes where relevant).
 - Host must not use files or external DBs; in-memory only.
 - Only `/plan` and `/apply` endpoints are allowed.
-- `/plan` and `/apply` must be idempotent.
+- /plan` and `/apply` must be idempotent.
 - Proof artifacts must be gated behind `DEV_PROOFS=1`.
+- Blocked by: #34, #35, #36

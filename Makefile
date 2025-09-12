@@ -57,3 +57,9 @@ prbundle:
 	fi
 	@if [ -n "$(OUT)" ]; then OUTARG="-o $(OUT)"; else OUTARG=""; fi; \
 	bash ./scripts/prbundle.sh -r "$(REPO)" $$OUTARG $(PRS)
+
+collect-reports:
+	@./.codex/scripts/collect-run-reports.sh --prs $(PRS)
+# usage:
+# make collect-reports PRS="30:A 31:B 32:C 33:D"
+

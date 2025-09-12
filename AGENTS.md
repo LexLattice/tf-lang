@@ -1,28 +1,89 @@
-# AGENTS (routing + phases; project specifics live in .codex)
+title: Agents Guide (Coder Role)
+version: 1.0
+# Machine-readable index for routers:
+agents_index:
+  coder:
+    anchor: "AGENT:CODER"
+    start: "<!-- BEGIN AGENT:CODER -->"
+    end:   "<!-- END AGENT:CODER -->"
+# Default task filled by orchestration when dispatching runs
+task_default: "{{TASK_ID}}"
+base_ref_default: "{{BASE_REF}}"
+---
 
-**Precedence:** Custom instructions > this file > repo files.  
-**Roles:** codex/coder, codex/ontology-reviewer.  
-**Always:** no binaries; keep patches minimal & test-backed.
+# Agents Guide — Single Role
 
-## Files to consult (if present)
-- `.codex/LESSONS.md`      ← always read; compact rules
-- `.codex/PLAN-*.md`       ← optional plan; pick latest version
-- `.codex/briefs/<TASK>.md`← task brief selected via TASK token or PR/branch title
-- `.codex/JOURNAL.md`      ← append-only; do not reread each task
-- `.codex/self-plans/<TASK>.md` ← phase 1 output
-- `.codex/polish/<TASK>.md`     ← phase 3 output
+**Meta-instruction (applicability):**  
+The section below applies **only** when the invoking prompt **explicitly mentions** the CODER role  
+(e.g., contains `role: coder`, `agent: coder`, `@coder`, or `AGENT:CODER`).  
+If the role is not explicitly mentioned, **ignore this file.**
 
-## 4-phase loop (auto-advance; MAX_POLISH=1)
-1) **Plan (architect):** write `.codex/self-plans/<TASK>.md` with steps, tests, risks, DoD. No edits.  
-2) **Implement (coder):** apply plan; update/add tests; append one A7 entry to `JOURNAL.md`; add ≤1 new bullet to `LESSONS.md` only if a general rule emerged.  
-3) **Polish (ontology reviewer):** review **current PR diff only**; write `.codex/polish/<TASK>.md` with minimal, safe improvements.  
-4) **Apply polish (coder):** implement polish notes; keep diff tiny. Stop after one polish pass.
+---
 
-## TASK selection
-- If `TASK=<token>` is provided, use it. Else infer from PR title/branch (e.g., `A7`). If none, abort and ask for TASK.
+<!-- =========================== BEGIN AGENT:CODER =========================== -->
+<!-- BEGIN AGENT:CODER -->
 
-## Guardrails
-- Integer-only semantics; assertions/probes **fail hard** (no `null` on invalid).  
-- RFC6901 pointers; invalid traversal → `null` where stated by runner spec; effects in normalized form (sorted, unique).  
-- Do **not** change CI workflows unless explicitly asked.
+# CODER — Parallel Implementation Role
 
+You are one of N parallel implementation attempts for `{{TASK_ID}}` starting from `{{BASE_REF}}`.  
+You receive **what** to achieve and **what not** to do. Do **not** propose plans; **implement** and then **report**.
+
+## Inputs
+- **Task spec (authoritative):**
+  - `tasks/{{TASK_ID}}/END_GOAL.md`
+  - `tasks/{{TASK_ID}}/BLOCKERS.yml`
+  - `tasks/{{TASK_ID}}/ACCEPTANCE.md`
+- **Base ref:** `{{BASE_REF}}` (branch/tag/commit provided by orchestrator)
+- **Run label:** `{{RUN_LABEL}}` (e.g., A/B/C/D)
+
+## Phase 1 — Implement (no pre-planning)
+- Satisfy **END GOAL** while respecting **all BLOCKERS**.
+- Add/adjust tests to pass **ACCEPTANCE** (determinism, parity, etc.).
+- Keep diffs **minimal**; no speculative refactors; no schema changes unless brief allows.
+
+## Phase 2 — Report (concise)
+Create the following at the PR root:
+- `CHANGES.md` — 1–2 short paragraphs (what changed, why).
+- `B2-COMPLIANCE.md` — check all blockers; link to code/tests.
+- `OBS_LOG.md` — brief notes on strategy/tradeoffs; record seed/temperature if known.
+- `REPORT.md` — use template:
+
+```
+
+# REPORT — {{TASK\_ID}} — Run {{RUN\_LABEL}}
+
+## End Goal fulfillment
+
+* EG-1: \<proof with code/test link>
+* EG-2: <…>
+
+## Blockers honored
+
+* B-1: ✅ <code link>
+* B-2: ✅ <code link>
+
+## Lessons / tradeoffs (≤5 bullets)
+
+* …
+
+## Bench notes (optional, off-mode)
+
+* flag check: \<ns/op or observation>
+* no-op emit: \<ns/op or observation>
+
+```
+
+## Output / PR protocol
+- Branch: `{{TASK_ID}}/run-{{RUN_LABEL}}`
+- PR title: `{{TASK_ID}}: <one-line summary> [{{RUN_LABEL}}]`
+- Labels: `agent:coder`, `task:{{TASK_ID}}`, `run:{{RUN_LABEL}}`
+- CI must pass all acceptance gates. Do **not** merge other changes.
+
+## Hard rules (enforced)
+- **BLOCKERS:** every item in `tasks/{{TASK_ID}}/BLOCKERS.yml` is a hard fail if violated.
+- **Determinism:** tests must pass repeatedly under parallel execution.
+- **Silence on HOW:** do not include design explorations in the PR body; keep rationale in `REPORT.md`.
+- **Minimal surface:** only touch files necessary to meet END GOAL + tests.
+
+<!-- END AGENT:CODER -->
+<!-- ============================ END AGENT:CODER ============================ -->

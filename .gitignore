@@ -55,3 +55,6 @@ __pycache__/
 
 # --- Docker / artifacts ---
 *.zip
+
+# Docs PR previews
+docs/pr/

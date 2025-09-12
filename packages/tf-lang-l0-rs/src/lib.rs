@@ -5,5 +5,6 @@ pub mod util;
 pub mod vm;
 pub mod ops;
 pub mod proof;
+pub mod env;
 
 // Avoid glob re-exports at crate root to prevent ambiguous names (e.g., `types`).

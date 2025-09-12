@@ -5,4 +5,4 @@ export * as check from './check/index.js';
 export { canonicalJsonBytes } from './canon/json.js';
 export { blake3hex } from './canon/hash.js';
 export * as ops from './ops/index.js';
-export * as proof from './proof/tags.js';
+export * as proof from './proof/index.js';

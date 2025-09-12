@@ -2,6 +2,8 @@
   "name": "tf-lang-l0",
   "version": "0.1.0",
   "type": "module",
+  "main": "src/index.ts",
+  "exports": "./src/index.ts",
   "license": "MIT",
   "description": "TF-Lang L0: minimal deterministic kernel (VM + checker + model) in TypeScript",
   "scripts": {

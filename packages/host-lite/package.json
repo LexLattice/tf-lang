@@ -9,7 +9,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "fastify": "^4.28.1",
     "tf-lang-l0": "workspace:*"
   },
   "devDependencies": {

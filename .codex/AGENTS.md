@@ -37,7 +37,6 @@ You receive **what** to achieve and **what not** to do. Do **not** propose plans
   - `.codex/tasks/{{TASK_ID}}/BLOCKERS.yml`
   - `.codex/tasks/{{TASK_ID}}/ACCEPTANCE.md`
 - **Base ref:** `{{BASE_REF}}` (branch/tag/commit provided by orchestrator)
-- **Run label:** `{{RUN_LABEL}}` (e.g., A/B/C/D)
 
 ## Phase 1 — Implement (no pre-planning)
 - Satisfy **END GOAL** while respecting **all BLOCKERS**.
@@ -71,8 +70,8 @@ Create the following at the PR root:
 
 ## Output / PR protocol
 - Branch: `{{TASK_ID}}/run-{{RUN_LABEL}}`
-- PR title: `{{TASK_ID}}: <one-line summary> [{{RUN_LABEL}}]`
-- Labels: `agent:coder`, `task:{{TASK_ID}}`, `run:{{RUN_LABEL}}`
+- PR title: `{{TASK_ID}}: <one-line summary>`
+- Labels: `agent:coder`, `task:{{TASK_ID}}`
 - CI must pass all acceptance gates. Do **not** merge other changes.
 
 ## Hard rules (enforced)

@@ -61,7 +61,11 @@ prbundle:
 collect-reports:
 	@./.codex/scripts/collect-run-reports.sh --prs $(PRS)
 # usage:
-# make collect-reports PRS="30:A 31:B 32:C 33:D"
+#  with explicit labels:
+#    make collect-reports PRS="30:A 31:B 32:C 33:D"
+#  or let the script auto-label A/B/C/D by PR number:
+#    make collect-reports PRS="30 31 32 33"
+#  (labels are optional; ordering is numeric by PR)
 
 briefs-check:
 	@python3 .codex/scripts/lint-briefs.py

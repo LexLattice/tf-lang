@@ -26,17 +26,26 @@ while [[ $# -gt 0 ]]; do
     --prs) shift; while [[ $# -gt 0 && "$1" != --* ]]; do PRS_SPEC+=("$1"); shift; done ;;
     --commit) DO_COMMIT=1; shift ;;
     -m|--message) COMMIT_MSG="$2"; shift 2 ;;
-    -h|--help)
-      sed -n '1,40p' "$0"; exit 0 ;;
-    *)
-      echo "Unknown arg: $1" >&2; exit 1 ;;
+    -h|--help) sed -n '1,60p' "$0"; exit 0 ;;
+    *) echo "Unknown arg: $1" >&2; exit 1 ;;
   esac
 done
 
 if [[ ${#PRS_SPEC[@]} -eq 0 ]]; then
-  echo "No PR specs provided. Use: --prs 30:A 31:B 32:C 33:D" >&2
-  exit 1
+  echo "Use: --prs <pr[:LABEL]> ..." >&2; exit 1
 fi
+
+# Auto-label any entries missing :LABEL → A,B,C,...
+LABELS=(A B C D E F G H I J K L)
+# Sort PRs numerically for stable assignment
+mapfile -t PRS_SPEC < <(printf "%s\n" "${PRS_SPEC[@]}" | sort -n -t: -k1,1)
+auto_i=0
+for i in "${!PRS_SPEC[@]}"; do
+  if [[ "${PRS_SPEC[$i]}" != *:* ]]; then
+    PRS_SPEC[$i]="${PRS_SPEC[$i]}:${LABELS[$auto_i]}"
+    auto_i=$((auto_i+1))
+  fi
+done
 
 have_gh() { command -v gh >/dev/null 2>&1; }
 

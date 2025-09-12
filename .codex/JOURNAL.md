@@ -512,3 +512,16 @@ Next suggested step:
   - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
 - Results:
   - tests passed
+## [B2] Dev-proof caching
+- Start: 2025-09-12 00:00 UTC
+- End:   2025-09-12 00:30 UTC
+- Changes:
+  - cached DEV_PROOFS flag with reset hooks in TS and Rust
+  - added shared vector and cache tests to ensure parity and determinism
+- Verification:
+  - pnpm -C packages/tf-lang-l0-ts build
+  - node -e "import('./packages/tf-lang-l0-ts/dist/index.js')"
+  - pnpm -C packages/tf-lang-l0-ts test
+  - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
+- Results:
+  - tests and build succeeded

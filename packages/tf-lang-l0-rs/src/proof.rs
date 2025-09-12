@@ -35,7 +35,7 @@ pub enum TransportOp {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "kind")]
-pub enum Tag {
+pub enum ProofTag {
     Witness { delta: Delta, effect: Effect },
     Normalization { target: NormalizationTarget },
     Transport { op: TransportOp, region: String },

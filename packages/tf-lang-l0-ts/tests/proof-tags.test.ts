@@ -11,4 +11,9 @@ describe('proof tags', () => {
     const tags: ProofTag[] = [w, n, t, r, c];
     expect(tags.length).toBe(5);
   });
+
+  it('shape is discriminated by kind', () => {
+    const t: ProofTag = { kind: 'Transport', op: 'LENS_PROJ', region: 'r' };
+    expect(Object.keys(t).sort()).toEqual(['kind','op','region'].sort());
+  });
 });

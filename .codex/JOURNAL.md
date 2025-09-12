@@ -487,3 +487,16 @@ Next suggested step:
   - tests and vectors passed
 - Next suggested step:
   - emit tags when DEV_PROOFS=1 (B2)
+## [B1] Polish — ProofTag parity
+- Start: 2025-09-11 22:55 UTC
+- End:   2025-09-11 22:59 UTC
+- Changes:
+  - renamed Rust Tag enum to ProofTag for parity
+  - added serde round-trip tests for Transport and Normalization tags
+  - added TS discriminated union shape check
+- Verification:
+  - pnpm -C packages/tf-lang-l0-ts test
+  - pnpm -C packages/tf-lang-l0-ts vectors
+  - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
+- Results:
+  - tests and vectors passed

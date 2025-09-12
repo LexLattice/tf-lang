@@ -62,22 +62,19 @@ static DEV_PROOFS_STATE: AtomicU8 = AtomicU8::new(DevProofsState::Uninit as u8);
 /// Returns true when DEV_PROOFS=1. First call reads the environment and caches
 /// the result for subsequent constant-time checks.
 pub fn dev_proofs_enabled() -> bool {
-    match DEV_PROOFS_STATE.load(Ordering::Relaxed) {
-        x if x == DevProofsState::Enabled as u8 => true,
-        x if x == DevProofsState::Disabled as u8 => false,
-        _ => {
-            let enabled = std::env::var("DEV_PROOFS").ok().as_deref() == Some("1");
-            DEV_PROOFS_STATE.store(
-                if enabled {
-                    DevProofsState::Enabled as u8
-                } else {
-                    DevProofsState::Disabled as u8
-                },
-                Ordering::Relaxed,
-            );
-            enabled
-        }
+    let state = DEV_PROOFS_STATE.load(Ordering::Relaxed);
+    if state != DevProofsState::Uninit as u8 {
+        return state == DevProofsState::Enabled as u8;
     }
+
+    let enabled = std::env::var("DEV_PROOFS").ok().as_deref() == Some("1");
+    let new_state = if enabled {
+        DevProofsState::Enabled as u8
+    } else {
+        DevProofsState::Disabled as u8
+    };
+    DEV_PROOFS_STATE.store(new_state, Ordering::Relaxed);
+    enabled
 }
 
 pub fn emit(tag: ProofTag) {

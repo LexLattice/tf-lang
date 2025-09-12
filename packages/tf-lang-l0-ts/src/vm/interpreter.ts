@@ -111,9 +111,8 @@ export class VM {
     const delta = Buffer.from(a).equals(Buffer.from(b)) ? null : { replace: finalState };
     if (devProofsEnabled()) {
       emit({ kind: 'Witness', delta, effect: { read: [], write: [], external: [] } });
-      ['delta', 'effect'].forEach(target => emit({ kind: 'Normalization', target: target as any }));
+      (['delta', 'effect'] as const).forEach(target => emit({ kind: 'Normalization', target }));
     }
     return delta;
   }
 }
-

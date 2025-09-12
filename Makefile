@@ -25,6 +25,7 @@ build:
 test:
 	pnpm -C packages/tf-lang-l0-ts test
 	cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
+	bash tests/test_prbundle.sh
 
 golden:
 	scripts/golden.sh
@@ -41,3 +42,18 @@ docker-up:
 
 docker-down:
 	docker compose down
+
+REPO ?= LexLattice/tf-lang
+OUT  ?=
+PRS  ?=
+
+.PHONY: prbundle
+prbundle:
+	@if [ -z "$(PRS)" ]; then \
+	  echo "Usage: make prbundle PRS='19-22'  (or '19 20 21 22', or mixed '19-20 22')"; \
+	  echo "Default output: docs/pr/pr<PRS>.md (e.g., pr19_22.md)"; \
+	  echo "Override: REPO=owner/repo OUT=file.md"; \
+	  exit 2; \
+	fi
+	@if [ -n "$(OUT)" ]; then OUTARG="-o $(OUT)"; else OUTARG=""; fi; \
+	bash ./scripts/prbundle.sh -r "$(REPO)" $$OUTARG $(PRS)

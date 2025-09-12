@@ -500,3 +500,47 @@ Next suggested step:
   - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
 - Results:
   - tests and vectors passed
+## [B2] Proof tag emission
+- Start: 2025-09-11 23:00 UTC
+- End:   2025-09-11 23:30 UTC
+- Changes:
+  - added DEV_PROOFS-gated proof log in TS and Rust
+  - VMs emit Witness, Normalization, Transport, Refutation, and Conservativity tags
+  - tests cover tag emission toggled by DEV_PROOFS
+- Verification:
+  - pnpm -C packages/tf-lang-l0-ts test
+  - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
+- Results:
+  - tests passed
+
+## [B2] Review nits PR #33
+- Start: 2025-09-12 16:38 UTC
+- End:   2025-09-12 16:39 UTC
+- Changes:
+  - Rust: linearized `dev_proofs_enabled` for clarity (cached flag logic unchanged)
+  - TS: removed `as any` via const tuple assertion in `interpreter.ts`
+- Verification:
+  - pnpm -C packages/tf-lang-l0-ts build
+  - pnpm -C packages/tf-lang-l0-ts test
+  - pnpm -C packages/tf-lang-l0-ts vectors
+  - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml --tests -- --nocapture
+  - node .codex/compare-reports.mjs
+- Results:
+  - builds succeeded
+  - TS tests passed (16)
+  - Rust tests passed (14)
+  - vector reports match (deterministic)
+## [B2-reboot] Proof tag caching
+- Start: 2025-09-12 10:15 UTC
+- End:   2025-09-12 10:25 UTC
+- Changes:
+  - Cached DEV_PROOFS flag with reset hooks in TS and Rust.
+  - Thread-local Rust proof log; guarded emissions in both VMs.
+  - Added cross-runtime vector and caching tests.
+- Verification:
+  - pnpm -C packages/tf-lang-l0-ts test
+  - pnpm -C packages/tf-lang-l0-ts build
+  - node --input-type=module -e "import('./packages/tf-lang-l0-ts/dist/src/index.js')"
+  - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
+- Results:
+  - tests passed

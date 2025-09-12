@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { Witness, Normalization, Transport, Refutation, Conservativity, ProofTag } from '../src/proof/tags.js';
+import type { Witness, Normalization, Transport, Refutation, Conservativity, ProofTag } from '../src/proof/index.js';
 
 describe('proof tags', () => {
   it('compile tag shapes', () => {

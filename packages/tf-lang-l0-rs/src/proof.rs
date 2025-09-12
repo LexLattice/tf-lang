@@ -42,3 +42,54 @@ pub enum ProofTag {
     Refutation { code: String, msg: Option<String> },
     Conservativity { callee: String, expected: String, found: String },
 }
+
+use std::cell::RefCell;
+use std::sync::atomic::{AtomicU8, Ordering};
+
+thread_local! {
+    static PROOF_LOG: RefCell<Vec<ProofTag>> = RefCell::new(Vec::new());
+}
+
+#[repr(u8)]
+enum DevProofsState {
+    Uninit = 0,
+    Disabled = 1,
+    Enabled = 2,
+}
+
+static DEV_PROOFS_STATE: AtomicU8 = AtomicU8::new(DevProofsState::Uninit as u8);
+
+/// Returns true when DEV_PROOFS=1. First call reads the environment and caches
+/// the result for subsequent constant-time checks.
+pub fn dev_proofs_enabled() -> bool {
+    let state = DEV_PROOFS_STATE.load(Ordering::Relaxed);
+    if state != DevProofsState::Uninit as u8 {
+        return state == DevProofsState::Enabled as u8;
+    }
+
+    let enabled = std::env::var("DEV_PROOFS").ok().as_deref() == Some("1");
+    let new_state = if enabled {
+        DevProofsState::Enabled as u8
+    } else {
+        DevProofsState::Disabled as u8
+    };
+    DEV_PROOFS_STATE.store(new_state, Ordering::Relaxed);
+    enabled
+}
+
+pub fn emit(tag: ProofTag) {
+    if !dev_proofs_enabled() {
+        return;
+    }
+    PROOF_LOG.with(|log| log.borrow_mut().push(tag));
+}
+
+pub fn flush() -> Vec<ProofTag> {
+    PROOF_LOG.with(|log| log.take())
+}
+
+/// Test-only hook: clears cached flag and log so next call re-reads env.
+pub fn reset_for_test() {
+    DEV_PROOFS_STATE.store(DevProofsState::Uninit as u8, Ordering::Relaxed);
+    PROOF_LOG.with(|log| log.borrow_mut().clear());
+}

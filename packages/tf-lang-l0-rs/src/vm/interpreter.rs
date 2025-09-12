@@ -2,7 +2,7 @@ use crate::canon::{blake3_hex, canonical_json_bytes};
 use crate::model::bytecode::Instr;
 use crate::model::{JournalEntry, Program, World};
 use crate::vm::opcode::Host;
-use crate::proof::{ProofTag, Effect, NormalizationTarget, TransportOp, Replace, emit};
+use crate::proof::{ProofTag, Effect, NormalizationTarget, TransportOp, Replace, emit, enabled};
 use serde_json::Value;
 
 /// Simple VM running SSA bytecode with JSON values as registers.
@@ -38,7 +38,9 @@ impl<'h> VM<'h> {
                 Instr::Assert { pred, msg } => {
                     let v = get(*pred, &regs)?;
                     if !v.as_bool().unwrap_or(false) {
-                        emit(ProofTag::Refutation { code: "ASSERT".into(), msg: Some(msg.clone()) });
+                        if enabled() {
+                            emit(ProofTag::Refutation { code: "ASSERT".into(), msg: Some(msg.clone()) });
+                        }
                         return Err(VmError::Invalid(format!("ASSERT failed: {}", msg)).into());
                     }
                 }
@@ -99,7 +101,9 @@ impl<'h> VM<'h> {
                 }
                 Instr::LensProj { dst, state, region } => {
                     let sub = self.host.lens_project(get(*state, &regs)?, region)?;
-                    emit(ProofTag::Transport { op: TransportOp::LensProj, region: region.clone() });
+                    if enabled() {
+                        emit(ProofTag::Transport { op: TransportOp::LensProj, region: region.clone() });
+                    }
                     regs[*dst as usize] = sub;
                 }
                 Instr::LensMerge {
@@ -111,7 +115,9 @@ impl<'h> VM<'h> {
                     let merged = self
                         .host
                         .lens_merge(get(*state, &regs)?, region, get(*sub, &regs)?)?;
-                    emit(ProofTag::Transport { op: TransportOp::LensMerge, region: region.clone() });
+                    if enabled() {
+                        emit(ProofTag::Transport { op: TransportOp::LensMerge, region: region.clone() });
+                    }
                     regs[*dst as usize] = merged;
                 }
                 Instr::PlanSim {
@@ -178,7 +184,9 @@ impl<'h> VM<'h> {
                         a.push(get(*r, &regs)?.clone());
                     }
                     let out = self.host.call_tf(tf_id, &a).map_err(|e| {
-                        emit(ProofTag::Conservativity { callee: tf_id.clone(), expected: "ok".into(), found: format!("{}", e) });
+                        if enabled() {
+                            emit(ProofTag::Conservativity { callee: tf_id.clone(), expected: "ok".into(), found: format!("{}", e) });
+                        }
                         e
                     })?;
                     regs[*dst as usize] = out;
@@ -196,9 +204,11 @@ impl<'h> VM<'h> {
         } else {
             Some(Replace { replace: final_state.clone() })
         };
-        emit(ProofTag::Witness { delta: delta.clone(), effect: Effect::default() });
-        for target in [NormalizationTarget::Delta, NormalizationTarget::Effect] {
-            emit(ProofTag::Normalization { target });
+        if enabled() {
+            emit(ProofTag::Witness { delta: delta.clone(), effect: Effect::default() });
+            for target in [NormalizationTarget::Delta, NormalizationTarget::Effect] {
+                emit(ProofTag::Normalization { target });
+            }
         }
         let out = match delta {
             None => serde_json::Value::Null,

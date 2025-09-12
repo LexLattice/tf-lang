@@ -512,3 +512,15 @@ Next suggested step:
   - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
 - Results:
   - tests passed
+## [B2] Dev proof flag cache
+- Start: 2025-09-12 00:00 UTC
+- End:   2025-09-12 00:30 UTC
+- Changes:
+  - cached DEV_PROOFS flag with reset hooks; thread-local proof logs
+  - added parity vector, cache/reset tests, parallel isolation, and ESM build test
+- Verification:
+  - pnpm -C packages/tf-lang-l0-ts test
+  - pnpm -C packages/tf-lang-l0-ts build
+  - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
+- Results:
+  - tests passed

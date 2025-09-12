@@ -43,17 +43,44 @@ pub enum ProofTag {
     Conservativity { callee: String, expected: String, found: String },
 }
 
-use once_cell::sync::Lazy;
-use std::sync::Mutex;
+use std::cell::RefCell;
+use std::sync::atomic::{AtomicU8, Ordering};
 
-pub static PROOF_LOG: Lazy<Mutex<Vec<ProofTag>>> = Lazy::new(|| Mutex::new(Vec::new()));
+thread_local! {
+    static PROOF_LOG: RefCell<Vec<ProofTag>> = RefCell::new(Vec::new());
+}
 
-pub fn emit(tag: ProofTag) {
-    if std::env::var("DEV_PROOFS").unwrap_or_default() == "1" {
-        PROOF_LOG.lock().unwrap().push(tag);
+const UNINIT: u8 = 0;
+const DISABLED: u8 = 1;
+const ENABLED: u8 = 2;
+static DEV_PROOFS: AtomicU8 = AtomicU8::new(UNINIT);
+
+pub fn enabled() -> bool {
+    match DEV_PROOFS.load(Ordering::Relaxed) {
+        ENABLED => true,
+        DISABLED => false,
+        _ => {
+            let val = if std::env::var("DEV_PROOFS").map(|v| v == "1").unwrap_or(false) {
+                ENABLED
+            } else {
+                DISABLED
+            };
+            DEV_PROOFS.store(val, Ordering::Relaxed);
+            val == ENABLED
+        }
     }
 }
 
+#[doc(hidden)]
+pub fn reset() {
+    DEV_PROOFS.store(UNINIT, Ordering::Relaxed);
+    PROOF_LOG.with(|l| l.borrow_mut().clear());
+}
+
+pub fn emit(tag: ProofTag) {
+    PROOF_LOG.with(|l| l.borrow_mut().push(tag));
+}
+
 pub fn flush() -> Vec<ProofTag> {
-    PROOF_LOG.lock().unwrap().drain(..).collect()
+    PROOF_LOG.with(|l| l.borrow_mut().drain(..).collect())
 }

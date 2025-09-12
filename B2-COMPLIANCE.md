@@ -1,0 +1,12 @@
+- No per-call locking on dev flag check: ✅ `devProofsEnabled` and atomic `enabled` cache env once (`packages/tf-lang-l0-ts/src/proof/index.ts`, `packages/tf-lang-l0-rs/src/proof.rs`).
+- No `static mut` / `unsafe`: ✅ atomic flag and `thread_local` (`packages/tf-lang-l0-rs/src/proof.rs`).
+- No `unwrap()` on synchronization primitives: ✅ none used; `RefCell` borrows without unwrap.
+- No whole-suite test serialization: ✅ tests run with default parallel runners (`pnpm test`, `cargo test`).
+- No weakening TypeScript typing: ✅ strict types in proof modules/tests.
+- No ESM bare imports without extension: ✅ all internal imports include `.js` (e.g., `packages/tf-lang-l0-ts/src/vm/interpreter.ts`).
+- No magic numbers for cache/state: ✅ boolean `enabled` flag and named enums.
+- No unnecessary cloning/copying on hot paths: ✅ tag construction guarded by `devProofsEnabled()`/`enabled()` before clones.
+- No shared global mutable proof logs: ✅ thread-local log in Rust and resettable array in TS prevent cross-test leakage.
+- No dropping events when DEV_PROOFS=1: ✅ `emit` always pushes when enabled; parity tests validate capture.
+- No reliance on global env mutation across tests: ✅ `resetDevProofsForTest` and `reset` reset caches.
+- Tag schema/hashing unchanged: ✅ tests/vectors/proof_tags.json uses existing schema.

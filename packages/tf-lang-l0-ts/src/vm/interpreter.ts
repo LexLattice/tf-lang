@@ -4,6 +4,12 @@ import type { Value, World, JournalEntry } from '../model/types.js';
 import { canonicalJsonBytes, blake3hex } from '../canon/index.js';
 import { emit } from '../proof/index.js';
 
+function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
 export class VM {
   constructor(public host: Host) {}
 
@@ -108,9 +114,9 @@ export class VM {
     // identity => null; otherwise full replace
     const a = canonicalJsonBytes(initialState);
     const b = canonicalJsonBytes(finalState);
-    const delta = Buffer.from(a).equals(Buffer.from(b)) ? null : { replace: finalState };
+    const delta = bytesEqual(a, b) ? null : { replace: finalState };
     emit({ kind: 'Witness', delta, effect: { read: [], write: [], external: [] } });
-    ['delta', 'effect'].forEach(target => emit({ kind: 'Normalization', target: target as any }));
+    (['delta', 'effect'] as const).forEach(target => emit({ kind: 'Normalization', target }));
     return delta;
   }
 }

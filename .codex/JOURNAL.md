@@ -535,3 +535,15 @@ Next suggested step:
   - pnpm -C packages/tf-lang-l0-ts test
 - Results:
   - tests passed
+## [B2-polish3] Async proof log & atomic env cache
+- Start: 2025-09-12 08:40 UTC
+- End:   2025-09-12 08:45 UTC
+- Changes:
+  - replaced TS proof log with AsyncLocalStorage and added explicit .js imports
+  - switched Rust DEV_PROOFS cache to atomic and removed unnecessary clone
+  - strengthened env flag cache tests in TS and Rust
+- Verification:
+  - pnpm -C packages/tf-lang-l0-ts test
+  - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
+- Results:
+  - tests passed

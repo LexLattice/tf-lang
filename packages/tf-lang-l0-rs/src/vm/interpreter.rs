@@ -194,15 +194,15 @@ impl<'h> VM<'h> {
         let delta = if final_state == initial_state {
             None
         } else {
-            Some(Replace { replace: final_state.clone() })
+            Some(Replace { replace: final_state })
         };
         emit(ProofTag::Witness { delta: delta.clone(), effect: Effect::default() });
         for target in [NormalizationTarget::Delta, NormalizationTarget::Effect] {
             emit(ProofTag::Normalization { target });
         }
-        let out = match delta {
+        let out = match &delta {
             None => serde_json::Value::Null,
-            Some(d) => serde_json::json!({ "replace": d.replace }),
+            Some(d) => serde_json::json!({ "replace": d.replace.clone() }),
         };
 
         Ok(out)

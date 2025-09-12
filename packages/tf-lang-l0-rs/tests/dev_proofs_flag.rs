@@ -11,4 +11,5 @@ fn dev_proofs_is_cached() {
     let _g2 = EnvVarGuard::unset("DEV_PROOFS");
     assert!(dev_proofs_enabled());
     __reset_env_cache_for_tests__();
+    assert!(!dev_proofs_enabled());
 }

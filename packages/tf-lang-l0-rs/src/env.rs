@@ -1,20 +1,27 @@
-use std::sync::OnceLock;
+use std::sync::atomic::{AtomicU8, Ordering};
+
 /// Centralized, cached environment feature flags for the Rust runtime.
-static mut DEV_PROOFS: OnceLock<bool> = OnceLock::new();
+/// 0: uninitialized, 1: false, 2: true
+static DEV_PROOFS_STATE: AtomicU8 = AtomicU8::new(0);
 
 pub fn dev_proofs_enabled() -> bool {
-    unsafe {
-        *DEV_PROOFS.get_or_init(|| {
-            std::env::var("DEV_PROOFS")
-                .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-                .unwrap_or(false)
-        })
+    let state = DEV_PROOFS_STATE.load(Ordering::Acquire);
+    if state != 0 {
+        return state == 2;
+    }
+
+    let val = std::env::var("DEV_PROOFS")
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+    let new_state = if val { 2 } else { 1 };
+
+    match DEV_PROOFS_STATE.compare_exchange(0, new_state, Ordering::Release, Ordering::Acquire) {
+        Ok(_) => val,
+        Err(current_state) => current_state == 2,
     }
 }
 
 /// TESTS ONLY: clear cached flags
 pub fn __reset_env_cache_for_tests__() {
-    unsafe {
-        DEV_PROOFS.take();
-    }
+    DEV_PROOFS_STATE.store(0, Ordering::Release);
 }

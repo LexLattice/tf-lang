@@ -3,8 +3,8 @@ import { VM } from '../src/vm/index.js';
 import type { Program } from '../src/model/bytecode.js';
 import { DummyHost } from '../src/host/memory.js';
 import { flush } from '../src/proof/index.js';
-import { withEnv } from './helpers/env';
-import { __resetEnvCacheForTests__ } from '../src/util/env';
+import { withEnv } from './helpers/env.js';
+import { __resetEnvCacheForTests__ } from '../src/util/env.js';
 
 describe('proof dev mode', () => {
   afterEach(() => __resetEnvCacheForTests__());

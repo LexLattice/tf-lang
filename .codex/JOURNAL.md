@@ -500,3 +500,18 @@ Next suggested step:
   - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
 - Results:
   - tests and vectors passed
+## [B2] Minimal proof emissions
+- Start: 2025-09-11 23:00 UTC
+- End:   2025-09-11 23:15 UTC
+- Changes:
+  - Added DEV_PROOFS-gated proof logging utilities in TS and Rust
+  - Instrumented VMs to emit Witness, Normalization, Transport, Refutation, and Conservativity tags
+  - Added unit tests verifying tags present only in dev mode
+- Verification:
+  - pnpm -C packages/tf-lang-l0-ts test
+  - pnpm -C packages/tf-lang-l0-ts vectors
+  - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
+- Results:
+  - tests and vectors passed
+- Next suggested step:
+  - C1

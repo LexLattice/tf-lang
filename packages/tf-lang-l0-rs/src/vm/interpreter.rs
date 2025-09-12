@@ -2,6 +2,7 @@ use crate::canon::{blake3_hex, canonical_json_bytes};
 use crate::model::bytecode::Instr;
 use crate::model::{JournalEntry, Program, World};
 use crate::vm::opcode::Host;
+use crate::proof::{emit, ProofTag, TransportOp, NormalizationTarget, Effect, Replace};
 use serde_json::Value;
 
 /// Simple VM running SSA bytecode with JSON values as registers.
@@ -37,6 +38,7 @@ impl<'h> VM<'h> {
                 Instr::Assert { pred, msg } => {
                     let v = get(*pred, &regs)?;
                     if !v.as_bool().unwrap_or(false) {
+                        emit(ProofTag::Refutation { code: "E_ASSERT".into(), msg: Some(msg.clone()) });
                         return Err(VmError::Invalid(format!("ASSERT failed: {}", msg)).into());
                     }
                 }
@@ -98,6 +100,7 @@ impl<'h> VM<'h> {
                 Instr::LensProj { dst, state, region } => {
                     let sub = self.host.lens_project(get(*state, &regs)?, region)?;
                     regs[*dst as usize] = sub;
+                    emit(ProofTag::Transport { op: TransportOp::LensProj, region: region.clone() });
                 }
                 Instr::LensMerge {
                     dst,
@@ -109,6 +112,7 @@ impl<'h> VM<'h> {
                         self.host
                             .lens_merge(get(*state, &regs)?, region, get(*sub, &regs)?)?;
                     regs[*dst as usize] = merged;
+                    emit(ProofTag::Transport { op: TransportOp::LensMerge, region: region.clone() });
                 }
                 Instr::PlanSim {
                     dst_delta,
@@ -173,7 +177,18 @@ impl<'h> VM<'h> {
                     for r in args {
                         a.push(get(*r, &regs)?.clone());
                     }
-                    let out = self.host.call_tf(tf_id, &a)?;
+                    let out = match self.host.call_tf(tf_id, &a) {
+                        Ok(v) => {
+                            if v.is_null() {
+                                emit(ProofTag::Conservativity { callee: tf_id.clone(), expected: "value".into(), found: "null".into() });
+                            }
+                            v
+                        }
+                        Err(e) => {
+                            emit(ProofTag::Conservativity { callee: tf_id.clone(), expected: "ok".into(), found: e.to_string() });
+                            return Err(e);
+                        }
+                    };
                     regs[*dst as usize] = out;
                 }
             }
@@ -187,8 +202,16 @@ impl<'h> VM<'h> {
         let out = if final_state == initial_state {
             serde_json::Value::Null
         } else {
-            serde_json::json!({ "replace": final_state })
+            serde_json::json!({ "replace": final_state.clone() })
         };
+        let delta_tag = if out.is_null() {
+            None
+        } else {
+            Some(Replace { replace: final_state.clone() })
+        };
+        emit(ProofTag::Witness { delta: delta_tag, effect: Effect::default() });
+        emit(ProofTag::Normalization { target: NormalizationTarget::Delta });
+        emit(ProofTag::Normalization { target: NormalizationTarget::Effect });
 
         Ok(out)
     }

@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::sync::{Mutex, OnceLock};
+use std::env;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Replace {
@@ -41,4 +43,20 @@ pub enum ProofTag {
     Transport { op: TransportOp, region: String },
     Refutation { code: String, msg: Option<String> },
     Conservativity { callee: String, expected: String, found: String },
+}
+
+static LOG: OnceLock<Mutex<Vec<ProofTag>>> = OnceLock::new();
+
+fn log() -> &'static Mutex<Vec<ProofTag>> {
+    LOG.get_or_init(|| Mutex::new(Vec::new()))
+}
+
+pub fn emit(tag: ProofTag) {
+    if env::var("DEV_PROOFS").ok().as_deref() == Some("1") {
+        log().lock().unwrap().push(tag);
+    }
+}
+
+pub fn take() -> Vec<ProofTag> {
+    log().lock().unwrap().drain(..).collect()
 }

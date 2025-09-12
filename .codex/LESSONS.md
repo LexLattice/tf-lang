@@ -18,3 +18,4 @@
 - [A4/A5][2025-09-11] Rule: "LENS ops restricted to dst:0; explicit opcode whitelist." Guardrail: lens:dst_only+opcode_whitelist
 - [A7][2025-09-11] Rule: "Guardrail ops must propagate errors; hosts must not swallow them." Guardrail: host:propagate_guardrail_errors
 - [B1][2025-09-11] Rule: "Proof tags are inert and excluded from hashes." Guardrail: proof:tag_inert
+- [B2][2025-09-11] Rule: "Proof tags emitted only when DEV_PROOFS=1." Guardrail: proof:dev_toggle

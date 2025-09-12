@@ -108,7 +108,7 @@ fn vm_runs_halt_program() -> Result<()> {
         regs: 2,
         instrs: vec![Instr::Halt],
     };
-    let vm = VM { host: &DummyHost };
+    let mut vm = VM::new(&DummyHost);
     let out = vm.run(&prog)?;
     assert_eq!(out, serde_json::Value::Null);
     Ok(())
@@ -143,7 +143,7 @@ fn vm_basic_ops() -> Result<()> {
             Instr::Halt,
         ],
     };
-    let vm = VM { host: &DummyHost };
+    let mut vm = VM::new(&DummyHost);
     let out = vm.run(&prog)?;
     // r0 is returned by our VM.run. It should be untouched Null unless overwritten.
     assert_eq!(out, serde_json::Value::Null);
@@ -237,7 +237,7 @@ fn law_rewind_apply_id_pair_ids_equal() -> Result<()> {
             Instr::Halt,
         ],
     };
-    let vm = VM { host: &DummyHost };
+    let mut vm = VM::new(&DummyHost);
     let out = vm.run(&prog)?;
     let obj = out
         .get("replace")

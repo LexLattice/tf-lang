@@ -1,10 +1,19 @@
 import type { Program } from '../model/bytecode.js';
 import type { Host } from './opcode.js';
 import type { Value, World, JournalEntry } from '../model/types.js';
+import type { ProofTag } from '../proof/tags.js';
 import { canonicalJsonBytes, blake3hex } from '../canon/index.js';
 
 export class VM {
-  constructor(public host: Host) {}
+  constructor(public host: Host) {
+    if (process?.env?.DEV_PROOFS === '1') this.tags = [];
+  }
+
+  tags?: ProofTag[];
+
+  private emit(tag: ProofTag) {
+    this.tags?.push(tag);
+  }
 
   private get(regs: Value[], idx: number): Value {
     if (idx < 0 || idx >= regs.length) throw new Error(`register out of bounds: r${idx}`);
@@ -41,8 +50,16 @@ export class VM {
         }
         case 'SNAP_MAKE': regs[ins.dst] = await this.host.snapshot_make(this.get(regs, ins.state)); break;
         case 'SNAP_ID': regs[ins.dst] = await this.host.snapshot_id(this.get(regs, ins.snapshot)); break;
-        case 'LENS_PROJ': regs[ins.dst] = await this.host.lens_project(this.get(regs, ins.state), ins.region); break;
-        case 'LENS_MERGE': regs[ins.dst] = await this.host.lens_merge(this.get(regs, ins.state), ins.region, this.get(regs, ins.sub)); break;
+        case 'LENS_PROJ': {
+          regs[ins.dst] = await this.host.lens_project(this.get(regs, ins.state), ins.region);
+          this.emit({ kind: 'Transport', op: 'LENS_PROJ', region: ins.region });
+          break;
+        }
+        case 'LENS_MERGE': {
+          regs[ins.dst] = await this.host.lens_merge(this.get(regs, ins.state), ins.region, this.get(regs, ins.sub));
+          this.emit({ kind: 'Transport', op: 'LENS_MERGE', region: ins.region });
+          break;
+        }
         case 'PLAN_SIM': {
           const res: any = await this.host.call_tf("tf://plan/simulate@0.1", [this.get(regs, ins.world), this.get(regs, ins.plan)]);
           regs[ins.dst_delta] = res?.delta ?? null;
@@ -67,12 +84,19 @@ export class VM {
         }
         case 'CALL': {
           const args = ins.args.map(a => this.get(regs, a));
-          regs[ins.dst] = await this.host.call_tf(ins.tf_id, args);
+          const out = await this.host.call_tf(ins.tf_id, args);
+          if (out === null) {
+            this.emit({ kind: 'Conservativity', callee: ins.tf_id, expected: 'non-null', found: 'null' });
+          }
+          regs[ins.dst] = out;
           break;
         }
         case 'ASSERT': {
           const v = this.get(regs, ins.pred);
-          if (v !== true) throw new Error(`ASSERT failed: ${ins.msg}`);
+          if (v !== true) {
+            this.emit({ kind: 'Refutation', code: 'E_ASSERT', msg: ins.msg });
+            throw new Error(`ASSERT failed: ${ins.msg}`);
+          }
           break;
         }
         default: {
@@ -91,7 +115,15 @@ export class VM {
     // identity => null; otherwise full replace
     const a = canonicalJsonBytes(initialState);
     const b = canonicalJsonBytes(finalState);
-    if (Buffer.from(a).equals(Buffer.from(b))) {
+    const same = Buffer.from(a).equals(Buffer.from(b));
+    if (this.tags) {
+      const delta = same ? null : { replace: finalState };
+      const effect = { read: [], write: [], external: [] };
+      this.emit({ kind: 'Witness', delta, effect });
+      this.emit({ kind: 'Normalization', target: 'delta' });
+      this.emit({ kind: 'Normalization', target: 'effect' });
+    }
+    if (same) {
       return null;
     }
     return { replace: finalState };

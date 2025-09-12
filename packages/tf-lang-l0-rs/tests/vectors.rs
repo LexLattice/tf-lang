@@ -423,7 +423,7 @@ fn vectors() -> Result<()> {
         lint_vector(&vec)?;
 
         let host = EffectHost::new(DummyHost);
-        let vm = VM { host: &host };
+        let mut vm = VM::new(&host);
         let run_res = vm.run(&vec.bytecode);
         let (delta, err_msg) = match run_res {
             Ok(d) => (d, None),

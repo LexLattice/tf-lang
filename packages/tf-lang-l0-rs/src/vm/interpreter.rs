@@ -1,12 +1,14 @@
 use crate::canon::{blake3_hex, canonical_json_bytes};
 use crate::model::bytecode::Instr;
 use crate::model::{JournalEntry, Program, World};
+use crate::proof::{Effect, NormalizationTarget, ProofTag, Replace, TransportOp};
 use crate::vm::opcode::Host;
 use serde_json::Value;
 
 /// Simple VM running SSA bytecode with JSON values as registers.
 pub struct VM<'h> {
     pub host: &'h dyn Host,
+    pub tags: Option<Vec<ProofTag>>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -18,7 +20,22 @@ pub enum VmError {
 }
 
 impl<'h> VM<'h> {
-    pub fn run(&self, prog: &Program) -> anyhow::Result<Value> {
+    pub fn new(host: &'h dyn Host) -> Self {
+        let tags = if std::env::var("DEV_PROOFS").ok().as_deref() == Some("1") {
+            Some(Vec::new())
+        } else {
+            None
+        };
+        VM { host, tags }
+    }
+
+    fn emit(&mut self, tag: ProofTag) {
+        if let Some(ts) = &mut self.tags {
+            ts.push(tag);
+        }
+    }
+
+    pub fn run(&mut self, prog: &Program) -> anyhow::Result<Value> {
         let mut regs: Vec<Value> = vec![serde_json::Value::Null; prog.regs as usize];
         let mut initial_state = regs[0].clone();
         let mut init_captured = false;
@@ -37,6 +54,7 @@ impl<'h> VM<'h> {
                 Instr::Assert { pred, msg } => {
                     let v = get(*pred, &regs)?;
                     if !v.as_bool().unwrap_or(false) {
+                        self.emit(ProofTag::Refutation { code: "E_ASSERT".into(), msg: Some(msg.clone()) });
                         return Err(VmError::Invalid(format!("ASSERT failed: {}", msg)).into());
                     }
                 }
@@ -98,6 +116,7 @@ impl<'h> VM<'h> {
                 Instr::LensProj { dst, state, region } => {
                     let sub = self.host.lens_project(get(*state, &regs)?, region)?;
                     regs[*dst as usize] = sub;
+                    self.emit(ProofTag::Transport { op: TransportOp::LensProj, region: region.to_string() });
                 }
                 Instr::LensMerge {
                     dst,
@@ -109,6 +128,7 @@ impl<'h> VM<'h> {
                         self.host
                             .lens_merge(get(*state, &regs)?, region, get(*sub, &regs)?)?;
                     regs[*dst as usize] = merged;
+                    self.emit(ProofTag::Transport { op: TransportOp::LensMerge, region: region.to_string() });
                 }
                 Instr::PlanSim {
                     dst_delta,
@@ -174,6 +194,13 @@ impl<'h> VM<'h> {
                         a.push(get(*r, &regs)?.clone());
                     }
                     let out = self.host.call_tf(tf_id, &a)?;
+                    if out.is_null() {
+                        self.emit(ProofTag::Conservativity {
+                            callee: tf_id.clone(),
+                            expected: "non-null".into(),
+                            found: "null".into(),
+                        });
+                    }
                     regs[*dst as usize] = out;
                 }
             }
@@ -184,7 +211,17 @@ impl<'h> VM<'h> {
         }
 
         let final_state = regs.get(0).cloned().unwrap_or(serde_json::Value::Null);
-        let out = if final_state == initial_state {
+        let a = canonical_json_bytes(&initial_state)?;
+        let b = canonical_json_bytes(&final_state)?;
+        let same = a == b;
+        if let Some(ts) = &mut self.tags {
+            let delta = if same { None } else { Some(Replace { replace: final_state.clone() }) };
+            let effect = Effect::default();
+            ts.push(ProofTag::Witness { delta, effect });
+            ts.push(ProofTag::Normalization { target: NormalizationTarget::Delta });
+            ts.push(ProofTag::Normalization { target: NormalizationTarget::Effect });
+        }
+        let out = if same {
             serde_json::Value::Null
         } else {
             serde_json::json!({ "replace": final_state })

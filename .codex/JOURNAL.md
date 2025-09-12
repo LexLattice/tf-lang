@@ -500,3 +500,20 @@ Next suggested step:
   - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
 - Results:
   - tests and vectors passed
+
+## [B2] DEV proof tags
+- Start: 2025-09-12 02:50 UTC
+- End:   2025-09-12 03:00 UTC
+- Lessons consulted:
+  - A1–B1
+- Changes:
+  - gated proof-tag sink in TS and Rust VMs emitting witness, normalization, transport, refutation, and conservativity tags
+  - added tests for tag presence/absence in both runtimes
+- Verification:
+  - pnpm -C packages/tf-lang-l0-ts test
+  - pnpm -C packages/tf-lang-l0-ts vectors
+  - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
+- Results:
+  - tests and vectors passed
+- Next suggested step:
+  - C1

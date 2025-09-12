@@ -1,0 +1,7 @@
+- No changes to kernel semantics/tag schemas from A/B.
+- No per-call locks; no `static mut`/`unsafe`; no TS `as any`.
+- ESM internal imports must include `.js`.
+- Tests run in parallel without state bleed; outputs deterministic.
+- PR builds must not deploy publicly (artifacts only).
+- `main` branch must deploy live site.
+- README must contain a deployment status badge referencing the live site URL.

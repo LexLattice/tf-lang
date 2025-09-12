@@ -1,0 +1,7 @@
+- No changes to kernel semantics/tag schemas from A/B.
+- No per-call locks; no `static mut`/`unsafe`; no TS `as any`.
+- ESM internal imports must include `.js`.
+- Tests run in parallel without state bleed; outputs deterministic (canonical bytes + BLAKE3).
+- Storage is strictly **SQLite** (no other DBs/networked storage).
+- Responses must include both `dataset_version` and canonical BLAKE3 `query_hash`.
+- Identical queries must not vary in counts/clauses; ≥ 10 evidence samples required.

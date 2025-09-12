@@ -1,0 +1,3 @@
+- PR workflow: logs show preview artifact produced; no public deploy step invoked.
+- Main workflow: logs confirm successful deploy to the production URL.
+- README: badge exists and points to the deployed site; optional check that preview/production build configs are identical.

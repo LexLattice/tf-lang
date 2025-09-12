@@ -1,0 +1,7 @@
+- No changes to kernel semantics/tag schemas from A/B.
+- No per-call locks; no `static mut`/`unsafe`; no TS `as any`.
+- ESM internal imports must include `.js`.
+- Tests run in parallel without state bleed; outputs deterministic.
+- Proof tags must be rendered **only** from provided dataset data (no synthetic tags).
+- Rendering order for tags must be stable.
+- Tags panel must remain hidden when no proof tags exist.

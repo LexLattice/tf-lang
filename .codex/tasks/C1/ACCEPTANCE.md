@@ -1,0 +1,4 @@
+- Idempotency: two identical `POST /plan` and `POST /apply` calls yield byte-identical responses and no extra effects.
+- Canonicalization: journal entries serialize to canonical JSON with stable ordering/hashes.
+- Proof gating: with `DEV_PROOFS=1` → proofs present; otherwise → absent.
+- Isolation: static/dynamic checks confirm no filesystem/network persistence beyond the HTTP interface.

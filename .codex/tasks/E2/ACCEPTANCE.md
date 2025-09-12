@@ -1,0 +1,3 @@
+- Positive case: dataset with proof tags renders visible tag elements with stable order (snapshot/hash).
+- Negative case: dataset without tags yields no tags panel.
+- Determinism: two renders of the same input (API and static) match byte-for-byte DOM snapshots.

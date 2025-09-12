@@ -1,0 +1,6 @@
+- No changes to kernel semantics/tag schemas from A/B.
+- No per-call locks; no `static mut`/`unsafe`; no TS `as any`.
+- ESM internal imports must include `.js`.
+- Tests run in parallel without state bleed; outputs deterministic.
+- Images must be tagged `0.2` and `latest` in GHCR.
+- PR builds must skip publishing; pushes allowed only on `main`.

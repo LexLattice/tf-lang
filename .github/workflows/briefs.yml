@@ -1,0 +1,14 @@
+name: briefs
+on: [push, pull_request]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 .codex/scripts/lint-briefs.py
+      - run: python3 .codex/scripts/build-index.py
+      - name: Upload INDEX.md
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-task-index
+          path: .codex/tasks/INDEX.md

@@ -63,3 +63,8 @@ collect-reports:
 # usage:
 # make collect-reports PRS="30:A 31:B 32:C 33:D"
 
+briefs-check:
+	@python3 .codex/scripts/lint-briefs.py
+
+briefs-index:
+	@python3 .codex/scripts/build-index.py

@@ -1,21 +1,23 @@
-# REPORT — C1 — Run 1
+# REPORT — C1 — Run 2
 
-## End Goal fulfillment
-- EG-1: In-memory Fastify host exposes only `/plan` and `/apply` endpoints【F:services/host-lite/src/server.ts†L17-L78】
-- EG-2: Identical `POST /plan` and `POST /apply` calls return byte-identical responses【F:services/host-lite/tests/host-lite.test.ts†L10-L18】
-- EG-3: Journal entries are canonical with proofs gated by `DEV_PROOFS`【F:services/host-lite/src/server.ts†L31-L36】【F:services/host-lite/tests/host-lite.test.ts†L22-L42】
-- EG-4: World state resets on restart, ensuring ephemerality【F:services/host-lite/tests/host-lite.test.ts†L47-L58】
+## Targeted Goals
+- TG-1: Host lives only in `packages/host-lite` and serves just `/plan` and `/apply`【F:packages/host-lite/src/server.ts†L11-L55】
+- TG-2: Canonical JSON and hashing delegated to `tf-lang-l0`; repeat calls are byte-identical【F:packages/host-lite/src/server.ts†L39-L46】【F:packages/host-lite/tests/host-lite.test.ts†L11-L20】
+- TG-3: Idempotent cache bounded to 16 entries preventing unbounded growth【F:packages/host-lite/src/server.ts†L46-L49】【F:packages/host-lite/tests/host-lite.test.ts†L63-L68】
+- TG-4: Proofs emitted only when `DEV_PROOFS=1`; otherwise no hashing cost【F:packages/host-lite/src/server.ts†L41-L43】【F:packages/host-lite/tests/host-lite.test.ts†L22-L41】
+- TG-5: Explicit 404 for non-endpoints with canonical body【F:packages/host-lite/src/server.ts†L15-L18】【F:packages/host-lite/tests/host-lite.test.ts†L56-L60】
+- TG-6: Runtime uses no third-party HTTP framework; built on `node:http`【F:packages/host-lite/src/server.ts†L1】
+- TG-7: No deep cross-package imports; `DummyHost` exported publicly【F:packages/tf-lang-l0-ts/src/index.ts†L2-L9】【F:packages/host-lite/tests/host-lite.test.ts†L71-L74】
 
 ## Blockers honored
-- B-1: ✅ Only `/plan` and `/apply` endpoints, in-memory state, and idempotent caching【F:services/host-lite/src/server.ts†L17-L78】
-- B-2: ✅ Proof artifacts behind `DEV_PROOFS` and deterministic canonical outputs【F:services/host-lite/tests/host-lite.test.ts†L22-L42】
+- B-1: ✅ Only `/plan` and `/apply` endpoints, in-memory state, deterministic output【F:packages/host-lite/src/server.ts†L11-L55】
+- B-2: ✅ Proof artifacts behind `DEV_PROOFS` with canonical serialization【F:packages/host-lite/tests/host-lite.test.ts†L22-L41】
 
 ## Lessons / tradeoffs (≤5 bullets)
-- Canonical response caching ensures byte-level idempotency.
-- Relative workspace imports required for unexported modules.
-- Double JSON parsing trades speed for determinism.
-- Fastify.inject enables isolation without network sockets.
-- Environment flag toggles proof emission for development only.
+- Dropping Fastify slimmed dependencies but required custom request handling.
+- Exporting `DummyHost` opened minimal public surface for host integration.
+- Bounded maps avoid memory growth at the cost of occasional cache eviction.
+- Direct handler tests keep suite hermetic without network sockets.
 
 ## Bench notes (optional, off-mode)
 - flag check: n/a

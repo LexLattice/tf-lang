@@ -4,6 +4,7 @@
   "type": "module",
   "license": "MIT",
   "description": "TF-Lang L0: minimal deterministic kernel (VM + checker + model) in TypeScript",
+  "main": "src/index.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",

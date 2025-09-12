@@ -6,3 +6,4 @@ export { canonicalJsonBytes } from './canon/json.js';
 export { blake3hex } from './canon/hash.js';
 export * as ops from './ops/index.js';
 export * as proof from './proof/index.js';
+export { DummyHost } from './host/memory.js';

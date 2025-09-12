@@ -1,5 +1,5 @@
 {
-  "name": "host-lite-ts",
+  "name": "host-lite",
   "version": "0.1.0",
   "type": "module",
   "license": "MIT",
@@ -9,7 +9,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "fastify": "^4.28.1",
     "tf-lang-l0": "workspace:*"
   },
   "devDependencies": {

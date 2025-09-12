@@ -1,0 +1,19 @@
+{
+  "name": "proof_tags_basic",
+  "bytecode": {
+    "version": "0.1",
+    "regs": 2,
+    "instrs": [
+      { "op": "CONST", "dst": 0, "value": {} },
+      { "op": "LENS_PROJ", "dst": 1, "state": 0, "region": "r" },
+      { "op": "CONST", "dst": 0, "value": { "x": 1 } },
+      { "op": "HALT" }
+    ]
+  },
+  "expected_tags": [
+    { "kind": "Transport", "op": "LENS_PROJ", "region": "r" },
+    { "kind": "Witness", "delta": { "replace": { "x": 1 } }, "effect": { "read": [], "write": [], "external": [] } },
+    { "kind": "Normalization", "target": "delta" },
+    { "kind": "Normalization", "target": "effect" }
+  ]
+}

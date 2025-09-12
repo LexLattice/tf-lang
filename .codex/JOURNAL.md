@@ -512,3 +512,17 @@ Next suggested step:
   - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
 - Results:
   - tests passed
+## [B2-reboot] Proof tag caching
+- Start: 2025-09-12 10:15 UTC
+- End:   2025-09-12 10:25 UTC
+- Changes:
+  - Cached DEV_PROOFS flag with reset hooks in TS and Rust.
+  - Thread-local Rust proof log; guarded emissions in both VMs.
+  - Added cross-runtime vector and caching tests.
+- Verification:
+  - pnpm -C packages/tf-lang-l0-ts test
+  - pnpm -C packages/tf-lang-l0-ts build
+  - node --input-type=module -e "import('./packages/tf-lang-l0-ts/dist/src/index.js')"
+  - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
+- Results:
+  - tests passed

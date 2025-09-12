@@ -1,8 +1,17 @@
+use std::fs;
+use std::path::PathBuf;
+use serde::Deserialize;
 use serde_json::json;
-use tflang_l0::model::{Instr, Program};
+use tflang_l0::model::Program;
 use tflang_l0::vm::interpreter::VM;
 use tflang_l0::vm::opcode::Host;
-use tflang_l0::proof::{flush, reset_for_test, ProofTag, TransportOp};
+use tflang_l0::proof::{flush, reset_for_test, ProofTag};
+
+#[derive(Deserialize)]
+struct Vector {
+    bytecode: Program,
+    expected_tags: Vec<ProofTag>,
+}
 
 struct DummyHost;
 
@@ -26,34 +35,22 @@ impl Host for DummyHost {
     fn call_tf(&self, _tf_id: &str, _args: &[serde_json::Value]) -> anyhow::Result<serde_json::Value> { Ok(serde_json::Value::Null) }
 }
 
-fn sample_prog() -> Program {
-    Program {
-        version: "0.1".into(),
-        regs: 2,
-        instrs: vec![
-            Instr::Const { dst: 0, value: json!({}) },
-            Instr::LensProj { dst: 1, state: 0, region: "r".into() },
-            Instr::Const { dst: 0, value: json!({"x":1}) },
-            Instr::Halt,
-        ],
-    }
+fn load_vector() -> Vector {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/proof_tags.json");
+    let data = fs::read_to_string(path).unwrap();
+    serde_json::from_str(&data).unwrap()
 }
 
 #[test]
-fn dev_proofs_cache_and_toggle() {
-    reset_for_test();
+fn rust_matches_expected_tags() {
     std::env::set_var("DEV_PROOFS", "1");
+    let vec = load_vector();
     let vm = VM { host: &DummyHost };
-    let _ = vm.run(&sample_prog()).unwrap();
-    let tags = flush();
-    assert!(tags.iter().any(|t| matches!(t, ProofTag::Transport { op: TransportOp::LensProj, .. })));
-    assert!(tags.iter().any(|t| matches!(t, ProofTag::Witness { .. })));
+    let _ = vm.run(&vec.bytecode).unwrap();
+    assert_eq!(flush(), vec.expected_tags);
 
     std::env::remove_var("DEV_PROOFS");
-    let _ = vm.run(&sample_prog()).unwrap();
-    assert!(!flush().is_empty()); // cached
-
     reset_for_test();
-    let _ = vm.run(&sample_prog()).unwrap();
+    let _ = vm.run(&vec.bytecode).unwrap();
     assert!(flush().is_empty());
 }

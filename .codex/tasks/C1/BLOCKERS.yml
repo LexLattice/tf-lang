@@ -7,4 +7,3 @@
 - Only `/plan` and `/apply` endpoints are allowed.
 - /plan` and `/apply` must be idempotent.
 - Proof artifacts must be gated behind `DEV_PROOFS=1`.
-- Blocked by: #34, #35, #36

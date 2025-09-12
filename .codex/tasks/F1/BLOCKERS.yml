@@ -5,4 +5,3 @@
 - PR builds must not deploy publicly (artifacts only).
 - main` branch must deploy live site.
 - README must contain a deployment status badge referencing the live site URL.
-- Blocked by: #34, #35, #36

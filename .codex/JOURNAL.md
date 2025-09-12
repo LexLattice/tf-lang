@@ -500,3 +500,17 @@ Next suggested step:
   - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
 - Results:
   - tests and vectors passed
+## [B2] Minimal proof tag emissions
+- Start: 2025-09-11 23:05 UTC
+- End:   2025-09-11 23:25 UTC
+- Changes:
+  - added DEV_PROOFS-gated tag sink and VM emissions in TS and Rust
+  - covered transport, witness, refutation, and conservativity tags with tests
+- Verification:
+  - pnpm -C packages/tf-lang-l0-ts test
+  - pnpm -C packages/tf-lang-l0-ts vectors
+  - cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
+- Results:
+  - tests and vectors passed
+- Next suggested step:
+  - none

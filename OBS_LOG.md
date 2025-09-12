@@ -1,7 +1,7 @@
-# Observation Log — C1 — Run 1
+# Observation Log — C1 — Run 2
 
-- Strategy chosen: Fastify server with canonical JSON caching and in-memory worlds.
-- Key changes (files): services/host-lite/src/server.ts; services/host-lite/tests/host-lite.test.ts; pnpm-lock.yaml
-- Determinism stress (runs × passes): 2×; stable outputs.
-- Near-misses vs blockers: initial response order broke idempotency; fixed by returning canonical JSON.
-- Notes: DEV_PROOFS toggled in tests to verify gating.
+- Strategy: replace Fastify service with native HTTP handler in a leaf package.
+- Key changes: `packages/host-lite/**`, `packages/tf-lang-l0-ts/src/index.ts`, `packages/tf-lang-l0-ts/package.json`, `pnpm-lock.yaml`.
+- Determinism stress: repeated plan/apply and 404 routes; cache remained constant.
+- Near-misses: build initially emitted tests and missing package entry; fixed tsconfig and package.json.
+- Notes: cache stores only last apply per world; no third-party HTTP runtime deps.

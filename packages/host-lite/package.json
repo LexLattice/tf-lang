@@ -1,18 +1,19 @@
 {
-  "name": "host-lite-ts",
+  "name": "host-lite",
   "version": "0.1.0",
   "type": "module",
   "license": "MIT",
-  "private": true,
-  "main": "src/server.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
+    "build": "tsc -p tsconfig.json",
     "test": "vitest run"
   },
   "dependencies": {
-    "fastify": "^4.28.1",
     "tf-lang-l0": "workspace:*"
   },
   "devDependencies": {
+    "@types/node": "^24.3.1",
     "typescript": "^5.5.0",
     "vitest": "^2.0.5"
   }

@@ -1,17 +1,19 @@
-# C1 — Changes (Run 1)
+# C1 — Changes (Run 2)
 
 ## Summary
-Implemented an in-memory Fastify host exposing only `POST /plan` and `POST /apply`,
-ensuring idempotent requests and canonical journals with optional proofs.
+Refactored the Fastify host service into a leaf package (`packages/host-lite`) using
+native HTTP primitives. The package exposes only `POST /plan` and `POST /apply`,
+centralizes canonical JSON and proof hashing, bounds idempotent caching, and
+returns 404 for any other path.
 
 ## Why
-- Satisfies END_GOAL: minimal HTTP host with ephemeral state and proof gating.
+- Aligns with Pass‑2 goals: single host package, deterministic canonicalization,
+idempotency without unbounded growth, and optional proofs.
 
 ## Tests
-- Added: `services/host-lite/tests/host-lite.test.ts`
-- Updated: none
-- Determinism/parity: repeated runs yield identical responses and reset state.
+- Added: `packages/host-lite/tests/host-lite.test.ts`
+- Updated: `packages/tf-lang-l0-ts/src/index.ts`
+- Determinism/parity: repeated runs yield byte‑identical responses and constant cache size.
 
 ## Notes
-- No schema changes unless explicitly allowed.
-- Diffs kept minimal.
+- Removed Fastify; no third‑party runtime HTTP dependencies.

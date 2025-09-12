@@ -1,19 +1,16 @@
-# Changes
+# C1 — Changes (Run 001)
 
-## B2 - Dev-only proof tags with caching
-- Cached `DEV_PROOFS` flag with reset hook in TS and Rust.
-- Thread-local proof logs in Rust and module-scoped log reset in TS.
-- VMs guard tag construction with `devProofsEnabled` for zero overhead when disabled.
-- Added shared proof tag vector for cross-runtime parity.
+## Summary
+Implemented an in-memory HTTP host with only `POST /plan` and `POST /apply`. Responses are canonical and cached for idempotency, with proofs emitted only when `DEV_PROOFS=1`.
 
-### Blockers respected
-- Environment flag read once and cached; no per-call locking.
-- No `unsafe` or `static mut`; used atomics and thread-local storage.
-- Synchronization primitives avoid `unwrap`; no mutexes on hot paths.
-- Maintained strict typings and `.js` ESM imports.
+## Why
+Addresses task C1 by providing an ephemeral host that produces stable journal entries and optional proofs as required by END_GOAL.
 
-### New tests
-- `packages/tf-lang-l0-ts/tests/proof-dev.test.ts` – cache and toggle behaviour.
-- `packages/tf-lang-l0-ts/tests/proof-vector.test.ts` – parity with vector.
-- `packages/tf-lang-l0-rs/tests/proof_dev.rs` – cache and toggle behaviour.
-- `packages/tf-lang-l0-rs/tests/proof_vector.rs` – parity with vector.
+## Tests
+- Added: `packages/host-lite/tests/host-lite.test.ts`
+- Updated: n/a
+- Determinism/parity: endpoints return canonical bytes; tests run without cross-test bleed.
+
+## Notes
+- No schema changes unless explicitly allowed.
+- Diffs kept minimal.

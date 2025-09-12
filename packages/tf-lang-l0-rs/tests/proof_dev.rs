@@ -1,8 +1,10 @@
 use serde_json::json;
+use serial_test::serial;
+use std::fs;
 use tflang_l0::model::{Instr, Program};
+use tflang_l0::proof::{flush, ProofTag, TransportOp, reset_dev_proofs_for_test};
 use tflang_l0::vm::interpreter::VM;
 use tflang_l0::vm::opcode::Host;
-use tflang_l0::proof::{flush, ProofTag, TransportOp};
 
 struct DummyHost;
 
@@ -29,27 +31,89 @@ impl Host for DummyHost {
 fn sample_prog() -> Program {
     Program {
         version: "0.1".into(),
-        regs: 2,
+        regs: 3,
         instrs: vec![
-            Instr::Const { dst: 0, value: json!({}) },
-            Instr::LensProj { dst: 1, state: 0, region: "r".into() },
-            Instr::Const { dst: 0, value: json!({"x":1}) },
+            Instr::Const { dst: 0, value: json!({"x":0}) },
+            Instr::LensProj { dst: 1, state: 0, region: "/x".into() },
+            Instr::Const { dst: 2, value: json!(1) },
+            Instr::LensMerge { dst: 0, state: 0, region: "/x".into(), sub: 2 },
             Instr::Halt,
         ],
     }
 }
 
 #[test]
-fn dev_proofs_toggles_tags() {
+#[serial]
+fn dev_proofs_toggle() {
     std::env::set_var("DEV_PROOFS", "1");
+    reset_dev_proofs_for_test();
     let vm = VM { host: &DummyHost };
     let _ = vm.run(&sample_prog()).unwrap();
     let tags = flush();
     assert!(tags.iter().any(|t| matches!(t, ProofTag::Transport { op: TransportOp::LensProj, .. })));
     assert!(tags.iter().any(|t| matches!(t, ProofTag::Witness { .. })));
+    std::env::remove_var("DEV_PROOFS");
+    reset_dev_proofs_for_test();
+    let _ = vm.run(&sample_prog()).unwrap();
+    let tags = flush();
+    assert!(tags.is_empty());
+}
+
+#[test]
+#[serial]
+fn cache_and_reset() {
+    let vm = VM { host: &DummyHost };
+    std::env::set_var("DEV_PROOFS", "1");
+    reset_dev_proofs_for_test();
+    let _ = vm.run(&sample_prog()).unwrap();
+    assert!(!flush().is_empty());
+    std::env::set_var("DEV_PROOFS", "0");
+    let _ = vm.run(&sample_prog()).unwrap();
+    assert!(!flush().is_empty()); // still cached
+    reset_dev_proofs_for_test();
+    let _ = vm.run(&sample_prog()).unwrap();
+    assert!(flush().is_empty());
+    std::env::remove_var("DEV_PROOFS");
+}
+
+#[test]
+#[serial]
+fn parallel_logs_isolated() {
+    std::env::set_var("DEV_PROOFS", "1");
+    reset_dev_proofs_for_test();
+    let first = std::thread::spawn(|| {
+        let vm = VM { host: &DummyHost };
+        let _ = vm.run(&sample_prog()).unwrap();
+        flush()
+    }).join().unwrap();
+    let second = std::thread::spawn(|| {
+        let vm = VM { host: &DummyHost };
+        let _ = vm.run(&sample_prog()).unwrap();
+        flush()
+    }).join().unwrap();
+    assert!(!first.is_empty());
+    assert!(!second.is_empty());
+    std::env::remove_var("DEV_PROOFS");
+}
+
+#[test]
+#[serial]
+fn shared_vector_parity() {
+    let data = fs::read_to_string("../../tests/proof-tags.json").unwrap();
+    let v: serde_json::Value = serde_json::from_str(&data).unwrap();
+    let prog: Program = serde_json::from_value(v.get("program").cloned().unwrap()).unwrap();
+    let expected: Vec<ProofTag> = serde_json::from_value(v.get("expectedTags").cloned().unwrap()).unwrap();
+
+    std::env::set_var("DEV_PROOFS", "1");
+    reset_dev_proofs_for_test();
+    let vm = VM { host: &DummyHost };
+    let _ = vm.run(&prog).unwrap();
+    let tags = flush();
+    assert_eq!(tags, expected);
 
     std::env::remove_var("DEV_PROOFS");
-    let _ = vm.run(&sample_prog()).unwrap();
+    reset_dev_proofs_for_test();
+    let _ = vm.run(&prog).unwrap();
     let tags = flush();
     assert!(tags.is_empty());
 }

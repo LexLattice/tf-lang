@@ -1,0 +1,20 @@
+{
+  "program": {
+    "version": "0.1",
+    "regs": 3,
+    "instrs": [
+      { "op": "CONST", "dst": 0, "value": { "x": 0 } },
+      { "op": "LENS_PROJ", "dst": 1, "state": 0, "region": "/x" },
+      { "op": "CONST", "dst": 2, "value": 1 },
+      { "op": "LENS_MERGE", "dst": 0, "state": 0, "sub": 2, "region": "/x" },
+      { "op": "HALT" }
+    ]
+  },
+  "expectedTags": [
+    { "kind": "Transport", "op": "LENS_PROJ", "region": "/x" },
+    { "kind": "Transport", "op": "LENS_MERGE", "region": "/x" },
+    { "kind": "Witness", "delta": { "replace": { "orig": { "x": 0 }, "sub": 1 } }, "effect": { "read": [], "write": [], "external": [] } },
+    { "kind": "Normalization", "target": "delta" },
+    { "kind": "Normalization", "target": "effect" }
+  ]
+}

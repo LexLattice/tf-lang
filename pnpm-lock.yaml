@@ -63,6 +63,22 @@ importers:
         specifier: ^5.5.0
         version: 5.9.2
 
+  services/host-lite:
+    dependencies:
+      fastify:
+        specifier: ^4.28.1
+        version: 4.29.1
+      tf-lang-l0:
+        specifier: workspace:*
+        version: link:../../packages/tf-lang-l0-ts
+    devDependencies:
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.2
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@24.3.1)
+
 packages:
 
   '@esbuild/aix-ppc64@0.21.5':

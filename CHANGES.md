@@ -1,19 +1,17 @@
-# Changes
+# C1 — Changes (Run 1)
 
-## B2 - Dev-only proof tags with caching
-- Cached `DEV_PROOFS` flag with reset hook in TS and Rust.
-- Thread-local proof logs in Rust and module-scoped log reset in TS.
-- VMs guard tag construction with `devProofsEnabled` for zero overhead when disabled.
-- Added shared proof tag vector for cross-runtime parity.
+## Summary
+Implemented an in-memory Fastify host exposing only `POST /plan` and `POST /apply`,
+ensuring idempotent requests and canonical journals with optional proofs.
 
-### Blockers respected
-- Environment flag read once and cached; no per-call locking.
-- No `unsafe` or `static mut`; used atomics and thread-local storage.
-- Synchronization primitives avoid `unwrap`; no mutexes on hot paths.
-- Maintained strict typings and `.js` ESM imports.
+## Why
+- Satisfies END_GOAL: minimal HTTP host with ephemeral state and proof gating.
 
-### New tests
-- `packages/tf-lang-l0-ts/tests/proof-dev.test.ts` – cache and toggle behaviour.
-- `packages/tf-lang-l0-ts/tests/proof-vector.test.ts` – parity with vector.
-- `packages/tf-lang-l0-rs/tests/proof_dev.rs` – cache and toggle behaviour.
-- `packages/tf-lang-l0-rs/tests/proof_vector.rs` – parity with vector.
+## Tests
+- Added: `services/host-lite/tests/host-lite.test.ts`
+- Updated: none
+- Determinism/parity: repeated runs yield identical responses and reset state.
+
+## Notes
+- No schema changes unless explicitly allowed.
+- Diffs kept minimal.

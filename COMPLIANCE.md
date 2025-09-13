@@ -1,4 +1,4 @@
-# COMPLIANCE — C1 — Run 2
+# COMPLIANCE — C1 — Run 3
 
 ## Blockers (must all be ✅)
 - [x] No changes to existing kernel semantics or tag schemas from A/B — code link: packages/host-lite/src/server.ts
@@ -12,10 +12,11 @@
 - [x] Proof artifacts must be gated behind `DEV_PROOFS=1` — test link: packages/host-lite/tests/host-lite.test.ts
 
 ## EXTRA BLOCKERS
-- [x] No new runtime deps; Fastify removed — code link: packages/host-lite/package.json
+- [x] Do not edit `.codex/tasks/**` — confirmed
+- [x] No new runtime deps — code link: packages/host-lite/package.json
 - [x] Tests hermetic (no sockets/files/net) — test link: packages/host-lite/tests/host-lite.test.ts
-- [x] No `as any` casts; ESM imports keep `.js` — code link: packages/host-lite/src/server.ts
-- [x] Endpoint list fixed and outputs deterministic — test link: packages/host-lite/tests/host-lite.test.ts
+- [x] No `as any`; ESM imports include `.js`; no per-call locks; no cross-test bleed — code/test link: packages/host-lite/src/server.ts
+- [x] Only `/plan` and `/apply`; outputs deterministic — test link: packages/host-lite/tests/host-lite.test.ts
 
 ## Acceptance (oracle)
 - [x] Enable/disable behavior (both runtimes)

@@ -1,15 +1,15 @@
-# C1 — Changes (Run 2)
+# C1 — Changes (Run 3)
 
 ## Summary
-Replaced Fastify host with a bare Node HTTP server packaged under `packages/host-lite`. Added bounded LRU caching and 404 handling to keep responses canonical and idempotent without unbounded growth.
+Refined `host-lite` to enforce canonical error handling and deterministic responses. Added raw request parsing with 400/404 coverage, multi-world LRU bounds, and packaging exports for clarity.
 
 ## Why
-- Satisfies END_GOAL: minimal in-memory host with deterministic `/plan` and `/apply` routes and ephemeral state.
+- Meets END_GOAL by keeping host minimal while ensuring idempotent, bounded `/plan` and `/apply` with canonical bytes.
 
 ## Tests
-- Added: extended `packages/host-lite/tests/host-lite.test.ts` for idempotency, proof gating, 404s, cache bounds, boundary scan.
+- Added: `packages/host-lite/tests/host-lite.test.ts` now checks 400/404 models, multi-world cache bounds, and byte-level determinism.
 - Updated: none
-- Determinism/parity: repeated runs via `pnpm test` are stable and socket-free.
+- Determinism/parity: `pnpm test` repeats are stable and avoid sockets/files.
 
 ## Notes
 - No schema changes unless explicitly allowed.

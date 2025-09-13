@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { makeHandler, createHost } from '../src/server.js';
+import { makeHandler, makeRawHandler, createHost } from '../src/server.js';
 import { canonicalJsonBytes, blake3hex } from 'tf-lang-l0';
 import { readFile } from 'node:fs/promises';
 
@@ -17,10 +17,14 @@ describe('host-lite', () => {
     const p2 = await handler('POST', '/plan', body);
     expect(p1.status).toBe(200);
     expect(p2.status).toBe(200);
-    expect(p1.body).toEqual(p2.body);
+    const p1Bytes = td.decode(canonicalJsonBytes(p1.body));
+    const p2Bytes = td.decode(canonicalJsonBytes(p2.body));
+    expect(p1Bytes).toBe(p2Bytes);
     const a1 = await handler('POST', '/apply', body);
     const a2 = await handler('POST', '/apply', body);
-    expect(a1.body).toEqual(a2.body);
+    const a1Bytes = td.decode(canonicalJsonBytes(a1.body));
+    const a2Bytes = td.decode(canonicalJsonBytes(a2.body));
+    expect(a1Bytes).toBe(a2Bytes);
   });
 
   it('canonical journal and proof gating', async () => {
@@ -64,18 +68,40 @@ describe('host-lite', () => {
     expect(canon).toBe('{"error":"not_found"}');
   });
 
-  it('bounded cache prevents growth', async () => {
+  it('404 for non-POST', async () => {
+    const handler = makeHandler(createHost());
+    const r = await handler('GET', '/plan', {});
+    expect(r.status).toBe(404);
+    const canon = td.decode(canonicalJsonBytes(r.body));
+    expect(canon).toBe('{"error":"not_found"}');
+  });
+
+  it('400 for malformed json', async () => {
+    const raw = makeRawHandler(createHost());
+    const r = await raw('POST', '/plan', '{"world"');
+    expect(r.status).toBe(400);
+    const canon = td.decode(canonicalJsonBytes(r.body));
+    expect(canon).toBe('{"error":"bad_request"}');
+  });
+
+  it('multi-world cache bounds', async () => {
     const host = createHost();
     const handler = makeHandler(host);
-    for (let i = 0; i < 40; i++) {
-      await handler('POST', '/plan', { world: 'm', plan: i });
+    const worlds = ['m0', 'm1', 'm2'];
+    for (const w of worlds) {
+      for (let i = 0; i < 40; i++) {
+        await handler('POST', '/plan', { world: w, plan: i });
+      }
     }
-    const worldCache = host.cache.get('m');
-    expect(worldCache?.size ?? 0).toBeLessThanOrEqual(32);
+    for (const w of worlds) {
+      const wc = host.cache.get(w);
+      expect(wc?.size ?? 0).toBeLessThanOrEqual(32);
+    }
   });
 
   it('no deep imports', async () => {
     const src = await readFile(new URL('../src/server.ts', import.meta.url), 'utf8');
     expect(src.includes('../')).toBe(false);
+    expect(src.includes("from 'tf-lang-l0/")).toBe(false);
   });
 });

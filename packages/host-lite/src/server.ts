@@ -102,23 +102,30 @@ export function makeHandler(host = createHost()) {
   };
 }
 
-export function createServer(host = createHost()) {
+export function makeRawHandler(host = createHost()) {
   const handler = makeHandler(host);
+  return async (method: string, url: string, bodyStr: string) => {
+    let body: unknown;
+    try {
+      body = JSON.parse(bodyStr || '{}');
+    } catch {
+      return { status: 400, body: { error: 'bad_request' } };
+    }
+    return handler(method, url, body);
+  };
+}
+
+export function createServer(host = createHost()) {
+  const rawHandler = makeRawHandler(host);
   return createHttpServer(async (req: IncomingMessage, res: ServerResponse) => {
     const chunks: Uint8Array[] = [];
     req.on('data', (c) => chunks.push(c));
     req.on('end', async () => {
-      const bodyStr = Buffer.concat(chunks).toString() || '{}';
-      let body: unknown;
-      try {
-        body = JSON.parse(bodyStr);
-      } catch {
-        body = {};
-      }
-      const { status, body: respBody } = await handler(req.method ?? '', req.url ?? '', body);
+      const bodyStr = Buffer.concat(chunks).toString();
+      const { status, body } = await rawHandler(req.method ?? '', req.url ?? '', bodyStr);
       res.statusCode = status;
       res.setHeader('content-type', 'application/json');
-      const bytes = canonicalJsonBytes(respBody);
+      const bytes = canonicalJsonBytes(body);
       res.end(Buffer.from(bytes));
     });
   });

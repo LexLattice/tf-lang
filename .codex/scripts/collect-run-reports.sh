@@ -11,9 +11,11 @@ set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
-OUT_DIR=".codex/runs"
-WIN_DIR="$OUT_DIR/winner"
-mkdir -p "$WIN_DIR"
+RUNS_ROOT=".codex/runs"
+RUN_ID=""
+REMOTE="origin"
+WINNER_OUT=""
+RUNS_DIR="$RUNS_ROOT"
 
 FILES=("REPORT.md" "COMPLIANCE.md" "OBS_LOG.md" "CHANGES.md")
 PRS_SPEC=()
@@ -26,6 +28,10 @@ while [[ $# -gt 0 ]]; do
     --prs) shift; while [[ $# -gt 0 && "$1" != --* ]]; do PRS_SPEC+=("$1"); shift; done ;;
     --commit) DO_COMMIT=1; shift ;;
     -m|--message) COMMIT_MSG="$2"; shift 2 ;;
+    --run-id) RUN_ID="$2"; shift 2 ;;
+    --runs-root) RUNS_ROOT="$2"; shift 2 ;;
+    --winner-out) WINNER_OUT="$2"; shift 2 ;;
+    --remote) REMOTE="$2"; shift 2 ;;
     -h|--help) sed -n '1,60p' "$0"; exit 0 ;;
     *) echo "Unknown arg: $1" >&2; exit 1 ;;
   esac
@@ -51,7 +57,7 @@ have_gh() { command -v gh >/dev/null 2>&1; }
 
 append_section() {
   local run_label="$1" pr_num="$2" branch_ref="$3" sha="$4" title="$5"
-  local anthology="$WIN_DIR/RUNS_REPORTS.md"
+  local anthology="$ANTHOLOGY_FILE"
 
   {
     echo -e "\n---\n"
@@ -77,8 +83,14 @@ if [[ "$CURRENT_BRANCH" == "HEAD" ]]; then
   exit 1
 fi
 
-echo "# Parallel run aggregation" > "$WIN_DIR/RUNS_REPORTS.md"
-echo "_Winner branch: ${CURRENT_BRANCH} — $(date -u +"%Y-%m-%dT%H:%M:%SZ")_" >> "$WIN_DIR/RUNS_REPORTS.md"
+# Resolve output dirs/files
+[[ -n "$RUN_ID" ]] && RUNS_DIR="${RUNS_ROOT}/${RUN_ID}"
+mkdir -p "$RUNS_DIR"
+
+ANTHOLOGY_FILE="${WINNER_OUT:-${RUNS_ROOT}/winner/RUNS_REPORTS.md}"
+mkdir -p "$(dirname "$ANTHOLOGY_FILE")"
+echo "# Parallel run aggregation" > "$ANTHOLOGY_FILE"
+echo "_Winner branch: ${CURRENT_BRANCH} — $(date -u +"%Y-%m-%dT%H:%M:%SZ")_" >> "$ANTHOLOGY_FILE"
 
 # Process each PR:LABEL
 for spec in "${PRS_SPEC[@]}"; do
@@ -88,7 +100,7 @@ for spec in "${PRS_SPEC[@]}"; do
 
   echo "Fetching PR #${pr} → ${tmp_ref} ..."
   # Fetch PR head into a local ref (works on GitHub remotes)
-  git fetch origin "pull/${pr}/head:${tmp_ref}" -q || {
+  git fetch "$REMOTE" "pull/${pr}/head:${tmp_ref}" -q || {
     echo "Failed to fetch PR #${pr} (pull/${pr}/head). Ensure 'origin' points to GitHub." >&2
     exit 1
   }
@@ -100,7 +112,7 @@ for spec in "${PRS_SPEC[@]}"; do
   fi
 
   # Materialize per-run folder and copy files (if present)
-  RUN_DIR="$OUT_DIR/${label}"
+  RUN_DIR="$RUNS_DIR/${label}"
   mkdir -p "$RUN_DIR"
   for f in "${FILES[@]}"; do
     if git cat-file -e "${tmp_ref}:${f}" 2>/dev/null; then
@@ -113,7 +125,8 @@ for spec in "${PRS_SPEC[@]}"; do
 done
 
 # Stage artifacts
-git add "$OUT_DIR"
+git add "$RUNS_DIR"
+git add "$ANTHOLOGY_FILE"
 
 if [[ $DO_COMMIT -eq 1 ]]; then
   git commit -m "$COMMIT_MSG"

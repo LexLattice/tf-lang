@@ -1,3 +1,25 @@
+# REPORT — E1 — Run 2
+
+## End Goal fulfillment
+- EG-1: Explorer switches between static and API sources at runtime using `/health` for dataset meta【F:docs/claims-explorer.html†L302-L352】【F:packages/explorer-test/claims-explorer.test.ts†L70-L107】
+- EG-2: Default date derives from `at` or `generated_at` metadata【F:docs/claims-explorer.html†L215-L217】【F:packages/explorer-test/claims-explorer.test.ts†L110-L116】
+- EG-3: Tags panel renders only when metadata supplies tags【F:docs/claims-explorer.html†L180-L195】【F:packages/explorer-test/claims-explorer.test.ts†L110-L116】
+- EG-4: Static and API renders are byte-equal for identical data; offline static mode succeeds【F:packages/explorer-test/claims-explorer.test.ts†L70-L107】【F:packages/explorer-test/claims-explorer.test.ts†L119-L128】
+
+## Blockers honored
+- B-1: ✅ Static mode issues no network requests【F:packages/explorer-test/claims-explorer.test.ts†L119-L123】
+- B-2: ✅ Source switch runtime-selectable without reload【F:docs/claims-explorer.html†L331-L356】【F:packages/explorer-test/claims-explorer.test.ts†L70-L107】
+- B-3: ✅ Tags sourced only from health/static meta【F:docs/claims-explorer.html†L281-L316】【F:docs/claims-explorer.html†L334-L352】
+- B-4: ✅ DOM tests isolated in dedicated package【F:packages/explorer-test/claims-explorer.test.ts†L1-L131】
+
+## Lessons / tradeoffs (≤5 bullets)
+- Centralizing metadata via `/health` simplifies tag handling and default selection.
+- Microtask flushes were needed to prevent JSDOM unhandled rejections after tests.
+- Packaging tests separately avoids leaking JSDOM deps to the root workspace.
+
+## Bench notes (optional, off-mode)
+- n/a
+
 # REPORT — C1 — Run 4
 
 ## Goal → Evidence map

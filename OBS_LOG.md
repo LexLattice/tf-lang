@@ -1,3 +1,11 @@
+# Observation Log — E1 — Run 2
+
+- Strategy chosen: centralize metadata via `/health`, keep tags from meta only, and isolate DOM tests in `packages/explorer-test`.
+- Key changes (files): docs/claims-explorer.html; packages/explorer-test/claims-explorer.test.ts; package.json; CHANGES.md; COMPLIANCE.md; REPORT.md.
+- Determinism stress (runs × passes): `pnpm test` once after install — static ↔ API snapshots identical.
+- Near-misses vs blockers: needed to swallow JSDOM unhandled rejections; added microtask flush before closing windows.
+- Notes: moving tests to their own package avoids leaking jsdom deps into workspace.
+
 # Observation Log — C1 — Run 4
 
 - Strategy: Keep unified raw path; delegate `createServer` → `makeRawHandler`; share `exec(world, plan)` for both routes; enforce canonical errors.

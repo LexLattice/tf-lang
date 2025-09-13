@@ -1,3 +1,20 @@
+# E1 — Changes (Run 2)
+
+## Summary
+Explorer now reads dataset meta (version, tags, default date) from `/health` in API mode, falls back to static metadata when offline, and moves DOM tests into an isolated package.
+
+## Why
+- Using `/health` as the single metadata source removes ad hoc tag extraction from count/list responses.
+- Dedicated `packages/explorer-test` keeps JSDOM confined and guarantees hermetic, cross-source determinism.
+
+## Tests
+- Added: `packages/explorer-test/claims-explorer.test.ts`.
+- Updated: `docs/claims-explorer.html`.
+- Determinism/parity: static ⇄ API renders byte-equal for identical data; offline mode exercised.
+
+## Notes
+- No schema changes; minimal surface.
+
 # C1 — Changes (Run 4)
 
 ## Summary

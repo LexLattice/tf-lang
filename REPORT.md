@@ -125,6 +125,10 @@
 ## Determinism runs
 - `pnpm --filter claims-api-ts test` repeated 3× — stable.
 
+# REPORT — F2 — Run A
+
+See PR body
+
 # REPORT — D1 — Run 5
 
 ## End Goal fulfillment
@@ -185,3 +189,7 @@
 
 ## Determinism runs
 - `pnpm --filter claims-api-ts test` repeated 3× — stable.
+
+# REPORT — F2 — Run A
+
+See PR body

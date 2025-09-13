@@ -1,18 +1,18 @@
-# REPORT — C1 — Run 4
+# REPORT — D1 — Run 1
 
-## Goal → Evidence map
-- G1 Raw path unified; `createServer` delegates to `makeRawHandler`【F:packages/host-lite/src/server.ts:93】【F:packages/host-lite/src/server.ts:106】
-- G2 Endpoints only POST `/plan` and `/apply`; otherwise 404【F:packages/host-lite/src/server.ts:84】【F:packages/host-lite/test/c1.http-400-404.test.ts:6】
-- G3 Determinism: `/plan` and `/apply` produce byte-identical responses【F:packages/host-lite/test/c1.byte-determinism.test.ts:7】
-- G4 Proof gating: DEV_PROOFS toggles tags; count check【F:packages/host-lite/src/server.ts:58】【F:packages/host-lite/test/c1.proofs-gating-count.test.ts:6】
-- G5 LRU bounds: per-world cap 32; map size equals worlds touched【F:packages/host-lite/src/server.ts:9】【F:packages/host-lite/test/c1.lru-multiworld.test.ts:4】
-- G6 Hygiene: ESM internal `.js`; public exports only; no deep imports【F:packages/host-lite/test/c1.import-hygiene.test.ts:1】
-- G7 Packaging: `main` and `exports` both `src/server.ts`【F:packages/host-lite/package.json:7】
+## End Goal fulfillment
+- EG-1: Claims API queries via SQLite adapter for counts/clauses【F:services/claims-api-ts/src/server.ts:1-4】【F:packages/adapter-legal-ts/src/sqlite.ts:55-62】
+- EG-2: Responses include `dataset_version` and canonical BLAKE3 `query_hash`【F:services/claims-api-ts/src/server.ts:24-37】【F:services/claims-api-ts/src/util.ts:2-12】
 
-## Notes & tradeoffs
-- Centralized parsing simplifies server wiring and ensures canonical error bodies.
-- Shared `exec` path guarantees identical planning/apply response shapes and bytes.
-- LRU scoped per world prevents cross-world interference and growth.
+## Blockers honored
+- B-1: ✅ Storage strictly SQLite (`sqlite3` CLI)【F:packages/adapter-legal-ts/src/sqlite.ts:15-23】
+- B-2: ✅ ≥10 evidence samples, deterministic counts【F:packages/adapter-legal-ts/src/sqlite.ts:55-57】【F:services/claims-api-ts/test/sqlite.test.ts:33-47】
 
-## Determinism runs
-- Repeated `pnpm -F host-lite-ts test` stable across 5 runs (documented in OBS_LOG.md).
+## Lessons / tradeoffs (≤5 bullets)
+- Native bindings were avoided in favor of the `sqlite3` CLI for portability.
+- Query hashing with `@noble/hashes` keeps responses stable across runs.
+- Sample count fixed at 10 to meet evidence requirement.
+
+## Bench notes (optional, off-mode)
+- flag check: n/a
+- no-op emit: n/a

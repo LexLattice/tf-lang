@@ -3,8 +3,9 @@
   "version": "0.1.0",
   "type": "module",
   "license": "MIT",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "src/index.ts",
+  "exports": "./src/index.ts",
+  "types": "src/index.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json && node -e \"require('fs').cpSync('src/examples/ro-mini','dist/examples/ro-mini',{recursive:true})\""
   },

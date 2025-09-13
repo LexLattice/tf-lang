@@ -1,3 +1,20 @@
+# E1 — Changes (Run 2)
+
+## Summary
+Explorer now derives dataset metadata from `/health`, sorts proof tags from meta only, and auto-selects effective dates from `at` or `generated_at` without prompts. DOM tests moved to a dedicated package.
+
+## Why
+- `/health` is the single source for dataset version, tags, and defaults in API mode.
+- Deterministic tag ordering and default-date fallback keep static and API renders byte-identical.
+
+## Tests
+- Added: `packages/explorer-test/test/claims-explorer.test.ts`.
+- Updated: `docs/claims-explorer.html`.
+- Determinism/parity: static ⇄ API DOM snapshots match.
+
+## Notes
+- No schema changes; minimal surface.
+
 # C1 — Changes (Run 4)
 
 ## Summary

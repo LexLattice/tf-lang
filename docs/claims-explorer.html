@@ -39,7 +39,7 @@
   <div style="display:flex;justify-content:space-between;align-items:center;">
     <div>
   <h1>Claims Explorer <span class="badge">zero-backend demo</span></h1>
-  <div class="muted">Dataset: <span id="datasetVersion">loading…</span> • Source: <code>./data/claims-ro-mini.json</code></div>
+  <div class="muted">Dataset: <span id="datasetVersion">loading…</span> • Source: <code id="srcPath"></code></div>
     </div>
     <div style="display:flex;gap:10px;align-items:center;">
       <a href="./config.html" class="muted" style="text-decoration:none">⚙️ Config</a>
@@ -92,6 +92,11 @@
     <div class="card"><div class="muted">Contradictory</div><div id="metricCon" class="metric">0</div></div>
   </section>
 
+  <section id="tagsPanel" class="card" style="display:none">
+    <div class="muted">Tags</div>
+    <ul id="tagsList" style="margin:0;padding-left:20px"></ul>
+  </section>
+
   <section class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
       <div class="muted">Claims</div>
@@ -114,6 +119,14 @@
 const DATA_URL = './data/claims-ro-mini.json';
 let SOURCE = 'static';
 let API_BASE = '';
+let DATA_TAGS = [];
+let STATIC_DATASET_VERSION = '';
+let STATIC_DATA_TAGS = [];
+let STATIC_AT = '';
+let API_DATASET_VERSION = '';
+let API_TAGS = [];
+let API_AT = '';
+const FALLBACK_AT = '2025-09-09';
 // Load persisted settings (if any)
 const SRC_KEY = 'tfl_source';
 const API_KEY = 'tfl_api_base';
@@ -126,6 +139,13 @@ function buildCurl(params){
   if(params.at) url.searchParams.set('at', params.at);
   url.searchParams.set('limit', '50');
   return `curl '${'`'}${url.toString()}${'`'}`; // template with quotes
+}
+
+async function apiFetchHealth(){
+  const url = new URL('/health', API_BASE);
+  const r = await fetch(url.toString());
+  if(!r.ok) throw new Error('health '+r.status);
+  return await r.json();
 }
 
 async function apiFetchCount(params){
@@ -153,6 +173,52 @@ const $ = sel => document.querySelector(sel);
 let ALL = [];
 let DATASET_VERSION = '';
 
+function updateSourceLabel(){
+  const srcText = SOURCE === 'static' ? DATA_URL : API_BASE;
+  $('#srcPath').textContent = srcText || '';
+}
+
+function updateTagsPanel(){
+  const panel = $('#tagsPanel');
+  const list = $('#tagsList');
+  if(!DATA_TAGS.length){
+    panel.style.display = 'none';
+    list.innerHTML = '';
+    return;
+  }
+  panel.style.display = '';
+  list.innerHTML = '';
+  for(const t of DATA_TAGS.slice().sort()){
+    const li = document.createElement('li');
+    li.textContent = t;
+    list.appendChild(li);
+  }
+}
+
+function extractDefaultAt(meta){
+  return meta.at || (meta.generated_at ? meta.generated_at.slice(0,10) : FALLBACK_AT);
+}
+
+async function fetchApiMeta(){
+  try {
+    const meta = await apiFetchHealth();
+    API_DATASET_VERSION = meta.dataset_version || '—';
+    API_TAGS = Array.isArray(meta.tags) ? meta.tags : [];
+    API_AT = extractDefaultAt(meta);
+    DATASET_VERSION = API_DATASET_VERSION;
+    DATA_TAGS = API_TAGS.slice();
+    $('#datasetVersion').textContent = DATASET_VERSION;
+    updateTagsPanel();
+    if(!$('#at').value) $('#at').value = API_AT;
+  } catch(err){
+    console.error(err);
+    alert('Failed to fetch metadata: ' + err.message);
+    DATASET_VERSION = '—';
+    DATA_TAGS = [];
+    updateTagsPanel();
+  }
+}
+
 function effFrom(c) { return c.effective?.from ?? c.effective_from ?? null; }
 function effTo(c) { return c.effective?.to ?? c.effective_to ?? null; }
 function getJur(c) { return c.scope?.jurisdiction ?? c.jurisdiction ?? ''; }
@@ -173,6 +239,7 @@ function uniqueJurisdictions(claims) {
 
 
 async function applyFilters() {
+  updateSourceLabel();
   const at = $('#at').value || null;
   const jur = $('#jur').value;
   const mod = $('#mod').value;
@@ -186,9 +253,14 @@ async function applyFilters() {
     total = items.length;
   } else {
     const params = { at, jurisdiction: jur, modality: mod };
-    const [cnt, lst] = await Promise.all([apiFetchCount(params), apiFetchList(params)]);
-    total = cnt.n;
-    items = lst.items || [];
+    try {
+      const [cnt, lst] = await Promise.all([apiFetchCount(params), apiFetchList(params)]);
+      total = cnt.n;
+      items = (lst.items || []).map(c => ({ ...c, dataset_version: DATASET_VERSION }));
+    } catch(err){
+      console.error(err);
+      alert('Failed to fetch data: ' + err.message);
+    }
   }
   const amb = items.filter(c => c.status === 'ambiguous').length;
   const con = items.filter(c => c.status === 'contradictory').length;
@@ -228,7 +300,12 @@ async function main() {
   const version = data.dataset_version ?? data.version ?? data.meta?.dataset_version ?? '—';
   ALL = (data.claims || []).map(c => ({ ...c, dataset_version: version }));
   DATASET_VERSION = version;
+  DATA_TAGS = Array.isArray(data.tags) ? data.tags : [];
+  STATIC_DATASET_VERSION = DATASET_VERSION;
+  STATIC_DATA_TAGS = DATA_TAGS.slice();
+  STATIC_AT = extractDefaultAt(data);
   $('#datasetVersion').textContent = DATASET_VERSION;
+  updateTagsPanel();
 
   // populate filters
   const jurSel = $('#jur'); jurSel.innerHTML = '';
@@ -240,32 +317,60 @@ async function main() {
 
   // defaults
   loadPersist();
-  $('#at').value = '2025-09-09';
-  $('#mod').value = '*';
-  $('#jur').value = '*';
   $('#source').value = SOURCE || 'static';
   $('#apiBase').value = API_BASE || 'http://localhost:8787';
   SOURCE = $('#source').value;
   API_BASE = $('#apiBase').value;
+  updateSourceLabel();
+  if (SOURCE === 'api') {
+    await fetchApiMeta();
+    if (!$('#at').value) $('#at').value = API_AT;
+  } else {
+    if (!$('#at').value) $('#at').value = STATIC_AT;
+  }
+  $('#mod').value = '*';
+  $('#jur').value = '*';
 
   await applyFilters();
 
   $('#at').addEventListener('change', () => applyFilters());
   $('#jur').addEventListener('change', () => applyFilters());
   $('#mod').addEventListener('change', () => applyFilters());
-  $('#source').addEventListener('change', async () => { SOURCE = $('#source').value; persist(); await applyFilters(); });
-  $('#apiBase').addEventListener('change', async () => { API_BASE = $('#apiBase').value; persist(); await applyFilters(); });
+  $('#source').addEventListener('change', async () => {
+    SOURCE = $('#source').value;
+    persist();
+    if (SOURCE === 'static') {
+      DATASET_VERSION = STATIC_DATASET_VERSION;
+      DATA_TAGS = STATIC_DATA_TAGS.slice();
+      $('#datasetVersion').textContent = DATASET_VERSION;
+      updateTagsPanel();
+      if(!$('#at').value) $('#at').value = STATIC_AT;
+    } else {
+      await fetchApiMeta();
+    }
+    await applyFilters();
+  });
+  $('#apiBase').addEventListener('change', async () => {
+    API_BASE = $('#apiBase').value;
+    persist();
+    if (SOURCE === 'api') await fetchApiMeta();
+    await applyFilters();
+  });
   document.getElementById('copyCurl').addEventListener('click', async () => {
     const at = $('#at').value || null; const jurisdiction = $('#jur').value; const modality = $('#mod').value; const text = buildCurl({ at, jurisdiction, modality });
     try { await navigator.clipboard.writeText(text); } catch(_) { console.log('clipboard failed'); }
     const c = document.getElementById('copied'); c.style.display='inline'; setTimeout(()=>{c.style.display='none';}, 800);
   });
   $('#reset').addEventListener('click', async () => {
-    $('#at').value = '2025-09-09';
+    $('#at').value = STATIC_AT;
     $('#jur').value = '*';
     $('#mod').value = '*';
     $('#source').value = 'static';
     SOURCE = 'static';
+    DATASET_VERSION = STATIC_DATASET_VERSION;
+    DATA_TAGS = STATIC_DATA_TAGS.slice();
+    $('#datasetVersion').textContent = DATASET_VERSION;
+    updateTagsPanel();
     await applyFilters();
   });
 }

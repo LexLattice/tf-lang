@@ -1,0 +1,13 @@
+{
+  "name": "explorer-test",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.3",
+    "vitest": "^2.0.5",
+    "jsdom": "^24.0.0"
+  }
+}

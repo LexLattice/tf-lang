@@ -1,3 +1,11 @@
+# Observation Log — E1 — Run 2
+
+- Strategy chosen: derive meta from `/health`, sort tags, and move DOM tests to isolated package.
+- Key changes (files): docs/claims-explorer.html; packages/explorer-test/test/claims-explorer.test.ts; CHANGES.md; COMPLIANCE.md; REPORT.md.
+- Determinism stress (runs × passes): 3× `pnpm test` — static ⇄ API snapshots identical.
+- Near-misses vs blockers: ensured static-mode tests stub fetch to avoid network; removed tag derivation from count/list.
+- Notes: dedicated test package avoids jsdom leak into other workspaces.
+
 # Observation Log — C1 — Run 4
 
 - Strategy: Keep unified raw path; delegate `createServer` → `makeRawHandler`; share `exec(world, plan)` for both routes; enforce canonical errors.

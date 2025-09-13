@@ -1,3 +1,23 @@
+# REPORT — E1 — Run 2
+
+## End Goal fulfillment
+- EG-1: `/health` supplies dataset meta; static ⇄ API DOM identical【F:docs/claims-explorer.html†L144-L149】【F:docs/claims-explorer.html†L202-L211】【F:packages/explorer-test/test/claims-explorer.test.ts†L86-L127】
+- EG-2: Defaults derive from `at` or `generated_at` with fallback【F:docs/claims-explorer.html†L198-L200】【F:docs/claims-explorer.html†L318-L334】【F:packages/explorer-test/test/claims-explorer.test.ts†L130-L155】
+- EG-3: Tags panel only from meta and hidden when absent【F:docs/claims-explorer.html†L181-L196】【F:packages/explorer-test/test/claims-explorer.test.ts†L158-L162】
+
+## Blockers honored
+- B-1: ✅ Static mode makes no API calls【F:packages/explorer-test/test/claims-explorer.test.ts†L96-L99】
+- B-2: ✅ Tags sourced only from `/health` or static meta【F:docs/claims-explorer.html†L202-L211】
+- B-3: ✅ DOM tests isolated in dedicated package【F:packages/explorer-test/package.json†L1-L11】
+
+## Lessons / tradeoffs (≤5 bullets)
+- Consolidated meta fetch reduces API chatter but needs graceful error paths.
+- Sorting tags ensures deterministic snapshots across sources.
+- Separate test package keeps jsdom out of production deps.
+
+## Bench notes (optional, off-mode)
+- n/a
+
 # REPORT — C1 — Run 4
 
 ## Goal → Evidence map

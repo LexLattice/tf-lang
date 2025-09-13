@@ -3,7 +3,8 @@
 ########################
 # build (with deploy)
 ########################
-FROM node:20-alpine AS build
+ARG NODE_BASE=node:20-alpine@sha256:6a91081a440be0b57336fbc4ee87f3dab1a2fd6f80cdb355dcf960e13bda3b59
+FROM ${NODE_BASE} AS build
 ENV PNPM_HOME=/root/.local/share/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 RUN corepack enable
@@ -31,7 +32,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
 ########################
 # runtime
 ########################
-FROM node:20-alpine AS runtime
+FROM ${NODE_BASE} AS runtime
 ENV NODE_ENV=production
 ENV PORT=8787
 ENV HOST=0.0.0.0

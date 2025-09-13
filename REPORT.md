@@ -53,6 +53,23 @@
 ## Determinism runs
 - `pnpm --filter claims-api-ts test` repeated 3× — stable.
 
+# REPORT — E1 — Run 1
+
+## End Goal fulfillment
+- EG-1: Explorer switches sources at runtime, seeds default date, and toggles tag panel【F:docs/claims-explorer.html†L205-L221】【F:docs/claims-explorer.html†L254-L301】
+- EG-2: Offline static mode and deterministic renders verified【F:packages/explorer-test/test/e1.explorer.test.ts†L35-L81】【F:packages/explorer-test/test/e1.explorer.test.ts†L99-L127】
+
+## Blockers honored
+- B-1: ✅ Static mode avoids network and state preserved on source switch【F:packages/explorer-test/test/e1.explorer.test.ts†L35-L81】
+- B-2: ✅ Tags panel hidden when dataset lacks tags; shown when present【F:docs/claims-explorer.html†L88-L91】【F:packages/explorer-test/test/e1.explorer.test.ts†L83-L97】
+
+## Lessons / tradeoffs (≤5 bullets)
+- Inline script retained for minimal diff.
+- Dataset metadata drives defaults and tag panel.
+- Fetch stubs keep tests hermetic.
+
+## Bench notes (optional, off-mode)
+- n/a
 # REPORT — D1 — Run 5
 
 ## End Goal fulfillment

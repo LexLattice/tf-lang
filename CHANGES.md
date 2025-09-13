@@ -104,3 +104,20 @@ Claims API now loads legal datasets from SQLite and computes canonical BLAKE3 qu
 
 ## Notes
 - Static scans confirm no `.slice(`/`.filter(` in production code.
+
+# E1 — Changes (Run 1)
+
+## Summary
+Explorer now chooses between static JSON and live API at runtime while seeding defaults. Datasets expose tags which toggle a panel and selections persist across source switches.
+
+## Why
+- EG: runtime source switching, sensible defaults, tag panel gating.
+- Deterministic rendering for static/API parity.
+
+## Tests
+- Added: explorer runtime/source tests.
+- Updated: docs/claims-explorer.html.
+- Determinism/parity: repeated `pnpm test` stable.
+
+## Notes
+- No schema changes; minimal surface; ESM only.

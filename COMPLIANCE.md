@@ -176,3 +176,31 @@
 - Tests: services/claims-api-ts/test/sqlite.test.ts
 - Runs: `pnpm --filter claims-api-ts test`; `pnpm test`
 - Bench (off-mode, if applicable): n/a
+
+# COMPLIANCE — E1 — Run 1
+
+## Blockers (must all be ✅)
+- [x] No changes to kernel/tag schemas — n/a
+- [x] No per-call locks or `as any` — code link: docs/claims-explorer.html
+- [x] ESM internal imports include `.js` — n/a (no internal imports)
+- [x] Tests parallel-safe, deterministic — test link: packages/explorer-test/test/e1.explorer.test.ts
+- [x] Static file mode avoids network requests — test link: packages/explorer-test/test/e1.explorer.test.ts
+- [x] Runtime source switching, no reload — test link: packages/explorer-test/test/e1.explorer.test.ts
+- [x] Default dataset/date on first load — test link: packages/explorer-test/test/e1.explorer.test.ts
+- [x] Tags panel hidden when no tags exist — test link: packages/explorer-test/test/e1.explorer.test.ts
+
+## Acceptance (oracle)
+- [x] Source switch preserves state, no reload
+- [x] Offline static render
+- [x] Defaults appear on first load
+- [x] Tags panel gating based on dataset tags
+- [x] Deterministic renders across sources
+- [ ] Cross-runtime parity (n/a)
+- [x] Build/packaging correctness (ESM)
+- [x] Code quality (minimal diff)
+
+## Evidence
+- Code: docs/claims-explorer.html; packages/explorer-test/test/e1.explorer.test.ts
+- Tests: packages/explorer-test/test/e1.explorer.test.ts
+- Runs: `pnpm test`
+- Bench: n/a

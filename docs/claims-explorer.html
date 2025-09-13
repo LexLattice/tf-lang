@@ -39,7 +39,7 @@
   <div style="display:flex;justify-content:space-between;align-items:center;">
     <div>
   <h1>Claims Explorer <span class="badge">zero-backend demo</span></h1>
-  <div class="muted">Dataset: <span id="datasetVersion">loading…</span> • Source: <code>./data/claims-ro-mini.json</code></div>
+  <div class="muted">Dataset: <span id="datasetVersion">loading…</span> • Source: <code id="sourceLabel">./data/claims-ro-mini.json</code></div>
     </div>
     <div style="display:flex;gap:10px;align-items:center;">
       <a href="./config.html" class="muted" style="text-decoration:none">⚙️ Config</a>
@@ -85,6 +85,10 @@
       <button id="reset" style="width:100%;padding:9px 12px;border-radius:10px;background:#1b1b1f;color:#fff;border:1px solid #fff2;cursor:pointer;">Reset filters</button>
     </div>
   </section>
+  <section id="tagsPanel" class="card" style="display:none">
+    <div class="muted">Tags</div>
+    <div id="tagsList"></div>
+  </section>
 
   <section class="cards">
     <div class="card"><div class="muted">Count</div><div id="metricCount" class="metric">0</div></div>
@@ -114,6 +118,8 @@
 const DATA_URL = './data/claims-ro-mini.json';
 let SOURCE = 'static';
 let API_BASE = '';
+let DATASET_TAGS = [];
+let DEFAULT_AT = '';
 // Load persisted settings (if any)
 const SRC_KEY = 'tfl_source';
 const API_KEY = 'tfl_api_base';
@@ -153,6 +159,23 @@ const $ = sel => document.querySelector(sel);
 let ALL = [];
 let DATASET_VERSION = '';
 
+function updateSourceLabel(){
+  $('#sourceLabel').textContent = SOURCE === 'static' ? DATA_URL : API_BASE;
+}
+
+function renderTags(tags){
+  DATASET_TAGS = tags || [];
+  const panel = $('#tagsPanel');
+  const list = $('#tagsList');
+  if(DATASET_TAGS.length){
+    list.innerHTML = DATASET_TAGS.map(t => `<span class="badge">${t}</span>`).join(' ');
+    panel.style.display = 'block';
+  } else {
+    list.innerHTML = '';
+    panel.style.display = 'none';
+  }
+}
+
 function effFrom(c) { return c.effective?.from ?? c.effective_from ?? null; }
 function effTo(c) { return c.effective?.to ?? c.effective_to ?? null; }
 function getJur(c) { return c.scope?.jurisdiction ?? c.jurisdiction ?? ''; }
@@ -184,12 +207,18 @@ async function applyFilters() {
     if (jur && jur !== '*') items = items.filter(c => getJur(c) === jur);
     if (mod && mod !== '*') items = items.filter(c => c.modality === mod);
     total = items.length;
+    $('#datasetVersion').textContent = DATASET_VERSION;
+    renderTags(DATASET_TAGS);
   } else {
     const params = { at, jurisdiction: jur, modality: mod };
     const [cnt, lst] = await Promise.all([apiFetchCount(params), apiFetchList(params)]);
     total = cnt.n;
     items = lst.items || [];
+    DATASET_VERSION = cnt.dataset_version || lst.dataset_version || '';
+    $('#datasetVersion').textContent = DATASET_VERSION;
+    renderTags(cnt.tags || lst.tags || []);
   }
+  updateSourceLabel();
   const amb = items.filter(c => c.status === 'ambiguous').length;
   const con = items.filter(c => c.status === 'contradictory').length;
   $('#metricCount').textContent = String(total);
@@ -228,6 +257,7 @@ async function main() {
   const version = data.dataset_version ?? data.version ?? data.meta?.dataset_version ?? '—';
   ALL = (data.claims || []).map(c => ({ ...c, dataset_version: version }));
   DATASET_VERSION = version;
+  renderTags(data.tags || []);
   $('#datasetVersion').textContent = DATASET_VERSION;
 
   // populate filters
@@ -240,13 +270,15 @@ async function main() {
 
   // defaults
   loadPersist();
-  $('#at').value = '2025-09-09';
+  DEFAULT_AT = data.at || '2025-09-09';
+  $('#at').value = DEFAULT_AT;
   $('#mod').value = '*';
   $('#jur').value = '*';
   $('#source').value = SOURCE || 'static';
   $('#apiBase').value = API_BASE || 'http://localhost:8787';
   SOURCE = $('#source').value;
   API_BASE = $('#apiBase').value;
+  updateSourceLabel();
 
   await applyFilters();
 
@@ -261,7 +293,7 @@ async function main() {
     const c = document.getElementById('copied'); c.style.display='inline'; setTimeout(()=>{c.style.display='none';}, 800);
   });
   $('#reset').addEventListener('click', async () => {
-    $('#at').value = '2025-09-09';
+    $('#at').value = DEFAULT_AT;
     $('#jur').value = '*';
     $('#mod').value = '*';
     $('#source').value = 'static';

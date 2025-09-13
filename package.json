@@ -9,9 +9,9 @@
 	"devDependencies": {
 		"typescript": "^5.5.3"
 	},
-	"pnpm": {
-		"allowScripts": {
-			"esbuild": true
-		}
-	}
+        "pnpm": {
+                "allowScripts": {
+                        "esbuild": true
+                }
+        }
 }

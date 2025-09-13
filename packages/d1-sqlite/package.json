@@ -1,0 +1,11 @@
+{
+  "name": "@tf-lang/d1-sqlite",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "main": "src/db.js",
+  "exports": "./src/db.js",
+  "dependencies": {
+    "sql.js": "^1.9.2"
+  }
+}

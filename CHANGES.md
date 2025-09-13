@@ -21,3 +21,86 @@ Finalize `host-lite` on top of PR #46 with a unified raw JSON handler path and d
 
 ## Notes
 - In-memory only; no new runtime deps; ESM imports include `.js` for internal paths.
+
+# D1 — Changes (Run 1)
+
+## Summary
+Claims API now loads legal datasets from SQLite and computes canonical BLAKE3 query hashes. Responses expose dataset version and deterministic evidence samples.
+
+## Why
+- Switch from JSON files to SQLite for stable storage.
+- Canonical hashing ensures identical queries map to the same `query_hash`.
+
+## Tests
+- Added: `services/claims-api-ts/test/sqlite.test.ts`.
+- Updated: n/a.
+- Determinism/parity: repeated `pnpm --filter claims-api-ts test` stable.
+
+## Notes
+- No schema changes; minimal surface.
+
+# D1 — Changes (Run 2)
+
+## Summary
+- Remove committed SQLite DB; switch to in-memory sql.js with schema/seed fixtures.
+
+## Why
+- Ensure repo hygiene and deterministic in-memory storage for portable tests.
+
+## Tests
+- Updated: services/claims-api-ts/test/sqlite.test.ts.
+- Added: packages/d1-sqlite/fixtures/schema.sql; packages/d1-sqlite/fixtures/seed.sql; packages/d1-sqlite/src/db.js.
+- Determinism/parity: repeated `pnpm --filter claims-api-ts test` stable.
+
+## Notes
+- Queries include ORDER BY for stable row order; evidence sampling yields ≥10 distinct hashes.
+
+# D1 — Changes (Run 3)
+
+## Summary
+- Harden SQLite adapter with parameterized queries and SQL-driven paging.
+- Validate request filters and expose typed DTOs; reject malformed input with 400.
+
+## Why
+- Prevent SQL injection and ensure deterministic slices without loading whole tables.
+- Improve type safety and API correctness compared to pass-1 (#53).
+
+## Tests
+- Updated: services/claims-api-ts/test/sqlite.test.ts.
+- Determinism/parity: repeated `pnpm --filter claims-api-ts test` stable.
+
+## Notes
+- LIMIT/OFFSET enforced in SQL only; queries use placeholders for all parameters.
+
+# D1 — Changes (Run 4)
+
+## Summary
+- Reuse prepared SQLite statements and fetch evidence samples purely via SQL.
+- Harden paging filters with boundary checks for limit/offset and maintain deterministic bytes.
+
+## Why
+- Prepared statement reuse avoids recompilation and keeps responses stable.
+- SQL-only evidence and strict filter validation guard against JS-side slicing and malformed inputs.
+
+## Tests
+- Updated: services/claims-api-ts/src/db.ts; services/claims-api-ts/test/sqlite.test.ts.
+- Determinism/parity: repeated `pnpm --filter claims-api-ts test` stable.
+
+## Notes
+- Grep tests ensure no `.slice(` or `.filter(` over DB rows; large-offset queries return empty pages deterministically.
+
+# D1 — Changes (Run 5)
+
+## Summary
+- Guard database initialization and reuse prepared SQLite statements for counts, listings, and evidence, keeping paging and sampling purely in SQL.
+- Added coverage for prepared-vs-ad-hoc equivalence and DB startup failures with deterministic 500 responses.
+
+## Why
+- Ensures stable outputs even if sql.js fails to load and proves prepared reuse does not alter JSON bytes.
+
+## Tests
+- Updated: services/claims-api-ts/src/db.ts; services/claims-api-ts/src/app.ts; services/claims-api-ts/test/sqlite.test.ts.
+- Determinism/parity: repeated `pnpm --filter claims-api-ts test` stable.
+
+## Notes
+- Static scans assert no `.slice(`/`.filter(` over DB rows across sources; error handling returns canonical `{ "error": "db_unavailable" }` with 500 status.

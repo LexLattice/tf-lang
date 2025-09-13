@@ -1,4 +1,8 @@
-import { createServer as createHttpServer, IncomingMessage, ServerResponse } from 'node:http';
+import {
+  createServer as createHttpServer,
+  IncomingMessage,
+  ServerResponse,
+} from 'node:http';
 import { canonicalJsonBytes, blake3hex, DummyHost } from 'tf-lang-l0';
 
 const td = new TextDecoder();
@@ -35,60 +39,48 @@ function cacheStore(cache: Cache, world: string, key: string, value: string) {
   }
 }
 
+async function exec(
+  worlds: Map<string, unknown>,
+  cache: Cache,
+  action: 'plan' | 'apply',
+  body: PlanReq,
+): Promise<{ world: unknown; delta: unknown; journal: JournalEntry[] }> {
+  const key = action + ':' + blake3hex(canonicalJsonBytes(body));
+  const cached = cacheLookup(cache, body.world, key);
+  if (cached) return JSON.parse(cached);
+  const w = worlds.get(body.world) ?? [];
+  const delta = await DummyHost.call_tf('tf://plan/delta@0.1', [w, body.plan]);
+  const world1 = await DummyHost.diff_apply(w, delta);
+  const s0 = await DummyHost.snapshot_make(w);
+  const id0 = await DummyHost.snapshot_id(s0);
+  const s1 = await DummyHost.snapshot_make(world1);
+  const id1 = await DummyHost.snapshot_id(s1);
+  const entry = await DummyHost.journal_record(body.plan, delta, id0, id1, {});
+  const entryBytes = canonicalJsonBytes(entry);
+  const canon = td.decode(entryBytes);
+  const je: JournalEntry = { canon };
+  if (process.env.DEV_PROOFS === '1') {
+    je.proof = blake3hex(entryBytes);
+  }
+  const resp = { world: world1, delta, journal: [je] };
+  const respBytes = canonicalJsonBytes(resp);
+  const canonResp = td.decode(respBytes);
+  cacheStore(cache, body.world, key, canonResp);
+  if (action === 'apply') worlds.set(body.world, world1);
+  return JSON.parse(canonResp);
+}
+
 export function createHost() {
   const worlds = new Map<string, unknown>();
   const cache: Cache = new Map();
 
   return {
     cache,
-    async plan(body: PlanReq) {
-      const key = 'plan:' + blake3hex(canonicalJsonBytes(body));
-      const cached = cacheLookup(cache, body.world, key);
-      if (cached) return JSON.parse(cached) as { world: unknown; delta: unknown; journal: JournalEntry[] };
-      const w = worlds.get(body.world) ?? [];
-      const delta = await DummyHost.call_tf('tf://plan/delta@0.1', [w, body.plan]);
-      const world1 = await DummyHost.diff_apply(w, delta);
-      const s0 = await DummyHost.snapshot_make(w);
-      const id0 = await DummyHost.snapshot_id(s0);
-      const s1 = await DummyHost.snapshot_make(world1);
-      const id1 = await DummyHost.snapshot_id(s1);
-      const entry = await DummyHost.journal_record(body.plan, delta, id0, id1, {});
-      const entryBytes = canonicalJsonBytes(entry);
-      const canon = td.decode(entryBytes);
-      const je: JournalEntry = { canon };
-      if (process.env.DEV_PROOFS === '1') {
-        je.proof = blake3hex(entryBytes);
-      }
-      const resp = { world: world1, delta, journal: [je] };
-      const respBytes = canonicalJsonBytes(resp);
-      const canonResp = td.decode(respBytes);
-      cacheStore(cache, body.world, key, canonResp);
-      return JSON.parse(canonResp) as { world: unknown; delta: unknown; journal: JournalEntry[] };
+    plan(body: PlanReq) {
+      return exec(worlds, cache, 'plan', body);
     },
-    async apply(body: PlanReq) {
-      const key = 'apply:' + blake3hex(canonicalJsonBytes(body));
-      const cached = cacheLookup(cache, body.world, key);
-      if (cached) return JSON.parse(cached) as { world: unknown; delta: unknown; journal: JournalEntry[] };
-      const w = worlds.get(body.world) ?? [];
-      const delta = await DummyHost.call_tf('tf://plan/delta@0.1', [w, body.plan]);
-      const world1 = await DummyHost.diff_apply(w, delta);
-      const s0 = await DummyHost.snapshot_make(w);
-      const id0 = await DummyHost.snapshot_id(s0);
-      const s1 = await DummyHost.snapshot_make(world1);
-      const id1 = await DummyHost.snapshot_id(s1);
-      const entry = await DummyHost.journal_record(body.plan, delta, id0, id1, {});
-      const entryBytes = canonicalJsonBytes(entry);
-      const canon = td.decode(entryBytes);
-      const je: JournalEntry = { canon };
-      if (process.env.DEV_PROOFS === '1') {
-        je.proof = blake3hex(entryBytes);
-      }
-      const resp = { world: world1, delta, journal: [je] };
-      const respBytes = canonicalJsonBytes(resp);
-      const canonResp = td.decode(respBytes);
-      cacheStore(cache, body.world, key, canonResp);
-      worlds.set(body.world, world1);
-      return JSON.parse(canonResp) as { world: unknown; delta: unknown; journal: JournalEntry[] };
+    apply(body: PlanReq) {
+      return exec(worlds, cache, 'apply', body);
     },
   };
 }
@@ -102,9 +94,9 @@ export function makeHandler(host = createHost()) {
   };
 }
 
-export function createServer(host = createHost()) {
+export function createNodeHandler(host = createHost()) {
   const handler = makeHandler(host);
-  return createHttpServer(async (req: IncomingMessage, res: ServerResponse) => {
+  return async (req: IncomingMessage, res: ServerResponse) => {
     const chunks: Uint8Array[] = [];
     req.on('data', (c) => chunks.push(c));
     req.on('end', async () => {
@@ -113,15 +105,27 @@ export function createServer(host = createHost()) {
       try {
         body = JSON.parse(bodyStr);
       } catch {
-        body = {};
+        res.statusCode = 400;
+        res.setHeader('content-type', 'application/json');
+        const bytes = canonicalJsonBytes({ error: 'bad_request' });
+        res.end(Buffer.from(bytes));
+        return;
       }
-      const { status, body: respBody } = await handler(req.method ?? '', req.url ?? '', body);
+      const { status, body: respBody } = await handler(
+        req.method ?? '',
+        req.url ?? '',
+        body,
+      );
       res.statusCode = status;
       res.setHeader('content-type', 'application/json');
       const bytes = canonicalJsonBytes(respBody);
       res.end(Buffer.from(bytes));
     });
-  });
+  };
+}
+
+export function createServer(host = createHost()) {
+  return createHttpServer(createNodeHandler(host));
 }
 
 if (process.argv[1] === new URL(import.meta.url).pathname) {

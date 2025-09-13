@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { makeHandler, createHost } from '../src/server.js';
+import { makeHandler, createHost, createNodeHandler } from '../src/server.js';
 import { canonicalJsonBytes, blake3hex } from 'tf-lang-l0';
 import { readFile } from 'node:fs/promises';
+import { IncomingMessage, ServerResponse } from 'node:http';
+import { PassThrough } from 'node:stream';
 
 const td = new TextDecoder();
 
@@ -64,6 +66,14 @@ describe('host-lite', () => {
     expect(canon).toBe('{"error":"not_found"}');
   });
 
+  it('404 for wrong method', async () => {
+    const handler = makeHandler(createHost());
+    const r = await handler('GET', '/plan', {});
+    expect(r.status).toBe(404);
+    const canon = td.decode(canonicalJsonBytes(r.body));
+    expect(canon).toBe('{"error":"not_found"}');
+  });
+
   it('bounded cache prevents growth', async () => {
     const host = createHost();
     const handler = makeHandler(host);
@@ -74,7 +84,41 @@ describe('host-lite', () => {
     expect(worldCache?.size ?? 0).toBeLessThanOrEqual(32);
   });
 
-  it('no deep imports', async () => {
+  it('multi-world cache bounds', async () => {
+    const host = createHost();
+    const handler = makeHandler(host);
+    for (let w = 0; w < 4; w++) {
+      for (let i = 0; i < 40; i++) {
+        await handler('POST', '/plan', { world: `mw${w}`, plan: i });
+      }
+    }
+    for (let w = 0; w < 4; w++) {
+      const worldCache = host.cache.get(`mw${w}`);
+      expect(worldCache?.size ?? 0).toBeLessThanOrEqual(32);
+    }
+  });
+
+  it('400 for malformed JSON', async () => {
+    const handler = createNodeHandler();
+    const req = new IncomingMessage(new PassThrough());
+    req.method = 'POST';
+    req.url = '/plan';
+    const res = new ServerResponse(req);
+    let body = '';
+    res.end = (chunk?: unknown) => {
+      if (chunk) body += Buffer.from(chunk as Uint8Array).toString();
+      res.emit('finish');
+    };
+    const finished = new Promise((resolve) => res.on('finish', resolve));
+    handler(req, res);
+    req.emit('data', Buffer.from('{'));
+    req.emit('end');
+    await finished;
+    expect(res.statusCode).toBe(400);
+    expect(body).toBe('{"error":"bad_request"}');
+  });
+
+  it('no deep imports across packages', async () => {
     const src = await readFile(new URL('../src/server.ts', import.meta.url), 'utf8');
     expect(src.includes('../')).toBe(false);
   });

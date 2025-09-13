@@ -1,7 +1,7 @@
-# Observation Log — C1 — Run 2
+# Observation Log — C1 — Run 3
 
-- Strategy chosen: Migrated host to package with Node HTTP server and LRU cache.
-- Key changes (files): packages/host-lite/src/server.ts; packages/host-lite/tests/host-lite.test.ts; packages/tf-lang-l0-ts/src/index.ts; pnpm-lock.yaml
-- Determinism stress (runs × passes): 2×; stable outputs.
-- Near-misses vs blockers: needed package export to avoid deep imports.
-- Notes: proof hashing skipped when DEV_PROOFS!=1; cache capped at 32 entries per world.
+- Strategy chosen: Hardened host-lite error paths and cache proofs while maintaining zero-dep runtime.
+- Key changes (files): packages/host-lite/src/server.ts; packages/host-lite/tests/host-lite.test.ts; packages/host-lite/package.json
+- Determinism stress (runs × passes): 3×; stable outputs.
+- Near-misses vs blockers: boundary scan kept local to host-lite to avoid false positives.
+- Notes: proofs hashed only when DEV_PROOFS=1; per-world cache capped at 32.

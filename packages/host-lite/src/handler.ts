@@ -31,26 +31,40 @@ function cacheStore(cache: LruCache, world: string, key: string, canonResp: stri
   }
 }
 
+type ExecResult = { world: unknown; delta: unknown; journal: unknown[] };
+
 export function makeHandler(deps: {
-  exec: (world: string, plan: unknown) => Promise<unknown> | unknown;
-  lru: LruCache;
+  exec: (world: string, plan: unknown) => Promise<ExecResult> | ExecResult;
+  commit: (world: string, state: unknown) => void;
+  cache: LruCache;
 }) {
-  const { exec, lru } = deps;
-  return async (method: string, url: string, body: any): Promise<RawResult> => {
+  const { exec, commit, cache } = deps;
+  const td = new TextDecoder();
+  return async (method: string, url: string, body: unknown): Promise<RawResult> => {
+    // DRY routing here
     if (method !== 'POST') return { status: 404, body: { error: 'not_found' } };
     const action = url === '/plan' ? 'plan' : url === '/apply' ? 'apply' : null;
     if (!action) return { status: 404, body: { error: 'not_found' } };
 
+    // Validate body.world
+    const b = body as { world?: unknown; plan?: unknown };
+    const wname = typeof b?.world === 'string' ? b.world : '';
+    if (!wname) return { status: 400, body: { error: 'bad_request' } };
+
+    // Cache key per action and canonical body (hash to keep key compact)
     const key = action + ':' + blake3hex(canonicalJsonBytes(body));
-    const wname = (body?.world ?? '') as string;
-    const cached = cacheLookup(lru, wname, key);
+    const cached = cacheLookup(cache, wname, key);
     if (cached) return { status: 200, body: JSON.parse(cached) };
 
-    const res = (await exec(wname, body?.plan)) as { world: unknown; delta: unknown; journal: unknown[] };
-    const resp = { world: res.world, delta: res.delta, journal: res.journal };
-    const canonResp = new TextDecoder().decode(canonicalJsonBytes(resp));
-    cacheStore(lru, wname, key, canonResp);
-    return { status: 200, body: JSON.parse(canonResp) };
+    // Compute via shared exec
+    const res = await exec(wname, b.plan);
+    if (action === 'apply') {
+      // Persist new world state
+      commit(wname, res.world);
+    }
+    const out = { world: res.world, delta: res.delta, journal: res.journal };
+    const canon = td.decode(canonicalJsonBytes(out));
+    cacheStore(cache, wname, key, canon);
+    return { status: 200, body: JSON.parse(canon) };
   };
 }
-

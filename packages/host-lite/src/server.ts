@@ -6,9 +6,9 @@ import { makeRawHandler } from './makeRawHandler.js';
 type PlanReq = { world: string; plan: unknown };
 type JournalEntry = { canon: string; proof?: string };
 
-export function createHost(): { exec: (world: string, plan: unknown) => Promise<{ world: unknown; delta: unknown; journal: JournalEntry[] }>; lru: LruCache; cache: LruCache } {
+export function createHost(): { exec: (world: string, plan: unknown) => Promise<{ world: unknown; delta: unknown; journal: JournalEntry[] }>; commit: (world: string, state: unknown) => void; cache: LruCache } {
   const worlds = new Map<string, unknown>();
-  const lru: LruCache = new Map();
+  const cache: LruCache = new Map();
   const td = new TextDecoder();
 
   async function exec(world: string, plan: unknown): Promise<{ world: unknown; delta: unknown; journal: JournalEntry[] }> {
@@ -28,7 +28,10 @@ export function createHost(): { exec: (world: string, plan: unknown) => Promise<
     return { world: world1, delta, journal: [je] };
   }
 
-  return { exec, lru, cache: lru };
+  function commit(world: string, state: unknown) {
+    worlds.set(world, state);
+  }
+  return { exec, commit, cache };
 }
 
 export function createServer(deps = createHost()) {

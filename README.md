@@ -1,6 +1,8 @@
 
 # TF-Lang Monorepo
 
+[![deploy](https://github.com/LexLattice/tf-lang/actions/workflows/pages.yml/badge.svg?branch=main)](https://LexLattice.github.io/tf-lang/)
+
 A minimal, deterministic kernel for **True-Function** programs with two runtimes:
 
 - `packages/tf-lang-l0-ts` — TypeScript VM + checker stubs + tests (Vitest)

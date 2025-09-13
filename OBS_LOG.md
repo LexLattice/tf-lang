@@ -1,3 +1,10 @@
+# Observation Log — F1 — Run 1
+
+- Strategy: condition Pages workflow for PR preview artifact and main deploy; add README badge.
+- Key changes: .github/workflows/pages.yml; README.md; CHANGES.md; COMPLIANCE.md; REPORT.md.
+- Determinism runs: `pnpm test` — all green.
+- Notes: deploy job guarded to skip on PR.
+
 # Observation Log — E2 — Run 1
 
 - Strategy chosen: sort proof tags via `localeCompare` and verify static/API DOM snapshots.

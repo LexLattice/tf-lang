@@ -1,3 +1,17 @@
+# F1 — Changes (Run 1)
+
+## Summary
+Pages workflow now uploads a preview artifact for pull requests and only deploys on `main`; README surfaces a status badge linking to the live site.
+
+## Why
+Allows reviewers to download a docs preview without publishing while main pushes go straight to production with visible status.
+
+## Tests
+- Determinism/parity: `pnpm test`.
+
+## Notes
+- Deploy job guarded by event check.
+
 # E2 — Changes (Run 1)
 
 ## Summary

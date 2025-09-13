@@ -72,3 +72,10 @@ briefs-check:
 
 briefs-index:
 	@python3 .codex/scripts/build-index.py
+
+agents-sync:
+	@bash .codex/scripts/sync-agents.sh --write
+
+agents-check:
+	@bash .codex/scripts/sync-agents.sh --check
+

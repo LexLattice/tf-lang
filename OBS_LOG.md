@@ -53,3 +53,11 @@
 - Determinism stress: 3× `pnpm --filter claims-api-ts test` — stable.
 - Near-misses vs blockers: adjusted filter bounds to allow `limit=0` while keeping validation.
 - Notes: rg scan expanded to entire src to enforce SQL-only pagination.
+
+# Observation Log — E2 — Run 1
+
+- Strategy chosen: sort dataset tags on render and test cross-source parity.
+- Key changes (files): docs/claims-explorer.html; packages/explorer-test/claims-explorer.test.ts; CHANGES.md; COMPLIANCE.md; REPORT.md.
+- Determinism stress (runs × passes): `pnpm test` ×1 — all green.
+- Near-misses vs blockers: had to install vitest; offline API error printed but handled.
+- Notes: none.

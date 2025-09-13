@@ -79,11 +79,16 @@ async function setup(opts: {
 }
 
 describe('claims explorer', () => {
-  it('renders identically across sources and preserves state', async () => {
-    const { document, window, fetchCalls, dom } = await setup();
+  it('renders deterministically with tags across sources', async () => {
+    const data = { ...BASE_DATA, tags: ['t2', 't1'] };
+    const { document, window, fetchCalls, dom } = await setup({ staticData: data });
     const at = document.getElementById('at') as HTMLInputElement;
     expect(at.value).toBe('2025-09-09');
     expect(fetchCalls).toHaveLength(1);
+    const panel = document.getElementById('tagsPanel')!;
+    expect(panel.style.display).not.toBe('none');
+    const tags = Array.from(document.querySelectorAll('#tagsList li')).map(li => (li as HTMLElement).textContent);
+    expect(tags).toEqual(['t1', 't2']);
     const bodyStatic = document.body.innerHTML;
 
     const sourceSel = document.getElementById('source') as HTMLSelectElement;
@@ -97,6 +102,8 @@ describe('claims explorer', () => {
       check();
     });
     expect(at.value).toBe('2025-09-09');
+    const tagsApi = Array.from(document.querySelectorAll('#tagsList li')).map(li => (li as HTMLElement).textContent);
+    expect(tagsApi).toEqual(['t1', 't2']);
     const bodyApi = document.body.innerHTML;
     expect(bodyApi).toBe(bodyStatic);
 
@@ -130,17 +137,9 @@ describe('claims explorer', () => {
     dom.window.close();
   });
 
-  it('renders tags panel only when tags exist', async () => {
+  it('hides tags panel when dataset lacks tags', async () => {
     const { document, dom } = await setup();
     expect(document.getElementById('tagsPanel')!.style.display).toBe('none');
     dom.window.close();
-
-    const data = { ...BASE_DATA, tags: ['t2', 't1'] };
-    const { document: doc2, dom: dom2 } = await setup({ staticData: data });
-    const panel = doc2.getElementById('tagsPanel')!;
-    expect(panel.style.display).not.toBe('none');
-    const tags = Array.from(doc2.getElementById('tagsList')!.children).map(li => (li as HTMLElement).textContent);
-    expect(tags).toEqual(['t1', 't2']);
-    dom2.window.close();
   });
 });

@@ -213,7 +213,7 @@ function updateTagsPanel(){
   }
   panel.style.display = '';
   list.innerHTML = '';
-  for(const t of DATA_TAGS){
+  for(const t of DATA_TAGS.slice().sort((a,b)=>a.localeCompare(b))){
     const li = document.createElement('li');
     li.textContent = t;
     list.appendChild(li);

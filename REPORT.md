@@ -134,3 +134,30 @@
 
 ## Determinism runs
 - `pnpm --filter claims-api-ts test` repeated 3× — stable.
+
+# REPORT — E2 — Run 1
+
+## End Goal fulfillment
+- EG-1: Proof tags render in sorted order when present【F:docs/claims-explorer.html†L206-L221】【F:packages/explorer-test/claims-explorer.test.ts†L82-L116】
+- EG-2: Tags panel hidden when dataset lacks proof tags【F:docs/claims-explorer.html†L206-L216】【F:packages/explorer-test/claims-explorer.test.ts†L140-L144】
+- EG-3: Static vs API renders yield identical DOM snapshots【F:packages/explorer-test/claims-explorer.test.ts†L82-L116】
+
+## Blockers honored
+- B-1: ✅ No kernel/tag schema changes — n/a
+- B-2: ✅ No locks or `as any`; imports include `.js`【F:packages/explorer-test/claims-explorer.test.ts†L1-L3】
+- B-3: ✅ Tags sourced from dataset only and sorted for stability【F:docs/claims-explorer.html†L206-L221】
+- B-4: ✅ Tags panel hidden when absent【F:docs/claims-explorer.html†L206-L216】【F:packages/explorer-test/claims-explorer.test.ts†L140-L144】
+
+## Lessons / tradeoffs (≤5 bullets)
+- Sorting at render guarantees deterministic order across sources.
+- Jsdom tests with explicit datasets prove parity without network access.
+- Installing vitest was required but kept out of commits.
+
+## Bench notes (optional, off-mode)
+- n/a
+
+## Self-review
+- [x] No `as any`, locks, or unsafe constructs
+- [x] Internal imports include `.js`
+- [x] Tests cover tag presence/absence and determinism
+- [x] `pnpm test` passes

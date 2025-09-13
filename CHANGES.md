@@ -121,3 +121,19 @@ Claims API now loads legal datasets from SQLite and computes canonical BLAKE3 qu
 
 ## Notes
 - Static scans confirm no `.slice(`/`.filter(` in production code.
+
+# E2 — Changes (Run 1)
+
+## Summary
+Explorer now renders proof tags in sorted order and keeps the tags panel hidden when datasets provide none, ensuring deterministic DOM across sources.
+
+## Why
+- Stable tag ordering prevents flicker across reloads and APIs.
+- Hiding the panel avoids synthetic tags and matches dataset semantics.
+
+## Tests
+- Updated: `docs/claims-explorer.html`; `packages/explorer-test/claims-explorer.test.ts`.
+- Determinism/parity: `pnpm test`.
+
+## Notes
+- No schema changes; minimal surface.

@@ -209,3 +209,27 @@
 - Tests: services/claims-api-ts/test/sqlite.test.ts
 - Runs: `pnpm --filter claims-api-ts test`; `pnpm test`
 - Bench (off-mode, if applicable): n/a
+
+# COMPLIANCE — E2 — Run 1
+
+## Blockers (must all be ✅)
+- [x] No kernel/schema changes — n/a
+- [x] No per-call locks or `as any` — code link: docs/claims-explorer.html
+- [x] ESM internal imports include `.js` — code link: packages/explorer-test/claims-explorer.test.ts
+- [x] Tests parallel-safe, deterministic — test link: packages/explorer-test/claims-explorer.test.ts
+- [x] Proof tags rendered only from dataset data — code link: docs/claims-explorer.html
+- [x] Stable tag ordering — code/test link: docs/claims-explorer.html / packages/explorer-test/claims-explorer.test.ts
+- [x] Tags panel hidden when no proof tags — code/test link: docs/claims-explorer.html / packages/explorer-test/claims-explorer.test.ts
+
+## Acceptance (oracle)
+- [x] Visible sorted tags when present
+- [x] No tags panel when absent
+- [x] Deterministic static vs API snapshots
+- [x] Build/packaging correctness (ESM)
+- [x] Code quality
+
+## Evidence
+- Code: docs/claims-explorer.html
+- Tests: packages/explorer-test/claims-explorer.test.ts
+- Runs: `pnpm test`
+- Bench (off-mode, if applicable): n/a

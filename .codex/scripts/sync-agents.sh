@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SRC=".codex/agents.md"
-DST="AGENTS.md"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+SRC="${SRC:-$REPO_ROOT/.codex/agents.md}"
+DST="${DST:-$REPO_ROOT/AGENTS.md}"
 BEGIN="<!-- BEGIN AGENT:CODER -->"
 END="<!-- END AGENT:CODER -->"
 
@@ -23,9 +26,11 @@ HDR
   extract
 }
 
+[ -f "$SRC" ] || { echo "[agents-sync] missing $SRC"; exit 1; }
+
 case "${1:-}" in
   --check)
-    TMP="$(mktemp)"
+    TMP="$(mktemp)"; trap 'rm -f "$TMP"' EXIT
     gen >"$TMP"
     if ! diff -u "$TMP" "$DST" >/dev/null 2>&1; then
       echo "[agents-sync] Root AGENTS.md is out of date with .codex/agents.md"

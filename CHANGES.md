@@ -8,6 +8,7 @@ Ensures safe preview builds for contributors while keeping `main` deployments au
 
 ## Tests
 - Added: packages/explorer-test/pages-workflow.test.ts.
+- Updated: packages/explorer-test/pages-workflow.test.ts (harden regex).
 - Determinism/parity: `pnpm test`.
 
 ## Notes

@@ -13,14 +13,14 @@ describe('pages workflow', () => {
     expect(workflow).toMatch(/actions\/upload-pages-artifact@v3/);
   });
   it('deploys only on main', () => {
-    expect(workflow).toMatch(/if: github.ref == 'refs\/heads\/main'/);
+    expect(workflow).toMatch(/if:\s*github\.ref\s*==\s*'refs\/heads\/main'/);
   });
 });
 
 describe('README badge', () => {
   const readme = readFileSync(join(root, 'README.md'), 'utf8');
   it('links to live site', () => {
-    expect(readme).toMatch(/https:\/\/github.com\/LexLattice\/tf-lang\/actions\/workflows\/pages.yml\/badge.svg\?branch=main/);
-    expect(readme).toMatch(/https:\/\/LexLattice.github.io\/tf-lang\//);
+    expect(readme).toMatch(/https:\/\/github\.com\/LexLattice\/tf-lang\/actions\/workflows\/pages\.yml\/badge\.svg\?branch=main/);
+    expect(readme).toMatch(/https:\/\/LexLattice\.github\.io\/tf-lang\//);
   });
 });

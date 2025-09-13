@@ -68,8 +68,8 @@ jobs:
           platforms: linux/amd64
           push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           tags: |
-            ghcr.io/${{ env.REPO_LC }}/claims-api-ts:0.2
-            ghcr.io/${{ env.REPO_LC }}/claims-api-ts:latest
+            ${{ env.REGISTRY }}/${{ env.REPO_LC }}/claims-api-ts:0.2
+            ${{ env.REGISTRY }}/${{ env.REPO_LC }}/claims-api-ts:latest
           sbom: false
           provenance: false
       - name: Rebuild to verify digest
@@ -90,9 +90,11 @@ jobs:
       - name: Summarize digests
         run: |
           {
-            echo "build digest: ${{ steps.build.outputs.digest }}"
-            echo "rebuild digest: ${{ steps.rebuild.outputs.digest }}"
+            echo "build digest:  ${{ steps.build.outputs.digest }}"
+            echo "rebuild digest:${{ steps.rebuild.outputs.digest }}"
             if [ "$GITHUB_EVENT_NAME" = 'push' ] && [ "$GITHUB_REF" = 'refs/heads/main' ]; then
-              echo "pushed tags: 0.2, latest -> ${{ steps.build.outputs.digest }}"
+              echo "pushed:"
+              echo "  ${{ env.REGISTRY }}/${{ env.REPO_LC }}/claims-api-ts:0.2@${{ steps.build.outputs.digest }}"
+              echo "  ${{ env.REGISTRY }}/${{ env.REPO_LC }}/claims-api-ts:latest@${{ steps.build.outputs.digest }}"
             fi
           } >> $GITHUB_STEP_SUMMARY

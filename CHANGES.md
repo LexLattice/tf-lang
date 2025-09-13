@@ -1,3 +1,20 @@
+# F1 — Changes (Run 1)
+
+## Summary
+GitHub Pages workflow builds docs for pull requests as downloadable preview artifacts and deploys on `main`. The README now exposes a deployment badge linking to the live site.
+
+## Why
+- PR runs provide artifacts without public deploys per END_GOAL.
+- Pushes to `main` keep the site live.
+
+## Tests
+- Added: tests/pages-workflow.test.mjs.
+- Updated: .github/workflows/pages.yml; README.md; package.json.
+- Determinism/parity: `pnpm test`.
+
+## Notes
+- No schema changes; minimal surface.
+
 # E2 — Changes (Run 1)
 
 ## Summary

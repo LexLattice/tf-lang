@@ -2,7 +2,7 @@
 	"name": "tf-lang",
 	"private": true,
         "scripts": {
-        "test": "pnpm run --recursive test",
+                "test": "pnpm run --recursive test && node --test tests/pages-workflow.test.mjs",
                 "build": "pnpm run --recursive build",
                 "preinstall": "npx only-allow pnpm"
         },

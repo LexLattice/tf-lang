@@ -1,5 +1,6 @@
 
 # TF-Lang Monorepo
+[![pages](https://github.com/LexLattice/tf-lang/actions/workflows/pages.yml/badge.svg)](https://lexlattice.github.io/tf-lang/)
 
 A minimal, deterministic kernel for **True-Function** programs with two runtimes:
 

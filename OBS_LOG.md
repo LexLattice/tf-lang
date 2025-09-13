@@ -1,3 +1,11 @@
+# Observation Log — F1 — Run 1
+
+- Strategy chosen: extend Pages workflow for PR previews and gate deploys to `main`; expose live badge in README.
+- Key changes (files): .github/workflows/pages.yml; README.md; tests/pages-workflow.test.mjs; package.json; CHANGES.md; COMPLIANCE.md; REPORT.md.
+- Determinism stress (runs × passes): `pnpm test` — all green.
+- Near-misses vs blockers: ensured deploy step skipped on PRs via `if` guard.
+- Notes: preview artifact uses `upload-pages-artifact`; badge links to live site.
+
 # Observation Log — E2 — Run 1
 
 - Strategy chosen: sort proof tags via `localeCompare` and verify static/API DOM snapshots.

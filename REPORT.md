@@ -1,3 +1,27 @@
+# REPORT — F1 — Run 1
+
+## End Goal fulfillment
+- EG-1: PR builds upload preview artifact without public deploy【F:.github/workflows/pages.yml†L3-L12】【F:tests/pages-workflow.test.mjs†L7-L11】
+- EG-2: `main` deploys site to production and README exposes badge linking to the live URL【F:.github/workflows/pages.yml†L24-L31】【F:README.md†L3-L4】
+
+## Blockers honored
+- B-1: ✅ PR builds produce artifacts only, deploy gated to `main`【F:.github/workflows/pages.yml†L24-L31】
+- B-2: ✅ README badge references live site URL【F:README.md†L3-L4】
+
+## Lessons / tradeoffs (≤5 bullets)
+- Branch guard keeps preview runs private.
+- Minimal workflow keeps build identical across PR and main.
+- Badge leverages GitHub status for visibility.
+
+## Bench notes (optional, off-mode)
+- n/a
+
+## Self-review
+- [x] `pnpm test` passes
+- [x] All blockers satisfied
+- [x] No extraneous commits or files
+- [x] No `as any`, per-call locks, or schema changes
+
 # REPORT — E2 — Run 1
 
 ## End Goal fulfillment

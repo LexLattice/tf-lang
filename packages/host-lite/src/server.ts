@@ -1,110 +1,39 @@
 import { createServer as createHttpServer } from 'node:http';
 import { canonicalJsonBytes, blake3hex, DummyHost } from 'tf-lang-l0';
+import { makeHandler, type LruCache } from './handler.js';
+import { makeRawHandler } from './makeRawHandler.js';
 
-const td = new TextDecoder();
+type PlanReq = { world: string; plan: unknown };
+type JournalEntry = { canon: string; proof?: string };
 
-interface PlanReq { world: string; plan: unknown }
-interface JournalEntry { canon: string; proof?: string }
-
-const MAX_CACHE = 32;
-
-type Cache = Map<string, Map<string, string>>;
-
-function cacheLookup(cache: Cache, world: string, key: string): string | undefined {
-  const m = cache.get(world);
-  if (!m) return undefined;
-  const v = m.get(key);
-  if (v !== undefined) {
-    m.delete(key);
-    m.set(key, v);
-  }
-  return v;
-}
-
-function cacheStore(cache: Cache, world: string, key: string, value: string) {
-  let m = cache.get(world);
-  if (!m) {
-    m = new Map();
-    cache.set(world, m);
-  }
-  if (m.has(key)) m.delete(key);
-  m.set(key, value);
-  if (m.size > MAX_CACHE) {
-    const fk = m.keys().next().value as string;
-    m.delete(fk);
-  }
-}
-
-async function exec(
-  worlds: Map<string, unknown>,
-  cache: Cache,
-  action: 'plan' | 'apply',
-  body: PlanReq,
-): Promise<{ world: unknown; delta: unknown; journal: JournalEntry[] }> {
-  const key = action + ':' + blake3hex(canonicalJsonBytes(body));
-  const cached = cacheLookup(cache, body.world, key);
-  if (cached) return JSON.parse(cached);
-  const w = worlds.get(body.world) ?? [];
-  const delta = await DummyHost.call_tf('tf://plan/delta@0.1', [w, body.plan]);
-  const world1 = await DummyHost.diff_apply(w, delta);
-  const s0 = await DummyHost.snapshot_make(w);
-  const id0 = await DummyHost.snapshot_id(s0);
-  const s1 = await DummyHost.snapshot_make(world1);
-  const id1 = await DummyHost.snapshot_id(s1);
-  const entry = await DummyHost.journal_record(body.plan, delta, id0, id1, {});
-  const entryBytes = canonicalJsonBytes(entry);
-  const canon = td.decode(entryBytes);
-  const je: JournalEntry = { canon };
-  if (process.env.DEV_PROOFS === '1') {
-    je.proof = blake3hex(entryBytes);
-  }
-  const resp = { world: world1, delta, journal: [je] };
-  const respBytes = canonicalJsonBytes(resp);
-  const canonResp = td.decode(respBytes);
-  cacheStore(cache, body.world, key, canonResp);
-  if (action === 'apply') worlds.set(body.world, world1);
-  return JSON.parse(canonResp);
-}
-
-export function createHost() {
+export function createHost(): { exec: (world: string, plan: unknown) => Promise<{ world: unknown; delta: unknown; journal: JournalEntry[] }>; lru: LruCache; cache: LruCache } {
   const worlds = new Map<string, unknown>();
-  const cache: Cache = new Map();
+  const lru: LruCache = new Map();
+  const td = new TextDecoder();
 
-  return {
-    cache,
-    plan(body: PlanReq) {
-      return exec(worlds, cache, 'plan', body);
-    },
-    apply(body: PlanReq) {
-      return exec(worlds, cache, 'apply', body);
-    },
-  };
-}
-
-export function makeHandler(host = createHost()) {
-  return async (method: string, url: string, body: unknown) => {
-    if (method !== 'POST') return { status: 404, body: { error: 'not_found' } };
-    if (url === '/plan') return { status: 200, body: await host.plan(body as PlanReq) };
-    if (url === '/apply') return { status: 200, body: await host.apply(body as PlanReq) };
-    return { status: 404, body: { error: 'not_found' } };
-  };
-}
-
-export function makeRawHandler(host = createHost()) {
-  const handler = makeHandler(host);
-  return async (method: string, url: string, bodyStr: string) => {
-    let body: unknown;
-    try {
-      body = JSON.parse(bodyStr || '{}');
-    } catch {
-      return { status: 400, body: { error: 'bad_request' } };
+  async function exec(world: string, plan: unknown): Promise<{ world: unknown; delta: unknown; journal: JournalEntry[] }> {
+    const w = worlds.get(world) ?? [];
+    const delta = await DummyHost.call_tf('tf://plan/delta@0.1', [w, plan]);
+    const world1 = await DummyHost.diff_apply(w, delta);
+    const s0 = await DummyHost.snapshot_make(w);
+    const id0 = await DummyHost.snapshot_id(s0);
+    const s1 = await DummyHost.snapshot_make(world1);
+    const id1 = await DummyHost.snapshot_id(s1);
+    const entry = await DummyHost.journal_record(plan, delta, id0, id1, {});
+    const entryBytes = canonicalJsonBytes(entry);
+    const je: JournalEntry = { canon: td.decode(entryBytes) };
+    if (process.env.DEV_PROOFS === '1') {
+      je.proof = blake3hex(entryBytes);
     }
-    return handler(method, url, body);
-  };
+    return { world: world1, delta, journal: [je] };
+  }
+
+  return { exec, lru, cache: lru };
 }
 
-export function createServer(host = createHost()) {
-  const rawHandler = makeRawHandler(host);
+export function createServer(deps = createHost()) {
+  const handler = makeHandler(deps);
+  const rawHandler = makeRawHandler({ makeHandler: handler });
   return createHttpServer((req, res) => {
     const chunks: Uint8Array[] = [];
     req.on('data', (c) => chunks.push(c));
@@ -122,6 +51,9 @@ export function createServer(host = createHost()) {
     });
   });
 }
+
+export { makeHandler } from './handler.js';
+export { makeRawHandler } from './makeRawHandler.js';
 
 if (process.argv[1] === new URL(import.meta.url).pathname) {
   const port = Number(process.env.PORT || 8787);

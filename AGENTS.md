@@ -1,29 +1,12 @@
 ---
-title: Agents Guide (Coder Role)
+# AUTO-GENERATED — do not edit here.
+# Source of truth: .codex/agents.md
+title: Agents Guide (CODER)
 version: 1.0
-agents_index:
-  coder:
-    anchor: "AGENT:CODER"
-    start: "<!-- BEGIN AGENT:CODER -->"
-    end:   "<!-- END AGENT:CODER -->"
-task_default: "{{TASK_ID}}"
-base_ref_default: "{{BASE_REF}}"
-
-# New (nice-to-have) keys for routers/tools:
-codex_root: ".codex"
-tasks_root: ".codex/tasks"
-templates_root: ".codex/templates"
 ---
 
-# Agents Guide — Single Role
-
-**Meta-instruction (applicability):**  
-The section below applies **only** when the invoking prompt **explicitly mentions** the CODER role  
-(e.g., contains `role: coder`, `agent: coder`, `@coder`, or `AGENT:CODER`).  
-If the role is not explicitly mentioned, **ignore this file.**
-
-
-<!-- =========================== BEGIN AGENT:CODER =========================== -->
+    start: "<!-- BEGIN AGENT:CODER -->"
+    end:   "<!-- END AGENT:CODER -->"
 <!-- BEGIN AGENT:CODER -->
 
 # CODER — Parallel Implementation Role
@@ -78,4 +61,3 @@ Also write the same content to REPORT.md, COMPLIANCE.md, CHANGES.md, OBS_LOG.md 
 - **Minimal surface:** only touch files necessary to meet END GOAL + tests.
 
 <!-- END AGENT:CODER -->
-<!-- ============================ END AGENT:CODER ============================ -->

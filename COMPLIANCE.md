@@ -255,3 +255,7 @@
 - Tests: services/claims-api-ts/test/sqlite.test.ts
 - Runs: `pnpm --filter claims-api-ts test`; `pnpm test`
 - Bench (off-mode, if applicable): n/a
+
+# COMPLIANCE — F2 — Run 2
+
+See PR body.

@@ -1,4 +1,4 @@
-# COMPLIANCE — C1 — Run 3
+# COMPLIANCE — C1 — Run 4
 
 ## Blockers (must all be ✅)
 - [x] No changes to existing kernel semantics or tag schemas from A/B — code link: packages/host-lite/src/server.ts
@@ -11,7 +11,7 @@
 - [x] `/plan` and `/apply` idempotent — test link: packages/host-lite/tests/host-lite.test.ts
 - [x] Proof artifacts gated behind `DEV_PROOFS=1` — test link: packages/host-lite/tests/host-lite.test.ts
 - [x] No new runtime dependencies — code link: packages/host-lite/package.json
-- [x] Tests hermetic (no sockets/files/net writes) — test link: packages/host-lite/tests/host-lite.test.ts
+- [x] Tests hermetic (no sockets/network) — test link: packages/host-lite/tests/host-lite.test.ts
 - [x] No per-call locks; no cross-test global state bleed — code/test link: packages/host-lite/src/server.ts
 - [x] Only `/plan` and `/apply`; outputs deterministic — test link: packages/host-lite/tests/host-lite.test.ts
 

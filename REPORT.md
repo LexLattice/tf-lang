@@ -1,21 +1,21 @@
-# REPORT — C1 — Run 3
+# REPORT — C1 — Run 4
 
 ## End Goal fulfillment
-- EG-1: Minimal host exposes only `/plan` and `/apply` via Node HTTP【F:packages/host-lite/src/server.ts†L74-L83】
-- EG-2: Canonical, idempotent responses with bounded per-world cache【F:packages/host-lite/src/server.ts†L20-L71】【F:packages/host-lite/tests/host-lite.test.ts†L13-L44】【F:packages/host-lite/tests/host-lite.test.ts†L81-L99】
-- EG-3: Proofs gated by `DEV_PROOFS` with no cost when off【F:packages/host-lite/src/server.ts†L49-L53】【F:packages/host-lite/tests/host-lite.test.ts†L26-L44】
-- EG-4: Error model returns canonical 404/400 bodies【F:packages/host-lite/src/server.ts†L85-L110】【F:packages/host-lite/tests/host-lite.test.ts†L59-L76】【F:packages/host-lite/tests/host-lite.test.ts†L100-L113】
-- EG-5: State stays in-memory and resets on new host creation【F:packages/host-lite/tests/host-lite.test.ts†L47-L56】
+- EG-1: Minimal host exposes only `POST /plan` and `POST /apply` with raw JSON handler【F:packages/host-lite/src/server.ts†L88-L108】
+- EG-2: Canonical, byte-identical responses with per-world LRU cache【F:packages/host-lite/src/server.ts†L13-L70】【F:packages/host-lite/tests/host-lite.test.ts†L30-L44】【F:packages/host-lite/tests/host-lite.test.ts†L87-L101】
+- EG-3: Proofs gated by `DEV_PROOFS` with no extra hashing when off【F:packages/host-lite/src/server.ts†L62-L64】【F:packages/host-lite/tests/host-lite.test.ts†L46-L60】
+- EG-4: Canonical 404/400 errors for bad routes, methods, and JSON【F:packages/host-lite/src/server.ts†L88-L108】【F:packages/host-lite/tests/host-lite.test.ts†L62-L73】
+- EG-5: State remains in-memory and resets per host instance【F:packages/host-lite/tests/host-lite.test.ts†L75-L85】
 
 ## Blockers honored
-- B-1: ✅ Deterministic in-memory host with LRU cache cap 32【F:packages/host-lite/src/server.ts†L10-L37】【F:packages/host-lite/tests/host-lite.test.ts†L81-L99】
-- B-2: ✅ Proof artifacts behind `DEV_PROOFS` gated; zero overhead when disabled【F:packages/host-lite/src/server.ts†L49-L53】【F:packages/host-lite/tests/host-lite.test.ts†L26-L44】
+- B-1: ✅ Deterministic in-memory host with LRU cap 32 and map-size match【F:packages/host-lite/src/server.ts†L13-L40】【F:packages/host-lite/tests/host-lite.test.ts†L87-L101】
+- B-2: ✅ Proof artifacts only when `DEV_PROOFS=1`; hashing skipped otherwise【F:packages/host-lite/src/server.ts†L62-L64】【F:packages/host-lite/tests/host-lite.test.ts†L46-L60】
 
 ## Lessons / tradeoffs (≤5 bullets)
-- Node HTTP only; no new runtime deps.
-- Cache cap 32 balances determinism and memory; multi-world test proves bound.
-- Parsing moved to handler to surface 400s without sockets.
-- Boundary scan limited to package to avoid repo-wide false positives.
+- Raw handler removed need for socket-based tests.
+- Mocked hashing verified zero-cost proof gating.
+- Import sweep constrained to source to avoid false positives.
+- Multi-world cache tracked both per-world cap and map size.
 - Canonicalization centralized in single exec path.
 
 ## Bench notes (optional, off-mode)

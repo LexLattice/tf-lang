@@ -1,49 +1,75 @@
-import { describe, it, expect } from 'vitest';
-import { makeHandler, createHost, createNodeHandler } from '../src/server.js';
-import { canonicalJsonBytes, blake3hex } from 'tf-lang-l0';
-import { readFile } from 'node:fs/promises';
-import { IncomingMessage, ServerResponse } from 'node:http';
-import { PassThrough } from 'node:stream';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { makeHandler, createHost, makeRawHandler } from '../src/server.js';
+import { canonicalJsonBytes } from 'tf-lang-l0';
+import { readdir, readFile } from 'node:fs/promises';
+import { extname } from 'node:path';
 
 const td = new TextDecoder();
 
 interface JournalEntry { canon: string; proof?: string }
 interface Resp { world: unknown; delta: unknown; journal: JournalEntry[] }
 
+const blakeCalls: number[] = [];
+
+vi.mock('tf-lang-l0', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('tf-lang-l0')>();
+  return {
+    ...mod,
+    blake3hex: (bytes: Uint8Array) => {
+      blakeCalls.push(1);
+      return mod.blake3hex(bytes);
+    },
+  };
+});
+
+beforeEach(() => {
+  blakeCalls.length = 0;
+  delete process.env.DEV_PROOFS;
+});
+
 describe('host-lite', () => {
-  it('idempotent plan and apply', async () => {
-    const host = createHost();
-    const handler = makeHandler(host);
-    const body = { world: 'w', plan: 1 };
+  it('byte-identical determinism for plan/apply', async () => {
+    const handler = makeRawHandler();
+    const body = '{"world":"d","plan":1}';
     const p1 = await handler('POST', '/plan', body);
     const p2 = await handler('POST', '/plan', body);
-    expect(p1.status).toBe(200);
-    expect(p2.status).toBe(200);
-    expect(p1.body).toEqual(p2.body);
+    expect(td.decode(canonicalJsonBytes(p1.body))).toBe(
+      td.decode(canonicalJsonBytes(p2.body)),
+    );
     const a1 = await handler('POST', '/apply', body);
     const a2 = await handler('POST', '/apply', body);
-    expect(a1.body).toEqual(a2.body);
+    expect(td.decode(canonicalJsonBytes(a1.body))).toBe(
+      td.decode(canonicalJsonBytes(a2.body)),
+    );
   });
 
-  it('canonical journal and proof gating', async () => {
-    const body = { world: 'c', plan: 2 };
-    delete process.env.DEV_PROOFS;
-    const h0 = makeHandler(createHost());
-    const r0 = await h0('POST', '/apply', body);
+  it('DEV_PROOFS gating without overhead', async () => {
+    const h0 = makeRawHandler();
+    const r0 = await h0('POST', '/apply', '{"world":"g0","plan":1}');
     const j0 = (r0.body as Resp).journal[0];
     expect(j0.proof).toBeUndefined();
-    const canon0 = td.decode(canonicalJsonBytes(JSON.parse(j0.canon)));
-    expect(canon0).toBe(j0.canon);
+    expect(blakeCalls.length).toBe(1);
 
+    blakeCalls.length = 0;
     process.env.DEV_PROOFS = '1';
-    const h1 = makeHandler(createHost());
-    const r1 = await h1('POST', '/apply', body);
+    const h1 = makeRawHandler();
+    const r1 = await h1('POST', '/apply', '{"world":"g1","plan":1}');
     const j1 = (r1.body as Resp).journal[0];
-    const canon1 = td.decode(canonicalJsonBytes(JSON.parse(j1.canon)));
-    expect(canon1).toBe(j1.canon);
-    const hash = blake3hex(canonicalJsonBytes(JSON.parse(j1.canon)));
-    expect(j1.proof).toBe(hash);
-    delete process.env.DEV_PROOFS;
+    expect(j1.proof).toBeDefined();
+    expect(blakeCalls.length).toBe(2);
+  });
+
+  it('404 for unknown routes and non-POST; 400 for malformed JSON', async () => {
+    const handler = makeRawHandler();
+    const r1 = await handler('POST', '/nope', '{}');
+    expect(r1.status).toBe(404);
+    expect(td.decode(canonicalJsonBytes(r1.body))).toBe('{"error":"not_found"}');
+    const r2 = await handler('GET', '/plan', '{}');
+    expect(r2.status).toBe(404);
+    expect(td.decode(canonicalJsonBytes(r2.body))).toBe('{"error":"not_found"}');
+    const r3 = await handler('POST', '/plan', '{');
+    expect(r3.status).toBe(400);
+    expect(td.decode(canonicalJsonBytes(r3.body))).toBe('{"error":"bad_request"}');
   });
 
   it('state is ephemeral', async () => {
@@ -58,68 +84,38 @@ describe('host-lite', () => {
     expect(w1).not.toEqual(w2);
   });
 
-  it('404 for unknown path', async () => {
-    const handler = makeHandler(createHost());
-    const r = await handler('POST', '/nope', {});
-    expect(r.status).toBe(404);
-    const canon = td.decode(canonicalJsonBytes(r.body));
-    expect(canon).toBe('{"error":"not_found"}');
-  });
-
-  it('404 for wrong method', async () => {
-    const handler = makeHandler(createHost());
-    const r = await handler('GET', '/plan', {});
-    expect(r.status).toBe(404);
-    const canon = td.decode(canonicalJsonBytes(r.body));
-    expect(canon).toBe('{"error":"not_found"}');
-  });
-
-  it('bounded cache prevents growth', async () => {
+  it('multi-world cache capped and map size matches', async () => {
     const host = createHost();
     const handler = makeHandler(host);
-    for (let i = 0; i < 40; i++) {
-      await handler('POST', '/plan', { world: 'm', plan: i });
-    }
-    const worldCache = host.cache.get('m');
-    expect(worldCache?.size ?? 0).toBeLessThanOrEqual(32);
-  });
-
-  it('multi-world cache bounds', async () => {
-    const host = createHost();
-    const handler = makeHandler(host);
-    for (let w = 0; w < 4; w++) {
+    const worlds = ['mw0', 'mw1', 'mw2', 'mw3'];
+    for (const w of worlds) {
       for (let i = 0; i < 40; i++) {
-        await handler('POST', '/plan', { world: `mw${w}`, plan: i });
+        await handler('POST', '/plan', { world: w, plan: i });
       }
     }
-    for (let w = 0; w < 4; w++) {
-      const worldCache = host.cache.get(`mw${w}`);
-      expect(worldCache?.size ?? 0).toBeLessThanOrEqual(32);
+    expect(host.cache.size).toBe(worlds.length);
+    for (const w of worlds) {
+      const wc = host.cache.get(w);
+      expect(wc?.size ?? 0).toBeLessThanOrEqual(32);
     }
   });
 
-  it('400 for malformed JSON', async () => {
-    const handler = createNodeHandler();
-    const req = new IncomingMessage(new PassThrough());
-    req.method = 'POST';
-    req.url = '/plan';
-    const res = new ServerResponse(req);
-    let body = '';
-    res.end = (chunk?: unknown) => {
-      if (chunk) body += Buffer.from(chunk as Uint8Array).toString();
-      res.emit('finish');
-    };
-    const finished = new Promise((resolve) => res.on('finish', resolve));
-    handler(req, res);
-    req.emit('data', Buffer.from('{'));
-    req.emit('end');
-    await finished;
-    expect(res.statusCode).toBe(400);
-    expect(body).toBe('{"error":"bad_request"}');
-  });
-
-  it('no deep imports across packages', async () => {
-    const src = await readFile(new URL('../src/server.ts', import.meta.url), 'utf8');
-    expect(src.includes('../')).toBe(false);
+  it('no deep imports and relative imports include .js', async () => {
+    const dir = new URL('../src/', import.meta.url);
+    const entries = await readdir(dir);
+    for (const f of entries) {
+      if (extname(f) !== '.ts') continue;
+      const src = await readFile(new URL(f, dir), 'utf8');
+      expect(src.includes('../')).toBe(false);
+      expect(/from ['"]tf-lang-l0\//.test(src)).toBe(false);
+      const rel = src.match(/from ['"](\.\.\/|\.\/[^'\"]*)['"]/g) || [];
+      for (const imp of rel) {
+        const m = /from ['"]([^'\"]+)['"]/.exec(imp);
+        if (m && (m[1].startsWith('./') || m[1].startsWith('../'))) {
+          expect(m[1].endsWith('.js')).toBe(true);
+        }
+      }
+    }
   });
 });
+

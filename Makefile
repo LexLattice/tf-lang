@@ -12,6 +12,8 @@ help:
 	@echo "  docs-up     - serve docs via Python http.server on :8080"
 	@echo "  docker-up   - docker compose up --build"
 	@echo "  docker-down - docker compose down"
+	@echo "  git-clean-refs     - purge stale PR refs and sanitize repo config"
+	@echo "  git-sanitize-config - remove PR refspecs from .git/config"
 
 setup:
 	pnpm i --frozen-lockfile=false
@@ -119,3 +121,10 @@ pass-bodies:
 # usage:
 #   make pass-bodies GROUP="F1_1" PRS="78-81"
 #   make pass-bodies GROUP="E2_1" PRS="74:A 75:B 76:C 77:D"
+
+.PHONY: git-clean-refs git-sanitize-config
+git-clean-refs:
+	@bash ./.codex/scripts/git-clean-refs.sh
+
+git-sanitize-config:
+	@bash ./.codex/scripts/git-clean-refs.sh --sanitize-config

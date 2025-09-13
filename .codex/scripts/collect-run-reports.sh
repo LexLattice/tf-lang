@@ -41,9 +41,25 @@ if [[ ${#PRS_SPEC[@]} -eq 0 ]]; then
   echo "Use: --prs <pr[:LABEL]> ..." >&2; exit 1
 fi
 
+# Expand range tokens like "70-73" into 70 71 72 73
+expand_tokens() {
+  local t
+  for t in "$@"; do
+    if [[ "$t" =~ ^([0-9]+)-([0-9]+)$ ]]; then
+      local s="${BASH_REMATCH[1]}" e="${BASH_REMATCH[2]}"
+      if (( s <= e )); then seq "$s" "$e"; else seq "$s" -1 "$e"; fi
+    else
+      echo "$t"
+    fi
+  done
+}
+
+# Normalize: expand ranges, then sort and auto-label
+mapfile -t PRS_SPEC < <(expand_tokens "${PRS_SPEC[@]}")
+
 # Auto-label any entries missing :LABEL → A,B,C,...
 LABELS=(A B C D E F G H I J K L)
-# Sort PRs numerically for stable assignment
+# Sort PRs numerically for stable assignment (by PR number before optional colon)
 mapfile -t PRS_SPEC < <(printf "%s\n" "${PRS_SPEC[@]}" | sort -n -t: -k1,1)
 auto_i=0
 for i in "${!PRS_SPEC[@]}"; do
@@ -56,7 +72,7 @@ done
 have_gh() { command -v gh >/dev/null 2>&1; }
 
 append_section() {
-  local run_label="$1" pr_num="$2" branch_ref="$3" sha="$4" title="$5"
+  local run_label="$1" pr_num="$2" object_ref="$3" sha="$4" title="$5"
   local anthology="$ANTHOLOGY_FILE"
 
   {
@@ -65,9 +81,9 @@ append_section() {
     [[ -n "$title" ]] && echo "_${title}_"
     for f in "${FILES[@]}"; do
       echo -e "\n### ${f}"
-      if git cat-file -e "${branch_ref}:${f}" 2>/dev/null; then
+      if git cat-file -e "${object_ref}:${f}" 2>/dev/null; then
         echo -e '```md'
-        git show "${branch_ref}:${f}"
+        git show "${object_ref}:${f}"
         echo -e '```'
       else
         echo "_(missing)_"
@@ -96,16 +112,14 @@ echo "_Winner branch: ${CURRENT_BRANCH} — $(date -u +"%Y-%m-%dT%H:%M:%SZ")_" >
 for spec in "${PRS_SPEC[@]}"; do
   IFS=":" read -r pr label <<<"$spec"
   label="${label:-X}"
-  tmp_ref="codex/pr-${pr}"
-
-  echo "Fetching PR #${pr} → ${tmp_ref} ..."
-  # Fetch PR head into a local ref (works on GitHub remotes)
-  git fetch "$REMOTE" "pull/${pr}/head:${tmp_ref}" -q || {
-    echo "Failed to fetch PR #${pr} (pull/${pr}/head). Ensure 'origin' points to GitHub." >&2
+  echo "Fetching PR #${pr} (ephemeral) ..."
+  # Ephemeral fetch: FETCH_HEAD only; do not create local refs
+  git fetch --no-tags -q "$REMOTE" "pull/${pr}/head" || {
+    echo "Failed to fetch PR #${pr} (pull/${pr}/head). Ensure remote '$REMOTE' points to GitHub." >&2
     exit 1
   }
 
-  sha="$(git rev-parse "${tmp_ref}")"
+  sha="$(git rev-parse FETCH_HEAD)"
   title=""
   if have_gh; then
     title="$(gh pr view "$pr" --json title --jq .title 2>/dev/null || true)"
@@ -115,18 +129,18 @@ for spec in "${PRS_SPEC[@]}"; do
   RUN_DIR="$RUNS_DIR/${label}"
   mkdir -p "$RUN_DIR"
   for f in "${FILES[@]}"; do
-    if git cat-file -e "${tmp_ref}:${f}" 2>/dev/null; then
-      git show "${tmp_ref}:${f}" > "${RUN_DIR}/${f}"
+    if git cat-file -e "${sha}:${f}" 2>/dev/null; then
+      git show "${sha}:${f}" > "${RUN_DIR}/${f}"
     fi
   done
 
   # Append to anthology
-  append_section "$label" "$pr" "$tmp_ref" "$sha" "$title"
+  append_section "$label" "$pr" "$sha" "$sha" "$title"
 done
 
-# Stage artifacts
-git add "$RUNS_DIR"
-git add "$ANTHOLOGY_FILE"
+# Stage artifacts (force-add in case paths are gitignored)
+git add -f "$RUNS_DIR" 2>/dev/null || true
+git add -f "$ANTHOLOGY_FILE" 2>/dev/null || true
 
 if [[ $DO_COMMIT -eq 1 ]]; then
   git commit -m "$COMMIT_MSG"

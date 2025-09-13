@@ -46,7 +46,8 @@ __pycache__/
 *.pyc
 
 # --- Editors/IDE ---
-.vscode/
+.vscode/*
+!.vscode/settings.json
 .idea/
 
 # --- Env / local config (keep your real secrets out of git) ---

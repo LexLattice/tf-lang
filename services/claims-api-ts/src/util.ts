@@ -1,7 +1,9 @@
 
-import { createHash } from 'crypto';
+import { blake3 } from '@noble/hashes/blake3';
+import { bytesToHex } from '@noble/hashes/utils';
 
-export function queryHash(obj: any): string {
+export function queryHash(obj: Record<string, unknown>): string {
   const s = JSON.stringify(obj, Object.keys(obj).sort());
-  return createHash('sha256').update(s).digest('hex');
+  const bytes = new TextEncoder().encode(s);
+  return bytesToHex(blake3(bytes));
 }

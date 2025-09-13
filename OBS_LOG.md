@@ -1,8 +1,7 @@
-# Observation Log — C1 — Run 4
+# Observation Log — D1 — Run 1
 
-- Strategy: Keep unified raw path; delegate `createServer` → `makeRawHandler`; share `exec(world, plan)` for both routes; enforce canonical errors.
-- Key changes: packages/host-lite/src/server.ts; packages/host-lite/test/*; CHANGES.md; COMPLIANCE.md; REPORT.md.
-- Determinism runs: 5× `pnpm -F host-lite-ts test` (parallel) — all green, identical outputs.
- - Determinism runs: 5× `pnpm -r test` executed in parallel — all green.
-- Tradeoffs: Did not split handlers into multiple source files to avoid churn; imports remain via public `tf-lang-l0` exports; no new deps.
-- Proof gating: Explicit count check in tests; zero overhead when off (no proof fields computed/emitted).
+- Strategy chosen: replace JSON storage with in-memory SQLite via `sql.js`; add BLAKE3 hashing.
+- Key changes (files): `services/claims-api-ts/src/server.ts`, `services/claims-api-ts/src/util.ts`, test file.
+- Determinism stress (runs × passes): `pnpm test` ×1 (all pass).
+- Near-misses vs blockers: initial native deps (`better-sqlite3`, `blake3`) removed to avoid build-script blockers.
+- Notes: dataset built per-test to ensure isolation.

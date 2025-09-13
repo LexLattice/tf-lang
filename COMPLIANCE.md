@@ -1,37 +1,22 @@
-# COMPLIANCE — C1 — Run 4
+# COMPLIANCE — D1 — Run 1
 
 ## Blockers (must all be ✅)
-- [x] No kernel/schema changes — code link: packages/host-lite/src/server.ts
-- [x] No per-call locks or `as any` — code link: packages/host-lite/src/server.ts
-- [x] ESM internal imports include `.js` — test link: packages/host-lite/tests/host-lite.test.ts
-- [x] Tests parallel-safe, no global bleed — test link: packages/host-lite/tests/host-lite.test.ts
-- [x] Deterministic canonical outputs — code/test link: packages/host-lite/src/server.ts
-- [x] In-memory host only `/plan` & `/apply` — code link: packages/host-lite/src/server.ts
-- [x] `/plan` and `/apply` idempotent — test link: packages/host-lite/tests/host-lite.test.ts
-- [x] Proofs gated behind `DEV_PROOFS=1` — test link: packages/host-lite/tests/host-lite.test.ts
-- [x] Per-world LRU cache cap 32 — code/test link: packages/host-lite/src/server.ts
-- [x] No new runtime dependencies — code link: packages/host-lite/package.json
-- [x] Tests hermetic (no sockets/network) — test link: packages/host-lite/tests/host-lite.test.ts
-
-## EXTRA BLOCKERS (pass-4)
-- [x] No new runtime deps — code link: packages/host-lite/package.json
-- [x] Tests hermetic (no sockets/fs/network side-effects) — test link: packages/host-lite/test/c1.http-400-404.test.ts
-- [x] Public-exports only (no deep relative imports) — test link: packages/host-lite/test/c1.import-hygiene.test.ts
-- [x] Do not edit `.codex/tasks/**` — n/a
-- [x] Package exports remain `src/server.ts` — code link: packages/host-lite/package.json
+- [x] No changes to kernel semantics/tag schemas from A/B — no kernel files touched.
+- [x] No per-call locks; no `static mut`/`unsafe`; no TS `as any` — all code typed; search confirms none.
+- [x] ESM internal imports include `.js` — server/test imports use explicit `.js` extensions.
+- [x] Tests run in parallel without state bleed; outputs deterministic (canonical bytes + BLAKE3) — `d1.sqlite-adapter.test.ts` uses isolated temp DB and checks deterministic hash.
+- [x] Storage is strictly SQLite (no other DBs/networked storage) — `sql.js` loads SQLite file for all queries.
+- [x] Responses include `dataset_version` and canonical BLAKE3 `query_hash` — implemented in `util.ts` and served in `server.ts`.
+- [x] Identical queries do not vary in counts/clauses; ≥10 evidence samples returned — test verifies stable count and ≥10 samples.
 
 ## Acceptance (oracle)
-- [x] Enable/disable behavior
-- [x] Cache cold→warm; reset forces re-read
-- [x] Parallel determinism (repeat runs stable)
-- [ ] Cross-runtime parity (if applicable)
-- [x] Build/packaging correctness (ESM)
-- [x] Code quality (minimal diff)
-- [x] 404/400 canonical errors — test link: packages/host-lite/tests/host-lite.test.ts
-- [x] Multi-world cache bound proof — test link: packages/host-lite/tests/host-lite.test.ts
+- [x] Storage: runtime/tests confirm all IO is via SQLite only.
+- [x] Hashes/versions: `dataset_version` and canonical BLAKE3 `query_hash` match expected values.
+- [x] Stability: two identical queries return identical counts/clauses.
+- [x] Evidence: at least ten sample evidences are included per response.
 
 ## Evidence
-- Code: packages/host-lite/src/server.ts; packages/host-lite/package.json
-- Tests: packages/host-lite/test/c1.byte-determinism.test.ts; packages/host-lite/test/c1.proofs-gating-count.test.ts; packages/host-lite/test/c1.http-400-404.test.ts; packages/host-lite/test/c1.lru-multiworld.test.ts; packages/host-lite/test/c1.import-hygiene.test.ts
-- Runs: `pnpm -F host-lite-ts test`
-- Bench (off-mode, if applicable): n/a
+- Code: `services/claims-api-ts/src/server.ts`, `services/claims-api-ts/src/util.ts`.
+- Tests: `services/claims-api-ts/test/d1.sqlite-adapter.test.ts`.
+- CI runs: `pnpm test`.
+- Bench (off-mode, if applicable): n/a.

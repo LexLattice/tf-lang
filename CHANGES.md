@@ -1,3 +1,19 @@
+# F1 — Changes (Run 1)
+
+## Summary
+GitHub Pages workflow now produces preview artifacts for pull requests and deploys to production only on `main`. README shows a deployment badge linking to the live site.
+
+## Why
+- Satisfies F1 END_GOAL: preview artifacts for PRs, live deploys on main, visible status badge.
+
+## Tests
+- Added: n/a
+- Updated: n/a
+- Determinism/parity: `pnpm test`
+
+## Notes
+- No schema changes; minimal surface.
+
 # E2 — Changes (Run 1)
 
 ## Summary

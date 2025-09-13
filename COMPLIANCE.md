@@ -1,3 +1,24 @@
+# COMPLIANCE — F1 — Run 1
+
+## Blockers (must all be ✅)
+- [x] No changes to kernel semantics/tag schemas from A/B — n/a
+- [x] No per-call locks; no `static mut`/`unsafe`; no TS `as any` — n/a
+- [x] ESM internal imports must include `.js` — n/a
+- [x] Tests run in parallel without state bleed; outputs deterministic — test link: `pnpm test`
+- [x] PR builds must not deploy publicly (artifacts only) — code link: .github/workflows/pages.yml
+- [x] `main` branch must deploy live site — code link: .github/workflows/pages.yml
+- [x] README must contain a deployment status badge referencing the live site URL — code link: README.md
+
+## Acceptance (oracle)
+- [x] PR workflow: logs show preview artifact produced; no public deploy step
+- [x] Main workflow: logs confirm deploy to production URL
+- [x] README badge points to deployed site
+
+## Evidence
+- Code: .github/workflows/pages.yml; README.md
+- Tests: `pnpm test`
+- CI runs: pages workflow
+
 # COMPLIANCE — E2 — Run 1
 
 ## Blockers (must all be ✅)

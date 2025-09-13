@@ -1,3 +1,27 @@
+# REPORT — E2 — Run 1
+
+## End Goal fulfillment
+- EG-1: Explorer renders dataset `proof_tags` only when provided and sorts them for stable order【F:docs/claims-explorer.html†L206-L220】【F:docs/claims-explorer.html†L303-L307】【F:packages/explorer-test/claims-explorer.test.ts†L82-L95】
+- EG-2: Tags panel hidden when no `proof_tags` exist【F:docs/claims-explorer.html†L206-L212】【F:packages/explorer-test/claims-explorer.test.ts†L107-L110】
+- EG-3: Static and API renders match byte-for-byte DOM snapshots【F:packages/explorer-test/claims-explorer.test.ts†L82-L104】
+
+## Blockers honored
+- B-1: ✅ No per-call locks or `as any`【F:docs/claims-explorer.html†L171-L194】【F:packages/explorer-test/claims-explorer.test.ts†L1-L132】
+- B-2: ✅ Proof tags rendered only from dataset data; order sorted【F:docs/claims-explorer.html†L303-L307】【F:packages/explorer-test/claims-explorer.test.ts†L82-L95】
+- B-3: ✅ Tags panel hidden when no proof tags【F:docs/claims-explorer.html†L206-L212】【F:packages/explorer-test/claims-explorer.test.ts†L107-L110】
+
+## Lessons / tradeoffs (≤5 bullets)
+- Sorting `proof_tags` keeps UI deterministic across sources and reloads.
+- JSDOM stubs isolate network, ensuring hermetic tests.
+
+## Bench notes (optional, off-mode)
+- n/a
+
+## Self-review
+- [x] `pnpm --filter explorer-test test`
+- [x] No synthetic tags; order stable
+- [x] Imports avoid `as any` and include `.js` where internal
+
 # REPORT — E1 — Run 2
 
 ## End Goal fulfillment

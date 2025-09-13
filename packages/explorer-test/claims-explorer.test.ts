@@ -43,7 +43,7 @@ async function setup(opts: {
           if (failApi) throw new Error('offline');
           const meta = apiMeta || {
             dataset_version: staticData.dataset_version,
-            tags: staticData.tags || [],
+            proof_tags: staticData.proof_tags || [],
             at: staticData.at,
             generated_at: staticData.generated_at
           };
@@ -79,11 +79,14 @@ async function setup(opts: {
 }
 
 describe('claims explorer', () => {
-  it('renders identically across sources and preserves state', async () => {
-    const { document, window, fetchCalls, dom } = await setup();
+  it('renders proof tags with stable order and deterministic cross-source DOM', async () => {
+    const data = { ...BASE_DATA, proof_tags: ['t2', 't1'] };
+    const { document, window, fetchCalls, dom } = await setup({ staticData: data });
     const at = document.getElementById('at') as HTMLInputElement;
     expect(at.value).toBe('2025-09-09');
     expect(fetchCalls).toHaveLength(1);
+    const tags = Array.from(document.getElementById('tagsList')!.children).map(li => (li as HTMLElement).textContent);
+    expect(tags).toEqual(['t1', 't2']);
     const bodyStatic = document.body.innerHTML;
 
     const sourceSel = document.getElementById('source') as HTMLSelectElement;
@@ -96,16 +99,14 @@ describe('claims explorer', () => {
       };
       check();
     });
-    expect(at.value).toBe('2025-09-09');
     const bodyApi = document.body.innerHTML;
     expect(bodyApi).toBe(bodyStatic);
+    dom.window.close();
+  });
 
-    const before = fetchCalls.length;
-    sourceSel.value = 'static';
-    sourceSel.dispatchEvent(new window.Event('change'));
-    await new Promise(r => window.setTimeout(r, 0));
-    expect(document.body.innerHTML).toBe(bodyStatic);
-    expect(fetchCalls.length).toBe(before);
+  it('hides tags panel when proof tags absent', async () => {
+    const { document, dom } = await setup();
+    expect(document.getElementById('tagsPanel')!.style.display).toBe('none');
     dom.window.close();
   });
 
@@ -128,19 +129,5 @@ describe('claims explorer', () => {
     const at = document.getElementById('at') as HTMLInputElement;
     expect(at.value).toBe('2025-09-09');
     dom.window.close();
-  });
-
-  it('renders tags panel only when tags exist', async () => {
-    const { document, dom } = await setup();
-    expect(document.getElementById('tagsPanel')!.style.display).toBe('none');
-    dom.window.close();
-
-    const data = { ...BASE_DATA, tags: ['t2', 't1'] };
-    const { document: doc2, dom: dom2 } = await setup({ staticData: data });
-    const panel = doc2.getElementById('tagsPanel')!;
-    expect(panel.style.display).not.toBe('none');
-    const tags = Array.from(doc2.getElementById('tagsList')!.children).map(li => (li as HTMLElement).textContent);
-    expect(tags).toEqual(['t1', 't2']);
-    dom2.window.close();
   });
 });

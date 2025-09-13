@@ -1,3 +1,10 @@
+# Observation Log — E2 — Run 1
+
+- Strategy: switch tag handling from `tags` to `proof_tags`, sort for stable ordering, and hide panel when absent.
+- Key changes: docs/claims-explorer.html; packages/explorer-test/claims-explorer.test.ts; CHANGES.md; COMPLIANCE.md; REPORT.md.
+- Determinism runs: `pnpm --filter explorer-test test` — all green.
+- Notes: JSDOM fetch stubs return provided datasets only; no synthetic tags introduced.
+
 # Observation Log — E1 — Run 2
 
 - Strategy: pull meta/tags from `/health`, sort tags, and isolate DOM tests in a new package.

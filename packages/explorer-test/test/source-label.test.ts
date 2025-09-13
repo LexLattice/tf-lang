@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { JSDOM } from 'jsdom';
 
-function mockHealth(version = 'v1', tags: string[] = ['a','b'], at?: string, generated_at = '2025-09-09T12:00:00Z') {
+function mockHealth(version = 'v1', proofTags: string[] = ['a','b'], at?: string, generated_at = '2025-09-09T12:00:00Z') {
   return {
     dataset_version: version,
-    tags,
+    proof_tags: proofTags,
     ...(at ? { at } : { generated_at }),
   };
 }

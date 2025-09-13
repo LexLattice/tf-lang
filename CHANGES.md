@@ -1,3 +1,18 @@
+# E2 — Changes (Run 1)
+
+## Summary
+Explorer reads dataset `proof_tags` for deterministic tag rendering and hides the panel when none are present.
+
+## Why
+- Prevents synthetic tags and maintains stable ordering across reloads and sources.
+
+## Tests
+- Updated: `docs/claims-explorer.html`; `packages/explorer-test/claims-explorer.test.ts`.
+- Determinism/parity: repeated `pnpm --filter explorer-test test` stable.
+
+## Notes
+- No schema changes; minimal surface.
+
 # E1 — Changes (Run 2)
 
 ## Summary

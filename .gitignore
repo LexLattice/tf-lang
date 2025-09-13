@@ -62,3 +62,9 @@ docs/pr/
 # --- Codex runs ---
 .codex/runs/
 
+
+# SQLite artifacts
+*.db
+*.sqlite*
+*.db-shm
+*.db-wal

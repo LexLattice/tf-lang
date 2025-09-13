@@ -21,3 +21,36 @@ Finalize `host-lite` on top of PR #46 with a unified raw JSON handler path and d
 
 ## Notes
 - In-memory only; no new runtime deps; ESM imports include `.js` for internal paths.
+
+# D1 — Changes (Run 1)
+
+## Summary
+Claims API now loads legal datasets from SQLite and computes canonical BLAKE3 query hashes. Responses expose dataset version and deterministic evidence samples.
+
+## Why
+- Switch from JSON files to SQLite for stable storage.
+- Canonical hashing ensures identical queries map to the same `query_hash`.
+
+## Tests
+- Added: `services/claims-api-ts/test/sqlite.test.ts`.
+- Updated: n/a.
+- Determinism/parity: repeated `pnpm --filter claims-api-ts test` stable.
+
+## Notes
+- No schema changes; minimal surface.
+
+# D1 — Changes (Run 2)
+
+## Summary
+- Remove committed SQLite DB; switch to in-memory sql.js with schema/seed fixtures.
+
+## Why
+- Ensure repo hygiene and deterministic in-memory storage for portable tests.
+
+## Tests
+- Updated: services/claims-api-ts/test/sqlite.test.ts.
+- Added: packages/d1-sqlite/fixtures/schema.sql; packages/d1-sqlite/fixtures/seed.sql; packages/d1-sqlite/src/db.js.
+- Determinism/parity: repeated `pnpm --filter claims-api-ts test` stable.
+
+## Notes
+- Queries include ORDER BY for stable row order; evidence sampling yields ≥10 distinct hashes.

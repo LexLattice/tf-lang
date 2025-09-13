@@ -3,7 +3,7 @@ import type { Claim } from './types.js';
 
 export function count(claims: Claim[], where: Partial<Claim> & { at?: string } = {}) {
   const items = filter(claims, where);
-  return { n: items.length, samples: items.slice(0, 5).map(c => c.id) };
+  return { n: items.length, samples: items.slice(0, 10).map(c => c.id) };
 }
 
 export function list(claims: Claim[], where: Partial<Claim> & { at?: string } = {}) {

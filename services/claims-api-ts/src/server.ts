@@ -1,14 +1,13 @@
 
 import Fastify from 'fastify';
-import fs from 'node:fs';
 import path from 'node:path';
-import { count as qCount, list as qList, type Claim } from 'claims-core-ts';
+import { ClaimsDB } from './db.js';
 import type { Filters } from './types.js';
 import { queryHash } from './util.js';
 
 const PORT = Number(process.env.PORT || 8787);
 const HOST = process.env.HOST || '0.0.0.0';
-const DATA_PATH = process.env.CLAIMS_DATA || path.join(process.cwd(), 'data', 'claims.json');
+const DB_PATH = process.env.CLAIMS_DB || path.join(process.cwd(), 'data', 'claims.db');
 
 const fastify = Fastify({ logger: false });
 
@@ -22,13 +21,7 @@ fastify.addHook('onSend', async (req, reply, payload) => {
 fastify.options('/*', async (_req, reply) => reply.code(200).send());
 
 
-type Dataset = { dataset_version: string; claims: Claim[] };
-let DATA: Dataset = { dataset_version: 'dev', claims: [] };
-
-function loadDataset() {
-  const raw = fs.readFileSync(DATA_PATH, 'utf-8');
-  DATA = JSON.parse(raw);
-}
+let DB: ClaimsDB;
 
 function toWhere(f: Filters): any {
   const where: any = { };
@@ -38,18 +31,19 @@ function toWhere(f: Filters): any {
   return where;
 }
 
-fastify.get('/health', async () => ({ ok: true, dataset_version: DATA.dataset_version }));
+fastify.get('/health', async () => ({ ok: true, dataset_version: DB.datasetVersion }));
 
 fastify.get('/claims/count', async (req, reply) => {
+  const q: any = req.query;
   const f: Filters = {
-    modality: (req.query as any).modality,
-    jurisdiction: (req.query as any).jurisdiction,
-    at: (req.query as any).at,
+    modality: q.modality,
+    jurisdiction: q.jurisdiction,
+    at: q.at,
   };
   const where = toWhere(f);
-  const res = qCount(DATA.claims, where);
+  const res = DB.count(where);
   return {
-    dataset_version: DATA.dataset_version,
+    dataset_version: DB.datasetVersion,
     query_hash: queryHash(f),
     filters: f,
     n: res.n,
@@ -58,45 +52,31 @@ fastify.get('/claims/count', async (req, reply) => {
 });
 
 fastify.get('/claims/list', async (req, reply) => {
+  const q: any = req.query;
   const f: Filters = {
-    modality: (req.query as any).modality,
-    jurisdiction: (req.query as any).jurisdiction,
-    at: (req.query as any).at,
-    limit: (req.query as any).limit,
-    offset: (req.query as any).offset,
+    modality: q.modality,
+    jurisdiction: q.jurisdiction,
+    at: q.at,
+    limit: q.limit,
+    offset: q.offset,
   };
-  const where = toWhere(f);
-  const rows = qList(DATA.claims, where).items;
-  const rawOffset = Number(f.offset);
-  const offset = Number.isFinite(rawOffset) ? Math.max(0, rawOffset) : 0;
-  const rawLimit = Number(f.limit);
-  const limit0 = Number.isFinite(rawLimit) ? rawLimit : 10;
-  const limit  = Math.min(Math.max(1, limit0), 200);
-  const items = rows.slice(offset, offset + limit);
-
-  const responseFilters: Filters = {
-    modality: f.modality,
-    jurisdiction: f.jurisdiction,
-    at: f.at,
-    offset: offset,
-    limit: limit,
-  }
-
+  const res = DB.list(f);
   return {
-    dataset_version: DATA.dataset_version,
-    query_hash: queryHash(responseFilters),
-    filters: responseFilters,
-    total: rows.length,
-    items,
+    dataset_version: DB.datasetVersion,
+    query_hash: queryHash(res.filters),
+    filters: res.filters,
+    total: res.total,
+    items: res.items,
   };
 });
 
 fastify.get('/claims/explain/:id', async (req, reply) => {
-  const { id } = req.params as any;
-  const item = DATA.claims.find(c => c.id === id);
+  const p: any = req.params;
+  const { id } = p;
+  const item = DB.get(id);
   if (!item) return reply.code(404).send({ error: 'not_found' });
   return {
-    dataset_version: DATA.dataset_version,
+    dataset_version: DB.datasetVersion,
     claim: item,
     evidence: item.evidence,
     explanation: item.explanation ?? null,
@@ -106,12 +86,13 @@ fastify.get('/claims/explain/:id', async (req, reply) => {
 fastify.get('/', async () => ({
   service: 'claims-api-ts',
   endpoints: ['/health','/claims/count','/claims/list','/claims/explain/:id'],
-  dataset_version: DATA.dataset_version,
-  data_path: DATA_PATH,
+  dataset_version: DB.datasetVersion,
+  data_path: DB_PATH,
 }));
 
-loadDataset();
-
-fastify.listen({ port: PORT, host: HOST }).then(() => {
-  console.log(`[claims-api] listening on http://${HOST}:${PORT} using ${DATA_PATH}`);
+ClaimsDB.open(DB_PATH).then((db) => {
+  DB = db;
+  fastify.listen({ port: PORT, host: HOST }).then(() => {
+    console.log(`[claims-api] listening on http://${HOST}:${PORT} using ${DB_PATH}`);
+  });
 });

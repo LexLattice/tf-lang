@@ -1,7 +1,6 @@
 
-import { createHash } from 'crypto';
+import { canonicalJsonBytes, blake3hex } from 'tf-lang-l0';
 
-export function queryHash(obj: any): string {
-  const s = JSON.stringify(obj, Object.keys(obj).sort());
-  return createHash('sha256').update(s).digest('hex');
+export function queryHash(obj: Record<string, unknown>): string {
+  return blake3hex(canonicalJsonBytes(obj));
 }

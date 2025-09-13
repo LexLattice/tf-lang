@@ -71,10 +71,19 @@ importers:
       fastify:
         specifier: ^4.28.1
         version: 4.29.1
+      sql.js:
+        specifier: ^1.9.2
+        version: 1.13.0
+      tf-lang-l0:
+        specifier: workspace:*
+        version: link:../../packages/tf-lang-l0-ts
     devDependencies:
       typescript:
         specifier: ^5.5.0
         version: 5.9.2
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@24.3.1)
 
 packages:
 
@@ -787,6 +796,9 @@ packages:
     resolution: {integrity: sha512-UcjcJOWknrNkF6PLX83qcHM6KHgVKNkV62Y8a5uYDVv9ydGQVwAHMKqHdJje1VTWpljG0WYpCDhrCdAOYH4TWg==}
     engines: {node: '>= 10.x'}
 
+  sql.js@1.13.0:
+    resolution: {integrity: sha512-RJbVP1HRDlUUXahJ7VMTcu9Rm1Nzw+EBpoPr94vnbD4LwR715F3CcxE2G2k45PewcaZ57pjetYa+LoSJLAASgA==}
+
   stackback@0.0.2:
     resolution: {integrity: sha512-1XMJE5fQo1jGH6Y/7ebnwPOBEkIEnT4QF32d5R1+VXdXveM0IBMJt8zfaxX1P3QhVwrYe+576+jkANtSS2mBbw==}
 
@@ -1477,6 +1489,8 @@ snapshots:
   source-map-js@1.2.1: {}
 
   split2@4.2.0: {}
+
+  sql.js@1.13.0: {}
 
   stackback@0.0.2: {}
 

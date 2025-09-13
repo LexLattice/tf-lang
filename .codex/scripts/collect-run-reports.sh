@@ -138,9 +138,9 @@ for spec in "${PRS_SPEC[@]}"; do
   append_section "$label" "$pr" "$sha" "$sha" "$title"
 done
 
-# Stage artifacts (force-add in case paths are gitignored)
-git add -f "$RUNS_DIR" 2>/dev/null || true
-git add -f "$ANTHOLOGY_FILE" 2>/dev/null || true
+# Stage artifacts (best-effort; ignore if gitignored)
+git add "$RUNS_DIR" 2>/dev/null || true
+git add "$ANTHOLOGY_FILE" 2>/dev/null || true
 
 if [[ $DO_COMMIT -eq 1 ]]; then
   git commit -m "$COMMIT_MSG"

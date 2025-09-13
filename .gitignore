@@ -59,5 +59,6 @@ __pycache__/
 # Docs PR previews
 docs/pr/
 
-# --- Codex ---
-.codex/runs
+# --- Codex runs ---
+.codex/runs/
+

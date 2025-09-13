@@ -1,3 +1,28 @@
+# REPORT — F1 — Run 1
+
+## End Goal fulfillment
+- EG-1: PR builds upload preview artifacts without deploying【F:.github/workflows/pages.yml†L1-L26】
+- EG-2: `main` deploys site to production URL【F:.github/workflows/pages.yml†L24-L33】
+- EG-3: README exposes live deployment badge linking to site【F:README.md†L4-L6】
+
+## Blockers honored
+- B-1: ✅ PR builds do not deploy publicly【F:.github/workflows/pages.yml†L24-L26】
+- B-2: ✅ `main` branch deploys live site【F:.github/workflows/pages.yml†L24-L33】
+- B-3: ✅ README badge references live site URL【F:README.md†L4-L6】
+
+## Lessons / tradeoffs (≤5 bullets)
+- Conditional deploy keeps PR runs safe while reusing the same build job.
+- Hardcoded owner in badge; assumes repository remains under `LexLattice`.
+
+## Bench notes (optional, off-mode)
+- n/a
+
+## Self-review
+- [x] `pnpm test` passes
+- [x] All blockers satisfied
+- [x] No extraneous commits or files
+- [x] No `as any`, per-call locks, or schema changes
+
 # REPORT — E2 — Run 1
 
 ## End Goal fulfillment

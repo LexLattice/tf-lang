@@ -1,3 +1,11 @@
+# Observation Log — F1 — Run 1
+
+- Strategy chosen: add PR preview artifact build and main deployment; surface live badge in README.
+- Key changes (files): .github/workflows/pages.yml; README.md; packages/explorer-test/pages-workflow.test.ts; CHANGES.md.
+- Determinism stress (runs × passes): `pnpm test` ×1 — stable.
+- Near-misses vs blockers: none.
+- Notes: badge links to GitHub Pages; deploy job gated on `main`.
+
 # Observation Log — E2 — Run 1
 
 - Strategy chosen: sort proof tags via `localeCompare` and verify static/API DOM snapshots.

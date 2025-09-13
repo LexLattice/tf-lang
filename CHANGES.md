@@ -1,3 +1,19 @@
+# F1 — Changes (Run 1)
+
+## Summary
+Configure Pages workflow to publish preview artifacts on pull requests and deploy the site from `main`; add a README badge linking to the live site.
+
+## Why
+Ensures safe preview builds for contributors while keeping `main` deployments automatic and visible.
+
+## Tests
+- Added: packages/explorer-test/pages-workflow.test.ts.
+- Updated: packages/explorer-test/pages-workflow.test.ts (harden regex).
+- Determinism/parity: `pnpm test`.
+
+## Notes
+- No schema changes; minimal surface.
+
 # E2 — Changes (Run 1)
 
 ## Summary

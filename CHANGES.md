@@ -104,3 +104,20 @@ Claims API now loads legal datasets from SQLite and computes canonical BLAKE3 qu
 
 ## Notes
 - Static scans confirm no `.slice(`/`.filter(` in production code.
+
+# E1 — Changes (Run 1)
+
+## Summary
+- Claims Explorer gains runtime source switching with deterministic rendering and tag-aware UI.
+- Defaults derive from dataset metadata, preselecting dataset version and date on first load.
+
+## Why
+- Fulfills END_GOAL for offline/online toggle, sane defaults, and conditional tags panel.
+
+## Tests
+- Added: services/claims-api-ts/test/explorer.test.ts.
+- Updated: docs/claims-explorer.html.
+- Determinism/parity: `pnpm test` stable; static mode makes no network calls.
+
+## Notes
+- No schema changes; ESM imports untouched; diff confined to Explorer and tests.

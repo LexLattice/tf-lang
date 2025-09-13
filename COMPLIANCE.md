@@ -176,3 +176,28 @@
 - Tests: services/claims-api-ts/test/sqlite.test.ts
 - Runs: `pnpm --filter claims-api-ts test`; `pnpm test`
 - Bench (off-mode, if applicable): n/a
+
+# COMPLIANCE — E1 — Run 1
+
+## Blockers (must all be ✅)
+- [x] No kernel/schema changes — n/a
+- [x] No per-call locks or `as any` — code link: docs/claims-explorer.html【F:docs/claims-explorer.html†L198-L248】
+- [x] ESM internal imports include `.js` — n/a (no internal imports added)
+- [x] Tests parallel-safe, deterministic — test link: services/claims-api-ts/test/explorer.test.ts【F:services/claims-api-ts/test/explorer.test.ts†L59-L129】
+- [x] Static file mode avoids network — test link: services/claims-api-ts/test/explorer.test.ts【F:services/claims-api-ts/test/explorer.test.ts†L102-L106】
+- [x] Source switching runtime-selectable — code link: docs/claims-explorer.html【F:docs/claims-explorer.html†L279-L283】
+- [x] Default dataset/date on first load — code link: docs/claims-explorer.html【F:docs/claims-explorer.html†L266-L270】
+- [x] Tags panel hidden when dataset lacks tags — code link: docs/claims-explorer.html【F:docs/claims-explorer.html†L95-L98】【F:docs/claims-explorer.html†L179-L195】
+
+## Acceptance (oracle)
+- [x] Source switch preserves state without reload — test link: services/claims-api-ts/test/explorer.test.ts【F:services/claims-api-ts/test/explorer.test.ts†L79-L100】
+- [x] Offline static mode renders — test link: services/claims-api-ts/test/explorer.test.ts【F:services/claims-api-ts/test/explorer.test.ts†L102-L106】
+- [x] Defaults appear on first load — test link: services/claims-api-ts/test/explorer.test.ts【F:services/claims-api-ts/test/explorer.test.ts†L60-L66】
+- [x] Tags panel absent/present per dataset — test link: services/claims-api-ts/test/explorer.test.ts【F:services/claims-api-ts/test/explorer.test.ts†L68-L76】
+- [x] Determinism across renders — test link: services/claims-api-ts/test/explorer.test.ts【F:services/claims-api-ts/test/explorer.test.ts†L108-L129】
+
+## Evidence
+- Code: docs/claims-explorer.html; services/claims-api-ts/test/explorer.test.ts
+- Tests: services/claims-api-ts/test/explorer.test.ts
+- Runs: `pnpm test`
+- Bench: n/a

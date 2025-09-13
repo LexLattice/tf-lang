@@ -46,3 +46,10 @@
 - Determinism stress: 3× `pnpm --filter claims-api-ts test` — stable.
 - Near-misses vs blockers: adjusted filter bounds to allow `limit=0` while keeping validation.
 - Notes: rg scan expanded to entire src to enforce SQL-only pagination.
+
+# Observation Log — E1 — Run 1
+
+- Strategy: derive defaults from dataset metadata; add tag-aware panel and runtime source toggle.
+- Key changes: docs/claims-explorer.html; services/claims-api-ts/test/explorer.test.ts; CHANGES.md; COMPLIANCE.md; REPORT.md.
+- Determinism runs: 2× `pnpm test` — stable.
+- Tradeoffs: tags inferred from displayed items; jsdom added for browser-like testing.

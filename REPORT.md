@@ -72,6 +72,23 @@
 - `pnpm --filter claims-api-ts test` repeated 3× — stable.
 - `pnpm test` — workspace tests all pass.
 
+# REPORT — E1 — Run 1
+
+## End Goal fulfillment
+- EG-1: Runtime toggle between static and API sources with dataset/date defaults【F:docs/claims-explorer.html†L266-L283】
+- EG-2: Tags panel hidden when dataset has no tags; sorted items yield deterministic output【F:docs/claims-explorer.html†L95-L98】【F:docs/claims-explorer.html†L179-L217】
+
+## Blockers honored
+- B-1: Static mode avoids network calls【F:services/claims-api-ts/test/explorer.test.ts†L102-L106】
+- B-2: Source switch preserves state without reload【F:services/claims-api-ts/test/explorer.test.ts†L79-L100】
+
+## Lessons / tradeoffs (≤5 bullets)
+- Tags computed from visible items; full dataset tags would need extra fetch.
+- Added jsdom for DOM-based testing; no runtime deps changed.
+
+## Determinism runs
+- `pnpm test` — stable across runs.
+
 # REPORT — D1 — Run 4
 
 ## End Goal fulfillment

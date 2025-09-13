@@ -92,6 +92,11 @@
     <div class="card"><div class="muted">Contradictory</div><div id="metricCon" class="metric">0</div></div>
   </section>
 
+  <section id="tagsPanel" class="card" style="display:none">
+    <div class="muted">Tags</div>
+    <div id="tags"></div>
+  </section>
+
   <section class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
       <div class="muted">Claims</div>
@@ -171,6 +176,24 @@ function uniqueJurisdictions(claims) {
   return ['*', ...Array.from(set)];
 }
 
+function renderTags(items) {
+  const panel = $('#tagsPanel');
+  const container = $('#tags');
+  const set = new Set();
+  for (const c of items) {
+    if (Array.isArray(c.tags)) {
+      for (const t of c.tags) set.add(t);
+    }
+  }
+  if (set.size === 0) {
+    panel.style.display = 'none';
+    container.innerHTML = '';
+  } else {
+    panel.style.display = 'block';
+    container.innerHTML = Array.from(set).sort().map(t => `<span>${t}</span>`).join(' ');
+  }
+}
+
 
 async function applyFilters() {
   const at = $('#at').value || null;
@@ -190,8 +213,10 @@ async function applyFilters() {
     total = cnt.n;
     items = lst.items || [];
   }
+  items.sort((a, b) => (a.id || '').localeCompare(b.id || ''));
   const amb = items.filter(c => c.status === 'ambiguous').length;
   const con = items.filter(c => c.status === 'contradictory').length;
+  renderTags(items);
   $('#metricCount').textContent = String(total);
   $('#metricAmb').textContent = String(amb);
   $('#metricCon').textContent = String(con);
@@ -239,8 +264,9 @@ async function main() {
   }
 
   // defaults
+  const defaultAt = data.at || (data.generated_at ? data.generated_at.slice(0,10) : '');
   loadPersist();
-  $('#at').value = '2025-09-09';
+  $('#at').value = defaultAt;
   $('#mod').value = '*';
   $('#jur').value = '*';
   $('#source').value = SOURCE || 'static';

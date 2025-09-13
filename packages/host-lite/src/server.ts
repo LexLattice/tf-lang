@@ -1,8 +1,4 @@
-import {
-  createServer as createHttpServer,
-  IncomingMessage,
-  ServerResponse,
-} from 'node:http';
+import { createServer as createHttpServer } from 'node:http';
 import { canonicalJsonBytes, blake3hex, DummyHost } from 'tf-lang-l0';
 
 const td = new TextDecoder();
@@ -94,38 +90,33 @@ export function makeHandler(host = createHost()) {
   };
 }
 
-export function createNodeHandler(host = createHost()) {
+export function makeRawHandler(host = createHost()) {
   const handler = makeHandler(host);
-  return async (req: IncomingMessage, res: ServerResponse) => {
-    const chunks: Uint8Array[] = [];
-    req.on('data', (c) => chunks.push(c));
-    req.on('end', async () => {
-      const bodyStr = Buffer.concat(chunks).toString() || '{}';
-      let body: unknown;
-      try {
-        body = JSON.parse(bodyStr);
-      } catch {
-        res.statusCode = 400;
-        res.setHeader('content-type', 'application/json');
-        const bytes = canonicalJsonBytes({ error: 'bad_request' });
-        res.end(Buffer.from(bytes));
-        return;
-      }
-      const { status, body: respBody } = await handler(
-        req.method ?? '',
-        req.url ?? '',
-        body,
-      );
-      res.statusCode = status;
-      res.setHeader('content-type', 'application/json');
-      const bytes = canonicalJsonBytes(respBody);
-      res.end(Buffer.from(bytes));
-    });
+  return async (method: string, url: string, bodyStr: string) => {
+    let body: unknown;
+    try {
+      body = bodyStr ? JSON.parse(bodyStr) : {};
+    } catch {
+      return { status: 400, body: { error: 'bad_request' } };
+    }
+    return handler(method, url, body);
   };
 }
 
 export function createServer(host = createHost()) {
-  return createHttpServer(createNodeHandler(host));
+  const raw = makeRawHandler(host);
+  return createHttpServer((req, res) => {
+    const chunks: Uint8Array[] = [];
+    req.on('data', (c) => chunks.push(c));
+    req.on('end', async () => {
+      const bodyStr = Buffer.concat(chunks).toString();
+      const { status, body } = await raw(req.method ?? '', req.url ?? '', bodyStr);
+      res.statusCode = status;
+      res.setHeader('content-type', 'application/json');
+      const bytes = canonicalJsonBytes(body);
+      res.end(Buffer.from(bytes));
+    });
+  });
 }
 
 if (process.argv[1] === new URL(import.meta.url).pathname) {

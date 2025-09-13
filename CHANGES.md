@@ -1,3 +1,20 @@
+# E1 — Changes (Run 2)
+
+## Summary
+Explorer reads dataset version, tags and default date from `/health` in API mode, derives static tags from dataset metadata, and relocates DOM tests into a dedicated `packages/explorer-test` package.
+
+## Why
+- `/health` provides a single deterministic source for meta and tags.
+- Packaging isolates jsdom to test-only code and keeps static mode offline.
+
+## Tests
+- Added: `packages/explorer-test/claims-explorer.test.ts`.
+- Updated: `docs/claims-explorer.html`.
+- Determinism/parity: repeated `pnpm test` stable.
+
+## Notes
+- No schema changes; minimal surface.
+
 # C1 — Changes (Run 4)
 
 ## Summary

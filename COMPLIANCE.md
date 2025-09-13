@@ -1,3 +1,36 @@
+# COMPLIANCE — E1 — Run 2
+
+## Blockers (must all be ✅)
+- [x] No kernel/schema changes — n/a
+- [x] No per-call locks or `as any` — code link: docs/claims-explorer.html
+- [x] ESM internal imports include `.js` — code link: docs/claims-explorer.html
+- [x] Tests parallel-safe, deterministic — test link: packages/explorer-test/claims-explorer.test.ts
+- [x] Static mode issues no network calls — test link: packages/explorer-test/claims-explorer.test.ts
+- [x] Source switch runtime-selectable — code/test link: docs/claims-explorer.html / packages/explorer-test/claims-explorer.test.ts
+- [x] Default dataset/date on first load — code link: docs/claims-explorer.html
+- [x] Tags panel hidden when dataset has no tags — code/test link: docs/claims-explorer.html / packages/explorer-test/claims-explorer.test.ts
+
+## EXTRA BLOCKERS (pass-2)
+- [x] Tags sourced only from `/health` or static meta — code link: docs/claims-explorer.html
+- [x] No network requests in static-mode tests — test link: packages/explorer-test/claims-explorer.test.ts
+- [x] DOM tests isolated under `packages/explorer-test/` — code link: packages/explorer-test/package.json
+- [x] Do not edit `.codex/tasks/**` — n/a
+
+## Acceptance (oracle)
+- [x] Source toggle preserves state
+- [x] Offline static mode renders; API mode fails gracefully
+- [x] Defaults visible on first load
+- [x] Tags panel present only with tags
+- [x] Deterministic output across repeats and sources
+- [x] Cross-source parity snapshot
+- [x] Build/packaging correctness (ESM)
+- [x] Code quality
+
+## Evidence
+- Code: docs/claims-explorer.html; packages/explorer-test/package.json
+- Tests: packages/explorer-test/claims-explorer.test.ts
+- Runs: `pnpm test`
+
 # COMPLIANCE — C1 — Run 4
 
 ## Blockers (must all be ✅)

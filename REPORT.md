@@ -1,3 +1,24 @@
+# REPORT — E1 — Run 2
+
+## End Goal fulfillment
+- EG-1: `/health` provides dataset version, tags and default date for API mode; static mode draws tags from dataset metadata【F:docs/claims-explorer.html†L143-L148】【F:docs/claims-explorer.html†L277-L304】
+- EG-2: Default date auto-selects from `at` or `generated_at`; tags panel hidden when no tags and rendered with sorted tags when present【F:docs/claims-explorer.html†L291-L313】【F:docs/claims-explorer.html†L180-L195】【F:packages/explorer-test/claims-explorer.test.ts†L124-L145】
+- EG-3: Cross-source renders are byte-identical and switching preserves state【F:packages/explorer-test/claims-explorer.test.ts†L82-L109】
+
+## Blockers honored
+- B-1: ✅ Static mode issues no network requests【F:packages/explorer-test/claims-explorer.test.ts†L82-L87】【F:packages/explorer-test/claims-explorer.test.ts†L112-L116】
+- B-2: ✅ Source switch runtime-selectable【F:docs/claims-explorer.html†L323-L346】【F:packages/explorer-test/claims-explorer.test.ts†L82-L109】
+- B-3: ✅ Default dataset/date on first load【F:docs/claims-explorer.html†L291-L313】
+- B-4: ✅ Tags panel hidden with no tags【F:docs/claims-explorer.html†L180-L185】【F:packages/explorer-test/claims-explorer.test.ts†L133-L136】
+
+## Lessons / tradeoffs (≤5 bullets)
+- `/health` centralizes meta data for API and reduces redundant requests.
+- Sorting tags ensures deterministic panel order across sources.
+- Dedicated test package keeps jsdom scoped to tests and speeds install for other packages.
+
+## Bench notes (optional, off-mode)
+- n/a
+
 # REPORT — C1 — Run 4
 
 ## Goal → Evidence map

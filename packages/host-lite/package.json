@@ -1,11 +1,14 @@
 {
-  "name": "host-lite-ts",
+  "name": "host-lite",
   "version": "0.1.0",
   "type": "module",
   "license": "MIT",
   "private": true,
-  "main": "src/server.ts",
+  "main": "dist/server.js",
+  "types": "dist/server.d.ts",
+  "exports": "./dist/server.js",
   "scripts": {
+    "build": "tsc -p tsconfig.json",
     "test": "vitest run"
   },
   "dependencies": {

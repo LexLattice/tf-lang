@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { makeHandler, createHost } from '../src/server.js';
+import { makeHandler, createHost, handleHttp } from '../src/server.js';
 import { canonicalJsonBytes, blake3hex } from 'tf-lang-l0';
 import { readFile } from 'node:fs/promises';
 
@@ -64,6 +64,14 @@ describe('host-lite', () => {
     expect(canon).toBe('{"error":"not_found"}');
   });
 
+  it('400 for malformed json', async () => {
+    const handler = makeHandler(createHost());
+    const r = await handleHttp(handler, 'POST', '/plan', '{');
+    expect(r.status).toBe(400);
+    const canon = td.decode(canonicalJsonBytes(r.body));
+    expect(canon).toBe('{"error":"bad_request"}');
+  });
+
   it('bounded cache prevents growth', async () => {
     const host = createHost();
     const handler = makeHandler(host);
@@ -72,6 +80,26 @@ describe('host-lite', () => {
     }
     const worldCache = host.cache.get('m');
     expect(worldCache?.size ?? 0).toBeLessThanOrEqual(32);
+  });
+
+  it('multi-world cache bound', async () => {
+    const host = createHost();
+    const handler = makeHandler(host);
+    for (let w = 0; w < 3; w++) {
+      for (let i = 0; i < 40; i++) {
+        await handler('POST', '/plan', { world: 'mw' + w, plan: i });
+      }
+    }
+    for (let w = 0; w < 3; w++) {
+      const c = host.cache.get('mw' + w);
+      expect(c?.size ?? 0).toBeLessThanOrEqual(32);
+    }
+  });
+
+  it('package.json points to dist', async () => {
+    const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+    expect(pkg.main).toBe('dist/server.js');
+    expect(pkg.types).toBe('dist/server.d.ts');
   });
 
   it('no deep imports', async () => {

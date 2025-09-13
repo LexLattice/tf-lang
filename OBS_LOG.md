@@ -1,3 +1,10 @@
+# Observation Log — F1 — Run 1
+
+- Strategy: gate GitHub Pages deploy step to `main` and upload preview artifacts for PRs.
+- Key changes: .github/workflows/pages.yml; README.md; CHANGES.md; COMPLIANCE.md; REPORT.md; OBS_LOG.md.
+- Determinism runs: `pnpm test` — all green.
+- Notes: PR runs stop before deploy; main pushes publish to live Pages site.
+
 # Observation Log — E2 — Run 1
 
 - Strategy chosen: sort proof tags via `localeCompare` and verify static/API DOM snapshots.

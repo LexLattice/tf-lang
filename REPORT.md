@@ -1,3 +1,27 @@
+# REPORT — F1 — Run 1
+
+## End Goal fulfillment
+- EG-1: Pull request builds upload a preview artifact without triggering deploy【F:.github/workflows/pages.yml†L1-L27】【F:.github/workflows/pages.yml†L24-L33】
+- EG-2: Pushes to `main` deploy the site to production via `deploy-pages`【F:.github/workflows/pages.yml†L24-L33】
+- EG-3: README exposes a deployment badge linking to the live site【F:README.md†L3-L5】
+
+## Blockers honored
+- B-1: ✅ PR builds produce artifact only; deploy gated to `main`【F:.github/workflows/pages.yml†L1-L27】【F:.github/workflows/pages.yml†L24-L33】
+- B-2: ✅ README includes deployment status badge【F:README.md†L3-L5】
+
+## Lessons / tradeoffs (≤5 bullets)
+- Conditional deploy keeps preview runs safe for forks.
+- Badge offers quick status visibility in README.
+
+## Bench notes (optional, off-mode)
+- n/a
+
+## Self-review
+- [x] `pnpm test` passes
+- [x] All blockers satisfied
+- [x] No extraneous commits or files
+- [x] No `as any`, per-call locks, or schema changes
+
 # REPORT — E2 — Run 1
 
 ## End Goal fulfillment

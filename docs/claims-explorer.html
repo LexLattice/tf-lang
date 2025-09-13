@@ -167,6 +167,32 @@ async function apiFetchList(params){
   return await r.json();
 }
 
+// DRY: refresh dataset meta (version, tags, default date) from current source
+async function refreshMetaFromSource(state) {
+  // state: { source: 'api'|'static', apiBase: string, staticMeta: object, setMeta: (m)=>void, setDefaultAt:(d)=>void, setTags:(t)=>void, setVersion:(v)=>void }
+  try {
+    if (state.source === 'api') {
+      const r = await fetch(new URL('/health', state.apiBase).toString(), { method: 'GET' });
+      if (!r.ok) throw new Error('health '+r.status);
+      const meta = await r.json(); // { dataset_version, tags, generated_at?, at? }
+      state.setVersion(meta.dataset_version ?? '');
+      state.setTags(Array.isArray(meta.tags) ? meta.tags : []);
+      const at = meta.at || (meta.generated_at ? String(meta.generated_at).slice(0,10) : '');
+      state.setDefaultAt(at || '2025-09-09'); // stable fallback
+      state.setMeta(meta);
+    } else {
+      const meta = state.staticMeta || {};
+      state.setVersion(meta.dataset_version ?? '');
+      state.setTags(Array.isArray(meta.tags) ? meta.tags : []);
+      const at = meta.at || (meta.generated_at ? String(meta.generated_at).slice(0,10) : '');
+      state.setDefaultAt(at || '2025-09-09');
+      state.setMeta(meta);
+    }
+  } catch(_err) {
+    // graceful failure: keep current UI state; don't throw
+  }
+}
+
 const $ = sel => document.querySelector(sel);
 
 let ALL = [];
@@ -323,43 +349,65 @@ async function main() {
   $('#source').addEventListener('change', async () => {
     SOURCE = $('#source').value;
     persist();
-    if (SOURCE === 'static') {
-      DATASET_VERSION = STATIC_DATASET_VERSION;
-      DATA_TAGS = STATIC_DATA_TAGS.slice();
-      $('#datasetVersion').textContent = DATASET_VERSION;
-      updateTagsPanel();
-      if(!$('#at').value) $('#at').value = STATIC_AT;
-    } else {
-      try {
-        const h = await apiFetchHealth();
-        API_DATASET_VERSION = h.dataset_version || '';
-        API_DATA_TAGS = Array.isArray(h.tags) ? h.tags.slice().sort() : [];
-        API_AT = resolveAt(h);
-        DATASET_VERSION = API_DATASET_VERSION;
-        DATA_TAGS = API_DATA_TAGS.slice();
+    await refreshMetaFromSource({
+      source: SOURCE,
+      apiBase: API_BASE,
+      staticMeta: { dataset_version: STATIC_DATASET_VERSION, tags: STATIC_DATA_TAGS, at: STATIC_AT },
+      setVersion: (v) => {
+        DATASET_VERSION = v || '';
         $('#datasetVersion').textContent = DATASET_VERSION;
+      },
+      setTags: (t) => {
+        DATA_TAGS = Array.isArray(t) ? t.slice().sort() : [];
         updateTagsPanel();
-        if(!$('#at').value) $('#at').value = API_AT;
-      } catch(err) { console.error(err); }
-    }
+      },
+      setDefaultAt: (d) => {
+        if (!$('#at').value) $('#at').value = d || '';
+      },
+      setMeta: (meta) => {
+        if (SOURCE === 'api') {
+          API_DATASET_VERSION = meta.dataset_version || '';
+          API_DATA_TAGS = Array.isArray(meta.tags) ? meta.tags.slice().sort() : [];
+          API_AT = meta.at || (meta.generated_at ? String(meta.generated_at).slice(0,10) : '');
+        } else {
+          STATIC_DATASET_VERSION = meta.dataset_version || STATIC_DATASET_VERSION;
+          STATIC_DATA_TAGS = Array.isArray(meta.tags) ? meta.tags.slice().sort() : STATIC_DATA_TAGS;
+          STATIC_AT = meta.at || (meta.generated_at ? String(meta.generated_at).slice(0,10) : STATIC_AT);
+        }
+      },
+    });
     try { await applyFilters(); } catch(err) { console.error(err); }
   });
   $('#apiBase').addEventListener('change', async () => {
     API_BASE = $('#apiBase').value;
     persist();
-    if (SOURCE === 'api') {
-      try {
-        const h = await apiFetchHealth();
-        API_DATASET_VERSION = h.dataset_version || '';
-        API_DATA_TAGS = Array.isArray(h.tags) ? h.tags.slice().sort() : [];
-        API_AT = resolveAt(h);
-        DATASET_VERSION = API_DATASET_VERSION;
-        DATA_TAGS = API_DATA_TAGS.slice();
+    await refreshMetaFromSource({
+      source: SOURCE,
+      apiBase: API_BASE,
+      staticMeta: { dataset_version: STATIC_DATASET_VERSION, tags: STATIC_DATA_TAGS, at: STATIC_AT },
+      setVersion: (v) => {
+        DATASET_VERSION = v || '';
         $('#datasetVersion').textContent = DATASET_VERSION;
+      },
+      setTags: (t) => {
+        DATA_TAGS = Array.isArray(t) ? t.slice().sort() : [];
         updateTagsPanel();
-        if(!$('#at').value) $('#at').value = API_AT;
-      } catch(err) { console.error(err); }
-    }
+      },
+      setDefaultAt: (d) => {
+        if (!$('#at').value) $('#at').value = d || '';
+      },
+      setMeta: (meta) => {
+        if (SOURCE === 'api') {
+          API_DATASET_VERSION = meta.dataset_version || '';
+          API_DATA_TAGS = Array.isArray(meta.tags) ? meta.tags.slice().sort() : [];
+          API_AT = meta.at || (meta.generated_at ? String(meta.generated_at).slice(0,10) : '');
+        } else {
+          STATIC_DATASET_VERSION = meta.dataset_version || STATIC_DATASET_VERSION;
+          STATIC_DATA_TAGS = Array.isArray(meta.tags) ? meta.tags.slice().sort() : STATIC_DATA_TAGS;
+          STATIC_AT = meta.at || (meta.generated_at ? String(meta.generated_at).slice(0,10) : STATIC_AT);
+        }
+      },
+    });
     try { await applyFilters(); } catch(err) { console.error(err); }
   });
   document.getElementById('copyCurl').addEventListener('click', async () => {

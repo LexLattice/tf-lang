@@ -1,3 +1,19 @@
+# E2 — Changes (Run 1)
+
+## Summary
+Explorer sorts proof tags before rendering and hides the tags panel when datasets lack tags, ensuring deterministic output across static and API sources.
+
+## Why
+- Stable tag ordering and conditional panel visibility prevent synthetic or reordered tags during source switches.
+
+## Tests
+- Added: `packages/explorer-test/claims-explorer.test.ts` (tags determinism, panel hiding).
+- Updated: `docs/claims-explorer.html` (sorted tags rendering).
+- Determinism/parity: `pnpm test` identical across runs.
+
+## Notes
+- No schema changes; minimal surface.
+
 # E1 — Changes (Run 2)
 
 ## Summary

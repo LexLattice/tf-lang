@@ -1,3 +1,11 @@
+# Observation Log — E2 — Run 1
+
+- Strategy chosen: sort proof tags at render time and test cross-source tag parity.
+- Key changes (files): docs/claims-explorer.html; packages/explorer-test/claims-explorer.test.ts; CHANGES.md; COMPLIANCE.md; REPORT.md.
+- Determinism stress (runs × passes): 3× `pnpm test` — stable.
+- Near-misses vs blockers: none.
+- Notes: API/static fetch stubs ensure offline determinism.
+
 # Observation Log — E1 — Run 2
 
 - Strategy: pull meta/tags from `/health`, sort tags, and isolate DOM tests in a new package.

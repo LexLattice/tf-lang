@@ -206,14 +206,15 @@ function updateSourceLabel(){
 function updateTagsPanel(){
   const panel = $('#tagsPanel');
   const list = $('#tagsList');
-  if(!DATA_TAGS.length){
+  const tags = Array.isArray(DATA_TAGS) ? DATA_TAGS.slice().sort() : [];
+  if(!tags.length){
     panel.style.display = 'none';
     list.innerHTML = '';
     return;
   }
   panel.style.display = '';
   list.innerHTML = '';
-  for(const t of DATA_TAGS){
+  for(const t of tags){
     const li = document.createElement('li');
     li.textContent = t;
     list.appendChild(li);

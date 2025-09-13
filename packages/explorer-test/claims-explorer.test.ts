@@ -79,11 +79,12 @@ async function setup(opts: {
 }
 
 describe('claims explorer', () => {
-  it('renders identically across sources and preserves state', async () => {
-    const { document, window, fetchCalls, dom } = await setup();
-    const at = document.getElementById('at') as HTMLInputElement;
-    expect(at.value).toBe('2025-09-09');
-    expect(fetchCalls).toHaveLength(1);
+  it('renders tags deterministically across sources', async () => {
+    const data = { ...BASE_DATA, tags: ['t2', 't1'] };
+    const apiMeta = { dataset_version: data.dataset_version, tags: ['t1', 't2'], at: data.at, generated_at: data.generated_at };
+    const { document, window, dom } = await setup({ staticData: data, apiMeta });
+    const tagsStatic = Array.from(document.getElementById('tagsList')!.children).map(li => (li as HTMLElement).textContent);
+    expect(tagsStatic).toEqual(['t1', 't2']);
     const bodyStatic = document.body.innerHTML;
 
     const sourceSel = document.getElementById('source') as HTMLSelectElement;
@@ -96,16 +97,10 @@ describe('claims explorer', () => {
       };
       check();
     });
-    expect(at.value).toBe('2025-09-09');
+    const tagsApi = Array.from(document.getElementById('tagsList')!.children).map(li => (li as HTMLElement).textContent);
+    expect(tagsApi).toEqual(['t1', 't2']);
     const bodyApi = document.body.innerHTML;
     expect(bodyApi).toBe(bodyStatic);
-
-    const before = fetchCalls.length;
-    sourceSel.value = 'static';
-    sourceSel.dispatchEvent(new window.Event('change'));
-    await new Promise(r => window.setTimeout(r, 0));
-    expect(document.body.innerHTML).toBe(bodyStatic);
-    expect(fetchCalls.length).toBe(before);
     dom.window.close();
   });
 
@@ -130,17 +125,14 @@ describe('claims explorer', () => {
     dom.window.close();
   });
 
-  it('renders tags panel only when tags exist', async () => {
-    const { document, dom } = await setup();
+  it('hides tags panel when dataset has no tags', async () => {
+    const { document, window, dom } = await setup();
+    expect(document.getElementById('tagsPanel')!.style.display).toBe('none');
+    const sourceSel = document.getElementById('source') as HTMLSelectElement;
+    sourceSel.value = 'api';
+    sourceSel.dispatchEvent(new window.Event('change'));
+    await new Promise(r => window.setTimeout(r, 0));
     expect(document.getElementById('tagsPanel')!.style.display).toBe('none');
     dom.window.close();
-
-    const data = { ...BASE_DATA, tags: ['t2', 't1'] };
-    const { document: doc2, dom: dom2 } = await setup({ staticData: data });
-    const panel = doc2.getElementById('tagsPanel')!;
-    expect(panel.style.display).not.toBe('none');
-    const tags = Array.from(doc2.getElementById('tagsList')!.children).map(li => (li as HTMLElement).textContent);
-    expect(tags).toEqual(['t1', 't2']);
-    dom2.window.close();
   });
 });

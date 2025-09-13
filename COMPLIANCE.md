@@ -1,3 +1,27 @@
+# COMPLIANCE — E2 — Run 1
+
+## Blockers (must all be ✅)
+- [x] No changes to kernel/tag schemas — n/a
+- [x] No per-call locks or `as any` — code link: docs/claims-explorer.html
+- [x] ESM internal imports include `.js` — test link: packages/explorer-test/claims-explorer.test.ts
+- [x] Tests parallel-safe, deterministic — test link: packages/explorer-test/claims-explorer.test.ts
+- [x] Proof tags only from dataset data — code link: docs/claims-explorer.html
+- [x] Rendering order for tags stable — code/test link: docs/claims-explorer.html / packages/explorer-test/claims-explorer.test.ts
+- [x] Tags panel hidden when no proof tags — test link: packages/explorer-test/claims-explorer.test.ts
+
+## Acceptance (oracle)
+- [x] Positive dataset shows sorted tags panel
+- [x] Negative dataset hides tags panel
+- [x] Determinism across static/API renders
+- [ ] Cross-runtime parity (n/a)
+- [x] Build/packaging correctness (ESM)
+- [x] Code quality
+
+## Evidence
+- Code: docs/claims-explorer.html
+- Tests: packages/explorer-test/claims-explorer.test.ts
+- CI runs: `pnpm test`
+
 # COMPLIANCE — E1 — Run 2
 
 ## Blockers (must all be ✅)

@@ -1,3 +1,24 @@
+# REPORT — E2 — Run 1
+
+## End Goal fulfillment
+- EG-1: Proof tags render from dataset data in sorted order, enabling deterministic DOM across sources【F:docs/claims-explorer.html†L206-L219】【F:packages/explorer-test/claims-explorer.test.ts†L82-L105】
+- EG-2: When datasets lack tags the tags panel stays hidden in both static and API modes【F:packages/explorer-test/claims-explorer.test.ts†L128-L136】
+- EG-3: Static and API renders produce byte-identical DOM snapshots when tags exist【F:packages/explorer-test/claims-explorer.test.ts†L82-L105】
+
+## Blockers honored
+- B-1: ✅ No per-call locks or `as any`【F:docs/claims-explorer.html†L206-L219】
+- B-2: ✅ ESM internal imports use `.js`【F:packages/explorer-test/claims-explorer.test.ts†L1-L3】
+- B-3: ✅ Tags rendered only from dataset/meta data【F:docs/claims-explorer.html†L206-L219】
+- B-4: ✅ Tags panel hidden when no tags【F:packages/explorer-test/claims-explorer.test.ts†L128-L136】
+- B-5: ✅ Rendering order stable via sort【F:docs/claims-explorer.html†L206-L219】
+
+## Lessons / tradeoffs (≤5 bullets)
+- Sorting at render time guards against inconsistent upstream tag order.
+- JSDOM tests verify deterministic cross-source behavior without network access.
+
+## Bench notes (optional, off-mode)
+- n/a
+
 # REPORT — E1 — Run 2
 
 ## End Goal fulfillment

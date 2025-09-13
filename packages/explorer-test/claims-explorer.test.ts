@@ -19,6 +19,8 @@ const BASE_DATA = {
   ]
 };
 
+const DATA_WITH_TAGS = { ...BASE_DATA, tags: ['t2', 't1'] };
+
 async function setup(opts: {
   staticData?: any;
   apiMeta?: any;
@@ -80,11 +82,13 @@ async function setup(opts: {
 
 describe('claims explorer', () => {
   it('renders identically across sources and preserves state', async () => {
-    const { document, window, fetchCalls, dom } = await setup();
+    const { document, window, fetchCalls, dom } = await setup({ staticData: DATA_WITH_TAGS });
     const at = document.getElementById('at') as HTMLInputElement;
     expect(at.value).toBe('2025-09-09');
     expect(fetchCalls).toHaveLength(1);
     const bodyStatic = document.body.innerHTML;
+    const tagsStatic = Array.from(document.getElementById('tagsList')!.children).map(li => (li as HTMLElement).textContent);
+    expect(tagsStatic).toEqual(['t1', 't2']);
 
     const sourceSel = document.getElementById('source') as HTMLSelectElement;
     sourceSel.value = 'api';
@@ -98,6 +102,8 @@ describe('claims explorer', () => {
     });
     expect(at.value).toBe('2025-09-09');
     const bodyApi = document.body.innerHTML;
+    const tagsApi = Array.from(document.getElementById('tagsList')!.children).map(li => (li as HTMLElement).textContent);
+    expect(tagsApi).toEqual(['t1', 't2']);
     expect(bodyApi).toBe(bodyStatic);
 
     const before = fetchCalls.length;
@@ -142,5 +148,27 @@ describe('claims explorer', () => {
     const tags = Array.from(doc2.getElementById('tagsList')!.children).map(li => (li as HTMLElement).textContent);
     expect(tags).toEqual(['t1', 't2']);
     dom2.window.close();
+  });
+
+  it('renders deterministically across reloads and sources', async () => {
+    const { document: d1, dom: dom1 } = await setup({ staticData: DATA_WITH_TAGS });
+    const body1 = d1.body.innerHTML;
+
+    const { document: d2, window: w2, dom: dom2 } = await setup({ staticData: DATA_WITH_TAGS });
+    const src = d2.getElementById('source') as HTMLSelectElement;
+    src.value = 'api';
+    src.dispatchEvent(new w2.Event('change'));
+    await new Promise<void>(resolve => {
+      const check = () => {
+        if (d2.getElementById('datasetVersion')!.textContent === 'ro-mini-0.1') resolve();
+        else w2.setTimeout(check, 0);
+      };
+      check();
+    });
+    const body2 = d2.body.innerHTML;
+    await new Promise(r => w2.setTimeout(r, 0));
+    dom1.window.close();
+    dom2.window.close();
+    expect(body2).toBe(body1);
   });
 });

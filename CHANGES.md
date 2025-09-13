@@ -1,3 +1,19 @@
+# E2 — Changes (Run 1)
+
+## Summary
+Proof tags are sorted deterministically and hidden when absent to keep Explorer UI stable across static and API sources.
+
+## Why
+- Ensures stable tag ordering and conditional panel per END_GOAL.
+
+## Tests
+- Added: packages/explorer-test/claims-explorer.test.ts.
+- Updated: docs/claims-explorer.html; packages/explorer-test/claims-explorer.test.ts.
+- Determinism/parity: `pnpm test`.
+
+## Notes
+- No schema changes; minimal surface.
+
 # E1 — Changes (Run 2)
 
 ## Summary

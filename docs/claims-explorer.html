@@ -300,7 +300,7 @@ async function main() {
   const version = data.dataset_version ?? data.version ?? data.meta?.dataset_version ?? '—';
   ALL = (data.claims || []).map(c => ({ ...c, dataset_version: version }));
   DATASET_VERSION = version;
-  DATA_TAGS = Array.isArray(data.tags) ? data.tags.slice().sort() : [];
+  DATA_TAGS = Array.isArray(data.tags) ? data.tags.slice().sort((a,b)=>a.localeCompare(b)) : [];
   STATIC_DATASET_VERSION = DATASET_VERSION;
   STATIC_DATA_TAGS = DATA_TAGS.slice();
   $('#datasetVersion').textContent = DATASET_VERSION;
@@ -326,7 +326,7 @@ async function main() {
   if (SOURCE === 'api') {
     try { const h = await apiFetchHealth();
       API_DATASET_VERSION = h.dataset_version || '';
-      API_DATA_TAGS = Array.isArray(h.tags) ? h.tags.slice().sort() : [];
+      API_DATA_TAGS = Array.isArray(h.tags) ? h.tags.slice().sort((a,b)=>a.localeCompare(b)) : [];
       API_AT = resolveAt(h);
       DATASET_VERSION = API_DATASET_VERSION;
       DATA_TAGS = API_DATA_TAGS.slice();
@@ -358,7 +358,7 @@ async function main() {
         $('#datasetVersion').textContent = DATASET_VERSION;
       },
       setTags: (t) => {
-        DATA_TAGS = Array.isArray(t) ? t.slice().sort() : [];
+        DATA_TAGS = Array.isArray(t) ? t.slice().sort((a,b)=>a.localeCompare(b)) : [];
         updateTagsPanel();
       },
       setDefaultAt: (d) => {
@@ -367,11 +367,11 @@ async function main() {
       setMeta: (meta) => {
         if (SOURCE === 'api') {
           API_DATASET_VERSION = meta.dataset_version || '';
-          API_DATA_TAGS = Array.isArray(meta.tags) ? meta.tags.slice().sort() : [];
+          API_DATA_TAGS = Array.isArray(meta.tags) ? meta.tags.slice().sort((a,b)=>a.localeCompare(b)) : [];
           API_AT = meta.at || (meta.generated_at ? String(meta.generated_at).slice(0,10) : '');
         } else {
           STATIC_DATASET_VERSION = meta.dataset_version || STATIC_DATASET_VERSION;
-          STATIC_DATA_TAGS = Array.isArray(meta.tags) ? meta.tags.slice().sort() : STATIC_DATA_TAGS;
+          STATIC_DATA_TAGS = Array.isArray(meta.tags) ? meta.tags.slice().sort((a,b)=>a.localeCompare(b)) : STATIC_DATA_TAGS;
           STATIC_AT = meta.at || (meta.generated_at ? String(meta.generated_at).slice(0,10) : STATIC_AT);
         }
       },
@@ -390,7 +390,7 @@ async function main() {
         $('#datasetVersion').textContent = DATASET_VERSION;
       },
       setTags: (t) => {
-        DATA_TAGS = Array.isArray(t) ? t.slice().sort() : [];
+        DATA_TAGS = Array.isArray(t) ? t.slice().sort((a,b)=>a.localeCompare(b)) : [];
         updateTagsPanel();
       },
       setDefaultAt: (d) => {
@@ -399,11 +399,11 @@ async function main() {
       setMeta: (meta) => {
         if (SOURCE === 'api') {
           API_DATASET_VERSION = meta.dataset_version || '';
-          API_DATA_TAGS = Array.isArray(meta.tags) ? meta.tags.slice().sort() : [];
+          API_DATA_TAGS = Array.isArray(meta.tags) ? meta.tags.slice().sort((a,b)=>a.localeCompare(b)) : [];
           API_AT = meta.at || (meta.generated_at ? String(meta.generated_at).slice(0,10) : '');
         } else {
           STATIC_DATASET_VERSION = meta.dataset_version || STATIC_DATASET_VERSION;
-          STATIC_DATA_TAGS = Array.isArray(meta.tags) ? meta.tags.slice().sort() : STATIC_DATA_TAGS;
+          STATIC_DATA_TAGS = Array.isArray(meta.tags) ? meta.tags.slice().sort((a,b)=>a.localeCompare(b)) : STATIC_DATA_TAGS;
           STATIC_AT = meta.at || (meta.generated_at ? String(meta.generated_at).slice(0,10) : STATIC_AT);
         }
       },

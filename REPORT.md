@@ -1,3 +1,29 @@
+# REPORT — E2 — Run 1
+
+## End Goal fulfillment
+- EG-1: Explorer renders provided proof tags in sorted order【F:docs/claims-explorer.html†L303-L307】【F:packages/explorer-test/claims-explorer.test.ts†L84-L107】
+- EG-2: Tags panel hidden when dataset lacks tags【F:packages/explorer-test/claims-explorer.test.ts†L139-L150】
+- EG-3: Static and API renders produce identical DOM across reloads【F:packages/explorer-test/claims-explorer.test.ts†L153-L172】
+
+## Blockers honored
+- B-1: ✅ Tags rendered only from dataset data; no synthetic tags【F:docs/claims-explorer.html†L303-L307】
+- B-2: ✅ Stable ordering via `localeCompare`【F:docs/claims-explorer.html†L303-L375】
+- B-3: ✅ Tags panel hidden when no tags exist【F:packages/explorer-test/claims-explorer.test.ts†L139-L150】
+
+## Lessons / tradeoffs (≤5 bullets)
+- Sorting with `localeCompare` locks stable ordering across engines.
+- JSDOM timers flushed before closing to avoid stray errors.
+- Tests confirm byte-identical DOM for static and API loads.
+
+## Bench notes (optional, off-mode)
+- n/a
+
+## Self-review
+- [x] `pnpm test` passes
+- [x] All blockers satisfied
+- [x] No extraneous commits or files
+- [x] No `as any`, per-call locks, or schema changes
+
 # REPORT — E1 — Run 2
 
 ## End Goal fulfillment

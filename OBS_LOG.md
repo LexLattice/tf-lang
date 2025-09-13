@@ -6,3 +6,35 @@
  - Determinism runs: 5× `pnpm -r test` executed in parallel — all green.
 - Tradeoffs: Did not split handlers into multiple source files to avoid churn; imports remain via public `tf-lang-l0` exports; no new deps.
 - Proof gating: Explicit count check in tests; zero overhead when off (no proof fields computed/emitted).
+
+# Observation Log — D1 — Run 1
+
+- Strategy chosen: replace JSON loader with CLI-backed SQLite adapter; add BLAKE3 hashing.
+- Key changes (files): services/claims-api-ts/src/db.ts; services/claims-api-ts/src/util.ts; services/claims-api-ts/src/server.ts; services/claims-api-ts/test/sqlite.test.ts; services/claims-api-ts/data/claims.db.
+- Determinism stress (runs × passes): 3× `pnpm --filter claims-api-ts test` — stable.
+- Near-misses vs blockers: initial attempt with `sql.js` dropped due to build complexity; switched to `sqlite3` CLI.
+- Notes: evidence generation uses first 10 ordered rows; CLI keeps storage SQLite-only.
+
+# Observation Log — D1 — Run 2
+
+- Strategy: drop file-backed SQLite and rebuild dataset via sql.js using schema/seed fixtures.
+- Key changes: packages/d1-sqlite/src/db.js; services/claims-api-ts/src/db.ts; services/claims-api-ts/src/server.ts; tests updated for determinism and storage proof.
+- Determinism stress: 3× `pnpm --filter claims-api-ts test` — stable, byte-identical.
+- Tradeoffs: sql.js wasm load adds slight startup cost but avoids native deps; fixtures read once at init.
+- Notes: added .gitignore entries to prevent accidental commit of DB artifacts.
+
+# Observation Log — D1 — Run 3
+
+- Strategy: parameterize SQL queries and move paging to LIMIT/OFFSET; add filter validation.
+- Key changes: services/claims-api-ts/src/db.ts; services/claims-api-ts/src/app.ts; services/claims-api-ts/src/filters.ts; test/sqlite.test.ts.
+- Determinism stress: 3× `pnpm --filter claims-api-ts test` — byte-identical outputs.
+- Tradeoffs: added simple manual validation to avoid extra deps; reused sql.js builder for hermetic tests.
+- Notes: grep checks ensure no JS slicing or deep imports.
+
+# Observation Log — D1 — Run 4
+
+- Strategy: cache prepared SQLite statements and bind/reset for reuse; enforce SQL-only evidence retrieval.
+- Key changes: services/claims-api-ts/src/db.ts; services/claims-api-ts/test/sqlite.test.ts; CHANGES.md; COMPLIANCE.md; REPORT.md.
+- Determinism stress: 3× `pnpm --filter claims-api-ts test` — stable, byte-identical.
+- Tradeoffs: extra placeholders for optional filters increase SQL length but enable reuse without string building.
+- Notes: added scans for `.slice`/`.filter` to guarantee evidence paging stays in SQL.

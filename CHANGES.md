@@ -21,3 +21,70 @@ Finalize `host-lite` on top of PR #46 with a unified raw JSON handler path and d
 
 ## Notes
 - In-memory only; no new runtime deps; ESM imports include `.js` for internal paths.
+
+# D1 — Changes (Run 1)
+
+## Summary
+Claims API now loads legal datasets from SQLite and computes canonical BLAKE3 query hashes. Responses expose dataset version and deterministic evidence samples.
+
+## Why
+- Switch from JSON files to SQLite for stable storage.
+- Canonical hashing ensures identical queries map to the same `query_hash`.
+
+## Tests
+- Added: `services/claims-api-ts/test/sqlite.test.ts`.
+- Updated: n/a.
+- Determinism/parity: repeated `pnpm --filter claims-api-ts test` stable.
+
+## Notes
+- No schema changes; minimal surface.
+
+# D1 — Changes (Run 2)
+
+## Summary
+- Remove committed SQLite DB; switch to in-memory sql.js with schema/seed fixtures.
+
+## Why
+- Ensure repo hygiene and deterministic in-memory storage for portable tests.
+
+## Tests
+- Updated: services/claims-api-ts/test/sqlite.test.ts.
+- Added: packages/d1-sqlite/fixtures/schema.sql; packages/d1-sqlite/fixtures/seed.sql; packages/d1-sqlite/src/db.js.
+- Determinism/parity: repeated `pnpm --filter claims-api-ts test` stable.
+
+## Notes
+- Queries include ORDER BY for stable row order; evidence sampling yields ≥10 distinct hashes.
+
+# D1 — Changes (Run 3)
+
+## Summary
+- Harden SQLite adapter with parameterized queries and SQL-driven paging.
+- Validate request filters and expose typed DTOs; reject malformed input with 400.
+
+## Why
+- Prevent SQL injection and ensure deterministic slices without loading whole tables.
+- Improve type safety and API correctness compared to pass-1 (#53).
+
+## Tests
+- Updated: services/claims-api-ts/test/sqlite.test.ts.
+- Determinism/parity: repeated `pnpm --filter claims-api-ts test` stable.
+
+## Notes
+- LIMIT/OFFSET enforced in SQL only; queries use placeholders for all parameters.
+
+# D1 — Changes (Run 4)
+
+## Summary
+- Reuse prepared SQLite statements for count/list queries and fetch evidence with DISTINCT/ORDER BY directly in SQL.
+- Harden paging and filter validation, adding boundary tests and static scans to forbid `.slice`/`.filter` on results.
+
+## Why
+- Prepared statements cut parse costs while keeping responses byte-identical across calls.
+- SQL-only evidence and paging ensure deterministic, injection-safe outputs.
+
+## Tests
+- Updated: services/claims-api-ts/test/sqlite.test.ts.
+- Determinism/parity: repeated `pnpm --filter claims-api-ts test` stable.
+
+## Notes
+- Statements bound/reset for reuse; large-offset queries return stable empty slices.

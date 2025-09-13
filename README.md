@@ -1,6 +1,8 @@
 
 # TF-Lang Monorepo
 
+[![pages-build-deployment](https://github.com/tf-lang/tf-lang/actions/workflows/pages.yml/badge.svg?branch=main)](https://tf-lang.github.io/tf-lang/)
+
 A minimal, deterministic kernel for **True-Function** programs with two runtimes:
 
 - `packages/tf-lang-l0-ts` — TypeScript VM + checker stubs + tests (Vitest)

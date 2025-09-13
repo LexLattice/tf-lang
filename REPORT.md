@@ -1,3 +1,27 @@
+# REPORT — F1 — Run 1
+
+## End Goal fulfillment
+- EG-1: PR builds upload a docs preview artifact while main pushes deploy to Pages【F:.github/workflows/pages.yml†L1-L32】
+- EG-2: README displays a deployment badge linking to the live site【F:README.md†L3-L5】
+
+## Blockers honored
+- B-1: ✅ PR runs skip deploy; build uploads artifact only【F:.github/workflows/pages.yml†L3-L24】
+- B-2: ✅ `main` branch deploys via `actions/deploy-pages@v4`【F:.github/workflows/pages.yml†L24-L32】
+- B-3: ✅ README contains status badge referencing live site URL【F:README.md†L3-L5】
+
+## Lessons / tradeoffs (≤5 bullets)
+- Conditional deploy keeps preview builds private yet functional.
+- Minimal badge surfaces production status without extra tooling.
+
+## Bench notes (optional, off-mode)
+- n/a
+
+## Self-review
+- [x] `pnpm test` passes
+- [x] All blockers satisfied
+- [x] No extraneous commits or files
+- [x] No `as any`, per-call locks, or schema changes
+
 # REPORT — E2 — Run 1
 
 ## End Goal fulfillment

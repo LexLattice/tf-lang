@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { makeHandler, createHost } from '../src/server.js';
 import { canonicalJsonBytes, blake3hex } from 'tf-lang-l0';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
+import { join } from 'node:path';
 
 const td = new TextDecoder();
 
@@ -64,18 +65,51 @@ describe('host-lite', () => {
     expect(canon).toBe('{"error":"not_found"}');
   });
 
-  it('bounded cache prevents growth', async () => {
+  it('400 for malformed JSON', async () => {
+    const handler = makeHandler(createHost());
+    const r = await handler('POST', '/plan');
+    expect(r.status).toBe(400);
+    const canon = td.decode(canonicalJsonBytes(r.body));
+    expect(canon).toBe('{"error":"bad_request"}');
+  });
+
+  it('multi-world cache bounds', async () => {
     const host = createHost();
     const handler = makeHandler(host);
-    for (let i = 0; i < 40; i++) {
-      await handler('POST', '/plan', { world: 'm', plan: i });
+    const worlds = ['a', 'b', 'c'];
+    for (const w of worlds) {
+      for (let i = 0; i < 40; i++) {
+        await handler('POST', '/plan', { world: w, plan: i });
+      }
     }
-    const worldCache = host.cache.get('m');
-    expect(worldCache?.size ?? 0).toBeLessThanOrEqual(32);
+    for (const w of worlds) {
+      const worldCache = host.cache.get(w);
+      expect(worldCache?.size ?? 0).toBeLessThanOrEqual(32);
+    }
+    expect(host.cache.size).toBe(worlds.length);
+  });
+
+  it('package.json exports main', async () => {
+    const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+    expect(pkg.main).toBe('src/server.ts');
+    expect(pkg.exports).toBe('./src/server.ts');
   });
 
   it('no deep imports', async () => {
-    const src = await readFile(new URL('../src/server.ts', import.meta.url), 'utf8');
-    expect(src.includes('../')).toBe(false);
+    async function* walk(dir: string): AsyncGenerator<string> {
+      for (const entry of await readdir(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) {
+          yield* walk(full);
+        } else if (entry.isFile() && full.endsWith('.ts')) {
+          yield full;
+        }
+      }
+    }
+    const root = new URL('../src', import.meta.url);
+    for await (const file of walk(root.pathname)) {
+      const src = await readFile(file, 'utf8');
+      expect(src.includes('../')).toBe(false);
+    }
   });
 });

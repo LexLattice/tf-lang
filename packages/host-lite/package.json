@@ -5,6 +5,7 @@
   "license": "MIT",
   "private": true,
   "main": "src/server.ts",
+  "exports": "./src/server.ts",
   "scripts": {
     "test": "vitest run"
   },

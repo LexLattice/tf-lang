@@ -94,7 +94,8 @@ export function createHost() {
 }
 
 export function makeHandler(host = createHost()) {
-  return async (method: string, url: string, body: unknown) => {
+  return async (method: string, url: string, body?: unknown) => {
+    if (body === undefined) return { status: 400, body: { error: 'bad_request' } };
     if (method !== 'POST') return { status: 404, body: { error: 'not_found' } };
     if (url === '/plan') return { status: 200, body: await host.plan(body as PlanReq) };
     if (url === '/apply') return { status: 200, body: await host.apply(body as PlanReq) };
@@ -108,14 +109,22 @@ export function createServer(host = createHost()) {
     const chunks: Uint8Array[] = [];
     req.on('data', (c) => chunks.push(c));
     req.on('end', async () => {
-      const bodyStr = Buffer.concat(chunks).toString() || '{}';
-      let body: unknown;
-      try {
-        body = JSON.parse(bodyStr);
-      } catch {
-        body = {};
+      const bodyStr = Buffer.concat(chunks).toString();
+      let parsed: unknown;
+      if (bodyStr === '') {
+        parsed = {};
+      } else {
+        try {
+          parsed = JSON.parse(bodyStr);
+        } catch {
+          res.statusCode = 400;
+          res.setHeader('content-type', 'application/json');
+          const errBytes = canonicalJsonBytes({ error: 'bad_request' });
+          res.end(Buffer.from(errBytes));
+          return;
+        }
       }
-      const { status, body: respBody } = await handler(req.method ?? '', req.url ?? '', body);
+      const { status, body: respBody } = await handler(req.method ?? '', req.url ?? '', parsed);
       res.statusCode = status;
       res.setHeader('content-type', 'application/json');
       const bytes = canonicalJsonBytes(respBody);

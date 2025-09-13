@@ -1,14 +1,14 @@
 {
 	"name": "tf-lang",
 	"private": true,
-	"scripts": {
-		"test": "pnpm run --recursive test",
-		"build": "pnpm run --recursive build",
-		"preinstall": "npx only-allow pnpm"
-	},
-	"devDependencies": {
-		"typescript": "^5.5.3"
-	},
+        "scripts": {
+                "test": "pnpm run --recursive test",
+                "build": "pnpm run --recursive build",
+                "preinstall": "npx only-allow pnpm"
+        },
+        "devDependencies": {
+                "typescript": "^5.5.3"
+        },
         "pnpm": {
                 "allowScripts": {
                         "esbuild": true

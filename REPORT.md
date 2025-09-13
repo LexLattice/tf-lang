@@ -1,3 +1,44 @@
+# REPORT — E1 — Run 2
+
+## End Goal fulfillment
+- EG-1: Explorer switches between static and API sources at runtime while preserving state【F:docs/claims-explorer.html†L226-L282】【F:packages/explorer-test/claims-explorer.test.js†L74-L91】
+- EG-2: Defaults derive from `at` or `generated_at`; tags render only when provided in meta【F:docs/claims-explorer.html†L258-L266】【F:packages/explorer-test/claims-explorer.test.js†L59-L66】
+- EG-3: Cross-source renders are byte-identical given the same data【F:packages/explorer-test/claims-explorer.test.js†L68-L91】
+
+## Blockers honored
+- B-1: ✅ Static mode makes no network requests【F:packages/explorer-test/claims-explorer.test.js†L61-L66】
+- B-2: ✅ Tags sourced from health/static meta only【F:docs/claims-explorer.html†L128-L142】【F:packages/explorer-test/claims-explorer.test.js†L93-L108】
+- B-3: ✅ API failure handled without crash【F:docs/claims-explorer.html†L189-L207】【F:packages/explorer-test/claims-explorer.test.js†L110-L118】
+
+## Lessons / tradeoffs (≤5 bullets)
+- Centralizing meta via `/health` simplifies tag/date handling.
+- Separate test package prevents jsdom dep leakage across workspace.
+- Polling ensures DOM settles for deterministic snapshots.
+
+## Bench notes (optional, off-mode)
+- n/a
+
+# REPORT — E1 — Run 1
+
+## End Goal fulfillment
+- EG-1: Explorer switches between static JSON and live API without reload, preserving state【F:docs/claims-explorer.html†L206-L229】【F:docs/claims-explorer.test.ts†L72-L107】
+- EG-2: Default dataset and date are populated on first load; tags panel hidden when absent【F:docs/claims-explorer.html†L263-L288】【F:docs/claims-explorer.test.ts†L66-L70】
+- EG-3: Tags panel renders when tags exist【F:docs/claims-explorer.html†L170-L185】【F:docs/claims-explorer.test.ts†L109-L115】
+
+## Blockers honored
+- B-1: ✅ Static mode issues no network requests【F:docs/claims-explorer.test.ts†L70-L71】【F:docs/claims-explorer.test.ts†L91-L106】
+- B-2: ✅ Source switch runtime-selectable【F:docs/claims-explorer.html†L300-L315】
+- B-3: ✅ Default dataset/date on first load【F:docs/claims-explorer.html†L263-L288】
+- B-4: ✅ Tags panel hidden with no tags【F:docs/claims-explorer.html†L170-L178】【F:docs/claims-explorer.test.ts†L68-L70】
+
+## Lessons / tradeoffs (≤5 bullets)
+- JSDOM tests emulate offline/API behavior without real network.
+- Polling ensures asynchronous DOM updates complete deterministically.
+- Minimal DOM exposure keeps tests hermetic.
+
+## Bench notes (optional, off-mode)
+- n/a
+
 # REPORT — C1 — Run 4
 
 ## Goal → Evidence map

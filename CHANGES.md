@@ -1,3 +1,37 @@
+# E1 — Changes (Run 2)
+
+## Summary
+Explorer now sources dataset version, tags, and default date from a health endpoint, sorts tags deterministically, and keeps static mode fully offline. DOM tests live in a dedicated package to avoid jsdom leakage.
+
+## Why
+- Centralized meta via `/health` ensures consistent defaults and tag rendering across sources.
+- Test packaging isolates JSDOM, keeping other packages lightweight and deterministic.
+
+## Tests
+- Added: `packages/explorer-test/claims-explorer.test.js`.
+- Updated: `docs/claims-explorer.html`.
+- Determinism/parity: `pnpm test` renders static/API paths identically.
+
+## Notes
+- No schema changes; minimal surface.
+
+# E1 — Changes (Run 1)
+
+## Summary
+Explorer now switches between static JSON and live API at runtime, defaults to the embedded dataset/date, and hides the tags panel when no tags are provided.
+
+## Why
+- Runtime source toggle keeps the demo usable offline while enabling API tests.
+- Default selections and conditional tags panel improve first-load UX.
+
+## Tests
+- Added: `docs/claims-explorer.test.ts`.
+- Updated: `docs/claims-explorer.html`.
+- Determinism/parity: repeated `pnpm test` stable.
+
+## Notes
+- No schema changes; minimal surface.
+
 # C1 — Changes (Run 4)
 
 ## Summary

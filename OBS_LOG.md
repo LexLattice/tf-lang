@@ -69,3 +69,6 @@
 - Determinism stress: 3× `pnpm --filter claims-api-ts test` — stable.
 - Near-misses vs blockers: adjusted filter bounds to allow `limit=0` while keeping validation.
 - Notes: rg scan expanded to entire src to enforce SQL-only pagination.
+# Observation Log — F2 — Run A
+
+- See PR body.

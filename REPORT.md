@@ -185,3 +185,6 @@
 
 ## Determinism runs
 - `pnpm --filter claims-api-ts test` repeated 3× — stable.
+# REPORT — F2 — Run A
+
+See PR body.

@@ -153,3 +153,6 @@ Claims API now loads legal datasets from SQLite and computes canonical BLAKE3 qu
 
 ## Notes
 - Static scans confirm no `.slice(`/`.filter(` in production code.
+
+# F2 — Changes (Run B)
+See PR body.

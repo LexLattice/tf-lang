@@ -81,16 +81,7 @@ agents-check:
 
 # Use bash for nicer conditionals
 SHELL := /usr/bin/env bash
-
 HOT_UPDATE := .codex/scripts/hot-update.sh
-
-# Optional inputs you can pass at call time:
-#   RUN=D1_2              (required)
-#   PR=70-73              (required, 4 consecutive PRs)
-#   REPO=owner/repo       (optional; auto-detected if omitted and gh is available)
-#   REMOTE=origin|codex   (optional; defaults to origin)
-#   COMMIT=1              (optional; add to git and commit)
-#   MSG="commit message"  (optional; used only when COMMIT=1)
 
 .PHONY: hot-update
 hot-update:
@@ -99,27 +90,32 @@ hot-update:
 		echo "Usage: make hot-update RUN=D1_2 PR=70-73 [REPO=owner/repo] [REMOTE=origin] [COMMIT=1] [MSG='...']"; \
 		exit 2; \
 	fi
-	@# Ensure the wrapper exists and is executable
 	@if [ ! -x "$(HOT_UPDATE)" ]; then \
 		echo "Error: $(HOT_UPDATE) not found or not executable."; \
 		echo "Make sure it exists and run: chmod +x $(HOT_UPDATE)"; \
 		exit 3; \
 	fi
-	@# Build optional flags
-	@FLAGS=""; \
-	[ -n "$(REPO)" ]   && FLAGS="$$FLAGS -r $(REPO)"; \
-	[ -n "$(REMOTE)" ] && FLAGS="$$FLAGS --remote $(REMOTE)"; \
-	[ -n "$(COMMIT)" ] && FLAGS="$$FLAGS --commit"; \
-	[ -n "$(MSG)" ]    && FLAGS="$$FLAGS -m \"$(MSG)\""; \
-	echo "→ Running hot update: RUN=$(RUN) PR=$(PR) $$FLAGS"; \
-	"$(HOT_UPDATE)" "$(RUN)" "$(PR)" $$FLAGS
+	@set -euo pipefail; \
+	declare -a FLAGS=(); \
+	[ -n "$(REPO)" ]   && FLAGS+=(-r "$(REPO)"); \
+	[ -n "$(REMOTE)" ] && FLAGS+=(--remote "$(REMOTE)"); \
+	[ -n "$(COMMIT)" ] && FLAGS+=(--commit); \
+	[ -n "$(MSG)" ]    && FLAGS+=(-m "$(MSG)"); \
+	echo "→ Running hot update: RUN=$(RUN) PR=$(PR) $${FLAGS[*]}"; \
+	"$(HOT_UPDATE)" "$(RUN)" "$(PR)" "$${FLAGS[@]}"
 
-# Convenience: commit with a default message if MSG not provided
 .PHONY: hot-update-commit
 hot-update-commit:
 	@$(MAKE) hot-update COMMIT=1 MSG="$(or $(MSG),codex: hot review ($(RUN) $(PR)))" RUN="$(RUN)" PR="$(PR)" REPO="$(REPO)" REMOTE="$(REMOTE)"
+
 
 # Optional: open the reviews folder after generating (requires VS Code)
 .PHONY: hot-open
 hot-open:
 	@code .codex/reviews || true
+
+pass-bodies:
+	@./.codex/scripts/pass-bodies.sh $(GROUP) $(PRS)
+# usage:
+#   make pass-bodies GROUP="F1_1" PRS="78-81"
+#   make pass-bodies GROUP="E2_1" PRS="74:A 75:B 76:C 77:D"

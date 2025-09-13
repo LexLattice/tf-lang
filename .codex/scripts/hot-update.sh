@@ -15,18 +15,46 @@ REMOTE="origin"
 DO_COMMIT=0
 COMMIT_MSG="codex: hot review ($RUN_ID $PR_RANGE)"
 
+# treat these as flags during parsing (robust even if MSG loses quotes)
+is_flag() { case "$1" in -r|--remote|--commit|-m|--message) return 0;; *) return 1;; esac; }
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -r) REPO="$2"; shift 2 ;;
     --remote) REMOTE="$2"; shift 2 ;;
     --commit) DO_COMMIT=1; shift ;;
-    -m|--message) COMMIT_MSG="$2"; shift 2 ;;
+    -m|--message)
+      shift
+      COMMIT_MSG=""
+      while [[ $# -gt 0 ]]; do
+        if is_flag "$1"; then break; fi
+        COMMIT_MSG+="${COMMIT_MSG:+ }$1"
+        shift
+      done
+      ;;
     *) echo "Unknown arg: $1" >&2; exit 2 ;;
   esac
 done
 
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
+
+# --- locate helper scripts no matter where they live ---
+find_script() {
+  local name="$1"
+  local -a candidates=(
+    "$ROOT/$name"
+    "$ROOT/.codex/scripts/$name"
+    "$ROOT/scripts/$name"
+    "$ROOT/.codex/$name"
+  )
+  for p in "${candidates[@]}"; do
+    [[ -f "$p" ]] && { echo "$p"; return 0; }
+  done
+  return 1
+}
+CRR="$(find_script collect-run-reports.sh)" || { echo "Error: collect-run-reports.sh not found in repo." >&2; exit 127; }
+PRB="$(find_script prbundle.sh)" || { echo "Error: prbundle.sh not found in repo." >&2; exit 127; }
+
 
 # Expand "70-73" → 70 71 72 73
 expand_range() {
@@ -54,7 +82,7 @@ RUNS_OUT="${REVIEWS_DIR}/${RUN_ID} agent runs ${PR_RANGE}.md"
 BUNDLE_OUT="${REVIEWS_DIR}/${RUN_ID} pr bundle ${PR_RANGE}.md"
 
 # 1) Collect per-agent artifacts to .codex/runs/<RUN_ID>/..., and write the consolidated anthology to reviews:
-./collect-run-reports.sh \
+bash "$CRR" \
   --runs-root ".codex/runs" \
   --run-id "$RUN_ID" \
   --remote "$REMOTE" \
@@ -63,17 +91,17 @@ BUNDLE_OUT="${REVIEWS_DIR}/${RUN_ID} pr bundle ${PR_RANGE}.md"
 
 # 2) Generate PR bundle into reviews with your filename:
 if [[ -n "$REPO" ]]; then
-  ./prbundle.sh -r "$REPO" -o "$BUNDLE_OUT" "${PRS[@]}"
+  bash "$PRB" -r "$REPO" -o "$BUNDLE_OUT" "${PRS[@]}"
 else
   if command -v gh >/dev/null 2>&1; then
     REPO_DET="$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)"
     if [[ -n "$REPO_DET" ]]; then
-      ./prbundle.sh -r "$REPO_DET" -o "$BUNDLE_OUT" "${PRS[@]}"
+      bash "$PRB" -r "$REPO_DET" -o "$BUNDLE_OUT" "${PRS[@]}"
     else
-      ./prbundle.sh -o "$BUNDLE_OUT" "${PRS[@]}"
+      bash "$PRB" -o "$BUNDLE_OUT" "${PRS[@]}"
     fi
   else
-    ./prbundle.sh -o "$BUNDLE_OUT" "${PRS[@]}"
+    bash "$PRB" -o "$BUNDLE_OUT" "${PRS[@]}"
   fi
 fi
 

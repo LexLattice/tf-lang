@@ -44,11 +44,8 @@ You receive **what** to achieve and **what not** to do. Do **not** propose plans
 - Keep diffs **minimal**; no speculative refactors; no schema changes unless brief allows.
 
 ## Phase 2 — Report (concise)
-Create the following at the PR root:
-- `CHANGES.md` — 1–2 short paragraphs (what changed, why).
-- `COMPLIANCE.md` — check all blockers; link to code/tests.
-- `OBS_LOG.md` — brief notes on strategy/tradeoffs; record seed/temperature if known.
-- `REPORT.md` — use template:
+PR body is canonical. Populate using .github/pull_request_template.md.
+Also write the same content to REPORT.md, COMPLIANCE.md, CHANGES.md, OBS_LOG.md OR add a short pointer (See PR body). Our tooling prefers the PR body and falls back to files.
 
 # REPORT — {{TASK_ID}} — Run {{RUN_LABEL}}
 

@@ -104,3 +104,19 @@ Claims API now loads legal datasets from SQLite and computes canonical BLAKE3 qu
 
 ## Notes
 - Static scans confirm no `.slice(`/`.filter(` in production code.
+
+# E1 — Changes (Run 1)
+
+## Summary
+Explorer now switches between static file and API sources without reload, initializes a default dataset/date, and hides the tags panel when datasets lack tags.
+
+## Why
+Meets end goal for runtime source switching with sane defaults and conditional tags visibility.
+
+## Tests
+- Added: packages/host-lite/test/e1.explorer-source-switch.test.ts
+- Updated: docs/claims-explorer.html
+- Determinism/parity: `pnpm -F host-lite-ts test`
+
+## Notes
+- No schema changes; minimal surface.

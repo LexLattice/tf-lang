@@ -46,3 +46,11 @@
 - Determinism stress: 3× `pnpm --filter claims-api-ts test` — stable.
 - Near-misses vs blockers: adjusted filter bounds to allow `limit=0` while keeping validation.
 - Notes: rg scan expanded to entire src to enforce SQL-only pagination.
+
+# Observation Log — E1 — Run 1
+
+- Strategy chosen: augment Explorer to switch data sources at runtime and apply defaults with tags-aware rendering.
+- Key changes (files): docs/claims-explorer.html; packages/host-lite/test/e1.explorer-source-switch.test.ts; packages/host-lite/package.json; pnpm-lock.yaml.
+- Determinism stress (runs × passes): 1× `pnpm -F host-lite-ts test` — all green.
+- Near-misses vs blockers: `pnpm test` failed for services/claims-api-ts (missing vitest).
+- Notes: added jsdom dev dependency for DOM-based tests.

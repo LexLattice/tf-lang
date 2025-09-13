@@ -176,3 +176,29 @@
 - Tests: services/claims-api-ts/test/sqlite.test.ts
 - Runs: `pnpm --filter claims-api-ts test`; `pnpm test`
 - Bench (off-mode, if applicable): n/a
+
+# COMPLIANCE — E1 — Run 1
+
+## Blockers (must all be ✅)
+- [x] No changes to kernel/tag schemas — code link: docs/claims-explorer.html
+- [x] No per-call locks; no `static mut`/`unsafe`; no TS `as any` — test link: packages/host-lite/test/e1.explorer-source-switch.test.ts
+- [x] ESM internal imports include `.js` — code link: docs/claims-explorer.html
+- [x] Tests parallel-safe, deterministic — test link: packages/host-lite/test/e1.explorer-source-switch.test.ts
+- [x] Static file mode does not issue network requests — code link: docs/claims-explorer.html#L211-L218
+- [x] Source switching runtime-selectable — code link: docs/claims-explorer.html#L211-L229
+- [x] Default dataset and date on first load — code link: docs/claims-explorer.html#L282-L289
+- [x] Tags panel hidden when no tags — code link: docs/claims-explorer.html#L181-L201
+
+## Acceptance (oracle)
+- [x] Enable/disable behavior (both runtimes)
+- [x] Cache: cold→warm; reset forces re-read; no per-call locks
+- [x] Parallel determinism (repeat runs stable)
+- [ ] Cross-runtime parity (n/a)
+- [x] Build/packaging correctness (e.g., ESM)
+- [x] Code quality (naming, no unnecessary clones/copies)
+
+## Evidence
+- Code: docs/claims-explorer.html
+- Tests: packages/host-lite/test/e1.explorer-source-switch.test.ts
+- CI runs: `pnpm -F host-lite-ts test`
+- Bench (off-mode, if applicable): n/a

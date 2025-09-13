@@ -147,11 +147,18 @@ async function apiFetchList(params){
   if(!r.ok) throw new Error('list '+r.status);
   return await r.json();
 }
+async function apiFetchHealth(){
+  const url = new URL('/health', API_BASE);
+  const r = await fetch(url.toString());
+  if(!r.ok) throw new Error('health '+r.status);
+  return await r.json();
+}
 
 const $ = sel => document.querySelector(sel);
 
 let ALL = [];
 let DATASET_VERSION = '';
+let STATIC_TAGS = [];
 
 function effFrom(c) { return c.effective?.from ?? c.effective_from ?? null; }
 function effTo(c) { return c.effective?.to ?? c.effective_to ?? null; }
@@ -171,6 +178,28 @@ function uniqueJurisdictions(claims) {
   return ['*', ...Array.from(set)];
 }
 
+function renderTags(tags){
+  const main = document.querySelector('main');
+  const existing = document.getElementById('tagsPanel');
+  if(!tags || tags.length === 0){ if(existing) existing.remove(); return; }
+  let panel = existing;
+  if(!panel){
+    panel = document.createElement('section');
+    panel.id = 'tagsPanel';
+    panel.className = 'card';
+    panel.innerHTML = '<div class="muted">Tags</div><div id="tagList" style="margin-top:4px;display:flex;flex-wrap:wrap;gap:6px"></div>';
+    main.insertBefore(panel, main.firstChild);
+  }
+  const list = panel.querySelector('#tagList');
+  list.innerHTML = '';
+  for(const t of tags){
+    const span = document.createElement('span');
+    span.className = 'badge';
+    span.textContent = t;
+    list.appendChild(span);
+  }
+}
+
 
 async function applyFilters() {
   const at = $('#at').value || null;
@@ -184,11 +213,19 @@ async function applyFilters() {
     if (jur && jur !== '*') items = items.filter(c => getJur(c) === jur);
     if (mod && mod !== '*') items = items.filter(c => c.modality === mod);
     total = items.length;
+    $('#datasetVersion').textContent = DATASET_VERSION;
+    renderTags(STATIC_TAGS);
   } else {
     const params = { at, jurisdiction: jur, modality: mod };
-    const [cnt, lst] = await Promise.all([apiFetchCount(params), apiFetchList(params)]);
+    const [cnt, lst, meta] = await Promise.all([
+      apiFetchCount(params),
+      apiFetchList(params),
+      apiFetchHealth()
+    ]);
     total = cnt.n;
     items = lst.items || [];
+    $('#datasetVersion').textContent = meta.dataset_version || '—';
+    renderTags(meta.tags || []);
   }
   const amb = items.filter(c => c.status === 'ambiguous').length;
   const con = items.filter(c => c.status === 'contradictory').length;
@@ -228,7 +265,9 @@ async function main() {
   const version = data.dataset_version ?? data.version ?? data.meta?.dataset_version ?? '—';
   ALL = (data.claims || []).map(c => ({ ...c, dataset_version: version }));
   DATASET_VERSION = version;
+  STATIC_TAGS = Array.isArray(data.tags) ? data.tags : [];
   $('#datasetVersion').textContent = DATASET_VERSION;
+  renderTags(STATIC_TAGS);
 
   // populate filters
   const jurSel = $('#jur'); jurSel.innerHTML = '';
@@ -240,7 +279,8 @@ async function main() {
 
   // defaults
   loadPersist();
-  $('#at').value = '2025-09-09';
+  const defAt = data.at || data.generated_at?.slice(0,10) || '2025-09-09';
+  $('#at').value = defAt;
   $('#mod').value = '*';
   $('#jur').value = '*';
   $('#source').value = SOURCE || 'static';

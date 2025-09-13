@@ -113,3 +113,21 @@
 
 ## Determinism runs
 - `pnpm --filter claims-api-ts test` repeated 3× — stable.
+
+# REPORT — E1 — Run 1
+
+## End Goal fulfillment
+- EG-1: Runtime switch between static and API sources preserves state and avoids reloads【F:docs/claims-explorer.html†L211-L229】【F:packages/host-lite/test/e1.explorer-source-switch.test.ts†L50-L73】
+- EG-2: Default dataset/date preselected and tags panel hidden when absent【F:docs/claims-explorer.html†L181-L201】【F:docs/claims-explorer.html†L282-L289】
+
+## Blockers honored
+- B-1: ✅ Static mode issues no network requests【F:docs/claims-explorer.html†L211-L218】
+- B-2: ✅ Tags panel removed when dataset has no tags【F:docs/claims-explorer.html†L181-L201】
+
+## Lessons / tradeoffs (≤5 bullets)
+- Added `/health` fetch to update dataset metadata on source change.
+- jsdom-based tests ensure DOM behavior without runtime dependencies.
+- Manual fetch mocks verify offline behavior and determinism.
+
+## Bench notes (optional, off-mode)
+- n/a

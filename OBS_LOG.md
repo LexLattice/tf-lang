@@ -1,3 +1,10 @@
+# Observation Log — E1 — Run 2
+
+- Strategy: pull meta/tags from `/health`, sort tags, and isolate DOM tests in a new package.
+- Key changes: docs/claims-explorer.html; packages/explorer-test/*; CHANGES.md; COMPLIANCE.md; REPORT.md.
+- Determinism runs: `pnpm test` — all green.
+- Notes: fetch stubs keep static mode offline; HTML snapshots verify cross-source parity.
+
 # Observation Log — C1 — Run 4
 
 - Strategy: Keep unified raw path; delegate `createServer` → `makeRawHandler`; share `exec(world, plan)` for both routes; enforce canonical errors.

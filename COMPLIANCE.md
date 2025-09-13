@@ -1,25 +1,27 @@
-# COMPLIANCE — C1 — Run 3
+# COMPLIANCE — C1 — Run 4
 
 ## Blockers (must all be ✅)
 - [x] No changes to existing kernel semantics or tag schemas from A/B — code link: packages/host-lite/src/server.ts
 - [x] No per-call locks; no `static mut`/`unsafe`; no TS `as any` — code link: packages/host-lite/src/server.ts
-- [x] ESM internal imports include `.js` — code link: packages/host-lite/tests/host-lite.test.ts
+- [x] ESM internal imports include `.js` — test link: packages/host-lite/tests/host-lite.test.ts
 - [x] Tests run in parallel without cross-test state bleed — test link: packages/host-lite/tests/host-lite.test.ts
-- [x] Outputs deterministic via canonical bytes — code/test link: packages/host-lite/src/server.ts
+- [x] Outputs deterministic via canonical bytes — code/test link: packages/host-lite/src/server.ts; packages/host-lite/tests/host-lite.test.ts
 - [x] Host uses in-memory state only — code link: packages/host-lite/src/server.ts
 - [x] Endpoints limited to `/plan` and `/apply` — code link: packages/host-lite/src/server.ts
 - [x] `/plan` and `/apply` idempotent — test link: packages/host-lite/tests/host-lite.test.ts
-- [x] Proof artifacts gated behind `DEV_PROOFS=1` — test link: packages/host-lite/tests/host-lite.test.ts
+- [x] Proof artifacts gated behind `DEV_PROOFS=1` — code/test link: packages/host-lite/src/server.ts; packages/host-lite/tests/host-lite.test.ts
 - [x] No new runtime dependencies — code link: packages/host-lite/package.json
 - [x] Tests hermetic (no sockets/files/net writes) — test link: packages/host-lite/tests/host-lite.test.ts
-- [x] No per-call locks; no cross-test global state bleed — code/test link: packages/host-lite/src/server.ts
-- [x] Only `/plan` and `/apply`; outputs deterministic — test link: packages/host-lite/tests/host-lite.test.ts
+- [x] 404/400 canonical errors — test link: packages/host-lite/tests/host-lite.test.ts
+- [x] Multi-world cache bound proof — test link: packages/host-lite/tests/host-lite.test.ts
+- [x] No deep imports in source — test link: packages/host-lite/tests/host-lite.test.ts
+- [x] Package exports stay `src/server.ts` — test link: packages/host-lite/tests/host-lite.test.ts
 
 ## EXTRA BLOCKERS
 - [x] Do not edit `.codex/tasks/**` — n/a
 - [x] No new runtime deps; Fastify removed — code link: packages/host-lite/package.json
 - [x] Tests hermetic (no sockets/files/net) — test link: packages/host-lite/tests/host-lite.test.ts
-- [x] No `as any`; ESM imports keep `.js` — code link: packages/host-lite/tests/host-lite.test.ts
+- [x] No `as any`; ESM imports keep `.js` — code/test link: packages/host-lite/src/server.ts; packages/host-lite/tests/host-lite.test.ts
 - [x] Only `/plan` and `/apply`; deterministic outputs — test link: packages/host-lite/tests/host-lite.test.ts
 
 ## Acceptance (oracle)

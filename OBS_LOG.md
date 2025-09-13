@@ -1,7 +1,7 @@
-# Observation Log — C1 — Run 3
+# Observation Log — C1 — Run 4
 
-- Strategy chosen: Hardened host-lite error paths and cache proofs while maintaining zero-dep runtime.
-- Key changes (files): packages/host-lite/src/server.ts; packages/host-lite/tests/host-lite.test.ts; packages/host-lite/package.json
+- Strategy chosen: Introduced raw JSON handler to front all requests, tightening error paths and import hygiene.
+- Key changes (files): packages/host-lite/src/server.ts; packages/host-lite/tests/host-lite.test.ts
 - Determinism stress (runs × passes): 3×; stable outputs.
-- Near-misses vs blockers: boundary scan kept local to host-lite to avoid false positives.
-- Notes: proofs hashed only when DEV_PROOFS=1; per-world cache capped at 32.
+- Near-misses vs blockers: ensured test sweep skipped node_modules to avoid false positives.
+- Notes: per-world LRU capped at 32 with map-sized to worlds touched; proofs hashed only when DEV_PROOFS=1.

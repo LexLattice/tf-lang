@@ -1,31 +1,41 @@
 import { describe, it, expect } from 'vitest';
-import { makeHandler, createHost, createNodeHandler } from '../src/server.js';
+import { makeHandler, makeRawHandler, createHost } from '../src/server.js';
 import { canonicalJsonBytes, blake3hex } from 'tf-lang-l0';
-import { readFile } from 'node:fs/promises';
-import { IncomingMessage, ServerResponse } from 'node:http';
-import { PassThrough } from 'node:stream';
+import { readFile, readdir } from 'node:fs/promises';
+import { join } from 'node:path';
 
 const td = new TextDecoder();
 
 interface JournalEntry { canon: string; proof?: string }
 interface Resp { world: unknown; delta: unknown; journal: JournalEntry[] }
 
+async function gatherTs(dir: string, acc: string[] = []): Promise<string[]> {
+  const entries = await readdir(dir, { withFileTypes: true });
+  for (const e of entries) {
+    const p = join(dir, e.name);
+    if (e.isDirectory()) {
+      if (e.name === 'node_modules') continue;
+      await gatherTs(p, acc);
+    }
+    else if (p.endsWith('.ts')) acc.push(p);
+  }
+  return acc;
+}
+
 describe('host-lite', () => {
-  it('idempotent plan and apply', async () => {
-    const host = createHost();
-    const handler = makeHandler(host);
-    const body = { world: 'w', plan: 1 };
-    const p1 = await handler('POST', '/plan', body);
-    const p2 = await handler('POST', '/plan', body);
+  it('byte-identical determinism', async () => {
+    const raw = makeRawHandler(createHost());
+    const body = JSON.stringify({ world: 'w', plan: 1 });
+    const p1 = await raw('POST', '/plan', body);
+    const p2 = await raw('POST', '/plan', body);
     expect(p1.status).toBe(200);
-    expect(p2.status).toBe(200);
-    expect(p1.body).toEqual(p2.body);
-    const a1 = await handler('POST', '/apply', body);
-    const a2 = await handler('POST', '/apply', body);
-    expect(a1.body).toEqual(a2.body);
+    expect(td.decode(canonicalJsonBytes(p1.body))).toBe(td.decode(canonicalJsonBytes(p2.body)));
+    const a1 = await raw('POST', '/apply', body);
+    const a2 = await raw('POST', '/apply', body);
+    expect(td.decode(canonicalJsonBytes(a1.body))).toBe(td.decode(canonicalJsonBytes(a2.body)));
   });
 
-  it('canonical journal and proof gating', async () => {
+  it('DEV_PROOFS gating', async () => {
     const body = { world: 'c', plan: 2 };
     delete process.env.DEV_PROOFS;
     const h0 = makeHandler(createHost());
@@ -41,9 +51,23 @@ describe('host-lite', () => {
     const j1 = (r1.body as Resp).journal[0];
     const canon1 = td.decode(canonicalJsonBytes(JSON.parse(j1.canon)));
     expect(canon1).toBe(j1.canon);
+    expect(j1.canon).toBe(j0.canon);
     const hash = blake3hex(canonicalJsonBytes(JSON.parse(j1.canon)));
     expect(j1.proof).toBe(hash);
     delete process.env.DEV_PROOFS;
+  });
+
+  it('404 and 400 errors', async () => {
+    const raw = makeRawHandler(createHost());
+    const notFound = await raw('POST', '/nope', '{}');
+    expect(notFound.status).toBe(404);
+    expect(td.decode(canonicalJsonBytes(notFound.body))).toBe('{"error":"not_found"}');
+    const wrongMethod = await raw('GET', '/plan', '{}');
+    expect(wrongMethod.status).toBe(404);
+    expect(td.decode(canonicalJsonBytes(wrongMethod.body))).toBe('{"error":"not_found"}');
+    const bad = await raw('POST', '/plan', '{');
+    expect(bad.status).toBe(400);
+    expect(td.decode(canonicalJsonBytes(bad.body))).toBe('{"error":"bad_request"}');
   });
 
   it('state is ephemeral', async () => {
@@ -58,32 +82,6 @@ describe('host-lite', () => {
     expect(w1).not.toEqual(w2);
   });
 
-  it('404 for unknown path', async () => {
-    const handler = makeHandler(createHost());
-    const r = await handler('POST', '/nope', {});
-    expect(r.status).toBe(404);
-    const canon = td.decode(canonicalJsonBytes(r.body));
-    expect(canon).toBe('{"error":"not_found"}');
-  });
-
-  it('404 for wrong method', async () => {
-    const handler = makeHandler(createHost());
-    const r = await handler('GET', '/plan', {});
-    expect(r.status).toBe(404);
-    const canon = td.decode(canonicalJsonBytes(r.body));
-    expect(canon).toBe('{"error":"not_found"}');
-  });
-
-  it('bounded cache prevents growth', async () => {
-    const host = createHost();
-    const handler = makeHandler(host);
-    for (let i = 0; i < 40; i++) {
-      await handler('POST', '/plan', { world: 'm', plan: i });
-    }
-    const worldCache = host.cache.get('m');
-    expect(worldCache?.size ?? 0).toBeLessThanOrEqual(32);
-  });
-
   it('multi-world cache bounds', async () => {
     const host = createHost();
     const handler = makeHandler(host);
@@ -92,34 +90,41 @@ describe('host-lite', () => {
         await handler('POST', '/plan', { world: `mw${w}`, plan: i });
       }
     }
+    expect(host.cache.size).toBe(4);
     for (let w = 0; w < 4; w++) {
       const worldCache = host.cache.get(`mw${w}`);
       expect(worldCache?.size ?? 0).toBeLessThanOrEqual(32);
     }
   });
 
-  it('400 for malformed JSON', async () => {
-    const handler = createNodeHandler();
-    const req = new IncomingMessage(new PassThrough());
-    req.method = 'POST';
-    req.url = '/plan';
-    const res = new ServerResponse(req);
-    let body = '';
-    res.end = (chunk?: unknown) => {
-      if (chunk) body += Buffer.from(chunk as Uint8Array).toString();
-      res.emit('finish');
-    };
-    const finished = new Promise((resolve) => res.on('finish', resolve));
-    handler(req, res);
-    req.emit('data', Buffer.from('{'));
-    req.emit('end');
-    await finished;
-    expect(res.statusCode).toBe(400);
-    expect(body).toBe('{"error":"bad_request"}');
+  it('no deep imports in src', async () => {
+    const files = await gatherTs(new URL('../src', import.meta.url).pathname);
+    for (const f of files) {
+      const src = await readFile(f, 'utf8');
+      expect(src.includes("from '../")).toBe(false);
+      expect(src.includes("from \"tf-lang-l0/")).toBe(false);
+      expect(src.includes("from 'tf-lang-l0/")).toBe(false);
+    }
   });
 
-  it('no deep imports across packages', async () => {
-    const src = await readFile(new URL('../src/server.ts', import.meta.url), 'utf8');
-    expect(src.includes('../')).toBe(false);
+  it('ESM imports include .js', async () => {
+    const files = await gatherTs(new URL('..', import.meta.url).pathname);
+    for (const f of files) {
+      const src = await readFile(f, 'utf8');
+      const lines = src.split('\n');
+      for (const line of lines) {
+        const m = line.match(/from\s+['\"](\.\.\/[^'\"]+|\.\/[^'\"]+)'/);
+        if (m && !m[1].endsWith('.js')) {
+          throw new Error(`missing .js in import at ${f}: ${line}`);
+        }
+      }
+    }
+  });
+
+  it('package exports main src', async () => {
+    const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+    expect(pkg.main).toBe('src/server.ts');
+    expect(pkg.exports).toBe('./src/server.ts');
+    expect(Object.keys(pkg.dependencies)).toEqual(['tf-lang-l0']);
   });
 });

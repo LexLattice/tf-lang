@@ -1,14 +1,14 @@
-# C1 — Changes (Run 3)
+# C1 — Changes (Run 4)
 
 ## Summary
-Refined `host-lite` to harden error handling and determinism. Added explicit malformed JSON 400s, method gating, and multi-world LRU proofs while keeping proofs gated.
+Finalized `host-lite` with a raw JSON handler shared across `/plan` and `/apply`, ensuring canonical bytes and a unified exec path.
 
 ## Why
-- Advances END_GOAL by ensuring canonical idempotent `/plan` and `/apply` responses with bounded per-world cache and proof toggling.
+- Completes END_GOAL by delivering deterministic, idempotent endpoints with LRU caching and proof gating.
 
 ## Tests
-- Added: malformed JSON 400, method 404, multi-world cache bounds.
-- Updated: boundary scan for package imports.
+- Added: byte determinism, raw handler 400s, import hygiene, package export guard.
+- Updated: multi-world cache bounds now assert map size.
 - Determinism/parity: repeated `pnpm test` runs stable; no sockets/files/network.
 
 ## Notes

@@ -1,3 +1,30 @@
+# COMPLIANCE — E1 — Run 1
+
+## Blockers (must all be ✅)
+- [x] No kernel/schema changes — n/a
+- [x] No per-call locks or `as any` — code link: docs/claims-explorer.html
+- [x] ESM internal imports include `.js` — code link: docs/claims-explorer.html
+- [x] Tests parallel-safe, deterministic — test link: docs/claims-explorer.test.ts
+- [x] Static mode issues no network calls — test link: docs/claims-explorer.test.ts
+- [x] Source switch runtime-selectable — code/test link: docs/claims-explorer.html / docs/claims-explorer.test.ts
+- [x] Default dataset/date on first load — code link: docs/claims-explorer.html
+- [x] Tags panel hidden when dataset has no tags — code/test link: docs/claims-explorer.html / docs/claims-explorer.test.ts
+
+## Acceptance (oracle)
+- [x] Source toggle preserves state
+- [x] Offline static mode renders
+- [x] Defaults visible on first load
+- [x] Tags panel present only with tags
+- [x] Deterministic output across repeats
+- [ ] Cross-runtime parity (n/a)
+- [x] Build/packaging correctness (ESM)
+- [x] Code quality
+
+## Evidence
+- Code: docs/claims-explorer.html
+- Tests: docs/claims-explorer.test.ts
+- Runs: `pnpm test`
+
 # COMPLIANCE — C1 — Run 4
 
 ## Blockers (must all be ✅)

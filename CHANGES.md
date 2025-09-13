@@ -1,3 +1,20 @@
+# E1 — Changes (Run 1)
+
+## Summary
+Explorer now switches between static JSON and live API at runtime, defaults to the embedded dataset/date, and hides the tags panel when no tags are provided.
+
+## Why
+- Runtime source toggle keeps the demo usable offline while enabling API tests.
+- Default selections and conditional tags panel improve first-load UX.
+
+## Tests
+- Added: `docs/claims-explorer.test.ts`.
+- Updated: `docs/claims-explorer.html`.
+- Determinism/parity: repeated `pnpm test` stable.
+
+## Notes
+- No schema changes; minimal surface.
+
 # C1 — Changes (Run 4)
 
 ## Summary

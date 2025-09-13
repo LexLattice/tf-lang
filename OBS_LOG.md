@@ -1,3 +1,10 @@
+# Observation Log — E1 — Run 1
+
+- Strategy: add runtime source switcher with dataset/date defaults and tag panel gating.
+- Key changes: docs/claims-explorer.html; docs/claims-explorer.test.ts; CHANGES.md; COMPLIANCE.md; REPORT.md.
+- Determinism runs: `pnpm test` — all green.
+- Notes: fetch stubs in tests ensure static mode does not hit network; tags panel hidden when dataset lacks tags.
+
 # Observation Log — C1 — Run 4
 
 - Strategy: Keep unified raw path; delegate `createServer` → `makeRawHandler`; share `exec(world, plan)` for both routes; enforce canonical errors.

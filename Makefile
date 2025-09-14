@@ -75,11 +75,11 @@ briefs-check:
 briefs-index:
 	@python3 .codex/scripts/build-index.py
 
-agents-sync:
-	@bash .codex/scripts/sync-agents.sh --write
-
-agents-check:
-	@bash .codex/scripts/sync-agents.sh --check
+sync-agents:
+	@bash ./.codex/scripts/sync-agents.sh
+# First-time setup:
+#   chmod +x .codex/scripts/sync-agents.sh
+#   yq --version   # ensure installed
 
 # Use bash for nicer conditionals
 SHELL := /usr/bin/env bash

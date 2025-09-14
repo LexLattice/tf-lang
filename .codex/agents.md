@@ -72,7 +72,7 @@ Also write the same content to REPORT.md, COMPLIANCE.md, CHANGES.md, OBS_LOG.md 
 - CI must pass all acceptance gates. Do **not** merge other changes.
 
 ## Hard rules (enforced)
-- **BLOCKERS:** every item in `.codextasks/{{TASK_ID}}/BLOCKERS.yml` is a hard fail if violated.
+- **BLOCKERS:** every item in `.codex/tasks/{{TASK_ID}}/BLOCKERS.yml` is a hard fail if violated.
 - **Determinism:** tests must pass repeatedly under parallel execution.
 - **Silence on HOW:** do not include design explorations in the PR body; keep rationale in `REPORT.md`.
 - **Minimal surface:** only touch files necessary to meet END GOAL + tests.

@@ -10,6 +10,14 @@ A minimal, deterministic kernel for **True-Function** programs with two runtimes
 
 This repo uses **pnpm workspaces** to manage JS/TS packages. The Rust crate lives alongside and is built by CI.
 
+### v0.2 Highlights
+- Host‑lite finalized (POST `/plan`, `/apply`), canonical JSON and 400/404.
+- Proof tags: shared interfaces, DEV_PROOFS gating, stable Explorer panel.
+- SQLite adapter hardening: prepared reuse, SQL‑only evidence and pagination.
+- GitHub Pages: PR preview artifact, deploy on `main` with live badge.
+- CI images: lowercase GHCR path, digest summary, reproducible builds.
+- Release notes: see [docs/releases/v0.2/README.md](docs/releases/v0.2/README.md).
+
 ## Quickstart
 
 ```bash

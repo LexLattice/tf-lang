@@ -13,6 +13,7 @@ the TF‑Lang monorepo locally and in CI.
   - Default: `8787`.
   - Example: `PORT=8081 pnpm -C services/claims-api-ts start`
 
+
 - HOST: Address the demo API binds to.
   - Default: `0.0.0.0`.
   - Example: `HOST=127.0.0.1 pnpm -C services/claims-api-ts start`
@@ -25,3 +26,4 @@ the TF‑Lang monorepo locally and in CI.
 
 These CI variables are configured in `.github/workflows/ci.yml` and do not
 affect local development.
+

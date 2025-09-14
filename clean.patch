@@ -1,0 +1,369 @@
+diff --git a/README.md b/README.md
+index 1111111..2222222 100644
+--- a/README.md
++++ b/README.md
+@@
+-A tiny Fastify service that serves the same query surface as the demo:
+-- `GET /claims/count?modality=FORBIDDEN&jurisdiction=RO&at=2025-09-09`
+-- `GET /claims/list?modality=FORBIDDEN&jurisdiction=RO&at=2025-09-09&limit=10&offset=0`
+-- `GET /claims/explain/:id`
++A tiny Fastify service that serves the same query surface as the demo:
++- `GET /` — list available endpoints
++- `GET /health` — check service health and dataset version
++- `GET /claims/count?modality=FORBIDDEN&jurisdiction=RO&at=2025-09-09`
++- `GET /claims/list?modality=FORBIDDEN&jurisdiction=RO&at=2025-09-09&limit=10&offset=0`
++- `GET /claims/explain/:id`
+@@
+-By default it loads data from `services/claims-api-ts/data/claims.json`. Use `CLAIMS_DATA=/path/to/claims.json` to override.
++By default it loads a static seed dataset from `packages/d1-sqlite/fixtures/seed.sql`.
+@@
+-- Markdown is rendered as static pages (no Jekyll build needed).
+-- To preview locally, open `docs/index.md` in your markdown viewer.
++- Markdown is rendered as static pages (no Jekyll build needed).
++- To preview locally, run `make docs-up` and open http://localhost:8080.
+@@
+-## Roadmap
++## Host-lite (packages/host-lite)
++
++The `host-lite` package provides a minimal, spec-compliant HTTP server for executing TF-lang programs.
++
++- **Endpoints**: `POST /plan` and `POST /apply`.
++- **Proofs**: Set `DEV_PROOFS=1` to enable proof generation and emission.
++
++## Roadmap
+diff --git a/docs/configuration.md b/docs/configuration.md
+index 1111111..2222222 100644
+--- a/docs/configuration.md
++++ b/docs/configuration.md
+@@
+  - PORT: Port for the demo API service.
+    - Default: `8787`.
+    - Example: `PORT=8081 pnpm -C services/claims-api-ts start`
++ - HOST: Address the demo API binds to.
++   - Default: `0.0.0.0`.
++   - Example: `HOST=127.0.0.1 pnpm -C services/claims-api-ts start`
+@@
+-- CLAIMS_DATA: Path to claims dataset for the demo API.
+-  - Default: `services/claims-api-ts/data/claims.json`.
+-  - Example: `CLAIMS_DATA=/path/to/claims.json pnpm -C services/claims-api-ts start`
+diff --git a/docs/claims-explorer.html b/docs/claims-explorer.html
+index 1111111..2222222 100644
+--- a/docs/claims-explorer.html
++++ b/docs/claims-explorer.html
+@@
+-  const tr = document.createElement('tr');
+-  tr.innerHTML = `
+-    <td><code>${c.id}</code></td>
+-    <td>${c.modality}</td>
+-    <td>${c.jurisdiction}</td>
+-    <td>${c.at}</td>
+-  `;
+-  tbody.appendChild(tr);
++  const tr = document.createElement('tr');
++  const tdId = document.createElement('td');
++  const tdMod = document.createElement('td');
++  const tdJur = document.createElement('td');
++  const tdAt = document.createElement('td');
++  const code = document.createElement('code');
++  code.textContent = String(c.id);
++  tdId.appendChild(code);
++  tdMod.textContent = String(c.modality);
++  tdJur.textContent = String(c.jurisdiction);
++  tdAt.textContent = String(c.at);
++  tr.append(tdId, tdMod, tdJur, tdAt);
++  tbody.appendChild(tr);
+diff --git a/.github/workflows/conformance.yml b/.github/workflows/conformance.yml
+index 1111111..2222222 100644
+--- a/.github/workflows/conformance.yml
++++ b/.github/workflows/conformance.yml
+@@
+-      - uses: dtolnay/rust-toolchain@stable
++      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+diff --git a/.github/workflows/release.yml b/.github/workflows/release.yml
+index 1111111..2222222 100644
+--- a/.github/workflows/release.yml
++++ b/.github/workflows/release.yml
+@@
+-      - uses: softprops/action-gh-release@v2
++      - uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 # v2
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 1111111..2222222 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@
+-      - uses: actions/checkout@v4
++      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+@@
+-      - uses: pnpm/action-setup@v4
++      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4
+@@
+-      - uses: actions/setup-node@v4
++      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+@@
+-      - uses: docker/setup-buildx-action@v3
++      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3
+@@
+-      - uses: docker/login-action@v3
++      - uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3
+@@
+-      - uses: docker/build-push-action@v5
++      - uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
+@@
+-          sbom: false
+-          provenance: false
++          sbom: false
++          provenance: false
++          outputs: type=digest
+@@
+-      - name: Check JSON fixtures
+-        run: echo "skipped"
++      - name: Check JSON fixtures
++        run: pnpm run -w check:fixtures
+diff --git a/.github/workflows/ci_fast.yml b/.github/workflows/ci_fast.yml
+index 1111111..2222222 100644
+--- a/.github/workflows/ci_fast.yml
++++ b/.github/workflows/ci_fast.yml
+@@
+-      - uses: actions/checkout@v4
++      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+@@
+-      - uses: tj-actions/changed-files@v45
++      - uses: tj-actions/changed-files@48d8f15b2aaa3d255ca5af3eba4870f807ce6b3c # v45
+diff --git a/.github/workflows/briefs.yml b/.github/workflows/briefs.yml
+index 1111111..2222222 100644
+--- a/.github/workflows/briefs.yml
++++ b/.github/workflows/briefs.yml
+@@
+-      - uses: actions/upload-artifact@v4
++      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+diff --git a/.github/workflows/pages.yml b/.github/workflows/pages.yml
+index 1111111..2222222 100644
+--- a/.github/workflows/pages.yml
++++ b/.github/workflows/pages.yml
+@@
+-on:
+-  push:
+-    branches: [ main ]
+-  pull_request:
+-    paths:
+-      - 'docs/**'
++on:
++  push:
++    branches: [ main ]
++  pull_request:
++    paths:
++      - 'docs/**'
++  workflow_dispatch:
++    inputs:
++      ref:
++        description: 'Git ref (branch or commit) to preview'
++        required: false
++        default: ''
+@@
+-    uses: actions/checkout@v4
++    uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
++    with:
++      ref: ${{ inputs.ref || github.ref }}
+diff --git a/Makefile b/Makefile
+index 1111111..2222222 100644
+--- a/Makefile
++++ b/Makefile
+@@
+-    pnpm i --frozen-lockfile=false
++    pnpm install --frozen-lockfile
+@@
+-    cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
++    cargo test --locked --manifest-path packages/tf-lang-l0-rs/Cargo.toml
+diff --git a/package.json b/package.json
+index 1111111..2222222 100644
+--- a/package.json
++++ b/package.json
+@@
+   "scripts": {
+-    "preinstall": "npx only-allow pnpm"
++    "preinstall": "corepack enable pnpm",
++    "check:fixtures": "tsx scripts/check-fixtures-json.ts"
+   },
+   "devDependencies": {
+-    "typescript": "^5.5.3"
++    "typescript": "5.9.2"
+   },
+   "pnpm": {
+     "allowScripts": {
+       "@cloudflare/kv-asset-handler": false
+-    }
++    },
++    "overrides": {
++      "esbuild": "0.25.0"
++    }
+   }
+diff --git a/.npmrc b/.npmrc
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/.npmrc
+@@
++save-exact=true
+diff --git a/scripts/check-fixtures-json.ts b/scripts/check-fixtures-json.ts
+new file mode 100755
+index 0000000..1111111
+--- /dev/null
++++ b/scripts/check-fixtures-json.ts
+@@
++import { readdirSync, readFileSync } from 'node:fs';
++import { join } from 'node:path';
++const root = 'tests/vectors';
++for (const f of readdirSync(root)) {
++  if (!f.endsWith('.json')) continue;
++  const p = join(root, f);
++  try { JSON.parse(readFileSync(p, 'utf8')); }
++  catch (e) { throw new Error(`Invalid JSON in ${p}: ${(e as Error).message}`); }
++}
++console.log('All fixtures parse OK');
+diff --git a/services/claims-api-ts/Dockerfile b/services/claims-api-ts/Dockerfile
+index 1111111..2222222 100644
+--- a/services/claims-api-ts/Dockerfile
++++ b/services/claims-api-ts/Dockerfile
+@@
+-    pnpm fetch
++    pnpm fetch --frozen-lockfile
+diff --git a/services/claims-api-ts/package.json b/services/claims-api-ts/package.json
+index 1111111..2222222 100644
+--- a/services/claims-api-ts/package.json
++++ b/services/claims-api-ts/package.json
+@@
+   "dependencies": {
+-    "fastify": "^4.28.1",
++    "fastify": "4.29.1",
+     "claims-core-ts": "workspace:*",
+-    "@noble/hashes": "^1.4.0",
+-    "@tf-lang/d1-sqlite": "workspace:*"
++    "@tf-lang/d1-sqlite": "workspace:*",
++    "tf-lang-l0": "workspace:*",
++    "@noble/hashes": "2.0.0"
+   },
+   "devDependencies": {
+-    "typescript": "^5.5.0",
+-    "vitest": "^1.6.0"
++    "typescript": "5.9.2",
++    "vitest": "1.6.1"
+   }
+ }
+diff --git a/services/claims-api-ts/src/util.ts b/services/claims-api-ts/src/util.ts
+index 1111111..2222222 100644
+--- a/services/claims-api-ts/src/util.ts
++++ b/services/claims-api-ts/src/util.ts
+@@
+-import { blake3 } from '@noble/hashes/blake3';
+-import { utf8ToBytes } from '@noble/hashes/utils';
++import { blake3 } from '@noble/hashes/blake3';
++import { canonicalJsonBytes } from 'tf-lang-l0';
+@@
+-export function queryHash(obj: Record<string, unknown>): string {
+-  const s = JSON.stringify(obj, Object.keys(obj).sort());
+-  return Buffer.from(blake3(utf8ToBytes(s))).toString('hex');
+-}
++export function queryHash(obj: Record<string, unknown>): string {
++  const bytes = canonicalJsonBytes(obj);
++  return Buffer.from(blake3(bytes)).toString('hex');
++}
+diff --git a/packages/host-lite/package.json b/packages/host-lite/package.json
+index 1111111..2222222 100644
+--- a/packages/host-lite/package.json
++++ b/packages/host-lite/package.json
+@@
+   "devDependencies": {
+-    "typescript": "^5.5.0",
+-    "vitest": "^2.0.5"
++    "typescript": "5.9.2",
++    "vitest": "2.1.9"
+   }
+ }
+diff --git a/packages/d1-sqlite/package.json b/packages/d1-sqlite/package.json
+index 1111111..2222222 100644
+--- a/packages/d1-sqlite/package.json
++++ b/packages/d1-sqlite/package.json
+@@
+   "dependencies": {
+-    "sql.js": "^1.9.2"
++    "sql.js": "1.13.0"
+   }
+ }
+diff --git a/packages/explorer-test/package.json b/packages/explorer-test/package.json
+index 1111111..2222222 100644
+--- a/packages/explorer-test/package.json
++++ b/packages/explorer-test/package.json
+@@
+   "devDependencies": {
+-    "vitest": "^2.0.5",
+-    "jsdom": "^24.0.0"
++    "vitest": "2.1.9",
++    "jsdom": "24.1.3"
+   }
+ }
+diff --git a/packages/adapter-legal-ts/package.json b/packages/adapter-legal-ts/package.json
+index 1111111..2222222 100644
+--- a/packages/adapter-legal-ts/package.json
++++ b/packages/adapter-legal-ts/package.json
+@@
+   "devDependencies": {
+-    "@types/node": "^24.3.1",
+-    "typescript": "^5.5.0"
++    "@types/node": "24.3.1",
++    "typescript": "5.9.2"
+   }
+ }
+diff --git a/packages/tf-lang-l0-ts/package.json b/packages/tf-lang-l0-ts/package.json
+index 1111111..2222222 100644
+--- a/packages/tf-lang-l0-ts/package.json
++++ b/packages/tf-lang-l0-ts/package.json
+@@
+   "devDependencies": {
+-    "tsx": "^4.20.5",
+-    "typescript": "^5.5.0",
+-    "vitest": "^2.0.5"
++    "tsx": "4.20.5",
++    "typescript": "5.9.2",
++    "vitest": "2.1.9"
+   },
+   "dependencies": {
+-    "@noble/hashes": "^2.0.0"
++    "@noble/hashes": "2.0.0"
+   }
+ }
+diff --git a/packages/claims-core-ts/package.json b/packages/claims-core-ts/package.json
+index 1111111..2222222 100644
+--- a/packages/claims-core-ts/package.json
++++ b/packages/claims-core-ts/package.json
+@@
+   "devDependencies": {
+-    "typescript": "^5.5.0",
+-    "vitest": "^2.0.5"
++    "typescript": "5.9.2",
++    "vitest": "2.1.9"
+   }
+ }
+diff --git a/packages/tf-lang-l0-rs/Cargo.toml b/packages/tf-lang-l0-rs/Cargo.toml
+index 1111111..2222222 100644
+--- a/packages/tf-lang-l0-rs/Cargo.toml
++++ b/packages/tf-lang-l0-rs/Cargo.toml
+@@
+-[dependencies]
+-anyhow = "1"
+-thiserror = "1"
+-serde = { version = "1", features = ["derive"] }
+-serde_json = "1"
+-blake3 = "1.5"
+-once_cell = "1"
++[dependencies]
++anyhow = "=1.0.99"
++thiserror = "=1.0.69"
++serde = { version = "=1.0.219", features = ["derive"] }
++serde_json = "=1.0.143"
++blake3 = "=1.8.2"
++once_cell = "=1.21.3"
+@@
+-[dev-dependencies]
+-pretty_assertions = "1"
++[dev-dependencies]
++pretty_assertions = "=1.4.1"

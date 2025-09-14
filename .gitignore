@@ -60,8 +60,12 @@ __pycache__/
 # Docs PR previews
 docs/pr/
 
+# Docs archive (untracked)
+docs/archive/
+
 # --- Codex runs ---
 .codex/runs/
+docs/runs/*.json
 
 
 # SQLite artifacts

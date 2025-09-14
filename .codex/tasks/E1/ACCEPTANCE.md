@@ -1,5 +1,0 @@
-- Source switch: toggling between API and static sources preserves state and does not reload the page.
-- Offline: with network disabled, static mode still loads and renders.
-- Defaults: default dataset/date appear on first load when none are provided.
-- Tags panel: absent in DOM when dataset has no tags; present otherwise.
-- Determinism: repeated renders (both sources) produce identical output structure.

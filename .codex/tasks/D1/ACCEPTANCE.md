@@ -1,4 +1,0 @@
-- Storage: runtime/tests confirm all IO is via SQLite only.
-- Hashes/versions: `dataset_version` and canonical BLAKE3 `query_hash` match expected values.
-- Stability: two identical queries return identical counts/clauses.
-- Evidence: at least ten sample evidences are included per response.

@@ -43,6 +43,13 @@ cargo test
 **E (Epistemology):** Content addressing (hash of canonical JSON), determinism, provenance-totality, property tests.  
 **L (Logic):** Laws: (1) `rewind ∘ apply = id` at entry boundaries, (2) snapshot determinism, (3) capability-typed effects.
 
+## Host-lite (packages/host-lite)
+
+The `host-lite` package provides a minimal, spec-compliant HTTP server for executing TF-lang programs.
+
+- **Endpoints**: `POST /plan` and `POST /apply`.
+- **Proofs**: Set `DEV_PROOFS=1` to enable proof generation and emission.
+
 ## Roadmap
 
 - Canonical JSON encoder for byte-stable hashing across runtimes.
@@ -74,7 +81,7 @@ Expected output:
 
 This repo publishes the `docs/` folder to GitHub Pages on every push to `main` via `.github/workflows/pages.yml`.
 - Markdown is rendered as static pages (no Jekyll build needed).
-- To preview locally, open `docs/index.md` in your markdown viewer.
+- To preview locally, run `make docs-up` and open http://localhost:8080.
 
 Once pushed to GitHub, enable Pages:
 1) Settings -> Pages -> Build and deployment -> Source: **GitHub Actions**.
@@ -86,6 +93,8 @@ Once pushed to GitHub, enable Pages:
 ## Claims API (services/claims-api-ts)
 
 A tiny Fastify service that serves the same query surface as the demo:
+- `GET /` — list available endpoints
+- `GET /health` — check service health and dataset version
 - `GET /claims/count?modality=FORBIDDEN&jurisdiction=RO&at=2025-09-09`
 - `GET /claims/list?modality=FORBIDDEN&jurisdiction=RO&at=2025-09-09&limit=10&offset=0`
 - `GET /claims/explain/:id`
@@ -100,7 +109,7 @@ PORT=8787 pnpm -C services/claims-api-ts start
 curl 'http://localhost:8787/claims/count?modality=FORBIDDEN&jurisdiction=RO&at=2025-09-09'
 ```
 
-By default it loads data from `services/claims-api-ts/data/claims.json`. Use `CLAIMS_DATA=/path/to/claims.json` to override.
+By default it loads a static seed dataset from `packages/d1-sqlite/fixtures/seed.sql`.
 
 
 ---

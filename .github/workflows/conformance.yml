@@ -39,7 +39,7 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-
 
       - name: Lint vectors (schema sanity)
-        run: node .codex/lint-vectors.mjs
+        run: node .codex/scripts/lint-vectors.mjs
 
       - name: Build TS kernel
         run: pnpm -C packages/tf-lang-l0-ts build
@@ -54,7 +54,10 @@ jobs:
           path: tests/vectors/.out/ts-report.json
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        with:
+          toolchain: stable
+          components: rustfmt,clippy   # optional but usually handy
 
       - name: Cargo tests (includes vectors)
         run: cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml --tests -- --nocapture
@@ -67,7 +70,7 @@ jobs:
           path: tests/vectors/.out/rs-report.json
 
       - name: Cross-compare TS vs RS reports
-        run: node .codex/compare-reports.mjs
+        run: node .codex/scripts/compare-reports.mjs
 
       - name: Print reports on failure
         if: failure()

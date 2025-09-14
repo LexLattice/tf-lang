@@ -1,0 +1,19 @@
+name: scripts-hygiene
+on: [push, pull_request]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure legacy scripts/ folder is empty
+        run: |
+          set -euo pipefail
+          if [ -d scripts ]; then
+            count=$(find scripts -type f | wc -l | tr -d ' ')
+            if [ "$count" != "0" ]; then
+              echo "Found files under scripts/:" >&2
+              find scripts -type f -maxdepth 1 -print >&2 || true
+              exit 1
+            fi
+          fi
+          echo "OK: scripts/ is empty"

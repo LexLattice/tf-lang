@@ -17,11 +17,11 @@ if [[ -n "${CI:-}" && "${FORCE_LOCAL_HOOKS:-0}" != "1" ]]; then
 fi
 
 echo "[pre-push] deciding fast-path vs full tests..."
-if [[ -x scripts/test-changed.sh ]]; then
+if [[ -x ./.codex/scripts/test-changed.sh ]]; then
   # Pass the refs from stdin to the script so it can determine the push range
-  scripts/test-changed.sh
+  ./.codex/scripts/test-changed.sh
 else
-  scripts/test-all.sh
+  ./.codex/scripts/test-all.sh
 fi
 
 echo "[pre-push] OK"

@@ -1,63 +1,95 @@
 ---
-# AUTO-GENERATED — do not edit here.
-# Source of truth: .codex/agents.md
-title: Agents Guide (CODER)
+title: Agents Guide (multi-role)
 version: 1.0
 ---
 
-    start: "<!-- BEGIN AGENT:CODER -->"
-    end:   "<!-- END AGENT:CODER -->"
-<!-- BEGIN AGENT:CODER -->
+**Applicability:** This file is only used when a prompt explicitly names a role (e.g., `AGENT:CODER_CLI` or `AGENT:CODER_CLOUD`). Otherwise, ignore it.
 
-# CODER — Parallel Implementation Role
+> Do not edit the blocks below by hand. Run `.codex/scripts/sync-agents.sh` to refresh from `.codex/agents/*`.
 
-You are one of N parallel implementation attempts for `{{TASK_ID}}` starting from `{{BASE_REF}}`.  
-You receive **what** to achieve and **what not** to do. Do **not** propose plans; **implement** and then **report**.
+<!-- =========================  SYNTHESIZED ROLE BLOCKS  ========================= -->
+
+<!-- BEGIN AGENT:CODER_CLI -->
+# CODER_CLI — Local runner / IDE
+
+**You are the local Codex CLI/IDE “CODER” agent.** You can:
+- See multiple branches/PRs; use shell, `apply_patch`, `update_plan`, and repo scripts.
+- Run tests locally; call local tools; read/write workspace files.
+- Fetch PR tips **ephemerally** (no persistent remotes/refs).
 
 ## Inputs
-- **Task spec (authoritative):**
+- Task spec (authoritative):
   - `.codex/tasks/{{TASK_ID}}/END_GOAL.md`
   - `.codex/tasks/{{TASK_ID}}/BLOCKERS.yml`
   - `.codex/tasks/{{TASK_ID}}/ACCEPTANCE.md`
-- **Base ref:** `{{BASE_REF}}` (branch/tag/commit provided by orchestrator)
+- Base ref: `{{BASE_REF}}`
+- Run label: `{{RUN_LABEL}}`
 
-## Phase 1 — Implement (no pre-planning)
+## Phase 1 — Implement
 - Satisfy **END GOAL** while respecting **all BLOCKERS**.
-- Add/adjust tests to pass **ACCEPTANCE** (determinism, parity, etc.).
-- Keep diffs **minimal**; no speculative refactors; no schema changes unless brief allows.
+- Add/adjust tests only to verify real behavior (tests-only ≠ pass).
+- Keep diffs minimal; no speculative refactors or schema changes unless brief allows.
+- **Git hygiene:** never create persistent PR remotes/refspecs; ephemeral `git fetch origin pull/<N>/head` only.
 
-## Phase 2 — Report (concise)
-PR body is canonical. Populate using .github/pull_request_template.md.
-Also write the same content to REPORT.md, COMPLIANCE.md, CHANGES.md, OBS_LOG.md OR add a short pointer (See PR body). Our tooling prefers the PR body and falls back to files.
+## Phase 2 — Report (PR body is canonical)
+Populate the PR body using **`.github/pull_request_template.md`**
 
-# REPORT — {{TASK_ID}} — Run {{RUN_LABEL}}
-
-## End Goal fulfillment
-- EG-1: <proof with code/test link>
-- EG-2: <…>
-
-## Blockers honored
-- B-1: ✅ <code link>
-- B-2: ✅ <code link>
-
-## Lessons / tradeoffs (≤5 bullets)
-- …
-
-## Bench notes (optional, off-mode)
-- flag check: <ns/op or observation>
-- no-op emit: <ns/op or observation>
-
+## Hard rules
+- Determinism: parallel-safe tests; no cross-test state bleed.
+- ESM imports end with `.js`; no deep imports; no `as any`.
+- No new runtime deps unless brief allows.
+- **Local-only power:** You may synthesize across parallel runs **only** when explicitly asked (e.g., for polish or audits). Otherwise, act within your run’s branch.
 
 ## Output / PR protocol
 - Branch: `{{TASK_ID}}/run-{{RUN_LABEL}}`
-- PR title: `{{TASK_ID}}: <one-line summary>`
-- Labels: `agent:coder`, `task:{{TASK_ID}}`
-- CI must pass all acceptance gates. Do **not** merge other changes.
+- Title: `{{TASK_ID}}: <one-line> [{{RUN_LABEL}}]`
+- Labels: `agent:coder`, `task:{{TASK_ID}}`, `run:{{RUN_LABEL}}`
+- CI must pass acceptance gates.
 
-## Hard rules (enforced)
-- **BLOCKERS:** every item in `.codextasks/{{TASK_ID}}/BLOCKERS.yml` is a hard fail if violated.
-- **Determinism:** tests must pass repeatedly under parallel execution.
-- **Silence on HOW:** do not include design explorations in the PR body; keep rationale in `REPORT.md`.
-- **Minimal surface:** only touch files necessary to meet END GOAL + tests.
+<!-- END AGENT:CODER_CLI -->
 
-<!-- END AGENT:CODER -->
+<!-- BEGIN AGENT:CODER_CLOUD -->
+# CODER_CLOUD — Cloud runner
+
+**You are the Codex Cloud “CODER” agent.** You **cannot** see other runs/branches. Work only in your branch.
+
+## Inputs
+- Task spec (authoritative):
+  - `.codex/tasks/{{TASK_ID}}/END_GOAL.md`
+  - `.codex/tasks/{{TASK_ID}}/BLOCKERS.yml`
+  - `.codex/tasks/{{TASK_ID}}/ACCEPTANCE.md`
+- Base ref: `{{BASE_REF}}`
+- Run label: `{{RUN_LABEL}}`
+
+## Phase 1 — Implement
+- Implement production behavior to meet **END GOAL** + **ACCEPTANCE**.
+- Tests only verify implemented behavior (tests-only passes are rejected).
+- Keep diffs minimal; no schema/API changes unless brief allows.
+
+## Phase 2 — Report (PR body is canonical)
+Use the repository PR template at **`.github/pull_request_template.md`** (source of truth)
+and **fill every section** with concrete evidence (code/test links required):
+– Summary (≤3 bullets)  
+– End Goal → Evidence (per-goal proof links)  
+– Blockers honored (each ✅ + link)  
+– Determinism & Hygiene (what you verified, how)  
+– Self-review checklist (all checked)  
+– Delta since previous pass (≤5 bullets)  
+– Review Focus (machine-readable YAML)
+
+## Hard rules
+- Determinism; no cross-test state.
+- ESM `.js` internal imports; no deep imports; no `as any`.
+- No per-call locks; avoid global mutations in tests.
+- No new runtime deps unless allowed.
+- Do **not** assume or reference other runners’ branches.
+
+## Output / PR protocol
+- Branch: `{{TASK_ID}}/run-{{RUN_LABEL}}`
+- Title: `{{TASK_ID}}: <one-line> [{{RUN_LABEL}}]`
+- Labels: `agent:coder`, `task:{{TASK_ID}}`, `run:{{RUN_LABEL}}`
+- CI must pass all acceptance gates.
+
+<!-- END AGENT:CODER_CLOUD -->
+
+<!-- =========================  END SYNTHESIZED BLOCKS  ========================= -->

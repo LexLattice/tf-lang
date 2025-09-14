@@ -1,0 +1,11 @@
+roles:
+  CODER_CLI:
+    source: .codex/agents/coder-cli.md
+    start: "<!-- BEGIN AGENT:CODER_CLI -->"
+    end:   "<!-- END AGENT:CODER_CLI -->"
+    pr_template: ".github/pull_request_template.md"
+  CODER_CLOUD:
+    source: .codex/agents/coder-cloud.md
+    start: "<!-- BEGIN AGENT:CODER_CLOUD -->"
+    end:   "<!-- END AGENT:CODER_CLOUD -->"
+    pr_template: ".github/pull_request_template.md"

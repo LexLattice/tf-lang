@@ -9,13 +9,13 @@ the TF‑Lang monorepo locally and in CI.
   - Example (TS): `DEV_PROOFS=1 pnpm -C packages/tf-lang-l0-ts test`
   - Example (Rust): `DEV_PROOFS=1 cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml`
 
-- CLAIMS_DATA: Path to claims dataset for the demo API.
-  - Default: `services/claims-api-ts/data/claims.json`.
-  - Example: `CLAIMS_DATA=/path/to/claims.json pnpm -C services/claims-api-ts start`
-
 - PORT: Port for the demo API service.
   - Default: `8787`.
   - Example: `PORT=8081 pnpm -C services/claims-api-ts start`
+
+- HOST: Address the demo API binds to.
+  - Default: `0.0.0.0`.
+  - Example: `HOST=127.0.0.1 pnpm -C services/claims-api-ts start`
 
 ## CI (build reproducibility)
 - SOURCE_DATE_EPOCH: Set to `0` in the image build job to stabilize timestamps
@@ -25,4 +25,3 @@ the TF‑Lang monorepo locally and in CI.
 
 These CI variables are configured in `.github/workflows/ci.yml` and do not
 affect local development.
-

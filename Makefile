@@ -16,7 +16,7 @@ help:
 	@echo "  git-sanitize-config - remove PR refspecs from .git/config"
 
 setup:
-	pnpm i --frozen-lockfile=false
+	pnpm install --frozen-lockfile
 	git config core.hooksPath .githooks
 
 build:
@@ -26,7 +26,7 @@ build:
 
 test:
 	pnpm -C packages/tf-lang-l0-ts test
-	cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml
+	cargo test --locked --manifest-path packages/tf-lang-l0-rs/Cargo.toml
 	bash tests/test_prbundle.sh
 
 golden:

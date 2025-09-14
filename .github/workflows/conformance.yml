@@ -54,7 +54,7 @@ jobs:
           path: tests/vectors/.out/ts-report.json
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
 
       - name: Cargo tests (includes vectors)
         run: cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml --tests -- --nocapture

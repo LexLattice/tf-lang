@@ -273,23 +273,50 @@ async function applyFilters() {
     const from = effFrom(c), to = effTo(c);
     const eff = (from || '—') + (to ? ' → ' + to : '');
     const tr = document.createElement('tr');
-    tr.innerHTML = `
-    <td><code>${c.id}</code></td>
-    <td>${c.modality}</td>
-    <td>${getJur(c) || '—'}</td>
-    <td>${eff}</td>
-    <td class="status ${c.status}">${c.status}</td>
-    <td>
-      <details>
-        <summary>Why</summary>
-        <div style="margin-top:6px">
-          ${c.explanation?.why ? `<div class="muted">${c.explanation.why}</div>` : ''}
-          ${(c.evidence || []).map(e => `<div>source: <a target="_blank" href="${e.source_uri}">${e.source_uri}</a></div>`).join('')}
-          <div class="muted">dataset_version: ${c.dataset_version}</div>
-        </div>
-      </details>
-    </td>
-  `;
+    const tdId = document.createElement('td');
+    const code = document.createElement('code');
+    code.textContent = String(c.id);
+    tdId.appendChild(code);
+    const tdMod = document.createElement('td');
+    tdMod.textContent = String(c.modality);
+    const tdJur = document.createElement('td');
+    tdJur.textContent = String(getJur(c) || '—');
+    const tdEff = document.createElement('td');
+    tdEff.textContent = eff;
+    const tdStatus = document.createElement('td');
+    tdStatus.className = 'status ' + String(c.status || '');
+    tdStatus.textContent = String(c.status || '');
+    const tdWhy = document.createElement('td');
+    const details = document.createElement('details');
+    const summary = document.createElement('summary');
+    summary.textContent = 'Why';
+    const wrap = document.createElement('div');
+    wrap.style.marginTop = '6px';
+    if (c.explanation && typeof c.explanation.why === 'string' && c.explanation.why) {
+      const why = document.createElement('div');
+      why.className = 'muted';
+      why.textContent = c.explanation.why;
+      wrap.appendChild(why);
+    }
+    const evList = Array.isArray(c.evidence) ? c.evidence : [];
+    for (const e of evList) {
+      const div = document.createElement('div');
+      div.append(document.createTextNode('source: '));
+      const a = document.createElement('a');
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.href = String(e.source_uri || '');
+      a.textContent = String(e.source_uri || '');
+      div.appendChild(a);
+      wrap.appendChild(div);
+    }
+    const dv = document.createElement('div');
+    dv.className = 'muted';
+    dv.textContent = 'dataset_version: ' + String(c.dataset_version || '');
+    wrap.appendChild(dv);
+    details.append(summary, wrap);
+    tdWhy.appendChild(details);
+    tr.append(tdId, tdMod, tdJur, tdEff, tdStatus, tdWhy);
     tbody.appendChild(tr);
   }
 }

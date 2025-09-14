@@ -12,7 +12,14 @@ help:
 	@echo "  docs-up     - serve docs via Python http.server on :8080"
 	@echo "  docker-up   - docker compose up --build"
 	@echo "  docker-down - docker compose down"
-	@echo "  git-clean-refs     - purge stale PR refs and sanitize repo config"
+	@echo "  collect-reports - aggregate parallel run reports"
+	@echo "  pass-report     - write pass summary to docs/runs"
+	@echo "  pack-pass       - copy pass artifacts under docs/runs/pack-pass"
+	@echo "  winner          - show path to RUNS_REPORTS.md"
+	@echo "  knowledge       - index .codex/knowledge into docs/runs/knowledge.md"
+	@echo "  release-notes   - draft release notes into docs/runs/release-notes.md"
+	@echo "  sync-agents     - sync role blocks into AGENTS.md"
+	@echo "  git-clean-refs  - purge stale PR refs and sanitize repo config"
 	@echo "  git-sanitize-config - remove PR refspecs from .git/config"
 
 setup:
@@ -30,7 +37,7 @@ test:
 	bash tests/test_prbundle.sh
 
 golden:
-	scripts/golden.sh
+	@bash ./.codex/scripts/golden.sh
 
 api:
 	pnpm -C services/claims-api-ts build || true
@@ -58,7 +65,7 @@ prbundle:
 	  exit 2; \
 	fi
 	@if [ -n "$(OUT)" ]; then OUTARG="-o $(OUT)"; else OUTARG=""; fi; \
-	bash ./scripts/prbundle.sh -r "$(REPO)" $$OUTARG $(PRS)
+	bash ./.codex/scripts/prbundle.sh -r "$(REPO)" $$OUTARG $(PRS)
 
 collect-reports:
 	@./.codex/scripts/collect-run-reports.sh --prs $(PRS)
@@ -121,6 +128,23 @@ pass-bodies:
 # usage:
 #   make pass-bodies GROUP="F1_1" PRS="78-81"
 #   make pass-bodies GROUP="E2_1" PRS="74:A 75:B 76:C 77:D"
+
+# Additional codex helper targets
+.PHONY: pass-report pack-pass winner knowledge release-notes
+pass-report:
+	@bash ./.codex/scripts/pass-report.sh
+
+pack-pass:
+	@bash ./.codex/scripts/pack-pass.sh
+
+winner:
+	@bash ./.codex/scripts/winner.sh
+
+knowledge:
+	@bash ./.codex/scripts/knowledge.sh
+
+release-notes:
+	@bash ./.codex/scripts/release-notes.sh
 
 .PHONY: git-clean-refs git-sanitize-config
 git-clean-refs:

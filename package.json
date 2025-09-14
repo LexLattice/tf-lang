@@ -5,7 +5,7 @@
                 "test": "pnpm run --recursive test",
                 "build": "pnpm run --recursive build",
                 "preinstall": "corepack enable pnpm",
-                "check:fixtures": "tsx scripts/check-fixtures-json.ts"
+                "check:fixtures": "tsx .codex/scripts/check-fixtures-json.ts"
         },
         "devDependencies": {
                 "typescript": "5.9.2"

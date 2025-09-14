@@ -1,3 +1,0 @@
-- Main release: CI confirms pushes to GHCR with tags `0.2` and `latest`; digests recorded.
-- PR builds: workflow shows image build but no push steps executed.
-- Reproducibility: rebuilding the same commit yields identical image digests for both tags.

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# DEPRECATION: prefer pack-pass + pass-report; scheduled removal after v0.3
 set -euo pipefail
 [[ $# -ge 2 ]] || { echo "Usage: pass-bodies.sh <GROUP> <PR|PR-PR|PR[:LABEL]>..."; exit 2; }
 GROUP="$1"; shift

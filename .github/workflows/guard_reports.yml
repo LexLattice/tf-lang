@@ -1,0 +1,25 @@
+name: guard-root-reports
+on:
+  push:
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fail if legacy report files exist at repo root
+        run: |
+          set -euo pipefail
+          files=(CHANGES.md COMPLIANCE.md OBS_LOG.md REPORT.md)
+          found=0
+          for f in "${files[@]}"; do
+            if [ -f "$f" ]; then
+              echo "Found forbidden root file: $f" >&2
+              found=1
+            fi
+          done
+          if [ "$found" -ne 0 ]; then
+            echo "Guard failed: move root report files to docs/archive/" >&2
+            exit 1
+          fi
+          echo "Guard OK: no legacy reports at root."

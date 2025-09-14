@@ -39,7 +39,7 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-
 
       - name: Lint vectors (schema sanity)
-        run: node .codex/lint-vectors.mjs
+        run: node .codex/scripts/lint-vectors.mjs
 
       - name: Build TS kernel
         run: pnpm -C packages/tf-lang-l0-ts build
@@ -67,7 +67,7 @@ jobs:
           path: tests/vectors/.out/rs-report.json
 
       - name: Cross-compare TS vs RS reports
-        run: node .codex/compare-reports.mjs
+        run: node .codex/scripts/compare-reports.mjs
 
       - name: Print reports on failure
         if: failure()

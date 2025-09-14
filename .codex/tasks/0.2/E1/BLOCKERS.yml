@@ -1,8 +1,0 @@
-- No changes to kernel semantics/tag schemas from A/B.
-- No per-call locks; no `static mut`/`unsafe`; no TS `as any`.
-- ESM internal imports must include `.js`.
-- Tests run in parallel without state bleed; outputs deterministic (canonical where relevant).
-- Static file mode must not issue network requests.
-- Source switching must be runtime-selectable (no rebuild/restart).
-- A default dataset and default date must be present on first load.
-- Tags panel must remain hidden when no tags exist.

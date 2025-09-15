@@ -1,59 +1,63 @@
 use serde::Serialize;
-use serde_json::{Map, Value};
+use serde_json::{Map, Number, Value};
+use thiserror::Error;
 
-fn canonicalize_number(value: &serde_json::Number) -> Value {
-  Value::Number(value.clone())
+#[derive(Debug, Error)]
+pub enum CanonError {
+    #[error("serialization failed: {0}")]
+    Serialize(#[from] serde_json::Error),
 }
 
-fn canonicalize_array(values: &[Value]) -> Value {
-  Value::Array(values.iter().map(canonicalize_value).collect())
-}
-
-fn canonicalize_object(values: &Map<String, Value>) -> Value {
-  let mut entries: Vec<(String, Value)> = values
-    .iter()
-    .map(|(key, value)| (key.clone(), canonicalize_value(value)))
-    .collect();
-  entries.sort_by(|a, b| a.0.cmp(&b.0));
-  let mut map = Map::with_capacity(entries.len());
-  for (key, value) in entries {
-    map.insert(key, value);
-  }
-  Value::Object(map)
-}
-
-pub fn canonicalize_value(value: &Value) -> Value {
-  match value {
-    Value::Null => Value::Null,
-    Value::Bool(b) => Value::Bool(*b),
-    Value::Number(n) => canonicalize_number(n),
-    Value::String(s) => Value::String(s.clone()),
-    Value::Array(values) => canonicalize_array(values),
-    Value::Object(map) => canonicalize_object(map),
-  }
-}
-
-pub fn canonicalize<T>(value: &T) -> Result<Value, serde_json::Error>
+pub fn canonicalize<T>(value: &T) -> Result<Value, CanonError>
 where
-  T: Serialize,
+    T: Serialize,
 {
-  match serde_json::to_value(value) {
-    Ok(value) => Ok(canonicalize_value(&value)),
-    Err(err) => {
-      if err.is_data() {
-        Ok(Value::Null)
-      } else {
-        Err(err)
-      }
+    let raw = serde_json::to_value(value)?;
+    Ok(canonicalize_value(raw))
+}
+
+pub fn canonicalize_value(value: Value) -> Value {
+    match value {
+        Value::Null => Value::Null,
+        Value::Bool(flag) => Value::Bool(flag),
+        Value::Number(num) => canonicalize_number(num),
+        Value::String(text) => Value::String(text),
+        Value::Array(entries) => {
+            Value::Array(entries.into_iter().map(canonicalize_value).collect())
+        }
+        Value::Object(map) => canonicalize_object(map),
     }
-  }
 }
 
-pub fn canonical_string(value: &Value) -> Result<String, serde_json::Error> {
-  serde_json::to_string(&canonicalize_value(value))
+pub fn canonical_string<T>(value: &T) -> Result<String, CanonError>
+where
+    T: Serialize,
+{
+    let canonical = canonicalize(value)?;
+    Ok(serde_json::to_string(&canonical)?)
 }
 
-pub fn canonical_bytes(value: &Value) -> Result<Vec<u8>, serde_json::Error> {
-  canonical_string(value).map(|s| s.into_bytes())
+fn canonicalize_object(map: Map<String, Value>) -> Value {
+    let canonical: Map<String, Value> = map
+        .into_iter()
+        .map(|(key, value)| (key, canonicalize_value(value)))
+        .collect();
+    Value::Object(canonical)
 }
 
+fn canonicalize_number(number: Number) -> Value {
+    if number.is_i64() || number.is_u64() {
+        return Value::Number(number);
+    }
+
+    match number.as_f64() {
+        Some(value) => {
+            let formatted = format!("{:.12}", value);
+            match formatted.parse::<f64>().ok().and_then(Number::from_f64) {
+                Some(parsed) => Value::Number(parsed),
+                None => Value::String(formatted),
+            }
+        }
+        None => Value::String(number.to_string()),
+    }
+}

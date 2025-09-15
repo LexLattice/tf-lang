@@ -12,3 +12,8 @@
 - [C3] Harmonized determinism fixtures and seeds across TS/Rust; tests now stream fixtures from canonical path.
 - Commands: `pnpm -C packages/oracles/determinism build`, `pnpm -C packages/oracles/determinism test`, `cargo test --workspace --all-targets --manifest-path crates/Cargo.toml`.
 - Seeds: TS `tests/seeds.json`; Rust `crates/oracles/determinism/tests/seeds.json`.
+
+## 2025-09-15T23:32:00Z
+- [C4] Refactored tf-oracles-core internals into canonical/context/oracle/result modules with unchanged API surface.
+- Commands: `cargo test --workspace --all-targets --manifest-path crates/Cargo.toml`.
+- Seeds: n/a.

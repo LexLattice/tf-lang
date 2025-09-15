@@ -1,202 +1,146 @@
-use std::collections::BTreeSet;
-
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::canonical::canonicalize_value;
+use crate::canonical::{canonicalize, CanonError};
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OracleError {
-  pub code: String,
-  pub explain: String,
-  #[serde(skip_serializing_if = "Option::is_none")]
-  pub details: Option<Value>,
+    pub code: String,
+    pub explain: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub details: Option<Value>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OracleFailure {
-  pub ok: bool,
-  pub error: OracleError,
-  #[serde(skip_serializing_if = "Vec::is_empty", default)]
-  pub trace: Vec<String>,
+    pub ok: bool,
+    pub error: OracleError,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub trace: Option<Vec<String>>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct OracleOk<T> {
-  pub ok: bool,
-  pub value: T,
-  #[serde(skip_serializing_if = "Vec::is_empty", default)]
-  pub warnings: Vec<String>,
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OracleSuccess<T>
+where
+    T: Serialize,
+{
+    pub ok: bool,
+    pub value: T,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub warnings: Option<Vec<String>>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OracleResult<T> {
-  Ok(OracleOk<T>),
-  Err(OracleFailure),
+pub enum OracleResult<T>
+where
+    T: Serialize,
+{
+    Success(OracleSuccess<T>),
+    Failure(OracleFailure),
 }
 
-fn normalize_strings<S>(values: S) -> Vec<String>
+impl<T> From<OracleFailure> for OracleResult<T>
 where
-  S: IntoIterator,
-  S::Item: AsRef<str>,
+    T: Serialize,
 {
-  let mut set = BTreeSet::new();
-  for value in values {
-    let trimmed = value.as_ref().trim();
-    if trimmed.is_empty() {
-      continue;
+    fn from(value: OracleFailure) -> Self {
+        OracleResult::Failure(value)
     }
-    set.insert(trimmed.to_owned());
-  }
-  set.into_iter().collect()
 }
 
-pub fn ok<T>(value: T) -> OracleResult<T> {
-  OracleResult::Ok(OracleOk {
-    ok: true,
-    value,
-    warnings: Vec::new(),
-  })
-}
-
-pub fn err<T>(failure: OracleFailure) -> OracleResult<T> {
-  OracleResult::Err(failure)
-}
-
-pub fn ok_with_warnings<T, I>(value: T, warnings: I) -> OracleResult<T>
+pub fn ok<T, I>(value: T, warnings: I) -> OracleResult<T>
 where
-  I: IntoIterator,
-  I::Item: AsRef<str>,
+    T: Serialize,
+    I: IntoIterator,
+    I::Item: AsRef<str>,
 {
-  let normalized = normalize_strings(warnings);
-  OracleResult::Ok(OracleOk {
-    ok: true,
-    value,
-    warnings: normalized,
-  })
-}
+    let collected = dedupe(warnings);
+    let warnings_field = if collected.is_empty() {
+        None
+    } else {
+        Some(collected)
+    };
 
-pub fn merge_warnings<T, I>(result: OracleOk<T>, extra: I) -> OracleOk<T>
-where
-  I: IntoIterator,
-  I::Item: AsRef<str>,
-{
-  let OracleOk { value, mut warnings, .. } = result;
-  warnings.extend(extra.into_iter().map(|s| s.as_ref().to_owned()));
-  let normalized = normalize_strings(warnings.iter().map(|s| s.as_str()));
-  OracleOk {
-    ok: true,
-    value,
-    warnings: normalized,
-  }
-}
-
-pub fn error(code: impl Into<String>, explain: impl Into<String>) -> OracleError {
-  OracleError {
-    code: code.into(),
-    explain: explain.into(),
-    details: None,
-  }
-}
-
-pub fn error_with_details<T>(
-  code: impl Into<String>,
-  explain: impl Into<String>,
-  details: Option<T>,
-) -> Result<OracleError, serde_json::Error>
-where
-  T: Serialize,
-{
-  let base = error(code, explain);
-  match details {
-    Some(value) => {
-      let as_value = match serde_json::to_value(value) {
-        Ok(val) => val,
-        Err(err) if err.is_data() => Value::Null,
-        Err(err) => return Err(err),
-      };
-      Ok(OracleError {
-        details: Some(canonicalize_value(&as_value)),
-        ..base
-      })
-    }
-    None => Ok(base),
-  }
-}
-
-pub fn failure(
-  code: impl Into<String>,
-  explain: impl Into<String>,
-  details: Option<Value>,
-  trace: impl IntoIterator<Item = impl AsRef<str>>,
-) -> OracleFailure {
-  let err = OracleError {
-    details: details.map(|value| canonicalize_value(&value)),
-    ..error(code, explain)
-  };
-  OracleFailure {
-    ok: false,
-    error: err,
-    trace: normalize_strings(trace),
-  }
-}
-
-pub fn failure_result<T>(
-  code: impl Into<String>,
-  explain: impl Into<String>,
-  details: Option<Value>,
-  trace: impl IntoIterator<Item = impl AsRef<str>>,
-) -> OracleResult<T> {
-  err(failure(code, explain, details, trace))
-}
-
-pub fn from_error(err: &OracleError, trace: impl IntoIterator<Item = impl AsRef<str>>) -> OracleFailure {
-  OracleFailure {
-    ok: false,
-    error: OracleError {
-      code: err.code.clone(),
-      explain: err.explain.clone(),
-      details: err.details.as_ref().map(|value| canonicalize_value(value)),
-    },
-    trace: normalize_strings(trace),
-  }
-}
-
-pub fn is_ok<T>(result: &OracleResult<T>) -> bool {
-  matches!(result, OracleResult::Ok(_))
-}
-
-pub fn map_value<A, B>(result: OracleResult<A>, mapper: impl FnOnce(A) -> B) -> OracleResult<B> {
-  match result {
-    OracleResult::Ok(ok) => {
-      let mapped = mapper(ok.value);
-      OracleResult::Ok(OracleOk {
+    OracleResult::Success(OracleSuccess {
         ok: true,
-        value: mapped,
-        warnings: ok.warnings,
-      })
-    }
-    OracleResult::Err(err) => OracleResult::Err(err),
-  }
+        value,
+        warnings: warnings_field,
+    })
 }
 
-pub fn format_failure(result: &OracleResult<Value>) -> Option<String> {
-  match result {
-    OracleResult::Ok(_) => None,
-    OracleResult::Err(failure) => {
-      let mut msg = format!("{}: {}", failure.error.code, failure.error.explain);
-      if let Some(details) = &failure.error.details {
-        if let Ok(json) = serde_json::to_string(details) {
-          msg.push_str(" | details=");
-          msg.push_str(&json);
+pub fn err(code: &str, explain: &str, details: Option<Value>) -> OracleFailure {
+    OracleFailure {
+        ok: false,
+        error: OracleError {
+            code: normalize_code(code),
+            explain: explain.trim().to_string(),
+            details,
+        },
+        trace: None,
+    }
+}
+
+pub fn err_with_details<T>(
+    code: &str,
+    explain: &str,
+    details: Option<T>,
+) -> Result<OracleFailure, CanonError>
+where
+    T: Serialize,
+{
+    let details_value = match details {
+        Some(payload) => Some(canonicalize(&payload)?),
+        None => None,
+    };
+    Ok(err(code, explain, details_value))
+}
+
+pub fn with_trace<I>(mut failure: OracleFailure, trace: I) -> OracleFailure
+where
+    I: IntoIterator,
+    I::Item: AsRef<str>,
+{
+    let mut combined = failure.trace.unwrap_or_default();
+    for entry in trace {
+        combined.push(entry.as_ref().to_string());
+    }
+    let merged = dedupe(combined.iter());
+    if merged.is_empty() {
+        failure.trace = None;
+    } else {
+        failure.trace = Some(merged);
+    }
+    failure
+}
+
+fn dedupe<I>(source: I) -> Vec<String>
+where
+    I: IntoIterator,
+    I::Item: AsRef<str>,
+{
+    let mut result = Vec::new();
+    for entry in source {
+        let trimmed = entry.as_ref().trim();
+        if trimmed.is_empty() {
+            continue;
         }
-      }
-      Some(msg)
+        if result.iter().any(|existing| existing == trimmed) {
+            continue;
+        }
+        result.push(trimmed.to_string());
     }
-  }
+    result
 }
 
+fn normalize_code(code: &str) -> String {
+    let trimmed = code.trim();
+    if trimmed.is_empty() {
+        "E_UNKNOWN".to_string()
+    } else {
+        trimmed.to_ascii_uppercase()
+    }
+}

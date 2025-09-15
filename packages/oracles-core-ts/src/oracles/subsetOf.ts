@@ -12,7 +12,7 @@ export function subsetOf(actual: unknown, expected: unknown): OracleResult {
     const ev = e[k];
     if (av && typeof av === "object" && ev && typeof ev === "object") {
       const r = subsetOf(av, ev);
-      if (!r.ok) return { ...r, path: `/${k}${r.path || ""}` };
+      if (!r.ok) return { ...r, path: `/${k}${r.path!}` };
     } else if (!Object.is(av, ev)) {
       return { ok: false, code: "E_NOT_SUBSET", message: "object is not a subset of expected", path: `/${k}` };
     }

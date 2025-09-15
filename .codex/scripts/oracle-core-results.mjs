@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { spawn } from 'node:child_process';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 // Simple canonical JSON stringify: sort object keys recursively
 const canon = (v) => {
@@ -17,10 +18,33 @@ const canonStringify = (v) => JSON.stringify(canon(v));
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const pkgRoot = path.resolve(__dirname, '../../packages/oracles-core-ts');
-// Prefer built dist first (reproducibility), then fall back to TS sources
-const mod = await import(path.join(pkgRoot, 'dist/src/index.js')).catch(async () => {
-  return import(path.join(pkgRoot, 'src/index.ts'));
-});
+const distEntry = path.join(pkgRoot, 'dist/src/index.js');
+const distUrl = pathToFileURL(distEntry).href;
+
+const run = (cmd, args, options = {}) =>
+  new Promise((resolve, reject) => {
+    const child = spawn(cmd, args, { stdio: 'inherit', ...options });
+    child.on('error', reject);
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`command failed (exit ${code ?? 'unknown'}): ${cmd} ${args.join(' ')}`));
+      }
+    });
+  });
+
+async function loadModule() {
+  try {
+    return await import(distUrl);
+  } catch (err) {
+    if (err?.code !== 'ERR_MODULE_NOT_FOUND' && err?.code !== 'ENOENT') throw err;
+    await run('pnpm', ['build'], { cwd: pkgRoot });
+    return import(distUrl);
+  }
+}
+
+const mod = await loadModule();
 
 const samples = {
   equals: {

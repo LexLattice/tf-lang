@@ -2,9 +2,7 @@ import type { OracleResult } from "../result.js";
 
 export function nonEmpty(actual: unknown): OracleResult {
   if (typeof actual === "string" || Array.isArray(actual)) {
-    return actual.length > 0
-      ? { ok: true }
-      : { ok: false, code: "E_EMPTY", message: "value is empty", path: "/" };
+    if (actual.length > 0) return { ok: true };
   }
   return { ok: false, code: "E_EMPTY", message: "value is empty", path: "/" };
 }

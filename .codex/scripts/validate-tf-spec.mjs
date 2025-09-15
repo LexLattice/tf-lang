@@ -11,7 +11,7 @@ const readJson = async (path) => {
 };
 
 const schema = JSON.parse(await fs.readFile('schema/tf-spec.schema.json', 'utf8'));
-const ajv = new Ajv();
+const ajv = new Ajv({ allErrors: true });
 const validate = ajv.compile(schema);
 
 const dir = 'examples/specs';

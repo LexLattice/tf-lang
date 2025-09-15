@@ -101,6 +101,8 @@ describe("nonEmpty", () => {
   it("fail empty array", () => {
     const r = nonEmpty([]);
     expect(r.ok).toBe(false);
+    expect(r.code).toBe("E_EMPTY");
+    expect(r.path).toBe("/");
   });
   it("array with null values", () => {
     expect(nonEmpty([null]).ok).toBe(true);

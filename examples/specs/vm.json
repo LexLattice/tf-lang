@@ -1,0 +1,13 @@
+{
+  "version": "0.1",
+  "name": "simple-vm",
+  "steps": [
+    {
+      "op": "create_vm",
+      "params": {
+        "image": "ubuntu:20.04",
+        "cpus": 2
+      }
+    }
+  ]
+}

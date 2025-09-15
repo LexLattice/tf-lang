@@ -1,0 +1,19 @@
+{
+  "version": "0.1",
+  "name": "multi-step",
+  "steps": [
+    {
+      "op": "create_network",
+      "params": {
+        "cidr": "10.0.0.0/24"
+      }
+    },
+    {
+      "op": "create_vm",
+      "params": {
+        "image": "alpine",
+        "cpus": 1
+      }
+    }
+  ]
+}

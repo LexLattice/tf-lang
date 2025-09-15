@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "description": "Prints two messages",
+  "steps": [
+    { "type": "echo", "message": "first" },
+    { "type": "echo", "message": "second" }
+  ]
+}

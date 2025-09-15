@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "description": "Prints hello",
+  "steps": [
+    { "type": "echo", "message": "hello" }
+  ]
+}

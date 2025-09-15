@@ -41,6 +41,34 @@ jobs:
       - run: $HOME/.cargo/bin/cargo build --verbose
       - run: $HOME/.cargo/bin/cargo test --verbose
 
+  tf-spec:
+    name: tf-spec
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4
+        with:
+          version: 9
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+      - run: pnpm i --frozen-lockfile=false
+      - run: scripts/validate-tf-spec
+      - uses: actions/upload-artifact@5d2af8a6adfe0d6cf86508eac058c6b64a6bfb41 # v4
+        with:
+          name: tf-spec
+          path: tf-spec/validation.txt
+      - name: Install Rust
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl build-essential pkg-config libssl-dev
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          echo "${HOME}/.cargo/bin" >> $GITHUB_PATH
+      - run: pnpm --filter tf-lang-l0 exec vitest run tests/spec.adapter.test.ts
+      - run: pnpm --filter tf-lang-l0 exec vitest run tests/spec.adapter.test.ts
+      - run: $HOME/.cargo/bin/cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml spec_adapter
+      - run: $HOME/.cargo/bin/cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml spec_adapter
+
   image:
     name: Container image
     runs-on: ubuntu-latest

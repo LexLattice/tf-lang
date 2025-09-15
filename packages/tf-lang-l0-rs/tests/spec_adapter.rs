@@ -26,19 +26,19 @@ fn round_trip_examples() -> anyhow::Result<()> {
 fn parse_rejects_unknown_op() {
     let bad = br#"{"version":"0.1","name":"bad","steps":[{"op":"nope","params":{}}]}"#;
     let err = parse_spec(bad).unwrap_err();
-    assert_eq!(err.to_string(), "E_SPEC_OP_UNKNOWN steps[0].op");
+    assert_eq!(err.to_string(), "E_SPEC_OP_UNKNOWN /steps/0/op");
 }
 
 #[test]
 fn parse_rejects_missing_param() {
     let bad = br#"{"version":"0.1","name":"bad","steps":[{"op":"copy","params":{"src":"a"}}]}"#;
     let err = parse_spec(bad).unwrap_err();
-    assert_eq!(err.to_string(), "E_SPEC_PARAM_MISSING steps[0].params.dest");
+    assert_eq!(err.to_string(), "E_SPEC_PARAM_MISSING /steps/0/params/dest");
 }
 
 #[test]
 fn parse_rejects_unknown_param() {
     let bad = br#"{"version":"0.1","name":"bad","steps":[{"op":"copy","params":{"src":"a","dest":"b","extra":1}}]}"#;
     let err = parse_spec(bad).unwrap_err();
-    assert_eq!(err.to_string(), "E_SPEC_PARAM_UNKNOWN steps[0].params.extra");
+    assert_eq!(err.to_string(), "E_SPEC_PARAM_UNKNOWN /steps/0/params/extra");
 }

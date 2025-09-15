@@ -8,7 +8,7 @@ import { describe, it, expect } from "vitest";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const examplesDir = path.resolve(__dirname, "../../../examples/specs");
 
-const files = readdirSync(examplesDir).filter(f => f.endsWith(".json"));
+const files = readdirSync(examplesDir).filter(f => f.endsWith(".json")).sort();
 
 describe("tf-spec examples", () => {
   for (const file of files) {
@@ -29,7 +29,7 @@ describe("tf-spec validation", () => {
       name: "bad",
       steps: [{ op: "nope", params: {} }]
     };
-    expect(() => parseSpec(bad)).toThrow("E_SPEC_OP_UNKNOWN steps[0].op");
+    expect(() => parseSpec(bad)).toThrow("E_SPEC_OP_UNKNOWN /steps/0/op");
   });
 
   it("rejects missing params", () => {
@@ -38,7 +38,7 @@ describe("tf-spec validation", () => {
       name: "bad",
       steps: [{ op: "copy", params: { src: "a" } }]
     };
-    expect(() => parseSpec(bad)).toThrow("E_SPEC_PARAM_MISSING steps[0].params.dest");
+    expect(() => parseSpec(bad)).toThrow("E_SPEC_PARAM_MISSING /steps/0/params/dest");
   });
 
   it("rejects unknown params", () => {
@@ -47,6 +47,6 @@ describe("tf-spec validation", () => {
       name: "bad",
       steps: [{ op: "copy", params: { src: "a", dest: "b", extra: 1 } }]
     };
-    expect(() => parseSpec(bad)).toThrow("E_SPEC_PARAM_UNKNOWN steps[0].params.extra");
+    expect(() => parseSpec(bad)).toThrow("E_SPEC_PARAM_UNKNOWN /steps/0/params/extra");
   });
 });

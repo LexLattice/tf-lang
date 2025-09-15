@@ -43,42 +43,42 @@ pub fn parse_spec(bytes: &[u8]) -> Result<TfSpec> {
     let root = v.as_object().ok_or_else(|| anyhow!("E_SPEC_TYPE /"))?;
     for k in root.keys() {
         if k != "version" && k != "name" && k != "steps" {
-            return Err(anyhow!(format!("E_SPEC_FIELD_UNKNOWN {}", k)));
+            return Err(anyhow!(format!("E_SPEC_FIELD_UNKNOWN /{}", k)));
         }
     }
     let version = root
         .get("version")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| anyhow!("E_SPEC_VERSION version"))?;
+        .ok_or_else(|| anyhow!("E_SPEC_VERSION /version"))?;
     if version != "0.1" {
-        return Err(anyhow!("E_SPEC_VERSION version"));
+        return Err(anyhow!("E_SPEC_VERSION /version"));
     }
     let name = root
         .get("name")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| anyhow!("E_SPEC_NAME name"))?;
+        .ok_or_else(|| anyhow!("E_SPEC_NAME /name"))?;
     let steps_val = root
         .get("steps")
         .and_then(|v| v.as_array())
-        .ok_or_else(|| anyhow!("E_SPEC_STEPS steps"))?;
+        .ok_or_else(|| anyhow!("E_SPEC_STEPS /steps"))?;
     let mut steps = Vec::new();
     for (i, sv) in steps_val.iter().enumerate() {
         let sobj = sv
             .as_object()
-            .ok_or_else(|| anyhow!(format!("E_SPEC_STEP steps[{}]", i)))?;
+            .ok_or_else(|| anyhow!(format!("E_SPEC_STEP /steps/{}", i)))?;
         let op = sobj
             .get("op")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow!(format!("E_SPEC_OP steps[{}].op", i)))?;
+            .ok_or_else(|| anyhow!(format!("E_SPEC_OP /steps/{}/op", i)))?;
         let params = sobj
             .get("params")
             .and_then(|v| v.as_object())
-            .ok_or_else(|| anyhow!(format!("E_SPEC_PARAMS steps[{}].params", i)))?;
+            .ok_or_else(|| anyhow!(format!("E_SPEC_PARAMS /steps/{}/params", i)))?;
         let check_keys = |allowed: &[&str]| -> Result<()> {
             for &req in allowed {
                 if !params.contains_key(req) {
                     return Err(anyhow!(format!(
-                        "E_SPEC_PARAM_MISSING steps[{}].params.{}",
+                        "E_SPEC_PARAM_MISSING /steps/{}/params/{}",
                         i, req
                     )));
                 }
@@ -86,7 +86,7 @@ pub fn parse_spec(bytes: &[u8]) -> Result<TfSpec> {
             for k in params.keys() {
                 if !allowed.contains(&k.as_str()) {
                     return Err(anyhow!(format!(
-                        "E_SPEC_PARAM_UNKNOWN steps[{}].params.{}",
+                        "E_SPEC_PARAM_UNKNOWN /steps/{}/params/{}",
                         i, k
                     )));
                 }
@@ -100,14 +100,14 @@ pub fn parse_spec(bytes: &[u8]) -> Result<TfSpec> {
                     .get("src")
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| anyhow!(format!(
-                        "E_SPEC_PARAM_TYPE steps[{}].params.src",
+                        "E_SPEC_PARAM_TYPE /steps/{}/params/src",
                         i
                     )))?;
                 let dest = params
                     .get("dest")
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| anyhow!(format!(
-                        "E_SPEC_PARAM_TYPE steps[{}].params.dest",
+                        "E_SPEC_PARAM_TYPE /steps/{}/params/dest",
                         i
                     )))?;
                 steps.push(Step::Copy(CopyParams {
@@ -121,19 +121,19 @@ pub fn parse_spec(bytes: &[u8]) -> Result<TfSpec> {
                     .get("image")
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| anyhow!(format!(
-                        "E_SPEC_PARAM_TYPE steps[{}].params.image",
+                        "E_SPEC_PARAM_TYPE /steps/{}/params/image",
                         i
                     )))?;
                 let cpus = params
                     .get("cpus")
                     .and_then(|v| v.as_u64())
                     .ok_or_else(|| anyhow!(format!(
-                        "E_SPEC_PARAM_TYPE steps[{}].params.cpus",
+                        "E_SPEC_PARAM_TYPE /steps/{}/params/cpus",
                         i
                     )))?;
                 if cpus < 1 {
                     return Err(anyhow!(format!(
-                        "E_SPEC_PARAM_TYPE steps[{}].params.cpus",
+                        "E_SPEC_PARAM_TYPE /steps/{}/params/cpus",
                         i
                     )));
                 }
@@ -148,14 +148,14 @@ pub fn parse_spec(bytes: &[u8]) -> Result<TfSpec> {
                     .get("cidr")
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| anyhow!(format!(
-                        "E_SPEC_PARAM_TYPE steps[{}].params.cidr",
+                        "E_SPEC_PARAM_TYPE /steps/{}/params/cidr",
                         i
                     )))?;
                 steps.push(Step::CreateNetwork(CreateNetworkParams {
                     cidr: cidr.to_string(),
                 }));
             }
-            _ => return Err(anyhow!(format!("E_SPEC_OP_UNKNOWN steps[{}].op", i))),
+            _ => return Err(anyhow!(format!("E_SPEC_OP_UNKNOWN /steps/{}/op", i))),
         }
     }
     Ok(TfSpec {

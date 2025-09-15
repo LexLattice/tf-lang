@@ -1,22 +1,23 @@
 {
 	"name": "tf-lang",
 	"private": true,
-        "scripts": {
-                "test": "pnpm run --recursive test",
-                "build": "pnpm run --recursive build",
-                "preinstall": "corepack enable pnpm",
-                "check:fixtures": "tsx .codex/scripts/check-fixtures-json.ts"
-        },
-        "devDependencies": {
-                "typescript": "5.9.2"
-        },
-        "pnpm": {
-                "allowScripts": {
-                        "esbuild": true,
-                        "@cloudflare/kv-asset-handler": false
-                },
-                "overrides": {
-                        "esbuild": "0.25.0"
-                }
-        }
+	"scripts": {
+		"test": "pnpm run --recursive test",
+		"build": "pnpm run --recursive build",
+		"preinstall": "corepack enable pnpm",
+		"check:fixtures": "tsx .codex/scripts/check-fixtures-json.ts"
+	},
+	"devDependencies": {
+		"ajv-cli": "^5.0.0",
+		"typescript": "5.9.2"
+	},
+	"pnpm": {
+		"allowScripts": {
+			"esbuild": true,
+			"@cloudflare/kv-asset-handler": false
+		},
+		"overrides": {
+			"esbuild": "0.25.0"
+		}
+	}
 }

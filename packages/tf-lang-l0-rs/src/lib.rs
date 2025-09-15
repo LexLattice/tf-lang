@@ -1,6 +1,7 @@
 pub mod canon;
 pub mod check;
 pub mod model;
+pub mod spec;
 pub mod util;
 pub mod vm;
 pub mod ops;

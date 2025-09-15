@@ -1,0 +1,11 @@
+{
+  "version": "0.1",
+  "id": "simple-spec",
+  "root": {
+    "op": "add",
+    "args": [
+      { "op": "literal", "value": 1 },
+      { "op": "literal", "value": 2 }
+    ]
+  }
+}

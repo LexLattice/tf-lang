@@ -1,0 +1,17 @@
+{
+  "version": "0.1",
+  "id": "nested-spec",
+  "root": {
+    "op": "mul",
+    "args": [
+      {
+        "op": "add",
+        "args": [
+          { "op": "literal", "value": 1 },
+          { "op": "literal", "value": 2 }
+        ]
+      },
+      { "op": "literal", "value": 3 }
+    ]
+  }
+}

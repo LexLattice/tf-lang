@@ -1,0 +1,16 @@
+{
+  "name": "@tf/oracles-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared oracle interfaces, results, and deterministic helpers.",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "pnpm run build && vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}

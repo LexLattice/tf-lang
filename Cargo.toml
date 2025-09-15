@@ -1,0 +1,11 @@
+[workspace]
+members = [
+  "crates/oracles/core",
+  "packages/tf-lang-l0-rs"
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+

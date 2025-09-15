@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+exec node .codex/scripts/oracle-core-results.mjs "$@"
+

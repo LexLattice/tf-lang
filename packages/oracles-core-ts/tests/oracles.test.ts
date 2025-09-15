@@ -11,6 +11,22 @@ describe("equals", () => {
     expect(r.code).toBe("E_NOT_EQUAL");
     expect(r.path).toBe("/b/1");
   });
+  it("fail on type mismatch", () => {
+    const r = equals(1, "1");
+    expect(r.ok).toBe(false);
+    expect(r.code).toBe("E_NOT_EQUAL");
+    expect(r.path).toBe("/");
+  });
+  it("fail on null vs undefined", () => {
+    const r = equals(null, undefined);
+    expect(r.ok).toBe(false);
+    expect(r.path).toBe("/");
+  });
+  it("fail on array vs object", () => {
+    const r = equals([], {});
+    expect(r.ok).toBe(false);
+    expect(r.path).toBe("/");
+  });
 });
 
 describe("subsetOf", () => {
@@ -22,6 +38,18 @@ describe("subsetOf", () => {
     expect(r.ok).toBe(false);
     expect(r.code).toBe("E_FIELD_UNKNOWN");
     expect(r.path).toBe("/x");
+  });
+  it("nested ok", () => {
+    const r = subsetOf({ a: { x: 1 } }, { a: { x: 1, y: 2 } });
+    expect(r.ok).toBe(true);
+  });
+  it("nested unknown field", () => {
+    const r = subsetOf({ a: { z: 3 } }, { a: { x: 1 } });
+    expect(r.ok).toBe(false);
+    expect(r.path).toBe("/a/z");
+  });
+  it("array subset ok", () => {
+    expect(subsetOf([1], [1, 2]).ok).toBe(true);
   });
 });
 
@@ -35,6 +63,12 @@ describe("inRange", () => {
     expect(r.code).toBe("E_OUT_OF_RANGE");
     expect(r.path).toBe("/");
   });
+  it("at min", () => {
+    expect(inRange(1, 1, 10).ok).toBe(true);
+  });
+  it("at max", () => {
+    expect(inRange(10, 1, 10).ok).toBe(true);
+  });
 });
 
 describe("matchesRegex", () => {
@@ -47,6 +81,11 @@ describe("matchesRegex", () => {
     expect(r.code).toBe("E_REGEX_MISMATCH");
     expect(r.path).toBe("/");
   });
+  it("global regex deterministic", () => {
+    const re = /a/g;
+    expect(matchesRegex("a", re).ok).toBe(true);
+    expect(matchesRegex("a", re).ok).toBe(true);
+  });
 });
 
 describe("nonEmpty", () => {
@@ -58,6 +97,13 @@ describe("nonEmpty", () => {
     expect(r.ok).toBe(false);
     expect(r.code).toBe("E_EMPTY");
     expect(r.path).toBe("/");
+  });
+  it("fail empty array", () => {
+    const r = nonEmpty([]);
+    expect(r.ok).toBe(false);
+  });
+  it("array with null values", () => {
+    expect(nonEmpty([null]).ok).toBe(true);
   });
 });
 

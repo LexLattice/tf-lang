@@ -51,13 +51,19 @@ await fs.writeFile('oracle-core/results.json', json + '\n');
 
 const lines = ['# Oracle Core Results'];
 const names = Object.keys(samples).sort();
-let okCount = 0, failCount = 0; const codeTallies = new Map();
+let okCount = 0;
+let failCount = 0;
+const codeTallies = new Map();
 for (const name of names) {
   const pair = samples[name];
   lines.push(`\n## ${name}`);
   lines.push('- ok: ' + JSON.stringify(pair.ok));
   lines.push('- fail: ' + JSON.stringify(pair.fail));
-  if (pair.ok && pair.ok.ok === true) okCount++; else failCount++;
+  if (pair.ok?.ok === true) {
+    okCount++;
+  } else {
+    failCount++;
+  }
   if (pair.fail && pair.fail.code) {
     const c = String(pair.fail.code);
     codeTallies.set(c, (codeTallies.get(c) || 0) + 1);

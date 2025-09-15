@@ -44,7 +44,7 @@ export function parseSpec(input: string | Uint8Array | object): TfSpec {
     const checkNoExtra = (allowed: string[]) => {
       for (const key of Object.keys(params)) {
         if (!allowed.includes(key)) {
-          throw new Error(`E_SPEC_PARAM_UNKNOWN steps[${i}].params.${key}`);
+          throw new Error(`E_SPEC_PARAM_UNKNOWN /steps/${i}/params/${key}`);
         }
       }
     };

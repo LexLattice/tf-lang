@@ -6,7 +6,7 @@ const readJson = async (path) => {
     const txt = await fs.readFile(path, 'utf8');
     return { ok: true, value: JSON.parse(txt) };
   } catch (err) {
-    return { ok: false, error: String(err && err.message ? err.message : err) };
+    return { ok: false, error: err?.message ?? String(err) };
   }
 };
 

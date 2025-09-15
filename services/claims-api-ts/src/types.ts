@@ -1,6 +1,6 @@
 
 export type Modality = 'FORBIDDEN' | 'PERMITTED' | 'OBLIGATORY' | 'EXEMPT' | 'EXCEPTION';
-export interface Filters {
+export interface Filters extends Record<string, unknown> {
   modality?: Modality;
   jurisdiction?: string;
   at?: string; // ISO date

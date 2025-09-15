@@ -141,6 +141,15 @@ pack-pass:
 #   make pack-pass GROUP="C1_4"    PRS="34:A 35:B 36:C 37:D"
 #   include PR diff in JSON:
 #     make pack-pass FLAGS=-all GROUP="T1_1_P1" PRS="123-126"
+#   include a commit diff JSON section:
+#     make pack-pass FLAGS="--commit <SHA>" GROUP="T1_1_P1" PRS="92-96"
+
+.PHONY: pack-commit
+pack-commit:
+	@./.codex/scripts/pack-pass-for-synth.sh --commit $(SHA) $(FLAGS) $(GROUP) $(PRS)
+# usage:
+#   make pack-commit SHA=<commit> GROUP="T1_1_PX"
+#   (optional) also include PRs: PRS="92-96" or "92:A 93:B"
 
 winner:
 	@bash ./.codex/scripts/winner.sh

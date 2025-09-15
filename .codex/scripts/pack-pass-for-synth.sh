@@ -2,22 +2,27 @@
 set -euo pipefail
 
 # Usage:
-#   pack-pass-for-synth.sh [-all] <GROUP> <PR|PR-PR|PR[:LABEL]>...
+#   pack-pass-for-synth.sh [-all] [--commit <sha>] <GROUP> [<PR|PR-PR|PR[:LABEL]>...]
 # Example:
 #   pack-pass-for-synth.sh -all T1_1_P1 92-96
 #   pack-pass-for-synth.sh T1_1_P1 92:A 93:B 94:C 95:D 96:E
 
 INCLUDE_DIFF=0
+COMMIT_SHA=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -all|--all) INCLUDE_DIFF=1; shift ;;
+    --commit) COMMIT_SHA="${2:-}"; [[ -n "$COMMIT_SHA" ]] || { echo "--commit requires a SHA" >&2; exit 2; }; shift 2 ;;
     --) shift; break ;;
     -*) echo "Unknown flag: $1" >&2; exit 2 ;;
     *) break ;;
   esac
 done
 
-[[ $# -ge 2 ]] || { echo "Usage: $0 [-all] <GROUP> <PR|PR-PR|PR[:LABEL]>..."; exit 2; }
+if [[ $# -lt 1 ]]; then
+  echo "Usage: $0 [-all] [--commit <sha>] <GROUP> [<PR|PR-PR|PR[:LABEL]>...]" >&2
+  exit 2
+fi
 command -v gh >/dev/null || { echo "Requires GitHub CLI: gh"; exit 1; }
 command -v jq >/dev/null || { echo "Requires jq"; exit 1; }
 
@@ -117,7 +122,27 @@ for pl in "${PAIRS[@]}"; do
   printf '\n%s' "$row" >> "$OUT_JSON"; first=0
 done
 
-printf '\n]}\n' >> "$OUT_JSON"
+# Optional commit diff section
+commit_section=""
+if [[ -n "$COMMIT_SHA" ]]; then
+  if command -v gh >/dev/null 2>&1; then
+    REPO_NAME="$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || echo)"
+    if [[ -n "$REPO_NAME" ]]; then
+      commit_section=$(gh api "repos/${REPO_NAME}/commits/${COMMIT_SHA}" \
+        -q '{sha: .sha, stats: .stats, files: [.files[] | {filename,status,additions,deletions,patch}]}' 2>/dev/null || echo '')
+    fi
+  fi
+  if [[ -z "$commit_section" ]]; then
+    diff_txt="$(git show "$COMMIT_SHA" 2>/dev/null || echo)"
+    commit_section=$(jq -nc --arg sha "$COMMIT_SHA" --arg diff "$diff_txt" '{sha:$sha, diffText:$diff}')
+  fi
+fi
+
+if [[ -n "$commit_section" ]]; then
+  printf '\n],\n  "commit": %s\n}\n' "$commit_section" >> "$OUT_JSON"
+else
+  printf '\n]}\n' >> "$OUT_JSON"
+fi
 echo "[pack] wrote:"
 echo " - $OUT_MD"
 echo " - $OUT_JSON"

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { equals, subsetOf, inRange, matchesRegex, nonEmpty } from "../src/index.js";
+import { MESSAGES } from "../src/messages.js";
 
 describe("equals", () => {
   it("ok", () => {
@@ -10,6 +11,7 @@ describe("equals", () => {
     expect(r.ok).toBe(false);
     expect(r.code).toBe("E_NOT_EQUAL");
     expect(r.path).toBe("/b/1");
+    expect(r.message).toBe(MESSAGES["E_NOT_EQUAL"]());
   });
   it("fail on type mismatch", () => {
     const r = equals(1, "1");
@@ -87,6 +89,7 @@ describe("inRange", () => {
     expect(r.ok).toBe(false);
     expect(r.code).toBe("E_OUT_OF_RANGE");
     expect(r.path).toBe("/");
+    expect(r.message).toBe(MESSAGES["E_OUT_OF_RANGE"]({ min: 1, max: 10 }));
   });
   it("at min", () => {
     expect(inRange(1, 1, 10).ok).toBe(true);
@@ -101,10 +104,12 @@ describe("matchesRegex", () => {
     expect(matchesRegex("abc123", /^[a-z]+\d+$/).ok).toBe(true);
   });
   it("fail", () => {
-    const r = matchesRegex("abc", /^\d+$/);
+    const pat = /^\d+$/;
+    const r = matchesRegex("abc", pat);
     expect(r.ok).toBe(false);
     expect(r.code).toBe("E_REGEX_MISMATCH");
     expect(r.path).toBe("/");
+    expect(r.message).toBe(MESSAGES["E_REGEX_MISMATCH"]({ pattern: String(pat) }));
   });
   it("global regex deterministic", () => {
     const re = /a/g;
@@ -122,6 +127,7 @@ describe("nonEmpty", () => {
     expect(r.ok).toBe(false);
     expect(r.code).toBe("E_EMPTY");
     expect(r.path).toBe("/");
+    expect(r.message).toBe(MESSAGES["E_EMPTY"]());
   });
   it("fail empty array", () => {
     const r = nonEmpty([]);
@@ -133,4 +139,3 @@ describe("nonEmpty", () => {
     expect(nonEmpty([null]).ok).toBe(true);
   });
 });
-

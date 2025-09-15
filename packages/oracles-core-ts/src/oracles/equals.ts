@@ -1,4 +1,5 @@
 import type { OracleResult } from "../result.js";
+import { MESSAGES } from "../messages.js";
 
 function diffPath(a: any, b: any, base: string = ""): string | null {
   const path = (k: string | number) =>
@@ -42,6 +43,6 @@ function diffPath(a: any, b: any, base: string = ""): string | null {
 export function equals(actual: unknown, expected: unknown): OracleResult {
   const p = diffPath(actual, expected, "");
   if (p === null) return { ok: true };
-  return { ok: false, code: "E_NOT_EQUAL", message: "values are not equal", path: p };
+  const code = "E_NOT_EQUAL" as const;
+  return { ok: false, code, message: MESSAGES[code](), path: p };
 }
-

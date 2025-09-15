@@ -1,4 +1,5 @@
 import type { OracleResult } from "../result.js";
+import { MESSAGES } from "../messages.js";
 
 function escapePointerSegment(segment: string | number): string {
   return String(segment).replace(/~/g, "~0").replace(/\//g, "~1");
@@ -11,7 +12,8 @@ function pointerFromSegments(segments: Array<string | number>): string {
 
 function subsetOfInner(actual: unknown, expected: unknown, segments: Array<string | number>): OracleResult {
   if (!actual || typeof actual !== "object" || !expected || typeof expected !== "object") {
-    return { ok: false, code: "E_NOT_SUBSET", message: "object is not a subset of expected", path: pointerFromSegments(segments) };
+    const code = "E_NOT_SUBSET" as const;
+    return { ok: false, code, message: MESSAGES[code](), path: pointerFromSegments(segments) };
   }
   const a = actual as Record<string, unknown>;
   const e = expected as Record<string, unknown>;
@@ -25,7 +27,8 @@ function subsetOfInner(actual: unknown, expected: unknown, segments: Array<strin
       const result = subsetOfInner(av, ev, [...segments, k]);
       if (!result.ok) return result;
     } else if (!Object.is(av, ev)) {
-      return { ok: false, code: "E_NOT_SUBSET", message: "object is not a subset of expected", path: pointerFromSegments([...segments, k]) };
+      const code = "E_NOT_SUBSET" as const;
+      return { ok: false, code, message: MESSAGES[code](), path: pointerFromSegments([...segments, k]) };
     }
   }
   return { ok: true };
@@ -34,4 +37,3 @@ function subsetOfInner(actual: unknown, expected: unknown, segments: Array<strin
 export function subsetOf(actual: unknown, expected: unknown): OracleResult {
   return subsetOfInner(actual, expected, []);
 }
-

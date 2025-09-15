@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "tf-spec",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "name", "steps"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "enum": ["0.1"]
+    },
+    "name": {
+      "type": "string"
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["op", "params"],
+            "properties": {
+              "op": { "const": "copy" },
+              "params": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["src", "dest"],
+                "properties": {
+                  "src": { "type": "string" },
+                  "dest": { "type": "string" }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["op", "params"],
+            "properties": {
+              "op": { "const": "create_vm" },
+              "params": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["image", "cpus"],
+                "properties": {
+                  "image": { "type": "string" },
+                  "cpus": { "type": "integer", "minimum": 1 }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["op", "params"],
+            "properties": {
+              "op": { "const": "create_network" },
+              "params": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["cidr"],
+                "properties": {
+                  "cidr": { "type": "string" }
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

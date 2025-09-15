@@ -1,0 +1,13 @@
+{
+  "version": "0.1",
+  "name": "copy-file",
+  "steps": [
+    {
+      "op": "copy",
+      "params": {
+        "src": "README.md",
+        "dest": "/tmp/readme.md"
+      }
+    }
+  ]
+}

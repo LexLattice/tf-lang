@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+set -e
+exec node .codex/scripts/validate-tf-spec.mjs "$@"

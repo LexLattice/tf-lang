@@ -1,0 +1,21 @@
+{
+  "name": "@tf/oracles-determinism",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Determinism oracle ensuring identical checkpoints and final states across runtimes",
+  "license": "MIT",
+  "exports": "./src/index.ts",
+  "main": "src/index.ts",
+  "dependencies": {
+    "@tf/oracles-core": "workspace:*"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "fast-check": "^3.18.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}

@@ -1,0 +1,3 @@
+- 2025-09-15T21:07:29Z — Start C1 (Oracle Stdlib core); seeds: []
+- 2025-09-15T21:20:20Z — C1 build/test (`pnpm --filter @tf/oracles-core build`, `pnpm --filter @tf/oracles-core test`, `cargo test --workspace --all-targets`); seeds: []
+- 2025-09-15T21:47:34Z — C2 determinism oracle tests (`pnpm --filter @tf/oracles-determinism build`, `pnpm --filter @tf/oracles-determinism test`, `cargo test --package tf-oracles-determinism`, `cargo test --workspace --all-targets`); seeds: ["0x6f2a7c9b", "0x5eadbeef", "0x6f2a7c9bbabc1234", "0x5eadbeefcafebabe"]

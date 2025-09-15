@@ -1,0 +1,17 @@
+{
+  "name": "@tf/oracles-core",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Shared oracle contracts and helpers for TF-Lang",
+  "license": "MIT",
+  "exports": "./src/index.ts",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}

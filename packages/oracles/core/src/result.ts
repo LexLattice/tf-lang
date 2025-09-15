@@ -69,7 +69,15 @@ function normalizeWarnings(source: Iterable<string>): string[] {
       set.add(normalized);
     }
   }
-  return Array.from(set.values());
+  return Array.from(set.values()).sort((a, b) => {
+    if (a < b) {
+      return -1;
+    }
+    if (a > b) {
+      return 1;
+    }
+    return 0;
+  });
 }
 
 function normalizeCode(code: string): string {

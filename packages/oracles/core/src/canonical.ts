@@ -39,6 +39,24 @@ function canonicalizeValue(value: unknown): unknown {
     return (value as unknown[]).map((entry) => canonicalizeValue(entry ?? null));
   }
 
+  if (value instanceof Set) {
+    const canonicalItems = Array.from(value as Set<unknown>).map((entry) =>
+      canonicalizeValue(entry ?? null),
+    );
+    canonicalItems.sort((left, right) => {
+      const a = JSON.stringify(left);
+      const b = JSON.stringify(right);
+      if (a < b) {
+        return -1;
+      }
+      if (a > b) {
+        return 1;
+      }
+      return 0;
+    });
+    return canonicalItems;
+  }
+
   if (value instanceof Date) {
     return value.toISOString();
   }

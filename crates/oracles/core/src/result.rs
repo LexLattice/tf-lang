@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -122,18 +124,15 @@ where
     I: IntoIterator,
     I::Item: AsRef<str>,
 {
-    let mut result = Vec::new();
+    let mut set = BTreeSet::new();
     for entry in source {
         let trimmed = entry.as_ref().trim();
         if trimmed.is_empty() {
             continue;
         }
-        if result.iter().any(|existing| existing == trimmed) {
-            continue;
-        }
-        result.push(trimmed.to_string());
+        set.insert(trimmed.to_string());
     }
-    result
+    set.into_iter().collect()
 }
 
 fn normalize_code(code: &str) -> String {

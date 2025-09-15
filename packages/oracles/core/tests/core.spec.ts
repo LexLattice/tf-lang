@@ -15,7 +15,7 @@ describe("oracles core", () => {
     expect(result).toEqual({
       ok: true,
       value: 42,
-      warnings: ["keep", "drop"],
+      warnings: ["drop", "keep"],
     });
   });
 
@@ -61,5 +61,19 @@ describe("oracles core", () => {
   it("provides a deterministic default canonicalizer", () => {
     const canonical = defaultCanonicalize({ z: 1, a: 2 });
     expect(Object.keys(canonical)).toEqual(["a", "z"]);
+  });
+
+  it("normalizes Set instances deterministically", () => {
+    const ctx = createOracleCtx("0x2", { now: 0 });
+    const input = new Set([
+      { id: 2, payload: { x: 1, y: 2 } },
+      { id: 1, payload: { y: 2, x: 1 } },
+    ]);
+
+    const canonical = ctx.canonicalize(input);
+    expect(canonical).toEqual([
+      { id: 1, payload: { x: 1, y: 2 } },
+      { id: 2, payload: { x: 1, y: 2 } },
+    ]);
   });
 });

@@ -1,12 +1,5 @@
 use serde_json::{json, Value};
-use tf_oracles_core::{
-    canonical_string,
-    err,
-    ok,
-    with_trace,
-    OracleCtx,
-    OracleResult,
-};
+use tf_oracles_core::{canonical_string, err, ok, with_trace, OracleCtx, OracleResult};
 
 #[test]
 fn success_deduplicates_warnings() {
@@ -14,7 +7,10 @@ fn success_deduplicates_warnings() {
     match result {
         OracleResult::Success(success) => {
             assert_eq!(success.value, 42);
-            assert_eq!(success.warnings, Some(vec!["keep".to_string(), "drop".to_string()]));
+            assert_eq!(
+                success.warnings,
+                Some(vec!["drop".to_string(), "keep".to_string()])
+            );
         }
         OracleResult::Failure(_) => panic!("expected success"),
     }
@@ -37,7 +33,10 @@ fn error_normalizes_code_and_explain() {
 fn trace_is_merged_and_deduped() {
     let base = err("E_FAIL", "bad", None);
     let failure = with_trace(base, ["alpha", "alpha", "beta"]);
-    assert_eq!(failure.trace, Some(vec!["alpha".to_string(), "beta".to_string()]));
+    assert_eq!(
+        failure.trace,
+        Some(vec!["alpha".to_string(), "beta".to_string()])
+    );
 }
 
 #[test]

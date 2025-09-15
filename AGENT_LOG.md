@@ -17,3 +17,8 @@
 - [C4] Refactored tf-oracles-core internals into canonical/context/oracle/result modules with unchanged API surface.
 - Commands: `cargo test --workspace --all-targets --manifest-path crates/Cargo.toml`.
 - Seeds: n/a.
+
+## 2025-09-15T23:33:00Z
+- [C5] Applied policy polish (Set canonicalization, sorted warnings, BTreeSet dedupe, dev-deps tidy).
+- Commands: `pnpm -C packages/oracles/core build`, `pnpm -C packages/oracles/core test`, `pnpm -C packages/oracles-core-ts build`, `pnpm -C packages/oracles-core-ts test`, `cargo test --workspace --all-targets --manifest-path crates/Cargo.toml`.
+- Notes: Workspace `pnpm run build` still fails at `services/claims-api-ts` for missing sqlite typings.

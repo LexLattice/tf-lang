@@ -1,0 +1,1 @@
+- Blocked on remaining C3–C9 deliverables (conservation, idempotence, transport/region, conservativity, harness, mutation, reports) due to time window. Next agent should continue from C3 with conservation oracle implementation and follow the existing checkpoint plan.

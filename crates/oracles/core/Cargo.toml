@@ -1,0 +1,15 @@
+[package]
+name = "tf-oracles-core"
+version = "0.1.0"
+edition = "2021"
+description = "Core contracts and helpers for TF oracles"
+license = "MIT"
+
+[lib]
+name = "tf_oracles_core"
+path = "src/lib.rs"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

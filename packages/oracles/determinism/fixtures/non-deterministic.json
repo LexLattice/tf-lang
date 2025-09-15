@@ -1,0 +1,30 @@
+{
+  "cases": [
+    {
+      "name": "price-feed",
+      "seed": "0xfeed1",
+      "runs": [
+        {
+          "runId": "initial",
+          "final": {
+            "balances": {"USD": 1000, "BTC": 1}
+          },
+          "checkpoints": {
+            "pre": {"balances": {"USD": 1000, "BTC": 1}},
+            "post": {"balances": {"USD": 990, "BTC": 1.01}}
+          }
+        },
+        {
+          "runId": "rerun",
+          "final": {
+            "balances": {"USD": 1000, "BTC": 1.0005}
+          },
+          "checkpoints": {
+            "pre": {"balances": {"USD": 1000, "BTC": 1}},
+            "post": {"balances": {"USD": 989, "BTC": 1.015}}
+          }
+        }
+      ]
+    }
+  ]
+}

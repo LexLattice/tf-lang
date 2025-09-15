@@ -31,7 +31,7 @@ function diffPath(a: any, b: any, base: string = ""): string | null {
     const keys = Array.from(new Set([...Object.keys(a), ...Object.keys(b)])).sort();
     for (const k of keys) {
       if (!(k in a) || !(k in b)) return path(k);
-      const p = diffPath((a as any)[k], (b as any)[k], path(k));
+      const p = diffPath(a[k], b[k], path(k));
       if (p) return p;
     }
   }

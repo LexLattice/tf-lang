@@ -68,6 +68,15 @@ importers:
         specifier: ^2.0.5
         version: 2.1.9(@types/node@24.3.1)(jsdom@24.1.3)
 
+  packages/oracles-core-ts:
+    devDependencies:
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.2
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@24.3.1)(jsdom@24.1.3)
+
   packages/tf-lang-l0-ts:
     dependencies:
       '@noble/hashes':

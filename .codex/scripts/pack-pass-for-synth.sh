@@ -2,12 +2,22 @@
 set -euo pipefail
 
 # Usage:
-#   pack-pass-for-synth.sh <GROUP> <PR|PR-PR|PR[:LABEL]>...
+#   pack-pass-for-synth.sh [-all] <GROUP> <PR|PR-PR|PR[:LABEL]>...
 # Example:
-#   pack-pass-for-synth.sh T1_1_P1 92-96
+#   pack-pass-for-synth.sh -all T1_1_P1 92-96
 #   pack-pass-for-synth.sh T1_1_P1 92:A 93:B 94:C 95:D 96:E
 
-[[ $# -ge 2 ]] || { echo "Usage: $0 <GROUP> <PR|PR-PR|PR[:LABEL]>..."; exit 2; }
+INCLUDE_DIFF=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -all|--all) INCLUDE_DIFF=1; shift ;;
+    --) shift; break ;;
+    -*) echo "Unknown flag: $1" >&2; exit 2 ;;
+    *) break ;;
+  esac
+done
+
+[[ $# -ge 2 ]] || { echo "Usage: $0 [-all] <GROUP> <PR|PR-PR|PR[:LABEL]>..."; exit 2; }
 command -v gh >/dev/null || { echo "Requires GitHub CLI: gh"; exit 1; }
 command -v jq >/dev/null || { echo "Requires jq"; exit 1; }
 
@@ -87,12 +97,22 @@ for pl in "${PAIRS[@]}"; do
   jq -r '.reviews[]? | "- **\(.author.login)** (\(.state)): \((.body // "") | gsub("\r";""))"' <<<"$filt" >> "$OUT_MD"
   jq -r '.comments[]? | "- **\(.author.login)**: \((.body // "") | gsub("\r";""))"' <<<"$filt" >> "$OUT_MD"
 
-  # JSON row includes filtered reviews/comments
-  row=$(jq -c --arg lbl "$lbl" --arg pr "$pr" --arg url "$url" --arg title "$title" \
-              --arg state "$state" --arg body "$body" --argjson rc "$filt" '
-        {label:$lbl, pr:($pr|tonumber), url:$url, title:$title, state:$state, body:$body,
-         reviews: ($rc.reviews // []), comments: ($rc.comments // [])}
-      ' <<<"{}")
+  # JSON row includes filtered reviews/comments; optionally add diff
+  if [[ $INCLUDE_DIFF -eq 1 ]]; then
+    diff_txt="$(gh pr diff "$pr" 2>/dev/null || true)"
+    row=$(jq -c --arg lbl "$lbl" --arg pr "$pr" --arg url "$url" --arg title "$title" \
+                --arg state "$state" --arg body "$body" --argjson rc "$filt" \
+                --arg diff "$diff_txt" '
+          {label:$lbl, pr:($pr|tonumber), url:$url, title:$title, state:$state, body:$body,
+           reviews: ($rc.reviews // []), comments: ($rc.comments // []), diff: $diff}
+        ' <<<"{}")
+  else
+    row=$(jq -c --arg lbl "$lbl" --arg pr "$pr" --arg url "$url" --arg title "$title" \
+                --arg state "$state" --arg body "$body" --argjson rc "$filt" '
+          {label:$lbl, pr:($pr|tonumber), url:$url, title:$title, state:$state, body:$body,
+           reviews: ($rc.reviews // []), comments: ($rc.comments // [])}
+        ' <<<"{}")
+  fi
   if [[ $first -eq 0 ]]; then printf ',' >> "$OUT_JSON"; fi
   printf '\n%s' "$row" >> "$OUT_JSON"; first=0
 done

@@ -1,0 +1,6 @@
+{
+  "version": "0.1",
+  "goals": ["user projection"],
+  "lenses": [{"path": "/profile"}],
+  "effect": {"state": {"profile": {"name": "a"}}}
+}

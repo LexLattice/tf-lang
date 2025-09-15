@@ -1,0 +1,8 @@
+{
+  "version": "0.1",
+  "goals": ["balance consistent"],
+  "invariants": [{"path": "/balance", "equals": 100}],
+  "gates": ["signed"],
+  "lenses": [{"path": "/account"}],
+  "effect": {"state": {"balance": 100}}
+}

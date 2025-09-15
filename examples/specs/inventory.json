@@ -1,0 +1,9 @@
+{
+  "version": "0.1",
+  "goals": ["inventory update"],
+  "invariants": [
+    {"path": "/stock/0", "equals": 10},
+    {"path": "/stock/1", "equals": 5}
+  ],
+  "effect": {"state": {"stock": [10,5]}}
+}

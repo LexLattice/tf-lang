@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TF Spec",
+  "type": "object",
+  "required": ["version", "goals"],
+  "properties": {
+    "version": { "type": "string" },
+    "goals": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "invariants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "equals"],
+        "properties": {
+          "path": { "type": "string" },
+          "equals": {}
+        },
+        "additionalProperties": false
+      }
+    },
+    "gates": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "lenses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path"],
+        "properties": {
+          "path": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "effect": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

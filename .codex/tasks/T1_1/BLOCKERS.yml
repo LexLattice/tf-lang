@@ -1,0 +1,25 @@
+schema_changes_allowed: true  # this card defines the initial schema
+
+must_not:
+  - cross-test state or nondeterminism
+  - introduce runtime dependencies (CI-only dev deps allowed)
+  - TS: deep imports across packages
+  - TS: internal ESM imports without ".js" suffix
+  - TS: use of `as any`
+  - Rust: use of `static mut`
+  - Rust: panicking unwraps in library code
+  - tracing overhead when DEV_PROOFS=0
+  - change APIs or file formats beyond what this card specifies
+
+machine_rules:
+  ts:
+    no_deep_imports: true
+    internal_esm_imports_end_with_js: true
+    no_as_any: true
+  rust:
+    no_static_mut: true
+    no_panicking_unwraps_in_libs: true
+    use_atomics_mutexes_appropriately: true
+  runtime_deps:
+    allowed: false
+    ci_dev_deps_allowed: true

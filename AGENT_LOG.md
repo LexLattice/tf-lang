@@ -22,3 +22,8 @@
 - [C5] Applied policy polish (Set canonicalization, sorted warnings, BTreeSet dedupe, dev-deps tidy).
 - Commands: `pnpm -C packages/oracles/core build`, `pnpm -C packages/oracles/core test`, `pnpm -C packages/oracles-core-ts build`, `pnpm -C packages/oracles-core-ts test`, `cargo test --workspace --all-targets --manifest-path crates/Cargo.toml`.
 - Notes: Workspace `pnpm run build` still fails at `services/claims-api-ts` for missing sqlite typings.
+
+## 2025-09-15T23:34:00Z
+- [C6] Updated READMEs and TODO for harmonized fixtures, canonical seeds, and determinism notes.
+- Commands: n/a (docs only).
+- Notes: Fixtures documented under `packages/oracles/determinism/fixtures/`.

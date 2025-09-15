@@ -12,21 +12,42 @@ Rust implementation of the determinism oracle shared with the TS runtime.
 ## Usage
 
 ```rust
-use tf_oracles_core::OracleCtx;
+use std::collections::BTreeMap;
+
+use serde_json::json;
+use tf_oracles_core::{OracleCtx, OracleResult};
 use tf_oracles_determinism::{check_determinism, DeterminismCase, DeterminismInput, DeterminismRun};
 
-let input = DeterminismInput {
-    cases: vec![DeterminismCase {
-        name: "price-feed".into(),
-        seed: "0x01".into(),
-        runs: vec![
-            DeterminismRun { run_id: "baseline".into(), final_state: serde_json::json!({"p": 100}), checkpoints: Default::default(), note: None },
-            DeterminismRun { run_id: "rerun".into(), final_state: serde_json::json!({"p": 100}), checkpoints: Default::default(), note: None },
-        ],
-    }],
-};
-let ctx = OracleCtx::new("0xfeed").with_now(0);
-let result = check_determinism(&input, &ctx);
+fn main() {
+    let runs = vec![
+        DeterminismRun {
+            run_id: "baseline".into(),
+            final_state: json!({"p": 100}),
+            checkpoints: BTreeMap::new(),
+            note: None,
+        },
+        DeterminismRun {
+            run_id: "rerun".into(),
+            final_state: json!({"p": 100}),
+            checkpoints: BTreeMap::new(),
+            note: None,
+        },
+    ];
+
+    let input = DeterminismInput {
+        cases: vec![DeterminismCase {
+            name: "price-feed".into(),
+            seed: "0x01".into(),
+            runs,
+        }],
+    };
+
+    let ctx = OracleCtx::new("0xfeed").with_now(0);
+    match check_determinism(&input, &ctx) {
+        OracleResult::Success(report) => println!("runs checked: {}", report.value.runs_checked),
+        OracleResult::Failure(failure) => panic!("unexpected drift: {}", failure.error.code),
+    }
+}
 ```
 
 ## Tests
@@ -37,6 +58,10 @@ cargo test --manifest-path crates/Cargo.toml -p tf-oracles-determinism
 
 Rust property seeds mirror the TS seeds and live in
 `tests/seeds.json`.
+
+Fixtures shared with the TS runtime are stored in
+`packages/oracles/determinism/fixtures/` and the tests exercise each JSON case
+directly.
 
 ## Failure anatomy
 

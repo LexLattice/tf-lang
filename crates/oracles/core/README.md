@@ -14,12 +14,16 @@ Rust primitives shared by the TF oracle implementations.
 ## Usage
 
 ```rust
-use tf_oracles_core::{ok, OracleCtx};
+use serde_json::json;
+use tf_oracles_core::{ok, OracleCtx, OracleResult};
 
-let ctx = OracleCtx::new("0xfeed").with_now(0);
-let result = ok(ctx.canonicalize(&serde_json::json!({"foo": 1}))?, []);
-assert!(matches!(result, tf_oracles_core::OracleResult::Success(_)));
-# Ok::<(), tf_oracles_core::CanonError>(())
+fn main() -> Result<(), tf_oracles_core::CanonError> {
+    let ctx = OracleCtx::new("0xfeed").with_now(0);
+    let canonical = ctx.canonicalize(&json!({"foo": 1}))?;
+    let result = ok(canonical, []);
+    assert!(matches!(result, OracleResult::Success(_)));
+    Ok(())
+}
 ```
 
 ## Tests

@@ -38,36 +38,57 @@ pnpm -C packages/oracles/determinism build
 pnpm -C packages/oracles/determinism test
 ```
 
-Property seeds are recorded in `tests/seeds.json` (TS) and mirrored in the Rust
-crate.
+Property seeds live in `tests/seeds.json` (TS) and `crates/oracles/determinism/tests/seeds.json`
+for the Rust crate.
 
 ## Failure anatomy
 
-Given `fixtures/non-deterministic.json`:
+Regression fixtures live under `packages/oracles/determinism/fixtures`. Each
+fixture records the oracle input and the expected outcome. For example
+`non-deterministic.json` captures a drifted price feed rerun:
 
 ```json
 {
-  "ok": false,
-  "error": {
-    "code": "E_NON_DETERMINISTIC",
-    "explain": "Runs diverged under identical seeds",
-    "details": {
-      "mismatches": [
-        {
-          "case": "price-feed",
-          "seed": "0xfeed1",
-          "run": "rerun",
-          "mismatches": [
-            {"checkpoint": "final"},
-            {"checkpoint": "post"}
-          ]
-        }
-      ]
-    }
+  "input": {
+    "cases": [
+      {
+        "name": "price-feed",
+        "seed": "0xfeed1",
+        "runs": [
+          {
+            "runId": "initial",
+            "final": { "balances": { "USD": 1000, "BTC": 1 } },
+            "checkpoints": {
+              "pre": { "balances": { "USD": 1000, "BTC": 1 } },
+              "post": { "balances": { "USD": 990, "BTC": 1.01 } }
+            }
+          },
+          {
+            "runId": "rerun",
+            "final": { "balances": { "USD": 1000, "BTC": 1.0005 } },
+            "checkpoints": {
+              "pre": { "balances": { "USD": 1000, "BTC": 1 } },
+              "post": { "balances": { "USD": 989, "BTC": 1.015 } }
+            }
+          }
+        ]
+      }
+    ]
   },
-  "trace": ["case:price-feed:run:rerun"]
+  "expect": {
+    "ok": false,
+    "mismatches": [
+      {
+        "case": "price-feed",
+        "seed": "0xfeed1",
+        "run": "rerun",
+        "checkpoints": ["final", "post"]
+      }
+    ]
+  }
 }
 ```
 
-The oracle highlights every checkpoint that deviated, allowing CI to surface
-the exact drift.
+Feeding the `input` into the oracle returns a failure with the mismatches above
+and a trace of the first drifting runs. The TS and Rust tests load these JSON
+fixtures directly, ensuring both runtimes stay in sync.

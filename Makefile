@@ -135,7 +135,10 @@ pass-report:
 	@bash ./.codex/scripts/pass-report.sh
 
 pack-pass:
-	@bash ./.codex/scripts/pack-pass.sh
+	@./.codex/scripts/pack-pass-for-synth.sh $(GROUP) $(PRS)
+# usage:
+#   make pack-pass GROUP="T1_1_P1" PRS="123-126"
+#   make pack-pass GROUP="C1_4"    PRS="34:A 35:B 36:C 37:D"
 
 winner:
 	@bash ./.codex/scripts/winner.sh

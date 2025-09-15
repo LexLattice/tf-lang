@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TF Spec",
+  "type": "object",
+  "required": ["tf", "args"],
+  "properties": {
+    "tf": {
+      "type": "string",
+      "pattern": "^tf://[a-z_]+(/[a-z_]+)*@[0-9]+\\.[0-9]+$"
+    },
+    "args": {
+      "type": "array"
+    },
+    "note": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

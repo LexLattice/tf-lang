@@ -1,0 +1,5 @@
+{
+  "tf": "tf://assert/dimension_eq@0.1",
+  "args": [[1,2,3],[4,5,6]],
+  "note": "Check two arrays have equal length"
+}

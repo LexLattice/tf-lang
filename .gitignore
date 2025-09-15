@@ -67,6 +67,9 @@ docs/archive/
 .codex/runs/
 docs/runs/*.json
 
+# TF spec validation artifacts
+tf-spec/
+
 
 # SQLite artifacts
 *.db

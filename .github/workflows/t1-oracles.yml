@@ -1,0 +1,20 @@
+name: t1-oracles-epic
+on: [push, pull_request]
+jobs:
+  t1:
+    strategy:
+      matrix:
+        job: [oracle-core, determinism-oracle, conservation-oracle, idempotence-oracle, transport-region-oracle, conservativity-oracle, oracle-harness, oracle-strength]
+        runtime: [ts, rust]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup ${{ matrix.runtime }}
+        uses: ./.github/actions/setup-${{ matrix.runtime }}
+      - name: Run ${{ matrix.job }}
+        run: pnpm nx run ci:${{ matrix.job }} --runtime=${{ matrix.runtime }}
+      - name: Determinism re-run
+        run: pnpm -w tf-meta determinism --job ${{ matrix.job }} --repeats 2
+      - name: Upload T1 artifacts
+        uses: actions/upload-artifact@v4
+        with: { name: t1-${{ matrix.job }}-${{ matrix.runtime }}, path: out/t1/** }

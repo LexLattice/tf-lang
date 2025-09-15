@@ -1,0 +1,20 @@
+{
+  "runs": [
+    {
+      "runtime": "ts",
+      "checkpoints": [
+        { "label": "init", "state": { "balance": 10 } },
+        { "label": "apply", "state": { "balance": 15 } }
+      ],
+      "finalState": { "balance": 15 }
+    },
+    {
+      "runtime": "rs",
+      "checkpoints": [
+        { "label": "init", "state": { "balance": 10 } },
+        { "label": "apply", "state": { "balance": 15 } }
+      ],
+      "finalState": { "balance": 15 }
+    }
+  ]
+}

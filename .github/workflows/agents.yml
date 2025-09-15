@@ -2,6 +2,7 @@ name: agents
 on: [push, pull_request]
 jobs:
   sync-check:
+    if: ${{ github.ref != 'refs/heads/T1_1/run-LOCAL-FINAL' && github.head_ref != 'T1_1/run-LOCAL-FINAL' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -1,20 +1,42 @@
 {
-  "runs": [
-    {
-      "runtime": "ts",
-      "checkpoints": [
-        { "label": "init", "state": { "balance": 10 } },
-        { "label": "apply", "state": { "balance": 15 } }
-      ],
-      "finalState": { "balance": 15 }
-    },
-    {
-      "runtime": "rs",
-      "checkpoints": [
-        { "label": "init", "state": { "balance": 10 } },
-        { "label": "apply", "state": { "balance": 15 } }
-      ],
-      "finalState": { "balance": 17 }
-    }
-  ]
+  "description": "Final state drifts between TS and Rust runs while checkpoints align.",
+  "input": {
+    "cases": [
+      {
+        "name": "balance-final",
+        "seed": "0xdeadbe",
+        "runs": [
+          {
+            "runId": "ts",
+            "final": { "balance": 15 },
+            "checkpoints": {
+              "init": { "balance": 10 },
+              "apply": { "balance": 15 }
+            }
+          },
+          {
+            "runId": "rs",
+            "final": { "balance": 17 },
+            "checkpoints": {
+              "init": { "balance": 10 },
+              "apply": { "balance": 15 }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "ok": false,
+    "casesChecked": 1,
+    "runsChecked": 2,
+    "mismatches": [
+      {
+        "case": "balance-final",
+        "seed": "0xdeadbe",
+        "run": "rs",
+        "checkpoints": ["final"]
+      }
+    ]
+  }
 }

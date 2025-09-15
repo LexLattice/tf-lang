@@ -1,11 +1,54 @@
+import { readFileSync, readdirSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { describe, expect, it } from "vitest";
 import * as fc from "fast-check";
 
 import { createOracleCtx } from "@tf/oracles-core";
 import { checkDeterminism, createDeterminismOracle } from "../src/index.js";
+import type { DeterminismInput } from "../src/types.js";
 
-const PASS_SEED = 0x5a17ce;
-const FAIL_SEED = 0x9b1d2c;
+interface SeedsFile {
+  readonly ts: {
+    readonly passProperty: string;
+    readonly failProperty: string;
+  };
+}
+
+interface FixtureExpectation {
+  readonly ok: boolean;
+  readonly casesChecked: number;
+  readonly runsChecked: number;
+  readonly mismatches?: ReadonlyArray<{
+    readonly case: string;
+    readonly seed: string;
+    readonly run: string;
+    readonly checkpoints: ReadonlyArray<string>;
+  }>;
+}
+
+interface DeterminismFixture {
+  readonly description: string;
+  readonly input: DeterminismInput;
+  readonly expect: FixtureExpectation;
+}
+
+interface LoadedFixture {
+  readonly file: string;
+  readonly data: DeterminismFixture;
+}
+
+const thisDir = dirname(fileURLToPath(import.meta.url));
+const seedsPath = join(thisDir, "seeds.json");
+const fixturesDir = join(thisDir, "..", "fixtures");
+
+const seedsFile = JSON.parse(readFileSync(seedsPath, "utf-8")) as SeedsFile;
+
+const PASS_SEED = parseSeed(seedsFile.ts.passProperty);
+const FAIL_SEED = parseSeed(seedsFile.ts.failProperty);
+
+const FIXTURES: LoadedFixture[] = loadFixtures();
 
 const jsonValue = () => fc.jsonValue({ maxDepth: 3 });
 
@@ -115,6 +158,55 @@ describe("determinism oracle", () => {
   });
 });
 
+describe("determinism fixtures", () => {
+  for (const fixture of FIXTURES) {
+    it(`matches ${fixture.file}`, async () => {
+      const ctx = createOracleCtx("0xfeed", { now: 0 });
+      const { input, expect: expectation } = fixture.data;
+      expect(countCases(input)).toBe(expectation.casesChecked);
+      expect(countRuns(input)).toBe(expectation.runsChecked);
+
+      const result = await checkDeterminism(input, ctx);
+      if (expectation.ok) {
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+          expect(result.value.casesChecked).toBe(expectation.casesChecked);
+          expect(result.value.runsChecked).toBe(expectation.runsChecked);
+        }
+        return;
+      }
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe("E_NON_DETERMINISTIC");
+        const expectedMismatches = expectation.mismatches ?? [];
+        const details = result.error.details as {
+          readonly mismatches?: ReadonlyArray<{
+            readonly case: string;
+            readonly seed: string;
+            readonly run: string;
+            readonly mismatches: ReadonlyArray<{ readonly checkpoint: string }>;
+          }>;
+        } | undefined;
+        const actualMismatches = details?.mismatches ?? [];
+        expect(actualMismatches).toHaveLength(expectedMismatches.length);
+        for (const expected of expectedMismatches) {
+          const match = actualMismatches.find(
+            (entry) => entry.case === expected.case && entry.run === expected.run,
+          );
+          expect(match).toBeDefined();
+          if (match) {
+            const actualCheckpoints = match.mismatches.map((item) => item.checkpoint).sort();
+            const expectedCheckpoints = [...expected.checkpoints].sort();
+            expect(actualCheckpoints).toEqual(expectedCheckpoints);
+            expect(match.seed).toBe(expected.seed);
+          }
+        }
+      }
+    });
+  }
+});
+
 function clone<T>(value: T): T {
   return structuredClone(value);
 }
@@ -142,4 +234,30 @@ function perturb(value: unknown): unknown {
     return !value;
   }
   return { __mutated__: value };
+}
+
+function parseSeed(value: string): number {
+  const parsed = Number.parseInt(value, 16);
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`Invalid seed: ${value}`);
+  }
+  return parsed;
+}
+
+function loadFixtures(): LoadedFixture[] {
+  const entries = readdirSync(fixturesDir).filter((file) => file.endsWith(".json"));
+  return entries
+    .sort()
+    .map((file) => {
+      const payload = JSON.parse(readFileSync(join(fixturesDir, file), "utf-8")) as DeterminismFixture;
+      return { file, data: payload };
+    });
+}
+
+function countRuns(input: DeterminismInput): number {
+  return (input.cases ?? []).reduce((total, determinismCase) => total + determinismCase.runs.length, 0);
+}
+
+function countCases(input: DeterminismInput): number {
+  return input.cases?.length ?? 0;
 }

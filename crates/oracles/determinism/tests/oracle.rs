@@ -1,72 +1,81 @@
-
 use std::collections::BTreeMap;
+use std::fs;
+use std::path::PathBuf;
+use std::sync::OnceLock;
 
 use proptest::prelude::*;
-use proptest::test_runner::{Config as ProptestConfig, RngAlgorithm, TestCaseError, TestRng, TestRunner};
+use proptest::test_runner::{
+    Config as ProptestConfig, RngAlgorithm, TestCaseError, TestRng, TestRunner,
+};
+use serde::Deserialize;
 use serde_json::{Number, Value};
 use tf_oracles_core::{Oracle, OracleCtx, OracleResult};
-use tf_oracles_determinism::{check_determinism, DeterminismCase, DeterminismInput, DeterminismOracle, DeterminismRun};
-
-const PASS_SEED: [u8; 32] = *b"determinism-pass-seed-0000000000";
-const FAIL_SEED: [u8; 32] = *b"determinism-fail-seed-1111111111";
+use tf_oracles_determinism::{
+    check_determinism, CaseMismatch, DeterminismCase, DeterminismInput, DeterminismOracle,
+    DeterminismRun,
+};
 
 #[test]
 fn identical_runs_pass_property() {
+    let seeds = seeds();
     let mut config = ProptestConfig::with_cases(64);
     config.failure_persistence = None;
-    let rng = TestRng::from_seed(RngAlgorithm::default(), &PASS_SEED);
+    let rng = TestRng::from_seed(RngAlgorithm::default(), &seeds.pass);
     let mut runner = TestRunner::new_with_rng(config, rng);
 
     runner
-        .run(&(run_template_strategy(), run_ids_strategy()), |(template, run_ids)| {
-            let runs = run_ids
-                .iter()
-                .map(|run_id| DeterminismRun {
-                    run_id: run_id.clone(),
-                    final_state: template.final_state.clone(),
-                    checkpoints: template.checkpoints.clone(),
-                    note: None,
-                })
-                .collect::<Vec<_>>();
+        .run(
+            &(run_template_strategy(), run_ids_strategy()),
+            |(template, run_ids)| {
+                let runs = run_ids
+                    .iter()
+                    .map(|run_id| DeterminismRun {
+                        run_id: run_id.clone(),
+                        final_state: template.final_state.clone(),
+                        checkpoints: template.checkpoints.clone(),
+                        note: None,
+                    })
+                    .collect::<Vec<_>>();
 
-            let input = DeterminismInput {
-                cases: vec![DeterminismCase {
-                    name: "case".to_string(),
-                    seed: "0x01".to_string(),
-                    runs,
-                }],
-            };
+                let input = DeterminismInput {
+                    cases: vec![DeterminismCase {
+                        name: "case".to_string(),
+                        seed: "0x01".to_string(),
+                        runs,
+                    }],
+                };
 
-            let ctx = OracleCtx::new("0xfeed").with_now(0);
-            match check_determinism(&input, &ctx) {
-                OracleResult::Success(success) => {
-                    prop_assert_eq!(success.value.cases_checked, 1);
-                    prop_assert_eq!(success.value.runs_checked, input.cases[0].runs.len());
+                let ctx = OracleCtx::new("0xfeed").with_now(0);
+                match check_determinism(&input, &ctx) {
+                    OracleResult::Success(success) => {
+                        prop_assert_eq!(success.value.cases_checked, 1);
+                        prop_assert_eq!(success.value.runs_checked, input.cases[0].runs.len());
+                    }
+                    OracleResult::Failure(failure) => {
+                        return Err(TestCaseError::fail(format!(
+                            "expected success, got {:?}",
+                            failure
+                        )));
+                    }
                 }
-                OracleResult::Failure(failure) => {
-                    return Err(TestCaseError::fail(format!("expected success, got {:?}", failure)));
-                }
-            }
 
-            Ok(())
-        })
+                Ok(())
+            },
+        )
         .unwrap();
 }
 
 #[test]
 fn drift_is_detected_property() {
+    let seeds = seeds();
     let mut config = ProptestConfig::with_cases(48);
     config.failure_persistence = None;
-    let rng = TestRng::from_seed(RngAlgorithm::default(), &FAIL_SEED);
+    let rng = TestRng::from_seed(RngAlgorithm::default(), &seeds.fail);
     let mut runner = TestRunner::new_with_rng(config, rng);
 
     runner
         .run(
-            &(
-                run_template_strategy(),
-                run_ids_strategy(),
-                any::<bool>(),
-            ),
+            &(run_template_strategy(), run_ids_strategy(), any::<bool>()),
             |(template, run_ids, mutate_checkpoint)| {
                 let baseline_runs: Vec<DeterminismRun> = run_ids
                     .iter()
@@ -85,8 +94,10 @@ fn drift_is_detected_property() {
                             last.checkpoints
                                 .insert(first_key, perturb_value(&template.final_state));
                         } else {
-                            last.checkpoints
-                                .insert("__mut__".to_string(), perturb_value(&template.final_state));
+                            last.checkpoints.insert(
+                                "__mut__".to_string(),
+                                perturb_value(&template.final_state),
+                            );
                         }
                     } else {
                         last.final_state = perturb_value(&last.final_state);
@@ -157,6 +168,118 @@ fn ordering_is_ignored() {
     }
 }
 
+#[test]
+fn fixtures_match_expectations() {
+    let ctx = OracleCtx::new("0xfeed").with_now(0);
+
+    for fixture in fixtures_from_disk() {
+        let expected = &fixture.data.expect;
+        assert_eq!(
+            fixture.data.input.cases.len(),
+            expected.cases_checked,
+            "fixture {} case count mismatch",
+            fixture.name
+        );
+        assert_eq!(
+            count_runs(&fixture.data.input),
+            expected.runs_checked,
+            "fixture {} run count mismatch",
+            fixture.name
+        );
+
+        match check_determinism(&fixture.data.input, &ctx) {
+            OracleResult::Success(success) => {
+                assert!(
+                    expected.ok,
+                    "fixture {} expected failure but succeeded",
+                    fixture.name
+                );
+                assert_eq!(
+                    success.value.cases_checked, expected.cases_checked,
+                    "fixture {} cases checked mismatch",
+                    fixture.name
+                );
+                assert_eq!(
+                    success.value.runs_checked, expected.runs_checked,
+                    "fixture {} runs checked mismatch",
+                    fixture.name
+                );
+            }
+            OracleResult::Failure(failure) => {
+                assert!(
+                    !expected.ok,
+                    "fixture {} expected success but failed",
+                    fixture.name
+                );
+                assert_eq!(
+                    failure.error.code, "E_NON_DETERMINISTIC",
+                    "fixture {} failure code",
+                    fixture.name
+                );
+
+                let mismatches_value = failure
+                    .error
+                    .details
+                    .as_ref()
+                    .and_then(|details| details.get("mismatches"))
+                    .cloned()
+                    .unwrap_or_else(|| Value::Array(Vec::new()));
+                let mismatches: Vec<CaseMismatch> = serde_json::from_value(mismatches_value)
+                    .unwrap_or_else(|err| {
+                        panic!("fixture {} mismatch parse error: {err}", fixture.name)
+                    });
+
+                assert_eq!(
+                    mismatches.len(),
+                    expected.mismatches.len(),
+                    "fixture {} mismatch count",
+                    fixture.name
+                );
+
+                for expected_mismatch in &expected.mismatches {
+                    let actual = mismatches
+                        .iter()
+                        .find(|entry| {
+                            entry.case == expected_mismatch.case
+                                && entry.run == expected_mismatch.run
+                        })
+                        .unwrap_or_else(|| {
+                            panic!(
+                                "fixture {} missing mismatch for case {} run {}",
+                                fixture.name, expected_mismatch.case, expected_mismatch.run
+                            )
+                        });
+
+                    assert_eq!(
+                        actual.seed, expected_mismatch.seed,
+                        "fixture {} seed mismatch for case {} run {}",
+                        fixture.name, expected_mismatch.case, expected_mismatch.run
+                    );
+
+                    let mut actual_checkpoints: Vec<&str> = actual
+                        .mismatches
+                        .iter()
+                        .map(|entry| entry.checkpoint.as_str())
+                        .collect();
+                    actual_checkpoints.sort();
+                    let mut expected_checkpoints: Vec<&str> = expected_mismatch
+                        .checkpoints
+                        .iter()
+                        .map(String::as_str)
+                        .collect();
+                    expected_checkpoints.sort();
+
+                    assert_eq!(
+                        actual_checkpoints, expected_checkpoints,
+                        "fixture {} checkpoint mismatch for case {} run {}",
+                        fixture.name, expected_mismatch.case, expected_mismatch.run
+                    );
+                }
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 struct RunTemplate {
     final_state: Value,
@@ -164,9 +287,11 @@ struct RunTemplate {
 }
 
 fn run_template_strategy() -> impl Strategy<Value = RunTemplate> {
-    (json_value_strategy(), checkpoints_strategy()).prop_map(|(final_state, checkpoints)| RunTemplate {
-        final_state,
-        checkpoints,
+    (json_value_strategy(), checkpoints_strategy()).prop_map(|(final_state, checkpoints)| {
+        RunTemplate {
+            final_state,
+            checkpoints,
+        }
     })
 }
 
@@ -179,7 +304,8 @@ fn checkpoints_strategy() -> impl Strategy<Value = BTreeMap<String, Value>> {
 }
 
 fn string_strategy() -> impl Strategy<Value = String> {
-    prop::collection::vec(prop::char::range('a', 'z'), 1..6).prop_map(|chars| chars.into_iter().collect())
+    prop::collection::vec(prop::char::range('a', 'z'), 1..6)
+        .prop_map(|chars| chars.into_iter().collect())
 }
 
 fn json_value_strategy() -> impl Strategy<Value = Value> {
@@ -237,4 +363,118 @@ fn perturb_value(value: &Value) -> Value {
         }
         Value::Null => Value::String("__mutated__".to_string()),
     }
+}
+
+#[derive(Debug)]
+struct Seeds {
+    pass: [u8; 32],
+    fail: [u8; 32],
+}
+
+fn seeds() -> &'static Seeds {
+    static CACHE: OnceLock<Seeds> = OnceLock::new();
+    CACHE.get_or_init(load_seeds_from_disk)
+}
+
+fn load_seeds_from_disk() -> Seeds {
+    let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let path = manifest.join("tests").join("seeds.json");
+    let raw = fs::read_to_string(&path).expect("read seeds fixture");
+    let parsed: SeedsFile = serde_json::from_str(&raw).expect("parse seeds fixture");
+    Seeds {
+        pass: parse_seed(&parsed.rust.pass_property),
+        fail: parse_seed(&parsed.rust.fail_property),
+    }
+}
+
+fn parse_seed(value: &str) -> [u8; 32] {
+    let hex = value.strip_prefix("0x").unwrap_or(value);
+    assert!(hex.len() == 64, "seed must encode 32 bytes");
+    let mut bytes = [0u8; 32];
+    for (index, chunk) in hex.as_bytes().chunks(2).enumerate() {
+        let text = std::str::from_utf8(chunk).expect("seed chunk utf8");
+        bytes[index] = u8::from_str_radix(text, 16)
+            .unwrap_or_else(|err| panic!("invalid seed byte {text}: {err}"));
+    }
+    bytes
+}
+
+fn count_runs(input: &DeterminismInput) -> usize {
+    input.cases.iter().map(|case| case.runs.len()).sum()
+}
+
+#[derive(Debug, Deserialize)]
+struct SeedsFile {
+    rust: RuntimeSeeds,
+}
+
+#[derive(Debug, Deserialize)]
+struct RuntimeSeeds {
+    #[serde(rename = "passProperty")]
+    pass_property: String,
+    #[serde(rename = "failProperty")]
+    fail_property: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+struct FixtureFile {
+    description: String,
+    input: DeterminismInput,
+    expect: FixtureExpectation,
+}
+
+#[derive(Debug, Deserialize)]
+struct FixtureExpectation {
+    ok: bool,
+    #[serde(rename = "casesChecked")]
+    cases_checked: usize,
+    #[serde(rename = "runsChecked")]
+    runs_checked: usize,
+    #[serde(default)]
+    mismatches: Vec<FixtureMismatchExpectation>,
+}
+
+#[derive(Debug, Deserialize)]
+struct FixtureMismatchExpectation {
+    case: String,
+    seed: String,
+    run: String,
+    #[serde(default)]
+    checkpoints: Vec<String>,
+}
+
+struct LoadedFixture {
+    name: String,
+    data: FixtureFile,
+}
+
+fn fixtures_from_disk() -> Vec<LoadedFixture> {
+    let fixtures_path = repository_root().join("packages/oracles/determinism/fixtures");
+    let mut fixtures = Vec::new();
+    for entry in fs::read_dir(&fixtures_path).expect("read fixtures directory") {
+        let entry = entry.expect("read fixture entry");
+        let file_type = entry.file_type().expect("fixture entry type");
+        if !file_type.is_file() {
+            continue;
+        }
+        if entry.path().extension().and_then(|ext| ext.to_str()) != Some("json") {
+            continue;
+        }
+        let raw = fs::read_to_string(entry.path()).expect("read fixture file");
+        let data: FixtureFile = serde_json::from_str(&raw).expect("parse fixture json");
+        let name = entry.file_name().to_string_lossy().into_owned();
+        fixtures.push(LoadedFixture { name, data });
+    }
+    fixtures.sort_by(|a, b| a.name.cmp(&b.name));
+    fixtures
+}
+
+fn repository_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(|path| path.parent())
+        .and_then(|path| path.parent())
+        .expect("repository root")
+        .to_path_buf()
 }

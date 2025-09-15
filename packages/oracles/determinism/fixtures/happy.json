@@ -1,20 +1,34 @@
 {
-  "runs": [
-    {
-      "runtime": "ts",
-      "checkpoints": [
-        { "label": "init", "state": { "balance": 10 } },
-        { "label": "apply", "state": { "balance": 15 } }
-      ],
-      "finalState": { "balance": 15 }
-    },
-    {
-      "runtime": "rs",
-      "checkpoints": [
-        { "label": "init", "state": { "balance": 10 } },
-        { "label": "apply", "state": { "balance": 15 } }
-      ],
-      "finalState": { "balance": 15 }
-    }
-  ]
+  "description": "TS and Rust runs produce identical checkpoints and final state.",
+  "input": {
+    "cases": [
+      {
+        "name": "balance-happy",
+        "seed": "0xhapp1",
+        "runs": [
+          {
+            "runId": "ts",
+            "final": { "balance": 15 },
+            "checkpoints": {
+              "init": { "balance": 10 },
+              "apply": { "balance": 15 }
+            }
+          },
+          {
+            "runId": "rs",
+            "final": { "balance": 15 },
+            "checkpoints": {
+              "init": { "balance": 10 },
+              "apply": { "balance": 15 }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "ok": true,
+    "casesChecked": 1,
+    "runsChecked": 2
+  }
 }

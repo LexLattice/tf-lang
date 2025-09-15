@@ -1,30 +1,46 @@
 {
-  "cases": [
-    {
-      "name": "price-feed",
-      "seed": "0xfeed1",
-      "runs": [
-        {
-          "runId": "initial",
-          "final": {
-            "balances": {"USD": 1000, "BTC": 1}
+  "description": "Price feed rerun drifts across checkpoints and final snapshot.",
+  "input": {
+    "cases": [
+      {
+        "name": "price-feed",
+        "seed": "0xfeed1",
+        "runs": [
+          {
+            "runId": "initial",
+            "final": {
+              "balances": { "USD": 1000, "BTC": 1 }
+            },
+            "checkpoints": {
+              "pre": { "balances": { "USD": 1000, "BTC": 1 } },
+              "post": { "balances": { "USD": 990, "BTC": 1.01 } }
+            }
           },
-          "checkpoints": {
-            "pre": {"balances": {"USD": 1000, "BTC": 1}},
-            "post": {"balances": {"USD": 990, "BTC": 1.01}}
+          {
+            "runId": "rerun",
+            "final": {
+              "balances": { "USD": 1000, "BTC": 1.0005 }
+            },
+            "checkpoints": {
+              "pre": { "balances": { "USD": 1000, "BTC": 1 } },
+              "post": { "balances": { "USD": 989, "BTC": 1.015 } }
+            }
           }
-        },
-        {
-          "runId": "rerun",
-          "final": {
-            "balances": {"USD": 1000, "BTC": 1.0005}
-          },
-          "checkpoints": {
-            "pre": {"balances": {"USD": 1000, "BTC": 1}},
-            "post": {"balances": {"USD": 989, "BTC": 1.015}}
-          }
-        }
-      ]
-    }
-  ]
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "ok": false,
+    "casesChecked": 1,
+    "runsChecked": 2,
+    "mismatches": [
+      {
+        "case": "price-feed",
+        "seed": "0xfeed1",
+        "run": "rerun",
+        "checkpoints": ["final", "post"]
+      }
+    ]
+  }
 }

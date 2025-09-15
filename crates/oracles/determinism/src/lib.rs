@@ -77,7 +77,10 @@ impl Oracle<DeterminismInput, DeterminismReport> for DeterminismOracle {
     }
 }
 
-pub fn check_determinism(input: &DeterminismInput, ctx: &OracleCtx) -> OracleResult<DeterminismReport> {
+pub fn check_determinism(
+    input: &DeterminismInput,
+    ctx: &OracleCtx,
+) -> OracleResult<DeterminismReport> {
     let mut cases_checked = 0usize;
     let mut runs_checked = 0usize;
     let mut mismatches: Vec<CaseMismatch> = Vec::new();
@@ -118,7 +121,11 @@ pub fn check_determinism(input: &DeterminismInput, ctx: &OracleCtx) -> OracleRes
     }
 
     let details = serde_json::json!({ "mismatches": mismatches });
-    let failure = err(FAILURE_CODE, "Runs diverged under identical seeds", Some(details));
+    let failure = err(
+        FAILURE_CODE,
+        "Runs diverged under identical seeds",
+        Some(details),
+    );
     let trace = mismatches
         .iter()
         .take(5)

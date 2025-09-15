@@ -1,20 +1,42 @@
 {
-  "runs": [
-    {
-      "runtime": "ts",
-      "checkpoints": [
-        { "label": "init", "state": { "balance": 10 } },
-        { "label": "apply", "state": { "balance": 15 } }
-      ],
-      "finalState": { "balance": 15 }
-    },
-    {
-      "runtime": "rs",
-      "checkpoints": [
-        { "label": "init", "state": { "balance": 10 } },
-        { "label": "commit", "state": { "balance": 15 } }
-      ],
-      "finalState": { "balance": 15 }
-    }
-  ]
+  "description": "Checkpoint labels diverge even though payloads match.",
+  "input": {
+    "cases": [
+      {
+        "name": "balance-label",
+        "seed": "0xfeed10",
+        "runs": [
+          {
+            "runId": "ts",
+            "final": { "balance": 15 },
+            "checkpoints": {
+              "init": { "balance": 10 },
+              "apply": { "balance": 15 }
+            }
+          },
+          {
+            "runId": "rs",
+            "final": { "balance": 15 },
+            "checkpoints": {
+              "init": { "balance": 10 },
+              "commit": { "balance": 15 }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "ok": false,
+    "casesChecked": 1,
+    "runsChecked": 2,
+    "mismatches": [
+      {
+        "case": "balance-label",
+        "seed": "0xfeed10",
+        "run": "rs",
+        "checkpoints": ["apply", "commit"]
+      }
+    ]
+  }
 }

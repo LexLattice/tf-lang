@@ -17,9 +17,9 @@ const canonStringify = (v) => JSON.stringify(canon(v));
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const pkgRoot = path.resolve(__dirname, '../../packages/oracles-core-ts');
-const mod = await import(path.join(pkgRoot, 'src/index.ts')).catch(async () => {
-  // fallback to dist after build
-  return import(path.join(pkgRoot, 'dist/src/index.js'));
+// Prefer built dist first (reproducibility), then fall back to TS sources
+const mod = await import(path.join(pkgRoot, 'dist/src/index.js')).catch(async () => {
+  return import(path.join(pkgRoot, 'src/index.ts'));
 });
 
 const samples = {
@@ -50,11 +50,22 @@ const json = canonStringify({ results: samples });
 await fs.writeFile('oracle-core/results.json', json + '\n');
 
 const lines = ['# Oracle Core Results'];
-for (const [name, pair] of Object.entries(samples).sort()) {
+const names = Object.keys(samples).sort();
+let okCount = 0, failCount = 0; const codeTallies = new Map();
+for (const name of names) {
+  const pair = samples[name];
   lines.push(`\n## ${name}`);
   lines.push('- ok: ' + JSON.stringify(pair.ok));
   lines.push('- fail: ' + JSON.stringify(pair.fail));
+  if (pair.ok && pair.ok.ok === true) okCount++; else failCount++;
+  if (pair.fail && pair.fail.code) {
+    const c = String(pair.fail.code);
+    codeTallies.set(c, (codeTallies.get(c) || 0) + 1);
+  }
 }
+const codeSummary = Array.from(codeTallies.entries())
+  .sort((a,b) => a[0].localeCompare(b[0]))
+  .map(([c,n]) => `${c}=${n}`).join(' ');
+lines.push(`\nTOTAL: ${names.length} oracles, ${okCount} OK, ${failCount} FAIL${codeSummary ? ` (codes: ${codeSummary})` : ''}`);
 await fs.writeFile('oracle-core/results.md', lines.join('\n') + '\n');
 console.log('Wrote oracle-core/results.(json|md)');
-

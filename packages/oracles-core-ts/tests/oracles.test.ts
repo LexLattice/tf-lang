@@ -49,7 +49,32 @@ describe("subsetOf", () => {
     expect(r.path).toBe("/a/z");
   });
   it("array subset ok", () => {
+    expect(subsetOf([], [1, 2]).ok).toBe(true);
     expect(subsetOf([1], [1, 2]).ok).toBe(true);
+    expect(subsetOf([1, 2], [1, 2]).ok).toBe(true);
+  });
+  it("array subset fails on value mismatch", () => {
+    const r = subsetOf([1, 3], [1, 2]);
+    expect(r.ok).toBe(false);
+    expect(r.code).toBe("E_NOT_SUBSET");
+    expect(r.path).toBe("/1");
+  });
+  it("array subset fails on extra items", () => {
+    const r = subsetOf([1, 2, 3], [1, 2]);
+    expect(r.ok).toBe(false);
+    expect(r.code).toBe("E_FIELD_UNKNOWN");
+    expect(r.path).toBe("/2");
+  });
+  it("escapes pointer segments", () => {
+    const r = subsetOf({ "a~": { "b/": 2 } }, { "a~": { "b/": 1 } });
+    expect(r.ok).toBe(false);
+    expect(r.path).toBe("/a~0/b~1");
+  });
+  it("does not emit trailing slash for nested roots", () => {
+    const r = subsetOf({ a: [1] }, { a: {} });
+    expect(r.ok).toBe(false);
+    expect(r.code).toBe("E_FIELD_UNKNOWN");
+    expect(r.path).toBe("/a/0");
   });
 });
 

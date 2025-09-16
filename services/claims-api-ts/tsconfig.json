@@ -7,10 +7,12 @@
     "declaration": false,
     "outDir": "dist",
     "rootDir": "src",
+    "types": [],
     "skipLibCheck": true,
     "resolveJsonModule": true
   },
   "include": [
-    "src"
+    "src",
+    "src/types/**/*.d.ts"
   ]
 }

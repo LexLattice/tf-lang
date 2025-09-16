@@ -1,0 +1,23 @@
+{
+  "name": "@tf/oracles-determinism",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "exports": "./dist/index.js",
+  "license": "MIT",
+  "description": "Determinism oracle ensuring stable checkpoints across identical seeds.",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@tf/oracles-core": "workspace:*"
+  },
+  "devDependencies": {
+    "fast-check": "^3.19.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.5"
+  }
+}

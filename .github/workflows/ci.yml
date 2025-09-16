@@ -10,9 +10,6 @@ jobs:
   ts:
     name: TypeScript build & test
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: packages/tf-lang-l0-ts
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
       - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4
@@ -22,14 +19,11 @@ jobs:
         with:
           node-version: '20'
       - run: pnpm -w install --frozen-lockfile
-      - run: pnpm test
+      - run: pnpm -C packages/tf-lang-l0-ts test
 
   rust:
     name: Rust build & test
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: packages/tf-lang-l0-rs
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
       - name: Install Rust
@@ -38,8 +32,8 @@ jobs:
           sudo apt-get install -y curl build-essential pkg-config libssl-dev
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           echo "${HOME}/.cargo/bin" >> $GITHUB_PATH
-      - run: $HOME/.cargo/bin/cargo build --verbose
-      - run: $HOME/.cargo/bin/cargo test --verbose
+      - run: $HOME/.cargo/bin/cargo build --manifest-path crates/Cargo.toml --workspace --all-targets --verbose
+      - run: $HOME/.cargo/bin/cargo test --manifest-path crates/Cargo.toml --workspace --all-targets --verbose
 
   tf-spec:
     name: tf-spec
@@ -52,7 +46,7 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
-      - run: pnpm i --frozen-lockfile=false
+      - run: pnpm -w install --frozen-lockfile
       - run: ./scripts/validate-tf-spec
       - run: cp tf-spec/validation.txt tf-spec/validation-run1.txt
       - run: ./scripts/validate-tf-spec

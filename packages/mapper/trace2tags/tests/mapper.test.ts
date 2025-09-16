@@ -32,6 +32,35 @@ describe("trace → tags mapper", () => {
     ]);
   });
 
+  it("falls back to empty metadata when details are malformed", () => {
+    const tags = mapTraces([
+      {
+        spec: { name: "bad", version: "0.1" },
+        events: [
+          {
+            stepIndex: 0,
+            op: "create_vm",
+            outcome: "success",
+            params: {},
+            details: { id: 42, image: 17, cpus: "two" },
+          },
+          {
+            stepIndex: 1,
+            op: "copy",
+            outcome: "success",
+            params: {},
+            details: "not an object",
+          },
+        ],
+      },
+    ]);
+    expect(tags).toHaveLength(2);
+    const [first, second] = tags;
+    expect(first.metadata).toEqual({});
+    expect(second.metadata).toEqual({});
+    expect(first.stepIndex).toBeLessThanOrEqual(second.stepIndex);
+  });
+
   it("writes canonical artifacts", async () => {
     const dir = mkdtempSync(path.join(tmpdir(), "trace-tags-"));
     try {

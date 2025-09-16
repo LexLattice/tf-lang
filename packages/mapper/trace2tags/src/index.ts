@@ -11,7 +11,7 @@ export interface TraceEvent {
   op: string;
   outcome: string;
   params: Record<string, unknown>;
-  details: Record<string, unknown>;
+  details: unknown;
 }
 
 export interface ExecutionTrace {
@@ -48,24 +48,43 @@ export function canonicalJson(value: unknown): string {
   return `${JSON.stringify(canonicalize(value), null, 2)}\n`;
 }
 
+function isRecord(x: unknown): x is Record<string, unknown> {
+  return !!x && typeof x === "object" && !Array.isArray(x);
+}
+
+function pickString(obj: Record<string, unknown>, key: string): string | undefined {
+  const value = obj[key];
+  return typeof value === "string" ? value : undefined;
+}
+
+function pickNumber(obj: Record<string, unknown>, key: string): number | undefined {
+  const value = obj[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
 function eventMetadata(event: TraceEvent): Record<string, unknown> {
+  const details = event.details;
+  if (!isRecord(details)) return {};
   switch (event.op) {
     case "copy":
-      return {
-        src: event.details.src,
-        dest: event.details.dest,
-      };
+      {
+        const src = pickString(details, "src");
+        const dest = pickString(details, "dest");
+        return src && dest ? { src, dest } : {};
+      }
     case "create_vm":
-      return {
-        id: event.details.id,
-        image: event.details.image,
-        cpus: event.details.cpus,
-      };
+      {
+        const id = pickString(details, "id");
+        const image = pickString(details, "image");
+        const cpus = pickNumber(details, "cpus");
+        return id && image && typeof cpus === "number" ? { id, image, cpus } : {};
+      }
     case "create_network":
-      return {
-        id: event.details.id,
-        cidr: event.details.cidr,
-      };
+      {
+        const id = pickString(details, "id");
+        const cidr = pickString(details, "cidr");
+        return id && cidr ? { id, cidr } : {};
+      }
     default:
       return {};
   }

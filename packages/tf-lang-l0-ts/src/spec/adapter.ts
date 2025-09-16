@@ -1,7 +1,7 @@
 import Ajv from "ajv";
 import type { ErrorObject } from "ajv";
 
-import schema from "../../../../schema/tf-spec.schema.json";
+import schema from "../../../../schema/tf-spec.schema.json" with { type: "json" };
 import { canonicalJsonBytes } from "../canon/json.js";
 
 export interface Step {

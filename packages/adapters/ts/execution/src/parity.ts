@@ -46,4 +46,8 @@ const equal = canonicalJson(tsTrace) === canonicalJson(rustTrace);
 await mkdir(outDir, { recursive: true });
 await writeFile(parityPath, canonicalJson({ equal, tsTrace, rustTrace }), "utf-8");
 
+if (!equal) {
+  throw new Error("adapter parity failed");
+}
+
 rmSync(tmpDir, { recursive: true, force: true });

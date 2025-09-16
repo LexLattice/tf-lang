@@ -28,8 +28,8 @@ pub struct TraceSpec {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
 pub struct TraceEvent {
+    #[serde(rename = "stepIndex")]
     pub step_index: usize,
     pub op: String,
     pub outcome: String,
@@ -110,12 +110,13 @@ pub fn execute(spec: &Spec) -> Result<ExecutionTrace> {
                 vm_counter += 1;
                 let image = string_param(step, "image")?;
                 let cpus = int_param(step, "cpus")?;
+                let id = format!("vm-{vm_counter}");
                 let params = sorted_object([
                     ("image", Value::String(image.clone())),
                     ("cpus", Value::Number(cpus.into())),
                 ]);
                 let details = sorted_object([
-                    ("id", Value::String(format!("vm-{vm_counter}"))),
+                    ("id", Value::String(id.clone())),
                     ("image", Value::String(image.clone())),
                     ("cpus", Value::Number(cpus.into())),
                 ]);
@@ -124,10 +125,10 @@ pub fn execute(spec: &Spec) -> Result<ExecutionTrace> {
                     op: step.op.clone(),
                     outcome: "success".to_string(),
                     params,
-                    details: details.clone(),
+                    details,
                 });
                 summary.vms.push(VmSummary {
-                    id: format!("vm-{vm_counter}"),
+                    id,
                     image,
                     cpus,
                 });
@@ -135,9 +136,10 @@ pub fn execute(spec: &Spec) -> Result<ExecutionTrace> {
             "create_network" => {
                 network_counter += 1;
                 let cidr = string_param(step, "cidr")?;
+                let id = format!("net-{network_counter}");
                 let params = sorted_object([("cidr", Value::String(cidr.clone()))]);
                 let details = sorted_object([
-                    ("id", Value::String(format!("net-{network_counter}"))),
+                    ("id", Value::String(id.clone())),
                     ("cidr", Value::String(cidr.clone())),
                 ]);
                 events.push(TraceEvent {
@@ -145,10 +147,10 @@ pub fn execute(spec: &Spec) -> Result<ExecutionTrace> {
                     op: step.op.clone(),
                     outcome: "success".to_string(),
                     params,
-                    details: details.clone(),
+                    details,
                 });
                 summary.networks.push(NetworkSummary {
-                    id: format!("net-{network_counter}"),
+                    id,
                     cidr,
                 });
             }

@@ -117,3 +117,8 @@
 - [T2] Implemented runtime & tooling epic: tf-check CLI, execution adapters, trace mapper, and coverage generator.
 - Commands: `pnpm --filter @tf-lang/tf-check run test`, `pnpm --filter @tf-lang/adapter-execution-ts run test`, `pnpm --filter @tf-lang/trace2tags run test`, `pnpm --filter @tf-lang/coverage-generator run test`, `cargo test --workspace --all-targets --manifest-path crates/Cargo.toml`.
 - Notes: Generated canonical artifacts under `out/t2/`, added parity between TS/Rust adapters, and wired CI workflow `t2-runtime` with determinism checks.
+
+## 2025-09-16T04:30:59Z
+- [T2] Review fixes: camelCase parity, tf-check parser reuse, mapper guards, CI hardening.
+- Commands: `pnpm -r --filter @tf-lang/tf-check test`, `pnpm -r --filter @tf-lang/adapter-execution-ts test`, `pnpm -r --filter @tf-lang/trace2tags test`, `pnpm -r --filter @tf-lang/coverage-generator test`, `cargo test --workspace --all-targets --manifest-path crates/Cargo.toml`, `pnpm --filter @tf-lang/* run artifacts` (double executions with diffs).
+- Notes: tf-lang-l0 now builds to `dist/` for runtime reuse, parity job fails on mismatch, mapper tolerates malformed details, artifacts confirmed deterministic.

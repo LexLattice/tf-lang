@@ -34,6 +34,12 @@ jobs:
           pushd packages/tf-check >/dev/null
           TARBALL=$(pnpm pack | tail -n1)
           popd
+          pushd packages/utils >/dev/null
+          UTILS_TARBALL=$(pnpm pack | tail -n1)
+          popd
+          pushd packages/tf-lang-l0-ts >/dev/null
+          L0_TARBALL=$(pnpm pack | tail -n1)
+          popd
           mkdir -p /tmp/tfcheck && cd /tmp/tfcheck
           cat <<'PKG' > package.json
           {
@@ -42,6 +48,7 @@ jobs:
             "license": "MIT"
           }
           PKG
+          pnpm add "$ROOT/packages/utils/$UTILS_TARBALL" "$ROOT/packages/tf-lang-l0-ts/$L0_TARBALL"
           pnpm add "$ROOT/packages/tf-check/$TARBALL"
           pnpm exec tf-check --help >/dev/null
       - name: No URL.pathname in ESM helpers

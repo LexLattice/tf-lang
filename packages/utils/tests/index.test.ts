@@ -25,6 +25,12 @@ describe("@tf-lang/utils", () => {
     expect(canonicalJson(input)).toContain("\n");
   });
 
+  it("orders keys using ASCII comparison", () => {
+    const input = { z: 1, A: 2, a: 3 };
+    const canonical = canonicalize(input) as Record<string, unknown>;
+    expect(Object.keys(canonical)).toEqual(["A", "a", "z"]);
+  });
+
   it("escapes HTML entities", () => {
     expect(escapeHtml("</script>&")).toBe("&lt;&#x2F;script&gt;&amp;");
   });

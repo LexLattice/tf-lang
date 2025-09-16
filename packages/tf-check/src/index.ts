@@ -66,6 +66,8 @@ export const HELP_TEXT = `tf-check — validate TF-Lang specs\n\n` +
   `  tf-check validate --input <path> --out <dir>  Write result.json next to CLI output\n` +
   `  tf-check artifacts [--out <dir>]    Emit canonical help.txt and result.json for CI\n` +
   `\n` +
+  `Flags must be provided individually (e.g., "-h -v"; combined "-hv" is unsupported).\n` +
+  `\n` +
   `Exit codes:\n` +
   `  0 — validation succeeded\n` +
   `  1 — validation failed (invalid input)\n` +

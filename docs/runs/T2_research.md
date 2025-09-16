@@ -9,9 +9,9 @@ Requested follow-up review of items raised across PRs #113–#116. For each, I c
 
 | Item | Status in current branch | Alternate PR? | Recommendation |
 | --- | --- | --- | --- |
-| Allow empty string option values in tf-check CLI | **Missing.** `parseFlagArgs` still rejects inline values with `inline.length === 0` and treats the next token `""` as falsy (line 37). | The behaviour was proposed in #113, but I don't see an equivalent change merged here. No local commit to cherry-pick. | Update `parseFlagArgs` to treat `""` as a valid value: replace `if (inline.length === 0)` with a check for `inline === undefined`, and change the positional branch to check `next === undefined` rather than `!next`. Add/extend CLI tests accordingly. |
-| Remove/bypass direct-execution guard | **Implemented.** The guard was removed and `main()` now runs unconditionally (`packages/tf-check/src/cli.ts:121`). | n/a | No action needed. |
-| Support `-h/--help` when passed to subcommands | **Missing.** Only top-level help is supported; subcommand `parseFlagArgs` lists do not include `-h/--help`. | Not present locally; proposed in #114. | Extend `parseFlagArgs` to accept a secondary list of valueless flags (e.g., `["--help", "-h"]`), returning a structured result (flags + options) so callers can exit cleanly. Update CLI tests. |
+| Allow empty string option values in tf-check CLI | **Done.** Parser accepts `--out=""` and positional empty strings; new tests cover both syntaxes (`packages/tf-check/tests/validator.test.ts:76`). | n/a | No action needed. |
+| Remove/bypass direct-execution guard | **Done previously.** `main()` runs unconditionally (`packages/tf-check/src/cli.ts:158`). | n/a | — |
+| Support `-h/--help` when passed to subcommands | **Done.** Parser now tracks toggle flags per subcommand, prints scoped usage, and tests assert behaviour (`packages/tf-check/tests/validator.test.ts:86`). | n/a | — |
 
 Tests: `pnpm --filter @tf-lang/tf-check run build` executed successfully after earlier fixes; once parser is updated, rerun the same command plus targeted Vitest suites.
 
@@ -21,8 +21,8 @@ Tests: `pnpm --filter @tf-lang/tf-check run build` executed successfully after e
 
 | Item | Status | Alternate PR? | Recommendation |
 | --- | --- | --- | --- |
-| Replace `URL.pathname` with `fileURLToPath` | **Partially done.** Artifacts modules now decode URLs, but `packages/adapters/ts/execution/src/parity.ts` still uses `.pathname`. There may be other stragglers outside T2, e.g., `packages/adapter-legal-ts/...`. | The parity change was highlighted in #113/#114; not present here. | Update remaining modules (at minimum T2 parity) to use `fileURLToPath(new URL('.', import.meta.url))`. |
-| Anchor tf-check artifacts dir to repo root | **Not yet addressed.** `runArtifacts` defaults to `path.resolve("out/t2/tf-check")` (line 81). | Mentioned in #115; no local change. | Compute once using `findRepoRoot(fileURLToPath(...))` (similar to artifacts.ts) and use it as the default out dir. |
+| Replace `URL.pathname` with `fileURLToPath` | **Done.** Remaining helpers (parity, legal examples) now decode URLs, and CI will fail if new `.pathname` usages slip in. | n/a | — |
+| Anchor tf-check artifacts dir to repo root | **Done.** CLI resolves the repo root lazily with a cached fallback to `out/t2/tf-check` when no workspace is found (`packages/tf-check/src/cli.ts:25`). | n/a | — |
 
 Tests: We’ve run `pnpm --filter @tf-lang/trace2tags run artifacts` and `pnpm --filter @tf-lang/adapter-execution-ts run build`; after the path fixes, rerun those commands to confirm the repo-root lookups still succeed.
 
@@ -32,11 +32,11 @@ Tests: We’ve run `pnpm --filter @tf-lang/trace2tags run artifacts` and `pnpm -
 
 | Item | Status | Alternate PR? | Recommendation |
 | --- | --- | --- | --- |
-| Use `Object.fromEntries` in `canonicalize` | **Not yet.** The code still builds a manual object (lines 11–17). | Suggested in #113/#116; not applied. | Replace the manual loop with `return Object.fromEntries(entries)` and use `localeCompare` for key sorting. |
-| Harden `isObject` guard | **Missing.** No helper exists; arrays are excluded earlier but the guard requested for future-proofing isn’t present. | Proposed in #114. | Introduce `isPlainObject` helper and reuse it to enter the object branch. |
-| Escape `/` in `escapeHtml` | **Missing.** Map/regex omit `/`. | Suggested in #116. | Add `/` to the map and regex. |
+| Use `Object.fromEntries` in `canonicalize` | **Done.** Canonicalization now rebuilds objects via `Object.fromEntries` and ASCII sorts keys for determinism (`packages/utils/src/index.ts:12`). | n/a | — |
+| Harden `isObject` guard | **Done.** Added `isPlainObject` to bypass arrays and nulls (`packages/utils/src/index.ts:20`). | n/a | — |
+| Escape `/` in `escapeHtml` | **Done.** Added to the escape map/regex with tests (`packages/utils/src/index.ts:57`, `packages/utils/tests/index.test.ts:23`). | n/a | — |
 
-Tests: `pnpm --filter @tf-lang/trace2tags run build` and `pnpm --filter @tf-lang/tf-check run build` already exercise canonicalization/escaping indirectly; extend unit tests in `packages/utils/tests` to cover the new cases (empty string values, `/` escaping, non-object guard).
+Tests: `pnpm --filter @tf-lang/trace2tags run build` and `pnpm --filter @tf-lang/tf-check run build` already exercise canonicalization/escaping; focused unit tests now cover empty flag values, help toggles, ASCII ordering, and HTML escaping.
 
 ---
 
@@ -49,16 +49,16 @@ Tests: `pnpm --filter @tf-lang/trace2tags run build` and `pnpm --filter @tf-lang
 
 ---
 
+## 5. Tiny polish checklist (T2)
+
+- **Bin smoke**: Added CI step to pack/install `tf-check` and run `--help`; ensures published bin stays functional.
+- **Fallback test**: `resolveDefaultArtifactsDir` accepts an injectable resolver and exposes a test reset hook; unit test verifies the fallback when `findRepoRoot` throws (`packages/tf-check/tests/validator.test.ts:96`).
+- **Flags policy**: HELP text documents that combined short flags aren’t supported; tests confirm `-hv` errors.
+- **Deterministic sort**: Canonicalization uses ASCII comparison to avoid locale drift; test asserts ordering of mixed-case keys (`packages/utils/tests/index.test.ts:31`).
+- **No `.pathname` rule**: Workflow now fails if new helpers rely on `new URL(..., import.meta.url).pathname`; remaining usages converted to `fileURLToPath`.
+
+---
+
 ## Summary / Next Steps
 
-1. Implement the remaining CLI parser improvements (empty strings, per-command help) and add tests.
-2. Finish URL decoding: update parity.ts (and any other stragglers) and make tf-check artifacts default to the repo-root path.
-3. Polish `@tf-lang/utils`: adopt `Object.fromEntries`, add a plain-object guard, and extend the HTML escape map.
-4. After applying the above, rerun:
-   - `pnpm --filter @tf-lang/tf-check run build`
-   - `pnpm --filter @tf-lang/trace2tags run build`
-   - `pnpm --filter @tf-lang/trace2tags run artifacts`
-   - `pnpm --filter @tf-lang/adapter-execution-ts run build`
-   - Relevant Vitest suites (`pnpm --filter @tf-lang/utils test`, `pnpm --filter @tf-lang/tf-check test`).
-
-No suitable cherry-pick targets were found in the current tree; implementing the tweaks directly in this branch is the fastest path.
+All checklist items are complete. Rerun the CI surface (`pnpm --filter @tf-lang/tf-check run build`, `pnpm --filter @tf-lang/tf-check test`, `pnpm --filter @tf-lang/adapter-execution-ts run build`, `pnpm --filter @tf-lang/trace2tags run artifacts`, `pnpm --filter @tf-lang/utils test`) whenever related files change to ensure regressions are caught early.

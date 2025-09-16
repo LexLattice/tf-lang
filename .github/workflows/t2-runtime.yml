@@ -19,13 +19,28 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
-      - run: pnpm -r install --frozen-lockfile
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @tf-lang/tf-check run build
       - run: pnpm --filter @tf-lang/tf-check run test
       - run: pnpm --filter @tf-lang/tf-check run artifacts
-      - run: cp -r out/t2/tf-check out/t2/tf-check-run1
+      - run: |
+          sha256sum out/t2/tf-check/help.txt out/t2/tf-check/result.json > out/t2/tf-check.sha
       - run: pnpm --filter @tf-lang/tf-check run artifacts
-      - run: diff -r out/t2/tf-check-run1 out/t2/tf-check
+      - run: sha256sum --check out/t2/tf-check.sha
+      - name: Pack & run tf-check
+        run: |
+          pushd packages/tf-check >/dev/null
+          TARBALL=$(pnpm pack | tail -n1)
+          popd
+          mkdir -p /tmp/tfcheck && cd /tmp/tfcheck
+          pnpm init -y >/dev/null
+          pnpm add "../../packages/tf-check/$TARBALL"
+          pnpm exec tf-check --help >/dev/null
+      - name: No URL.pathname in ESM helpers
+        run: |
+          ! git grep -n "new URL(.*import.meta.url).*\\.pathname" -- "packages/**" || \
+            (echo "Use fileURLToPath(new URL(...)) then findRepoRoot(...)" && exit 1)
       - uses: actions/upload-artifact@v4
         with:
           name: tf-check
@@ -77,13 +92,14 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
-      - run: pnpm -r install --frozen-lockfile
-      - run: pnpm -r --filter @tf-lang/trace2tags build
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @tf-lang/trace2tags run build
       - run: pnpm --filter @tf-lang/trace2tags run test
       - run: pnpm --filter @tf-lang/trace2tags run artifacts
-      - run: cp out/t2/trace-tags.json out/t2/trace-tags.run1.json
+      - run: sha256sum out/t2/trace-tags.json > out/t2/trace-tags.sha
       - run: pnpm --filter @tf-lang/trace2tags run artifacts
-      - run: diff out/t2/trace-tags.run1.json out/t2/trace-tags.json
+      - run: sha256sum --check out/t2/trace-tags.sha
       - uses: actions/upload-artifact@v4
         with:
           name: trace-tags
@@ -99,16 +115,16 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
-      - run: pnpm -r install --frozen-lockfile
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @tf-lang/trace2tags run artifacts
       - run: pnpm --filter @tf-lang/coverage-generator run build
       - run: pnpm --filter @tf-lang/coverage-generator run test
       - run: pnpm --filter @tf-lang/coverage-generator run artifacts
-      - run: cp out/t2/coverage.json out/t2/coverage.run1.json
-      - run: cp out/t2/coverage.html out/t2/coverage.run1.html
+      - run: |
+          sha256sum out/t2/coverage.json out/t2/coverage.html > out/t2/coverage.sha
       - run: pnpm --filter @tf-lang/coverage-generator run artifacts
-      - run: diff out/t2/coverage.run1.json out/t2/coverage.json
-      - run: diff out/t2/coverage.run1.html out/t2/coverage.html
+      - run: sha256sum --check out/t2/coverage.sha
       - uses: actions/upload-artifact@v4
         with:
           name: coverage

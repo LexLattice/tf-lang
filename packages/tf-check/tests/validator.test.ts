@@ -11,7 +11,13 @@ import {
   validateSpecFile,
   writeArtifacts,
 } from "../src/index.js";
-import { parseFlagArgs, runArtifacts, runValidate } from "../src/cli.js";
+import {
+  parseFlagArgs,
+  resetArtifactsDirCache,
+  resolveDefaultArtifactsDir,
+  runArtifacts,
+  runValidate,
+} from "../src/cli.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const fixture = path.join(here, "../fixtures/sample-spec.json");
@@ -153,5 +159,20 @@ describe("tf-check validation", () => {
     expect(() =>
       parseFlagArgs(["-x"], [], ["--help", "-h"])
     ).toThrow(/unknown flag: -x/);
+  });
+
+  it("rejects combined short flags", () => {
+    expect(() =>
+      parseFlagArgs(["-hv"], [], ["--help", "-h"])
+    ).toThrow(/unknown flag: -hv/);
+  });
+
+  it("falls back when repository root is missing", () => {
+    resetArtifactsDirCache();
+    const dir = resolveDefaultArtifactsDir(() => {
+      throw new Error("no workspace");
+    });
+    expect(dir).toMatch(/out[\\/]+t2[\\/]+tf-check$/);
+    resetArtifactsDirCache();
   });
 });

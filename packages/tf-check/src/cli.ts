@@ -17,17 +17,23 @@ const cliDir = path.dirname(fileURLToPath(import.meta.url));
 const sampleSpecPath = path.join(cliDir, "../fixtures/sample-spec.json");
 
 let cachedArtifactsDir: string | undefined;
-function defaultArtifactsDir(): string {
+function resolveDefaultArtifactsDir(
+  resolver: (dir: string) => string = findRepoRoot
+): string {
   if (cachedArtifactsDir) {
     return cachedArtifactsDir;
   }
   try {
-    const repoRoot = findRepoRoot(cliDir);
+    const repoRoot = resolver(cliDir);
     cachedArtifactsDir = path.join(repoRoot, "out/t2/tf-check");
   } catch {
     cachedArtifactsDir = path.resolve("out/t2/tf-check");
   }
   return cachedArtifactsDir;
+}
+
+function resetArtifactsDirCache(): void {
+  cachedArtifactsDir = undefined;
 }
 
 function printHelp(): void {
@@ -129,7 +135,7 @@ export async function runArtifacts(args: string[]): Promise<number> {
       );
       return 0;
     }
-    const outDir = parsed.values["--out"] ?? defaultArtifactsDir();
+    const outDir = parsed.values["--out"] ?? resolveDefaultArtifactsDir();
     await writeArtifacts({ outDir, inputPath: sampleSpecPath });
     const result = await validateSpecFile(sampleSpecPath);
     printResult(result);
@@ -174,4 +180,4 @@ if (!process.env.VITEST) {
   });
 }
 
-export { parseFlagArgs };
+export { parseFlagArgs, resolveDefaultArtifactsDir, resetArtifactsDirCache };

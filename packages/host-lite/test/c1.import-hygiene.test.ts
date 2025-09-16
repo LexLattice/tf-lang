@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 async function collectTs(dir: string): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true });
@@ -15,7 +16,7 @@ async function collectTs(dir: string): Promise<string[]> {
 
 describe('C1: import-hygiene', () => {
   it('no deep relative cross-package imports; internal ESM imports end with .js', async () => {
-    const root = new URL('..', import.meta.url).pathname;
+    const root = fileURLToPath(new URL('..', import.meta.url));
     const files = await collectTs(root);
     for (const file of files) {
       const src = await readFile(file, 'utf8');
@@ -33,4 +34,3 @@ describe('C1: import-hygiene', () => {
     }
   });
 });
-

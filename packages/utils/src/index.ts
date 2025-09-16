@@ -11,7 +11,7 @@ export function canonicalize(value: unknown): unknown {
   if (isPlainObject(value)) {
     const entries = Object.entries(value)
       .map(([key, val]) => [key, canonicalize(val)] as const)
-      .sort(([a], [b]) => a.localeCompare(b));
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
     return Object.fromEntries(entries);
   }
   return value;

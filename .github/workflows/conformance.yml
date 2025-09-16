@@ -12,20 +12,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.15.1
-          run_install: true
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: ./.github/actions/setup-pnpm
         with:
           node-version: '20'
-          cache: 'pnpm'
-
-      - name: pnpm version
-        run: pnpm -v
+          install: 'true'
+          frozen: 'true'
 
       - name: Cache cargo
         uses: actions/cache@v4

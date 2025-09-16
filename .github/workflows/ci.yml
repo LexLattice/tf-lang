@@ -15,14 +15,12 @@ jobs:
     name: TypeScript build & test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
-      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4
-        with:
-          version: 9
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-pnpm
         with:
           node-version: '20'
-      - run: pnpm -r install --frozen-lockfile
+          install: 'true'
+          frozen: 'true'
       - run: pnpm -r --filter "./packages/tf-lang-l0-ts" test
 
   rust:
@@ -43,14 +41,34 @@ jobs:
     name: tf-spec
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
-      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4
-        with:
-          version: 9
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-pnpm
         with:
           node-version: '20'
-      - run: pnpm -r install --frozen-lockfile
+          install: 'true'
+          frozen: 'true'
+          # Ensure the subpackage is built before packing (if your tarball includes dist/)
+      - name: Build tf-lang-l0-ts
+        run: pnpm -C packages/tf-lang-l0-ts build
+  
+      # 1) Pack the subpackage and capture the absolute path as a step output
+      - name: Pack tf-lang-l0 (subpackage)
+        id: pack_l0
+        shell: bash
+        working-directory: packages/tf-lang-l0-ts
+        run: |
+          set -euo pipefail
+          FILE="$(pnpm pack --silent | tail -n1)"
+          [ -n "$FILE" ] || { echo "pnpm pack produced no filename" >&2; exit 1; }
+          ABS="$PWD/$FILE"
+          echo "tarball=$ABS" >> "$GITHUB_OUTPUT"
+          echo "Packed tarball: $ABS"
+
+        # 2) Export TF_L0_TGZ for all later steps (write ONLY NAME=value)
+      - name: Export tarball path
+        shell: bash
+        run: printf 'TF_L0_TGZ=%s\n' '${{ steps.pack_l0.outputs.tarball }}' >> "$GITHUB_ENV"
+            
       - run: ./scripts/validate-tf-spec
       - run: cp tf-spec/validation.txt tf-spec/validation-run1.txt
       - run: ./scripts/validate-tf-spec
@@ -74,14 +92,12 @@ jobs:
     name: oracle-core
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
-      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4
-        with:
-          version: 9
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-pnpm
         with:
           node-version: '20'
-      - run: pnpm -r install --frozen-lockfile
+          install: 'true'
+          frozen: 'true'
       - run: pnpm -C packages/oracles-core-ts build
       - run: pnpm -C packages/oracles-core-ts test
       - run: ./scripts/oracle-core-results

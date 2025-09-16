@@ -12,15 +12,12 @@ jobs:
   tf-check-cli:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
-      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4
-        with:
-          version: 10.16.1
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-pnpm
         with:
           node-version: '20'
-          cache: 'pnpm'
-      - run: pnpm install --frozen-lockfile
+          install: 'true'
+          frozen: 'true'
       - run: pnpm --filter @tf-lang/tf-check run build
       - run: pnpm --filter @tf-lang/tf-check run test
       - run: pnpm --filter @tf-lang/tf-check run artifacts
@@ -28,28 +25,32 @@ jobs:
           sha256sum out/t2/tf-check/help.txt out/t2/tf-check/result.json > out/t2/tf-check.sha
       - run: pnpm --filter @tf-lang/tf-check run artifacts
       - run: sha256sum --check out/t2/tf-check.sha
-      - name: Pack tf-check and tf-lang-l0, install locally, run bin
+      - name: Pack & run tf-check (bundled tarball)
         shell: bash
         run: |
           set -euo pipefail
-          ROOT=$PWD
+          ROOT="${GITHUB_WORKSPACE:-$PWD}"
 
-          pushd packages/tf-lang-l0-ts >/dev/null
+          # pack tf-check (bundled dependencies included)
+          pushd "$ROOT/packages/tf-check" >/dev/null
           pnpm run build
-          L0_TGZ="$(pnpm pack | tail -n1)"
-          popd
-
-          pushd packages/tf-check >/dev/null
-          pnpm run build
-          TF_TGZ="$(pnpm pack | tail -n1)"
-          popd
-
-          TMPDIR=$(mktemp -d)
-          pushd "$TMPDIR" >/dev/null
-          pnpm init -y >/dev/null
-          pnpm add "$ROOT/packages/tf-lang-l0-ts/${L0_TGZ}" "$ROOT/packages/tf-check/${TF_TGZ}"
-          pnpm exec tf-check --help >/dev/null
+          TF_FILE="$(pnpm pack | tail -n1)"
+          TF_ABS="$PWD/$TF_FILE"
+          tar -tzf "$TF_FILE" | grep -q 'node_modules/@tf-lang/utils/package.json'
+          tar -tzf "$TF_FILE" | grep -q 'node_modules/tf-lang-l0/package.json'
+          tar -tzf "$TF_FILE" | grep -q 'package/schema/tf-spec.schema.json'
           popd >/dev/null
+
+          # temp project (stay outside repo; no cd needed)
+          TMP="$(mktemp -d)"
+          npm init -y --prefix "$TMP" >/dev/null
+
+          # install the bundled CLI tarball (registry-free)
+          pnpm add --prefix "$TMP" "file:$TF_ABS"
+
+          # run the installed bin
+          pnpm --prefix "$TMP" exec tf-check --help >/dev/null
+
       - name: No URL.pathname in ESM helpers
         run: |
           ! git grep -n "new URL(.*import.meta.url).*\\.pathname" -- "packages/**" || \
@@ -64,14 +65,12 @@ jobs:
   adapter-ts:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
-      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4
-        with:
-          version: 10.16.1
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-pnpm
         with:
           node-version: '20'
-      - run: pnpm -r install --frozen-lockfile
+          install: 'true'
+          frozen: 'true'
       - run: pnpm --filter @tf-lang/adapter-execution-ts run build
       - run: pnpm --filter @tf-lang/adapter-execution-ts run test
       - run: pnpm --filter @tf-lang/adapter-execution-ts run fixtures
@@ -98,15 +97,12 @@ jobs:
   mapper-trace2tags:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
-      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4
-        with:
-          version: 10.16.1
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-pnpm
         with:
           node-version: '20'
-          cache: 'pnpm'
-      - run: pnpm install --frozen-lockfile
+          install: 'true'
+          frozen: 'true'
       - run: pnpm --filter @tf-lang/trace2tags run build
       - run: pnpm --filter @tf-lang/trace2tags run test
       - run: pnpm --filter @tf-lang/trace2tags run artifacts
@@ -121,15 +117,12 @@ jobs:
   coverage-report:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
-      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4
-        with:
-          version: 10.16.1
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-pnpm
         with:
           node-version: '20'
-          cache: 'pnpm'
-      - run: pnpm install --frozen-lockfile
+          install: 'true'
+          frozen: 'true'
       - run: pnpm --filter @tf-lang/trace2tags run artifacts
       - run: pnpm --filter @tf-lang/coverage-generator run build
       - run: pnpm --filter @tf-lang/coverage-generator run test
@@ -149,20 +142,18 @@ jobs:
     runs-on: ubuntu-latest
     needs: [adapter-ts, adapter-rust]
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
-      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4
-        with:
-          version: 10.16.1
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-pnpm
         with:
           node-version: '20'
+          install: 'true'
+          frozen: 'true'
       - name: Install Rust
         run: |
           sudo apt-get update
           sudo apt-get install -y curl build-essential pkg-config libssl-dev
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           echo "${HOME}/.cargo/bin" >> $GITHUB_PATH
-      - run: pnpm -r install --frozen-lockfile
       - run: pnpm --filter @tf-lang/adapter-execution-ts run build
       - run: pnpm --filter @tf-lang/adapter-execution-ts run parity
       - run: cp out/t2/adapter-parity.json out/t2/adapter-parity.run1.json

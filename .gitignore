@@ -9,6 +9,7 @@ Icon?
 *.log
 logs/
 .npmrc
+!.npmrc
 .npm/_logs/
 .pnpm-debug.log*
 .nyc_output/

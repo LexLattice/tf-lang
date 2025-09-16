@@ -12,7 +12,7 @@ RUN corepack enable
 WORKDIR /repo
 
 # copy manifests first for caching
-COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json .npmrc ./
 COPY packages/claims-core-ts/package.json packages/claims-core-ts/package.json
 COPY services/claims-api-ts/package.json services/claims-api-ts/package.json
 

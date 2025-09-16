@@ -12,13 +12,13 @@
 		"ajv": "^8.12.0"
 	},
 	"pnpm": {
-		"allowScripts": {
-			"esbuild": true,
-			"@cloudflare/kv-asset-handler": false
-		},
+		"onlyBuiltDependencies": [
+			"esbuild"
+		],
 		"overrides": {
 			"esbuild": "0.25.0"
 		}
 	},
-	"version": "0.0.2"
+	"version": "0.0.2",
+	"packageManager": "pnpm@10.16.1"
 }

@@ -10,20 +10,31 @@
     "tf-check": "dist/cli.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "bin",
+    "schema",
+    "package.json",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "prebuild": "pnpm --filter @tf-lang/utils run build && pnpm --filter tf-lang-l0 run build",
     "build": "tsc -p tsconfig.json",
+    "copy:schema": "mkdir -p schema && cp ../../schema/tf-spec.schema.json schema/tf-spec.schema.json",
     "pretest": "pnpm --filter tf-lang-l0 run build",
     "test": "vitest run",
     "preartifacts": "pnpm run build",
-    "artifacts": "node dist/artifacts.js"
+    "artifacts": "node dist/artifacts.js",
+    "prepack": "pnpm run build && pnpm run copy:schema"
   },
   "dependencies": {
-    "@tf-lang/utils": "workspace:*",
-    "tf-lang-l0": "workspace:*"
+    "@tf-lang/utils": "0.1.0",
+    "tf-lang-l0": "0.1.1"
   },
+  "bundledDependencies": [
+    "@tf-lang/utils",
+    "tf-lang-l0"
+  ],
   "devDependencies": {
     "@types/node": "^24.3.1",
     "typescript": "^5.5.0",

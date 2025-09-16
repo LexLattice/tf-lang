@@ -156,10 +156,10 @@ importers:
   packages/tf-check:
     dependencies:
       '@tf-lang/utils':
-        specifier: workspace:*
+        specifier: 0.1.0
         version: link:../utils
       tf-lang-l0:
-        specifier: workspace:*
+        specifier: 0.1.1
         version: link:../tf-lang-l0-ts
     devDependencies:
       '@types/node':

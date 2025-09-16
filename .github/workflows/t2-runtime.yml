@@ -1,0 +1,20 @@
+name: t2-runtime-epic
+on: [push, pull_request]
+jobs:
+  t2:
+    strategy:
+      matrix:
+        job: [tf-check-cli, adapter-ts, adapter-rust, mapper-trace2tags, coverage-report]
+        runtime: [ts, rust]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup ${{ matrix.runtime }}
+        uses: ./.github/actions/setup-${{ matrix.runtime }}
+      - name: Run ${{ matrix.job }}
+        run: pnpm nx run ci:${{ matrix.job }} --runtime=${{ matrix.runtime }}
+      - name: Determinism re-run
+        run: pnpm -w tf-meta determinism --job ${{ matrix.job }} --repeats 2 || true
+      - name: Upload T2 artifacts
+        uses: actions/upload-artifact@v4
+        with: { name: t2-${{ matrix.job }}-${{ matrix.runtime }}, path: out/t2/** }

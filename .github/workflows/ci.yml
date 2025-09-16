@@ -22,22 +22,28 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
-      - run: pnpm -r install --frozen-lockfile
-      - run: pnpm -r --filter "./packages/tf-lang-l0-ts" test
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter "./packages/tf-lang-l0-ts" test
 
   rust:
     name: Rust build & test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
-      - name: Install Rust
+      - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y curl build-essential pkg-config libssl-dev
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-          echo "${HOME}/.cargo/bin" >> $GITHUB_PATH
-      - run: $HOME/.cargo/bin/cargo build --manifest-path crates/Cargo.toml --workspace --all-targets --verbose
-      - run: $HOME/.cargo/bin/cargo test --manifest-path crates/Cargo.toml --workspace --all-targets --verbose
+          sudo apt-get install -y build-essential pkg-config libssl-dev
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@3cf1046959f7ce90f2bbb139f49b41fc1acbfd4a # v2
+        with:
+          workspaces: crates -> crates/target
+          cache-on-failure: true
+      - run: cargo build --manifest-path crates/Cargo.toml --workspace --all-targets --verbose
+      - run: cargo test --manifest-path crates/Cargo.toml --workspace --all-targets --verbose
 
   tf-spec:
     name: tf-spec
@@ -50,25 +56,33 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
-      - run: pnpm -r install --frozen-lockfile
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
       - run: ./scripts/validate-tf-spec
-      - run: cp tf-spec/validation.txt tf-spec/validation-run1.txt
+      - run: sha256sum tf-spec/validation.txt > tf-spec/validation.sha
       - run: ./scripts/validate-tf-spec
-      - run: diff tf-spec/validation-run1.txt tf-spec/validation.txt
+      - run: sha256sum --check tf-spec/validation.sha
       - uses: actions/upload-artifact@v4
         with:
           name: tf-spec
           path: tf-spec/validation.txt
-      - name: Install Rust
+      - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y curl build-essential pkg-config libssl-dev
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-          echo "${HOME}/.cargo/bin" >> $GITHUB_PATH
+          sudo apt-get install -y build-essential pkg-config libssl-dev
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@3cf1046959f7ce90f2bbb139f49b41fc1acbfd4a # v2
+        with:
+          workspaces: |
+            crates -> crates/target
+            packages/tf-lang-l0-rs -> packages/tf-lang-l0-rs/target
+          cache-on-failure: true
       - run: pnpm --filter "./packages/tf-lang-l0-ts" run test -- tests/spec.adapter.test.ts
       - run: pnpm --filter "./packages/tf-lang-l0-ts" run test -- tests/spec.adapter.test.ts
-      - run: $HOME/.cargo/bin/cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml spec_adapter
-      - run: $HOME/.cargo/bin/cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml spec_adapter
+      - run: cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml spec_adapter
+      - run: cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml spec_adapter
 
   oracle-core:
     name: oracle-core
@@ -81,13 +95,14 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
-      - run: pnpm -r install --frozen-lockfile
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
       - run: pnpm -C packages/oracles-core-ts build
       - run: pnpm -C packages/oracles-core-ts test
       - run: bash ./scripts/oracle-core-results
-      - run: cp oracle-core/results.json oracle-core/results.run1.json
+      - run: sha256sum oracle-core/results.json oracle-core/results.md > oracle-core/results.sha
       - run: bash ./scripts/oracle-core-results
-      - run: diff oracle-core/results.run1.json oracle-core/results.json
+      - run: sha256sum --check oracle-core/results.sha
       - uses: actions/upload-artifact@v4
         with:
           name: oracle-core

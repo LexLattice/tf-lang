@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -11,12 +12,64 @@ import {
   validateSpecFile,
   writeArtifacts,
 } from "../src/index.js";
+import { runCli } from "../src/cli.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const fixture = path.join(here, "../fixtures/sample-spec.json");
 
 function readJson(file: string): unknown {
   return JSON.parse(readFileSync(file, "utf-8"));
+}
+
+function makeWriter(chunks: string[]): typeof process.stdout.write {
+  return ((
+    chunk: string | Uint8Array,
+    encoding?: BufferEncoding | ((error?: Error | null) => void),
+    callback?: (error?: Error | null) => void
+  ) => {
+    let finalCallback: ((error?: Error | null) => void) | undefined;
+    let normalized: string;
+    if (typeof encoding === "function") {
+      finalCallback = encoding;
+    } else {
+      finalCallback = callback;
+    }
+    if (typeof chunk === "string") {
+      normalized = chunk;
+    } else {
+      const enc = typeof encoding === "string" ? encoding : "utf8";
+      normalized = Buffer.from(chunk).toString(enc);
+    }
+    chunks.push(normalized);
+    if (finalCallback) finalCallback(null);
+    return true;
+  }) as typeof process.stdout.write;
+}
+
+async function runCliWithCapture(
+  args: string[],
+  options: { cwd?: string } = {}
+): Promise<{ code: number; stdout: string; stderr: string }> {
+  const stdoutChunks: string[] = [];
+  const stderrChunks: string[] = [];
+  const originalStdout = process.stdout.write;
+  const originalStderr = process.stderr.write;
+  const originalCwd = process.cwd();
+  if (options.cwd) {
+    process.chdir(options.cwd);
+  }
+  process.stdout.write = makeWriter(stdoutChunks);
+  process.stderr.write = makeWriter(stderrChunks);
+  try {
+    const code = await runCli(args);
+    return { code, stdout: stdoutChunks.join(""), stderr: stderrChunks.join("") };
+  } finally {
+    process.stdout.write = originalStdout;
+    process.stderr.write = originalStderr;
+    if (options.cwd) {
+      process.chdir(originalCwd);
+    }
+  }
 }
 
 describe("tf-check validation", () => {
@@ -74,5 +127,35 @@ describe("tf-check validation", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  it("supports equals syntax for CLI flags", async () => {
+    const pkgRoot = path.join(here, "..");
+    const { code, stdout, stderr } = await runCliWithCapture(
+      ["validate", "--input=fixtures/sample-spec.json"],
+      { cwd: pkgRoot }
+    );
+    expect(stderr).toBe("");
+    expect(code).toBe(0);
+    const parsed = JSON.parse(stdout) as { status: string };
+    expect(parsed.status).toBe("ok");
+  });
+
+  it("fails on unknown CLI flags", async () => {
+    const { code, stderr } = await runCliWithCapture([
+      "validate",
+      "--input",
+      fixture,
+      "--wat",
+      "nope",
+    ]);
+    expect(code).toBe(2);
+    expect(stderr).toContain("unknown flag: --wat");
+  });
+
+  it("reports missing flag values", async () => {
+    const { code, stderr } = await runCliWithCapture(["validate", "--input"]);
+    expect(code).toBe(2);
+    expect(stderr).toContain("missing value for --input");
   });
 });

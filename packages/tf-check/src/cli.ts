@@ -20,23 +20,51 @@ function printResult(result: ValidationResult): void {
   process.stdout.write(canonicalJson(result));
 }
 
-function optionValue(args: string[], flag: string): string | undefined {
-  const index = args.indexOf(flag);
-  if (index === -1) return undefined;
-  const value = args[index + 1];
-  if (!value || value.startsWith("-")) {
-    throw new Error(`missing value for ${flag}`);
+function parseFlags(
+  args: string[],
+  allowed: readonly string[]
+): Record<string, string> {
+  const allowedSet = new Set(allowed);
+  const values: Record<string, string> = {};
+  let index = 0;
+  while (index < args.length) {
+    const token = args[index];
+    if (!token.startsWith("--")) {
+      throw new Error(`unexpected argument: ${token}`);
+    }
+    const equals = token.indexOf("=");
+    const flag = equals === -1 ? token : token.slice(0, equals);
+    if (!allowedSet.has(flag)) {
+      throw new Error(`unknown flag: ${flag}`);
+    }
+    let value: string;
+    if (equals !== -1) {
+      value = token.slice(equals + 1);
+      if (value.length === 0) {
+        throw new Error(`missing value for ${flag}`);
+      }
+    } else {
+      const next = args[index + 1];
+      if (!next || next.startsWith("--")) {
+        throw new Error(`missing value for ${flag}`);
+      }
+      value = next;
+      index += 1;
+    }
+    values[flag] = value;
+    index += 1;
   }
-  return value;
+  return values;
 }
 
 async function runValidate(args: string[]): Promise<number> {
   try {
-    const input = optionValue(args, "--input");
+    const flags = parseFlags(args, ["--input", "--out"]);
+    const input = flags["--input"];
     if (!input) {
       throw new Error("--input <path> is required");
     }
-    const outDir = optionValue(args, "--out");
+    const outDir = flags["--out"];
     const result = await validateSpecFile(input);
     if (outDir) {
       const outputPath = path.join(outDir, "result.json");
@@ -51,43 +79,51 @@ async function runValidate(args: string[]): Promise<number> {
 }
 
 async function runArtifacts(args: string[]): Promise<number> {
-  const outDir = optionValue(args, "--out") ?? path.resolve("out/t2/tf-check");
-  const selfDir = path.dirname(fileURLToPath(import.meta.url));
-  const sample = path.join(selfDir, "../fixtures/sample-spec.json");
-  await writeArtifacts({ outDir, inputPath: sample });
-  const result = await validateSpecFile(sample);
-  printResult(result);
-  return result.status === "ok" ? 0 : 1;
+  try {
+    const flags = parseFlags(args, ["--out"]);
+    const outDir = flags["--out"] ?? path.resolve("out/t2/tf-check");
+    const selfDir = path.dirname(fileURLToPath(import.meta.url));
+    const sample = path.join(selfDir, "../fixtures/sample-spec.json");
+    await writeArtifacts({ outDir, inputPath: sample });
+    const result = await validateSpecFile(sample);
+    printResult(result);
+    return result.status === "ok" ? 0 : 1;
+  } catch (error) {
+    process.stderr.write(`${(error as Error).message}\n`);
+    return 2;
+  }
+}
+
+export async function runCli(argv: string[]): Promise<number> {
+  if (argv.length === 0 || argv.includes("--help") || argv.includes("-h")) {
+    printHelp();
+    return 0;
+  }
+  const [command, ...rest] = argv;
+  switch (command) {
+    case "validate":
+      return runValidate(rest);
+    case "artifacts":
+      return runArtifacts(rest);
+    default:
+      process.stderr.write(`unknown command: ${command}\n`);
+      printHelp();
+      return 2;
+  }
 }
 
 async function main(): Promise<void> {
-  const args = process.argv.slice(2);
-  if (args.length === 0 || args.includes("--help") || args.includes("-h")) {
-    printHelp();
-    exit(0);
-  }
-  const command = args[0];
-  const rest = args.slice(1);
-  switch (command) {
-    case "validate": {
-      const exitCode = await runValidate(rest);
-      exit(exitCode);
-      return;
-    }
-    case "artifacts": {
-      const exitCode = await runArtifacts(rest);
-      exit(exitCode);
-      return;
-    }
-    default: {
-      process.stderr.write(`unknown command: ${command}\n`);
-      printHelp();
-      exit(2);
-    }
-  }
+  const exitCode = await runCli(process.argv.slice(2));
+  exit(exitCode);
 }
 
-main().catch((error) => {
-  process.stderr.write(`${(error as Error).message}\n`);
-  exit(2);
-});
+const invoked = process.argv[1]
+  ? new URL(process.argv[1], "file://").href
+  : undefined;
+
+if (invoked === import.meta.url) {
+  main().catch((error) => {
+    process.stderr.write(`${(error as Error).message}\n`);
+    exit(2);
+  });
+}

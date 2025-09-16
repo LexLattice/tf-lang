@@ -1,5 +1,5 @@
 {
-  "name": "@tf-lang/coverage-generator",
+  "name": "@tf-lang/utils",
   "version": "0.1.0",
   "type": "module",
   "main": "dist/index.js",
@@ -9,12 +9,7 @@
   "files": ["dist"],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "vitest run",
-    "preartifacts": "pnpm run build",
-    "artifacts": "node dist/artifacts.js"
-  },
-  "dependencies": {
-    "@tf-lang/utils": "workspace:*"
+    "test": "vitest run --passWithNoTests"
   },
   "devDependencies": {
     "@types/node": "^24.3.1",

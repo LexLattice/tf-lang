@@ -19,6 +19,7 @@
     "artifacts": "node dist/artifacts.js"
   },
   "dependencies": {
+    "@tf-lang/utils": "workspace:*",
     "tf-lang-l0": "workspace:*"
   },
   "devDependencies": {

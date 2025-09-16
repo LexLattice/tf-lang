@@ -16,4 +16,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
+The CLI wrapper exposes the same functionality:
+
+```bash
+cargo run --manifest-path crates/Cargo.toml --bin dump -- --spec spec.json --out trace.json
+```
+
 Errors use deterministic codes (`E_ADAPTER_*`) to align with the TS adapter. Tests ensure the JSON produced matches the TypeScript fixture byte-for-byte.

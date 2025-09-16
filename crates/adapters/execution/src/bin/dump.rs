@@ -1,18 +1,23 @@
-use std::env;
 use std::path::PathBuf;
 
+use clap::Parser;
 use tf_adapters_execution::{execute, load_spec, write_trace};
 
+#[derive(Parser, Debug)]
+#[command(name = "dump", about = "Execute spec and write a canonical trace")]
+struct Args {
+    /// Input spec path (JSON)
+    #[arg(short, long)]
+    spec: PathBuf,
+    /// Output trace path (JSON)
+    #[arg(short, long)]
+    out: PathBuf,
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args: Vec<String> = env::args().collect();
-    if args.len() < 3 {
-        eprintln!("usage: dump <spec> <out>");
-        std::process::exit(1);
-    }
-    let spec_path = PathBuf::from(&args[1]);
-    let out_path = PathBuf::from(&args[2]);
-    let spec = load_spec(&spec_path)?;
+    let args = Args::parse();
+    let spec = load_spec(&args.spec)?;
     let trace = execute(&spec)?;
-    write_trace(&out_path, &trace)?;
+    write_trace(&args.out, &trace)?;
     Ok(())
 }

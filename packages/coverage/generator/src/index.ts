@@ -1,5 +1,8 @@
+import { canonicalJson, escapeHtml } from "@tf-lang/utils";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
+
+export { canonicalJson } from "@tf-lang/utils";
 
 export interface TraceTag {
   spec: string;
@@ -34,26 +37,6 @@ export interface CoverageReport {
 
 export interface CoverageOptions {
   generatedAt?: string;
-}
-
-function canonicalize(value: unknown): unknown {
-  if (value === null) return null;
-  if (Array.isArray(value)) {
-    return value.map((item) => canonicalize(item));
-  }
-  if (typeof value === "object") {
-    const entries = Object.entries(value as Record<string, unknown>)
-      .map(([k, v]) => [k, canonicalize(v)] as const)
-      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of entries) out[k] = v;
-    return out;
-  }
-  return value;
-}
-
-export function canonicalJson(value: unknown): string {
-  return `${JSON.stringify(canonicalize(value), null, 2)}\n`;
 }
 
 export function computeCoverage(tags: TraceTag[], options: CoverageOptions = {}): CoverageReport {
@@ -118,9 +101,12 @@ export async function loadTags(filePath: string): Promise<TraceTag[]> {
 function coverageHtml(report: CoverageReport): string {
   const rows = Object.entries(report.byTag)
     .map(([tag, info]) => {
-      return `<tr><td>${tag}</td><td>${info.count}</td><td>${info.specs.join(", ")}</td></tr>`;
+      const safeTag = escapeHtml(tag);
+      const safeSpecs = escapeHtml(info.specs.join(", "));
+      return `<tr><td>${safeTag}</td><td>${info.count}</td><td>${safeSpecs}</td></tr>`;
     })
     .join("");
+  const generatedAt = escapeHtml(report.generatedAt);
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -135,7 +121,7 @@ function coverageHtml(report: CoverageReport): string {
 </head>
 <body>
 <h1>TF Coverage</h1>
-<p>Generated at ${report.generatedAt}</p>
+<p>Generated at ${generatedAt}</p>
 <table>
 <thead><tr><th>Tag</th><th>Count</th><th>Specs</th></tr></thead>
 <tbody>${rows}</tbody>

@@ -63,4 +63,28 @@ describe("coverage generator", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it("escapes html-sensitive values in the report", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "coverage-"));
+    try {
+      const tagFile = path.join(dir, "tags.json");
+      const tags = [
+        {
+          spec: "<script>alert(1)</script>",
+          version: "0.1",
+          stepIndex: 0,
+          op: "copy",
+          tag: "resource.<script>",
+          metadata: {},
+        },
+      ];
+      writeFileSync(tagFile, canonicalJson(tags));
+      await generateCoverageArtifacts({ tagPath: tagFile, outDir: dir });
+      const html = readFileSync(path.join(dir, "coverage.html"), "utf-8");
+      expect(html).toContain("&lt;script&gt;");
+      expect(html).not.toContain("<script>alert(1)</script>");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

@@ -32,3 +32,14 @@
 
 ## Hurdles / Follow-ups
 - Future extensions: expand adapter coverage to additional operations once the schema grows; extend coverage HTML with richer visuals if needed.
+
+### Review batch 2 fixes
+- DRY: Introduced `@tf-lang/utils` with canonicalJson/paths/tmp/html helpers; all T2 packages use it.
+- Paths: artifact/parity scripts auto-detect repo root (no brittle ../../..).
+- Security: `coverage.html` escapes tag/spec values (prevents XSS).
+- Robustness: parity harness cleans temp dirs even on error.
+- Cleanup: removed dead copyCount logic in TS adapter.
+- Consistency: aligned @types/node to ^24.3.1 in all new packages.
+- CLI: tf-check flag parsing supports --k=v and rejects unknown flags (no new runtime deps).
+- Rust bin: `dump` uses `clap` for argument parsing; README returns `Ok(())`.
+- Parity: TS↔Rust traces match (`stepIndex`), parity enforced as a hard gate.

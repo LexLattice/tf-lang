@@ -42,3 +42,8 @@
 - [R3] Tweaked determinism failure return path to use safe conversion API.
 - Commands: `cargo fmt --manifest-path crates/oracles/determinism/Cargo.toml`.
 - Notes: No public API changes; maintains Result-based flow.
+
+## 2025-09-16T00:34:07Z
+- [R4] Compiled PR_REPORT with determinism evidence and follow-ups for PR #110.
+- Commands: n/a (documentation only).
+- Notes: README TODOs track ambient stub replacement.

@@ -22,7 +22,7 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
-      - run: pnpm -w install --frozen-lockfile
+      - run: pnpm -r install --frozen-lockfile
       - run: pnpm -r --filter "./packages/tf-lang-l0-ts" test
 
   rust:
@@ -50,7 +50,7 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
-      - run: pnpm -w install --frozen-lockfile
+      - run: pnpm -r install --frozen-lockfile
       - run: ./scripts/validate-tf-spec
       - run: cp tf-spec/validation.txt tf-spec/validation-run1.txt
       - run: ./scripts/validate-tf-spec
@@ -81,7 +81,7 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
-      - run: pnpm -w install --frozen-lockfile
+      - run: pnpm -r install --frozen-lockfile
       - run: pnpm -C packages/oracles-core-ts build
       - run: pnpm -C packages/oracles-core-ts test
       - run: ./scripts/oracle-core-results

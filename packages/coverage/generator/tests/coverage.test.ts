@@ -63,4 +63,29 @@ describe("coverage generator", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it("escapes HTML content in generated coverage", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "coverage-"));
+    const malicious = [
+      {
+        spec: "<script>spec</script>",
+        version: "0.1",
+        stepIndex: 0,
+        op: "copy",
+        tag: "<script>tag</script>",
+        metadata: {},
+      },
+    ];
+    try {
+      const tagFile = path.join(dir, "tags.json");
+      writeFileSync(tagFile, canonicalJson(malicious));
+      await generateCoverageArtifacts({ tagPath: tagFile, outDir: dir });
+      const html = readFileSync(path.join(dir, "coverage.html"), "utf-8");
+      expect(html).toContain("&lt;script&gt;tag&lt;/script&gt;");
+      expect(html).toContain("&lt;script&gt;spec&lt;/script&gt;");
+      expect(html).not.toContain("<script>");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

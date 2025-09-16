@@ -17,3 +17,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ```
 
 Errors use deterministic codes (`E_ADAPTER_*`) to align with the TS adapter. Tests ensure the JSON produced matches the TypeScript fixture byte-for-byte.
+
+## CLI
+
+The crate ships with a `dump` binary that mirrors the TypeScript adapter for parity testing:
+
+```bash
+cargo run --bin dump -- --spec fixtures/sample-spec.json --out trace.json
+```

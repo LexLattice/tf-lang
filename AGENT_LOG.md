@@ -27,3 +27,8 @@
 - [C6] Updated READMEs and TODO for harmonized fixtures, canonical seeds, and determinism notes.
 - Commands: n/a (docs only).
 - Notes: Fixtures documented under `packages/oracles/determinism/fixtures/`.
+
+## 2025-09-16T00:27:44Z
+- [R1] Re-verified determinism packages/builds for PR #110 polish.
+- Commands: `pnpm -r --filter './packages/oracles/*' build`, `pnpm -r --filter './packages/oracles/*' test`, `pnpm -r --filter './services/claims-api-ts' test`, `cargo test --workspace --all-targets --manifest-path crates/Cargo.toml`, `pnpm run build`.
+- Notes: Seeds unchanged; ambient stubs remain scoped to `services/claims-api-ts`.

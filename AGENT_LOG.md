@@ -139,3 +139,7 @@
 - [Pages] Created docs/index.html landing page linking to claims demo.
 - [Pages] Pages workflow now installs deps, runs build:pages, and uploads docs artifact.
 - Commands: `pnpm -r --filter "./services/claims-api-ts" run build:pages`.
+
+## 2025-09-16T10:33:22Z
+- [Pages] Workflow installs pnpm via action, builds claims demo, uploads docs artifact (no CLI smoke).
+- [tf-lang-l0] Added prepublish build, @noble/hashes dep already present; bumped version to 0.1.1.

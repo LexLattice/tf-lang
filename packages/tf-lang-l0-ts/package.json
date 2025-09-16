@@ -1,6 +1,6 @@
 {
   "name": "tf-lang-l0",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "main": "dist/index.js",
   "exports": {
@@ -9,13 +9,16 @@
   "types": "dist/index.d.ts",
   "license": "MIT",
   "description": "TF-Lang L0: minimal deterministic kernel (VM + checker + model) in TypeScript",
-"scripts": {
+  "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "vectors": "tsx scripts/run-vectors.ts"
+    "vectors": "tsx scripts/run-vectors.ts",
+    "prepublishOnly": "pnpm run build"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "devDependencies": {
     "@types/node": "^24.3.1",
     "tsx": "^4.20.5",

@@ -19,11 +19,14 @@ describe("@tf-lang/utils", () => {
     const input = { b: 1, a: { z: 2, y: [3, 1] }, c: null };
     const canonical = canonicalize(input) as Record<string, unknown>;
     expect(Object.keys(canonical)).toEqual(["a", "b", "c"]);
+    const nested = canonical.a as Record<string, unknown>;
+    expect(Array.isArray(nested.y)).toBe(true);
+    expect(nested.y).toEqual([3, 1]);
     expect(canonicalJson(input)).toContain("\n");
   });
 
   it("escapes HTML entities", () => {
-    expect(escapeHtml("<script>&")).toBe("&lt;script&gt;&amp;");
+    expect(escapeHtml("</script>&")).toBe("&lt;&#x2F;script&gt;&amp;");
   });
 
   it("finds the repository root containing pnpm-workspace.yaml", () => {

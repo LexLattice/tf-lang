@@ -8,17 +8,17 @@ export function canonicalize(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map((item) => canonicalize(item));
   }
-  if (typeof value === "object") {
-    const entries = Object.entries(value as Record<string, unknown>)
+  if (isPlainObject(value)) {
+    const entries = Object.entries(value)
       .map(([key, val]) => [key, canonicalize(val)] as const)
-      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-    const out: Record<string, unknown> = {};
-    for (const [key, val] of entries) {
-      out[key] = val;
-    }
-    return out;
+      .sort(([a], [b]) => a.localeCompare(b));
+    return Object.fromEntries(entries);
   }
   return value;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export function canonicalJson(value: unknown): string {
@@ -60,9 +60,10 @@ const HTML_ESCAPE_MAP: Record<string, string> = {
   ">": "&gt;",
   '"': "&quot;",
   "'": "&#39;",
+  "/": "&#x2F;",
 };
 
-const HTML_ESCAPE_REGEX = /[&<>"']/g;
+const HTML_ESCAPE_REGEX = /[&<>"'\/]/g;
 
 export function escapeHtml(input: string): string {
   return input.replace(HTML_ESCAPE_REGEX, (ch) => HTML_ESCAPE_MAP[ch] ?? ch);

@@ -11,6 +11,24 @@ import {
   canonicalJson,
   type ValidationResult,
 } from "./index.js";
+import { findRepoRoot } from "@tf-lang/utils";
+
+const cliDir = path.dirname(fileURLToPath(import.meta.url));
+const sampleSpecPath = path.join(cliDir, "../fixtures/sample-spec.json");
+
+let cachedArtifactsDir: string | undefined;
+function defaultArtifactsDir(): string {
+  if (cachedArtifactsDir) {
+    return cachedArtifactsDir;
+  }
+  try {
+    const repoRoot = findRepoRoot(cliDir);
+    cachedArtifactsDir = path.join(repoRoot, "out/t2/tf-check");
+  } catch {
+    cachedArtifactsDir = path.resolve("out/t2/tf-check");
+  }
+  return cachedArtifactsDir;
+}
 
 function printHelp(): void {
   process.stdout.write(`${HELP_TEXT}\n`);
@@ -20,48 +38,75 @@ function printResult(result: ValidationResult): void {
   process.stdout.write(canonicalJson(result));
 }
 
+type ParsedFlags = {
+  values: Partial<Record<string, string>>;
+  toggles: Set<string>;
+};
+
 function parseFlagArgs(
   args: string[],
-  allowedFlags: string[]
-): Partial<Record<string, string>> {
-  const allowed = new Set(allowedFlags);
+  valueFlags: string[],
+  toggleFlags: string[] = []
+): ParsedFlags {
+  const valueSet = new Set(valueFlags);
+  const toggleSet = new Set(toggleFlags);
   const values: Partial<Record<string, string>> = {};
+  const toggles = new Set<string>();
   let index = 0;
   while (index < args.length) {
     const token = args[index];
+    if (!token.startsWith("-")) {
+      throw new Error(`unknown flag: ${token}`);
+    }
+    if (toggleSet.has(token)) {
+      toggles.add(token);
+      index += 1;
+      continue;
+    }
     if (!token.startsWith("--")) {
       throw new Error(`unknown flag: ${token}`);
     }
     const [flag, inline] = token.split("=", 2);
-    if (!allowed.has(flag)) {
+    if (toggleSet.has(flag)) {
+      if (inline !== undefined) {
+        throw new Error(`flag ${flag} does not take a value`);
+      }
+      toggles.add(flag);
+      index += 1;
+      continue;
+    }
+    if (!valueSet.has(flag)) {
       throw new Error(`unknown flag: ${flag}`);
     }
     if (inline !== undefined) {
-      if (inline.length === 0) {
-        throw new Error(`missing value for ${flag}`);
-      }
       values[flag] = inline;
       index += 1;
       continue;
     }
     const next = args[index + 1];
-    if (!next || next.startsWith("--")) {
+    if (next === undefined || next.startsWith("--")) {
       throw new Error(`missing value for ${flag}`);
     }
     values[flag] = next;
     index += 2;
   }
-  return values;
+  return { values, toggles };
 }
 
 export async function runValidate(args: string[]): Promise<number> {
   try {
-    const flags = parseFlagArgs(args, ["--input", "--out"]);
-    const input = flags["--input"];
+    const parsed = parseFlagArgs(args, ["--input", "--out"], ["--help", "-h"]);
+    if (parsed.toggles.has("--help") || parsed.toggles.has("-h")) {
+      process.stdout.write(
+        "Usage: tf-check validate --input <path> [--out <dir>]\n"
+      );
+      return 0;
+    }
+    const input = parsed.values["--input"];
     if (!input) {
       throw new Error("--input <path> is required");
     }
-    const outDir = flags["--out"];
+    const outDir = parsed.values["--out"];
     const result = await validateSpecFile(input);
     if (outDir) {
       const outputPath = path.join(outDir, "result.json");
@@ -77,12 +122,16 @@ export async function runValidate(args: string[]): Promise<number> {
 
 export async function runArtifacts(args: string[]): Promise<number> {
   try {
-    const flags = parseFlagArgs(args, ["--out"]);
-    const outDir = flags["--out"] ?? path.resolve("out/t2/tf-check");
-    const selfDir = path.dirname(fileURLToPath(import.meta.url));
-    const sample = path.join(selfDir, "../fixtures/sample-spec.json");
-    await writeArtifacts({ outDir, inputPath: sample });
-    const result = await validateSpecFile(sample);
+    const parsed = parseFlagArgs(args, ["--out"], ["--help", "-h"]);
+    if (parsed.toggles.has("--help") || parsed.toggles.has("-h")) {
+      process.stdout.write(
+        "Usage: tf-check artifacts [--out <dir>]\n"
+      );
+      return 0;
+    }
+    const outDir = parsed.values["--out"] ?? defaultArtifactsDir();
+    await writeArtifacts({ outDir, inputPath: sampleSpecPath });
+    const result = await validateSpecFile(sampleSpecPath);
     printResult(result);
     return result.status === "ok" ? 0 : 1;
   } catch (error) {
@@ -118,7 +167,11 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((error) => {
-  process.stderr.write(`${(error as Error).message}\n`);
-  exit(2);
-});
+if (!process.env.VITEST) {
+  main().catch((error) => {
+    process.stderr.write(`${(error as Error).message}\n`);
+    exit(2);
+  });
+}
+
+export { parseFlagArgs };

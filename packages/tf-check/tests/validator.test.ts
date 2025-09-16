@@ -11,7 +11,7 @@ import {
   validateSpecFile,
   writeArtifacts,
 } from "../src/index.js";
-import { runValidate } from "../src/cli.js";
+import { parseFlagArgs, runArtifacts, runValidate } from "../src/cli.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const fixture = path.join(here, "../fixtures/sample-spec.json");
@@ -116,5 +116,42 @@ describe("tf-check validation", () => {
       stdout.mockRestore();
       stderr.mockRestore();
     }
+  });
+
+  it("supports empty string flag values", () => {
+    const inline = parseFlagArgs(["--out="], ["--out"]);
+    expect(inline.values["--out"]).toBe("");
+
+    const separate = parseFlagArgs(["--out", ""], ["--out"]);
+    expect(separate.values["--out"]).toBe("");
+  });
+
+  it("captures help toggles", () => {
+    const parsed = parseFlagArgs(["--help"], [], ["--help", "-h"]);
+    expect(parsed.toggles.has("--help")).toBe(true);
+
+    const short = parseFlagArgs(["-h"], [], ["--help", "-h"]);
+    expect(short.toggles.has("-h")).toBe(true);
+  });
+
+  it("prints per-command help", async () => {
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    try {
+      const artifactsExit = await runArtifacts(["--help"]);
+      expect(artifactsExit).toBe(0);
+      const stdoutText = stdout.mock.calls.map((call) => String(call[0])).join(" ");
+      expect(stdoutText).toContain("Usage: tf-check artifacts");
+      expect(stderr).not.toHaveBeenCalled();
+    } finally {
+      stdout.mockRestore();
+      stderr.mockRestore();
+    }
+  });
+
+  it("errors on unexpected short flags", () => {
+    expect(() =>
+      parseFlagArgs(["-x"], [], ["--help", "-h"])
+    ).toThrow(/unknown flag: -x/);
   });
 });

@@ -1,0 +1,63 @@
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { describe, expect, it } from "vitest";
+
+import {
+  canonicalJson,
+  validateSpec,
+  validateSpecFile,
+  writeArtifacts,
+} from "../src/index.js";
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const fixture = path.join(here, "../fixtures/sample-spec.json");
+
+function readJson(file: string): unknown {
+  return JSON.parse(readFileSync(file, "utf-8"));
+}
+
+describe("tf-check validation", () => {
+  it("validates a known-good spec", async () => {
+    const result = await validateSpecFile(fixture);
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+    expect(result.summary.stepCount).toBe(3);
+    expect(result.summary.operations).toEqual({
+      copy: 1,
+      create_network: 1,
+      create_vm: 1,
+    });
+  });
+
+  it("reports unknown operations", () => {
+    const spec = {
+      version: "0.1",
+      name: "bad",
+      steps: [
+        { op: "mystery", params: {} },
+      ],
+    };
+    const result = validateSpec(spec);
+    expect(result.status).toBe("error");
+    if (result.status !== "error") return;
+    expect(result.error.code).toBe("E_SPEC_OP_UNKNOWN");
+  });
+
+  it("writes canonical artifacts", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "tf-check-"));
+    try {
+      await writeArtifacts({ outDir: dir, inputPath: fixture });
+      const help = readFileSync(path.join(dir, "help.txt"), "utf-8");
+      expect(help.startsWith("tf-check")).toBe(true);
+      const result = readJson(path.join(dir, "result.json"));
+      expect(result).toMatchObject({ status: "ok" });
+      const normalized = canonicalJson(result);
+      expect(normalized.endsWith("\n")).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

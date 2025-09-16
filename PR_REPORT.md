@@ -1,42 +1,34 @@
-# PR #110 — Final Polish Summary
-
 ## Summary
-- TS spec adapter now delegates validation to Ajv against `schema/tf-spec.schema.json`, mapping the first relevant validation error to the existing `E_SPEC_*` codes (including branch-specific param errors and op/version checks).
-- Rust spec adapter behaviour is unchanged; added TODO documenting the future serde-based refactor while keeping the explicit error mapping today.
-- Rust canonicalization now rebuilds objects through `BTreeMap` to preserve ordering regardless of serde settings.
-- TS spec adapter relies solely on Ajv + mapError; Rust adapter documents the serde follow-up while keeping error codes stable.
-- TS oracles `equals`/`subsetOf` gained Map/Set semantics with canonical sorting and README notes; `.codex/scripts/build-tasks-json.mjs` canon is now null-safe and Map/Set aware.
-- Scoped ambient stubs remain confined to `services/claims-api-ts/src/types/`, enforced by `scripts/check-ambient-stubs.sh`; service filters stay strictly typed via boundary helpers.
-- Scoped ambient stubs remain confined to `services/claims-api-ts/src/types/`, enforced by `scripts/check-ambient-stubs.sh`.
+- Added the `@tf-lang/tf-check` CLI package with schema validation, canonical result formatting, and documentation under `docs/tf-check/USAGE.md`.
+- Implemented deterministic execution adapters in TypeScript (`@tf-lang/adapter-execution-ts`) and Rust (`tf-adapters-execution`), plus a parity harness that writes `out/t2/adapter-parity.json`.
+- Built the trace→tags mapper and coverage generator packages, emitting canonical artifacts under `out/t2/` and documenting the mapping in `docs/trace-schema.md`.
+- Generated all required T2 artifacts in-tree: `tf-check`, adapter trace/parity, `trace-tags.json`, `coverage.json`, and `coverage.html`.
+- Wired `t2-runtime.yml` CI workflow with determinism re-runs for each job and artifact uploads.
 
-## Not Changed
-- Public exports for `@tf/oracles-*` packages and `tf-oracles-*` crates remain untouched.
-- No new runtime dependencies were introduced; Ajv already ships in the workspace and is reused here.
-
-## Evidence (artifacts)
-- determinism fixtures: `packages/oracles/determinism/fixtures/*.json`
-- seeds: `packages/oracles/determinism/tests/seeds.json`, `crates/oracles/determinism/tests/seeds.json`
+## Evidence (artifacts re-checked)
+- [x] `out/t2/tf-check/help.txt`
+- [x] `out/t2/tf-check/result.json`
+- [x] `out/t2/adapter-ts-trace.json`
+- [x] `out/t2/adapter-parity.json`
+- [x] `out/t2/trace-tags.json`
+- [x] `out/t2/coverage.json`
+- [x] `out/t2/coverage.html`
 
 ## Determinism & Seeds
-- Repeats: 2 (`pnpm -r --filter "./packages/oracles/*" test` run twice, `cargo test --workspace --all-targets` run twice).
-- Seeds unchanged; recorded in the seed JSON files above.
+- Repeats: 2 (CLI, adapters, mapper, coverage, Rust tests)
+- Seeds: none required (deterministic fixtures only)
 
 ## Tests & CI
-- `pnpm -r --filter "./packages/oracles/*" build`
-- `pnpm -r --filter "./packages/oracles/*" test` (6 + 7 tests per run, repeated twice)
-- `pnpm -r --filter "./packages/tf-lang-l0-ts" test` (26 tests, repeated twice)
-- `pnpm -r --filter "./services/claims-api-ts" test` (10 tests, repeated twice)
-- `cargo test --workspace --all-targets --manifest-path crates/Cargo.toml` (repeated twice)
-- `pnpm run build`
-- Optional guard: `scripts/check-ambient-stubs.sh` ensures scoped stubs.
+- TS packages: `pnpm --filter @tf-lang/tf-check run test` ×2, `pnpm --filter @tf-lang/adapter-execution-ts run test` ×3, `pnpm --filter @tf-lang/trace2tags run test` ×2, `pnpm --filter @tf-lang/coverage-generator run test` ×2.
+- Rust workspace: `cargo test --workspace --all-targets --manifest-path crates/Cargo.toml` ×2.
+- Monorepo build: `pnpm run build`.
+- CI: new `t2-runtime` workflow jobs (`tf-check-cli`, `adapter-ts`, `adapter-rust`, `mapper-trace2tags`, `coverage-report`, `adapter-parity`) enforce determinism with double runs.
 
 ## Implementation Notes
-- Ajv validation is scoped to the new spec adapter implementation; the rest of the package surface remains unchanged.
-- Rust libraries contain no `unwrap()`/panicking paths; dedupe logic relies on `BTreeSet` for deterministic ordering.
-- Map/Set canonicalisation relies on local helpers with deterministic sorting; arrays remain structural deep-partials as documented.
-- Ambient type stubs remain confined to `services/claims-api-ts/src/types/` with TODOs documenting replacement work.
+- No third-party runtime dependencies added; new TypeScript packages rely on Node built-ins and workspace-local code.
+- Internal ESM imports use `.js` suffixes; no deep imports between packages.
+- All JSON/HTML artifacts are canonical (sorted keys, trailing newline) and regenerated via package scripts.
+- Rust adapter uses `BTreeMap` canonicalisation and `thiserror` for deterministic error codes.
 
 ## Hurdles / Follow-ups
-- [ ] Replace ambient sql.js types (tracked in `services/claims-api-ts/README.md`).
-- [ ] Replace ambient @tf-lang/d1-sqlite types (tracked in `services/claims-api-ts/README.md`).
-- Optional future work: wire `scripts/check-ambient-stubs.sh` into CI as a warning job.
+- Future extensions: expand adapter coverage to additional operations once the schema grows; extend coverage HTML with richer visuals if needed.

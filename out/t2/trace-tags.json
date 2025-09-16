@@ -1,0 +1,36 @@
+[
+  {
+    "metadata": {
+      "dest": "bucket-b",
+      "src": "bucket-a"
+    },
+    "op": "copy",
+    "spec": "demo-plan",
+    "stepIndex": 0,
+    "tag": "resource.copy",
+    "version": "0.1"
+  },
+  {
+    "metadata": {
+      "cpus": 2,
+      "id": "vm-1",
+      "image": "ubuntu-22.04"
+    },
+    "op": "create_vm",
+    "spec": "demo-plan",
+    "stepIndex": 1,
+    "tag": "resource.vm",
+    "version": "0.1"
+  },
+  {
+    "metadata": {
+      "cidr": "10.0.0.0/24",
+      "id": "net-1"
+    },
+    "op": "create_network",
+    "spec": "demo-plan",
+    "stepIndex": 2,
+    "tag": "resource.network",
+    "version": "0.1"
+  }
+]

@@ -1,20 +1,145 @@
-name: t2-runtime-epic
-on: [push, pull_request]
+name: t2-runtime
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+permissions:
+  contents: read
+
 jobs:
-  t2:
-    strategy:
-      matrix:
-        job: [tf-check-cli, adapter-ts, adapter-rust, mapper-trace2tags, coverage-report]
-        runtime: [ts, rust]
+  tf-check-cli:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Setup ${{ matrix.runtime }}
-        uses: ./.github/actions/setup-${{ matrix.runtime }}
-      - name: Run ${{ matrix.job }}
-        run: pnpm nx run ci:${{ matrix.job }} --runtime=${{ matrix.runtime }}
-      - name: Determinism re-run
-        run: pnpm -w tf-meta determinism --job ${{ matrix.job }} --repeats 2 || true
-      - name: Upload T2 artifacts
-        uses: actions/upload-artifact@v4
-        with: { name: t2-${{ matrix.job }}-${{ matrix.runtime }}, path: out/t2/** }
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4
+        with:
+          version: 9
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+      - run: pnpm -r install --frozen-lockfile
+      - run: pnpm --filter @tf-lang/tf-check run build
+      - run: pnpm --filter @tf-lang/tf-check run test
+      - run: pnpm --filter @tf-lang/tf-check run artifacts
+      - run: cp -r out/t2/tf-check out/t2/tf-check-run1
+      - run: pnpm --filter @tf-lang/tf-check run artifacts
+      - run: diff -r out/t2/tf-check-run1 out/t2/tf-check
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tf-check
+          path: |
+            out/t2/tf-check/help.txt
+            out/t2/tf-check/result.json
+
+  adapter-ts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4
+        with:
+          version: 9
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+      - run: pnpm -r install --frozen-lockfile
+      - run: pnpm --filter @tf-lang/adapter-execution-ts run build
+      - run: pnpm --filter @tf-lang/adapter-execution-ts run test
+      - run: pnpm --filter @tf-lang/adapter-execution-ts run fixtures
+      - run: cp out/t2/adapter-ts-trace.json out/t2/adapter-ts-trace.run1.json
+      - run: pnpm --filter @tf-lang/adapter-execution-ts run fixtures
+      - run: diff out/t2/adapter-ts-trace.run1.json out/t2/adapter-ts-trace.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: adapter-ts
+          path: out/t2/adapter-ts-trace.json
+
+  adapter-rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+      - name: Install Rust
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl build-essential pkg-config libssl-dev
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          echo "${HOME}/.cargo/bin" >> $GITHUB_PATH
+      - run: $HOME/.cargo/bin/cargo test --manifest-path crates/Cargo.toml --package tf-adapters-execution --all-targets
+
+  mapper-trace2tags:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4
+        with:
+          version: 9
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+      - run: pnpm -r install --frozen-lockfile
+      - run: pnpm --filter @tf-lang/trace2tags run build
+      - run: pnpm --filter @tf-lang/trace2tags run test
+      - run: pnpm --filter @tf-lang/trace2tags run artifacts
+      - run: cp out/t2/trace-tags.json out/t2/trace-tags.run1.json
+      - run: pnpm --filter @tf-lang/trace2tags run artifacts
+      - run: diff out/t2/trace-tags.run1.json out/t2/trace-tags.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: trace-tags
+          path: out/t2/trace-tags.json
+
+  coverage-report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4
+        with:
+          version: 9
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+      - run: pnpm -r install --frozen-lockfile
+      - run: pnpm --filter @tf-lang/trace2tags run artifacts
+      - run: pnpm --filter @tf-lang/coverage-generator run build
+      - run: pnpm --filter @tf-lang/coverage-generator run test
+      - run: pnpm --filter @tf-lang/coverage-generator run artifacts
+      - run: cp out/t2/coverage.json out/t2/coverage.run1.json
+      - run: cp out/t2/coverage.html out/t2/coverage.run1.html
+      - run: pnpm --filter @tf-lang/coverage-generator run artifacts
+      - run: diff out/t2/coverage.run1.json out/t2/coverage.json
+      - run: diff out/t2/coverage.run1.html out/t2/coverage.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: |
+            out/t2/coverage.json
+            out/t2/coverage.html
+
+  adapter-parity:
+    runs-on: ubuntu-latest
+    needs: [adapter-ts, adapter-rust]
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4
+        with:
+          version: 9
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+      - name: Install Rust
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl build-essential pkg-config libssl-dev
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          echo "${HOME}/.cargo/bin" >> $GITHUB_PATH
+      - run: pnpm -r install --frozen-lockfile
+      - run: pnpm --filter @tf-lang/adapter-execution-ts run build
+      - run: pnpm --filter @tf-lang/adapter-execution-ts run parity
+      - run: cp out/t2/adapter-parity.json out/t2/adapter-parity.run1.json
+      - run: pnpm --filter @tf-lang/adapter-execution-ts run parity
+      - run: diff out/t2/adapter-parity.run1.json out/t2/adapter-parity.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: adapter-parity
+          path: out/t2/adapter-parity.json

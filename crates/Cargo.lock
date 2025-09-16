@@ -316,6 +316,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "tf-adapters-execution"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "tf-oracles-core"
 version = "0.1.0"
 dependencies = [

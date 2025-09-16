@@ -1,0 +1,56 @@
+{
+  "byTag": {
+    "resource.copy": {
+      "count": 1,
+      "specs": [
+        "demo-plan"
+      ],
+      "steps": [
+        {
+          "spec": "demo-plan",
+          "stepIndex": 0
+        }
+      ]
+    },
+    "resource.network": {
+      "count": 1,
+      "specs": [
+        "demo-plan"
+      ],
+      "steps": [
+        {
+          "spec": "demo-plan",
+          "stepIndex": 2
+        }
+      ]
+    },
+    "resource.vm": {
+      "count": 1,
+      "specs": [
+        "demo-plan"
+      ],
+      "steps": [
+        {
+          "spec": "demo-plan",
+          "stepIndex": 1
+        }
+      ]
+    }
+  },
+  "generatedAt": "1970-01-01T00:00:00.000Z",
+  "specs": {
+    "demo-plan": {
+      "coveredOps": [
+        "copy",
+        "create_network",
+        "create_vm"
+      ],
+      "tags": 3
+    }
+  },
+  "totals": {
+    "specs": 1,
+    "tagKinds": 3,
+    "tags": 3
+  }
+}

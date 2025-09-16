@@ -112,3 +112,8 @@
 - [F7] Updated PR_REPORT summary to capture final review fixes.
 - Commands: n/a (documentation only).
 - Notes: Highlights Ajv migration, BTreeMap canon, Map/Set semantics, and scoped stubs.
+
+## 2025-09-16T03:26:41Z
+- [T2] Implemented runtime & tooling epic: tf-check CLI, execution adapters, trace mapper, and coverage generator.
+- Commands: `pnpm --filter @tf-lang/tf-check run test`, `pnpm --filter @tf-lang/adapter-execution-ts run test`, `pnpm --filter @tf-lang/trace2tags run test`, `pnpm --filter @tf-lang/coverage-generator run test`, `cargo test --workspace --all-targets --manifest-path crates/Cargo.toml`.
+- Notes: Generated canonical artifacts under `out/t2/`, added parity between TS/Rust adapters, and wired CI workflow `t2-runtime` with determinism checks.

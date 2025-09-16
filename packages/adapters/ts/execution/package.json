@@ -1,0 +1,24 @@
+{
+  "name": "@tf-lang/adapter-execution-ts",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "fixtures": "node dist/artifacts.js",
+    "parity": "node dist/parity.js"
+  },
+  "dependencies": {
+    "tf-lang-l0": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.1",
+    "typescript": "^5.5.0",
+    "vitest": "^2.1.3"
+  }
+}

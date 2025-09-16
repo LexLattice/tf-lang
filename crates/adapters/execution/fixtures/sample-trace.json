@@ -1,0 +1,68 @@
+{
+  "spec": {
+    "name": "demo-plan",
+    "version": "0.1"
+  },
+  "events": [
+    {
+      "step_index": 0,
+      "op": "copy",
+      "outcome": "success",
+      "params": {
+        "dest": "bucket-b",
+        "src": "bucket-a"
+      },
+      "details": {
+        "dest": "bucket-b",
+        "src": "bucket-a"
+      }
+    },
+    {
+      "step_index": 1,
+      "op": "create_vm",
+      "outcome": "success",
+      "params": {
+        "cpus": 2,
+        "image": "ubuntu-22.04"
+      },
+      "details": {
+        "cpus": 2,
+        "id": "vm-1",
+        "image": "ubuntu-22.04"
+      }
+    },
+    {
+      "step_index": 2,
+      "op": "create_network",
+      "outcome": "success",
+      "params": {
+        "cidr": "10.0.0.0/24"
+      },
+      "details": {
+        "cidr": "10.0.0.0/24",
+        "id": "net-1"
+      }
+    }
+  ],
+  "summary": {
+    "copies": [
+      {
+        "dest": "bucket-b",
+        "src": "bucket-a"
+      }
+    ],
+    "vms": [
+      {
+        "cpus": 2,
+        "id": "vm-1",
+        "image": "ubuntu-22.04"
+      }
+    ],
+    "networks": [
+      {
+        "cidr": "10.0.0.0/24",
+        "id": "net-1"
+      }
+    ]
+  }
+}

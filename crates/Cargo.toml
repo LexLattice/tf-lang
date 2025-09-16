@@ -1,7 +1,8 @@
 [workspace]
 members = [
   "oracles/core",
-  "oracles/determinism"
+  "oracles/determinism",
+  "adapters/execution"
 ]
 resolver = "2"
 

@@ -1,0 +1,26 @@
+{
+  "version": "0.1",
+  "name": "demo-plan",
+  "steps": [
+    {
+      "op": "copy",
+      "params": {
+        "src": "bucket-a",
+        "dest": "bucket-b"
+      }
+    },
+    {
+      "op": "create_vm",
+      "params": {
+        "image": "ubuntu-22.04",
+        "cpus": 2
+      }
+    },
+    {
+      "op": "create_network",
+      "params": {
+        "cidr": "10.0.0.0/24"
+      }
+    }
+  ]
+}

@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Claims Explorer — TF-Lang</title>
+<style>
+  :root { color-scheme: dark light; --bg:#0b0b0c; --fg:#eaeaea; --muted:#9aa0a6; --accent:#7cc0ff; --badge:#333b; --card:#1114; --ok:#39d98a; --warn:#f5c451; --err:#ff6b6b; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial; margin: 0; background: var(--bg); color: var(--fg); }
+  header { padding: 20px 24px; border-bottom: 1px solid #fff1; position: sticky; top: 0; backdrop-filter: blur(6px); background: linear-gradient(180deg, #0008, #0000); }
+  h1 { margin: 0 0 6px; font-size: 20px; }
+  .muted { color: var(--muted); font-size: 12px; }
+  main { padding: 20px 24px; display: grid; gap: 16px; }
+  .filters { display: grid; grid-template-columns: repeat(4, minmax(180px, 1fr)); gap: 12px; align-items: end; }
+  label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 6px; }
+  select, input[type="date"] { width: 100%; padding: 8px 10px; background: #111; color: var(--fg); border: 1px solid #fff2; border-radius: 8px; }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .card { padding: 14px; background: var(--card); border: 1px solid #fff1; border-radius: 14px; }
+  .metric { font-size: 28px; font-weight: 700; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; background: var(--badge); font-size: 12px; color: var(--muted); margin-left: 8px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 10px 8px; border-bottom: 1px solid #fff1; vertical-align: top; }
+  th { text-align: left; font-weight: 600; font-size: 12px; color: var(--muted); }
+  tr:hover { background: #fff0; }
+  a { color: var(--accent); text-decoration: none; }
+  .status { font-weight: 600; }
+  .status.determinate { color: var(--ok); }
+  .status.ambiguous { color: var(--warn); }
+  .status.contradictory { color: var(--err); }
+  details { background: #0004; border-radius: 10px; padding: 8px 10px; }
+  summary { cursor: pointer; }
+  footer { padding: 24px; color: var(--muted); border-top: 1px solid #fff1; }
+  @media (max-width: 1100px) { .cards { grid-template-columns: repeat(2, 1fr); } .filters { grid-template-columns: repeat(2, 1fr);} }
+  @media (max-width: 700px) { .cards { grid-template-columns: 1fr; }  .filters { grid-template-columns: 1fr;} }
+</style>
+</head>
+<body>
+<header>
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <div>
+  <h1>Claims Explorer <span class="badge">zero-backend demo</span></h1>
+  <div class="muted">Dataset: <span id="datasetVersion">loading…</span> • Source: <code id="srcPath"></code></div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <a href="./config.html" class="muted" style="text-decoration:none">⚙️ Config</a>
+      <button id="copyCurl" style="padding:6px 10px;border-radius:10px;background:#1b1b1f;color:#fff;border:1px solid #fff2;cursor:pointer;">Copy cURL</button>
+      <span id="copied" class="muted" style="display:none">Copied!</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="filters">
+    <div>
+      <label for="source">Source</label>
+      <select id="source">
+        <option value="static">Static file</option>
+        <option value="api">Live API</option>
+      </select>
+    </div>
+    <div>
+      <label for="apiBase">API base</label>
+      <input id="apiBase" placeholder="http://localhost:8787" />
+    </div>
+    <div>
+      <label for="at">Effective at date</label>
+      <input type="date" id="at" />
+    </div>
+    <div>
+      <label for="jur">Jurisdiction</label>
+      <select id="jur"></select>
+    </div>
+    <div>
+      <label for="mod">Modality</label>
+      <select id="mod">
+        <option value="*">Any</option>
+        <option value="FORBIDDEN">FORBIDDEN</option>
+        <option value="PERMITTED">PERMITTED</option>
+        <option value="OBLIGATORY">OBLIGATORY</option>
+        <option value="EXEMPT">EXEMPT</option>
+      </select>
+    </div>
+    <div>
+      <label>&nbsp;</label>
+      <button id="reset" style="width:100%;padding:9px 12px;border-radius:10px;background:#1b1b1f;color:#fff;border:1px solid #fff2;cursor:pointer;">Reset filters</button>
+    </div>
+  </section>
+
+  <section class="cards">
+    <div class="card"><div class="muted">Count</div><div id="metricCount" class="metric">0</div></div>
+    <div class="card"><div class="muted">Ambiguous</div><div id="metricAmb" class="metric">0</div></div>
+    <div class="card"><div class="muted">Contradictory</div><div id="metricCon" class="metric">0</div></div>
+  </section>
+
+  <section id="tagsPanel" class="card" style="display:none">
+    <div class="muted">Tags</div>
+    <ul id="tagsList" style="margin:0;padding-left:20px"></ul>
+  </section>
+
+  <section class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div class="muted">Claims</div>
+      <div class="muted" id="resultInfo">0 items</div>
+    </div>
+    <table>
+      <thead><tr>
+        <th>ID</th><th>Modality</th><th>Jurisdiction</th><th>Effective</th><th>Status</th><th>Why / Evidence</th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </section>
+</main>
+
+<footer>
+  Built for the TF-Lang MVP. No backend; loads a static JSON file and computes Counts → Drilldown → Why in-browser.
+</footer>
+
+<script>
+const DATA_URL = './data/claims-ro-mini.json';
+let SOURCE = 'static';
+let API_BASE = '';
+let DATA_TAGS = [];
+let STATIC_DATASET_VERSION = '';
+let STATIC_DATA_TAGS = [];
+let STATIC_AT = '';
+let API_DATASET_VERSION = '';
+let API_DATA_TAGS = [];
+let API_AT = '';
+// Load persisted settings (if any)
+const SRC_KEY = 'tfl_source';
+const API_KEY = 'tfl_api_base';
+function persist(){ try { localStorage.setItem(SRC_KEY, SOURCE); localStorage.setItem(API_KEY, API_BASE); } catch(_){} }
+function loadPersist(){ try { const s = localStorage.getItem(SRC_KEY); const a = localStorage.getItem(API_KEY); if(s) SOURCE = s; if(a) API_BASE = a; } catch(_){} }
+function buildCurl(params){
+  const url = new URL('/claims/list', API_BASE || 'http://localhost:8787');
+  if(params.modality && params.modality!=='*') url.searchParams.set('modality', params.modality);
+  if(params.jurisdiction && params.jurisdiction!=='*') url.searchParams.set('jurisdiction', params.jurisdiction);
+  if(params.at) url.searchParams.set('at', params.at);
+  url.searchParams.set('limit', '50');
+  return `curl '${'`'}${url.toString()}${'`'}`; // template with quotes
+}
+
+async function apiFetchHealth(){
+  const url = new URL('/health', API_BASE);
+  const r = await fetch(url.toString());
+  if(!r.ok) throw new Error('health '+r.status);
+  return await r.json();
+}
+
+async function apiFetchCount(params){
+  const url = new URL('/claims/count', API_BASE);
+  if(params.modality && params.modality!=='*') url.searchParams.set('modality', params.modality);
+  if(params.jurisdiction && params.jurisdiction!=='*') url.searchParams.set('jurisdiction', params.jurisdiction);
+  if(params.at) url.searchParams.set('at', params.at);
+  const r = await fetch(url.toString());
+  if(!r.ok) throw new Error('count '+r.status);
+  return await r.json();
+}
+async function apiFetchList(params){
+  const url = new URL('/claims/list', API_BASE);
+  if(params.modality && params.modality!=='*') url.searchParams.set('modality', params.modality);
+  if(params.jurisdiction && params.jurisdiction!=='*') url.searchParams.set('jurisdiction', params.jurisdiction);
+  if(params.at) url.searchParams.set('at', params.at);
+  url.searchParams.set('limit', '200');
+  const r = await fetch(url.toString());
+  if(!r.ok) throw new Error('list '+r.status);
+  return await r.json();
+}
+
+// DRY: refresh dataset meta (version, tags, default date) from current source
+async function refreshMetaFromSource(state) {
+  // state: { source: 'api'|'static', apiBase: string, staticMeta: object, setMeta: (m)=>void, setDefaultAt:(d)=>void, setTags:(t)=>void, setVersion:(v)=>void }
+  try {
+    if (state.source === 'api') {
+      const r = await fetch(new URL('/health', state.apiBase).toString(), { method: 'GET' });
+      if (!r.ok) throw new Error('health '+r.status);
+      const meta = await r.json(); // { dataset_version, tags, generated_at?, at? }
+      state.setVersion(meta.dataset_version ?? '');
+      state.setTags(Array.isArray(meta.tags) ? meta.tags : []);
+      const at = meta.at || (meta.generated_at ? String(meta.generated_at).slice(0,10) : '');
+      state.setDefaultAt(at || '2025-09-09'); // stable fallback
+      state.setMeta(meta);
+    } else {
+      const meta = state.staticMeta || {};
+      state.setVersion(meta.dataset_version ?? '');
+      state.setTags(Array.isArray(meta.tags) ? meta.tags : []);
+      const at = meta.at || (meta.generated_at ? String(meta.generated_at).slice(0,10) : '');
+      state.setDefaultAt(at || '2025-09-09');
+      state.setMeta(meta);
+    }
+  } catch(_err) {
+    // graceful failure: keep current UI state; don't throw
+  }
+}
+
+const $ = sel => document.querySelector(sel);
+
+let ALL = [];
+let DATASET_VERSION = '';
+
+function updateSourceLabel(){
+  const srcText = SOURCE === 'static' ? DATA_URL : API_BASE;
+  $('#srcPath').textContent = srcText || '';
+}
+
+function updateTagsPanel(){
+  const panel = $('#tagsPanel');
+  const list = $('#tagsList');
+  if(!DATA_TAGS.length){
+    panel.style.display = 'none';
+    list.innerHTML = '';
+    return;
+  }
+  panel.style.display = '';
+  list.innerHTML = '';
+  for(const t of DATA_TAGS){
+    const li = document.createElement('li');
+    li.textContent = t;
+    list.appendChild(li);
+  }
+}
+
+function effFrom(c) { return c.effective?.from ?? c.effective_from ?? null; }
+function effTo(c) { return c.effective?.to ?? c.effective_to ?? null; }
+function getJur(c) { return c.scope?.jurisdiction ?? c.jurisdiction ?? ''; }
+
+function effectiveActive(c, at) {
+  if (!at) return true;
+  const from = effFrom(c);
+  const to = effTo(c);
+  const fromOk = from ? from <= at : true;
+  const toOk = !to || at <= to;
+  return fromOk && toOk;
+}
+
+function uniqueJurisdictions(claims) {
+  const set = new Set(claims.map(getJur).filter(Boolean));
+  return ['*', ...Array.from(set)];
+}
+
+
+async function applyFilters() {
+  updateSourceLabel();
+  const at = $('#at').value || null;
+  const jur = $('#jur').value;
+  const mod = $('#mod').value;
+  let items = [];
+  let total = 0;
+
+  if (SOURCE === 'static') {
+    items = ALL.filter(c => effectiveActive(c, at));
+    if (jur && jur !== '*') items = items.filter(c => getJur(c) === jur);
+    if (mod && mod !== '*') items = items.filter(c => c.modality === mod);
+    total = items.length;
+  } else {
+    const params = { at, jurisdiction: jur, modality: mod };
+    try {
+      const [cnt, lst] = await Promise.all([apiFetchCount(params), apiFetchList(params)]);
+      total = cnt.n;
+      items = lst.items || [];
+    } catch(err) {
+      console.error(err);
+    }
+  }
+  const amb = items.filter(c => c.status === 'ambiguous').length;
+  const con = items.filter(c => c.status === 'contradictory').length;
+  $('#metricCount').textContent = String(total);
+  $('#metricAmb').textContent = String(amb);
+  $('#metricCon').textContent = String(con);
+  $('#resultInfo').textContent = total + ' items';
+  const tbody = $('#rows'); tbody.innerHTML = '';
+  for (const c of items) {
+    const from = effFrom(c), to = effTo(c);
+    const eff = (from || '—') + (to ? ' → ' + to : '');
+    const tr = document.createElement('tr');
+    const tdId = document.createElement('td');
+    const code = document.createElement('code');
+    code.textContent = String(c.id);
+    tdId.appendChild(code);
+    const tdMod = document.createElement('td');
+    tdMod.textContent = String(c.modality);
+    const tdJur = document.createElement('td');
+    tdJur.textContent = String(getJur(c) || '—');
+    const tdEff = document.createElement('td');
+    tdEff.textContent = eff;
+    const tdStatus = document.createElement('td');
+    tdStatus.className = 'status ' + String(c.status || '');
+    tdStatus.textContent = String(c.status || '');
+    const tdWhy = document.createElement('td');
+    const details = document.createElement('details');
+    const summary = document.createElement('summary');
+    summary.textContent = 'Why';
+    const wrap = document.createElement('div');
+    wrap.style.marginTop = '6px';
+    if (c.explanation && typeof c.explanation.why === 'string' && c.explanation.why) {
+      const why = document.createElement('div');
+      why.className = 'muted';
+      why.textContent = c.explanation.why;
+      wrap.appendChild(why);
+    }
+    const evList = Array.isArray(c.evidence) ? c.evidence : [];
+    for (const e of evList) {
+      const div = document.createElement('div');
+      div.append(document.createTextNode('source: '));
+      const a = document.createElement('a');
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.href = String(e.source_uri || '');
+      a.textContent = String(e.source_uri || '');
+      div.appendChild(a);
+      wrap.appendChild(div);
+    }
+    const dv = document.createElement('div');
+    dv.className = 'muted';
+    dv.textContent = 'dataset_version: ' + String(c.dataset_version || '');
+    wrap.appendChild(dv);
+    details.append(summary, wrap);
+    tdWhy.appendChild(details);
+    tr.append(tdId, tdMod, tdJur, tdEff, tdStatus, tdWhy);
+    tbody.appendChild(tr);
+  }
+}
+
+async function main() {
+  const resp = await fetch(DATA_URL);
+  const data = await resp.json();
+  const version = data.dataset_version ?? data.version ?? data.meta?.dataset_version ?? '—';
+  ALL = (data.claims || []).map(c => ({ ...c, dataset_version: version }));
+  DATASET_VERSION = version;
+  DATA_TAGS = Array.isArray(data.tags) ? data.tags.slice().sort((a,b)=>a.localeCompare(b)) : [];
+  STATIC_DATASET_VERSION = DATASET_VERSION;
+  STATIC_DATA_TAGS = DATA_TAGS.slice();
+  $('#datasetVersion').textContent = DATASET_VERSION;
+  updateTagsPanel();
+
+  // populate filters
+  const jurSel = $('#jur'); jurSel.innerHTML = '';
+  for (const j of uniqueJurisdictions(ALL)) {
+    const opt = document.createElement('option');
+    opt.value = j; opt.textContent = j === '*' ? 'Any' : j;
+    jurSel.appendChild(opt);
+  }
+
+  function resolveAt(meta){ return meta.at || (meta.generated_at ? meta.generated_at.slice(0,10) : '1970-01-01'); }
+
+  // defaults
+  STATIC_AT = resolveAt(data);
+  loadPersist();
+  $('#source').value = SOURCE || 'static';
+  $('#apiBase').value = API_BASE || 'http://localhost:8787';
+  SOURCE = $('#source').value;
+  API_BASE = $('#apiBase').value;
+  if (SOURCE === 'api') {
+    try { const h = await apiFetchHealth();
+      API_DATASET_VERSION = h.dataset_version || '';
+      API_DATA_TAGS = Array.isArray(h.tags) ? h.tags.slice().sort((a,b)=>a.localeCompare(b)) : [];
+      API_AT = resolveAt(h);
+      DATASET_VERSION = API_DATASET_VERSION;
+      DATA_TAGS = API_DATA_TAGS.slice();
+      $('#datasetVersion').textContent = DATASET_VERSION;
+      updateTagsPanel();
+      $('#at').value = API_AT;
+    } catch(err) { console.error(err); $('#at').value = STATIC_AT; }
+  } else {
+    $('#at').value = STATIC_AT;
+  }
+  $('#mod').value = '*';
+  $('#jur').value = '*';
+  updateSourceLabel();
+
+  await applyFilters();
+
+  $('#at').addEventListener('change', () => applyFilters());
+  $('#jur').addEventListener('change', () => applyFilters());
+  $('#mod').addEventListener('change', () => applyFilters());
+  $('#source').addEventListener('change', async () => {
+    SOURCE = $('#source').value;
+    persist();
+    await refreshMetaFromSource({
+      source: SOURCE,
+      apiBase: API_BASE,
+      staticMeta: { dataset_version: STATIC_DATASET_VERSION, tags: STATIC_DATA_TAGS, at: STATIC_AT },
+      setVersion: (v) => {
+        DATASET_VERSION = v || '';
+        $('#datasetVersion').textContent = DATASET_VERSION;
+      },
+      setTags: (t) => {
+        DATA_TAGS = Array.isArray(t) ? t.slice().sort((a,b)=>a.localeCompare(b)) : [];
+        updateTagsPanel();
+      },
+      setDefaultAt: (d) => {
+        if (!$('#at').value) $('#at').value = d || '';
+      },
+      setMeta: (meta) => {
+        if (SOURCE === 'api') {
+          API_DATASET_VERSION = meta.dataset_version || '';
+          API_DATA_TAGS = Array.isArray(meta.tags) ? meta.tags.slice().sort((a,b)=>a.localeCompare(b)) : [];
+          API_AT = meta.at || (meta.generated_at ? String(meta.generated_at).slice(0,10) : '');
+        } else {
+          STATIC_DATASET_VERSION = meta.dataset_version || STATIC_DATASET_VERSION;
+          STATIC_DATA_TAGS = Array.isArray(meta.tags) ? meta.tags.slice().sort((a,b)=>a.localeCompare(b)) : STATIC_DATA_TAGS;
+          STATIC_AT = meta.at || (meta.generated_at ? String(meta.generated_at).slice(0,10) : STATIC_AT);
+        }
+      },
+    });
+    try { await applyFilters(); } catch(err) { console.error(err); }
+  });
+  $('#apiBase').addEventListener('change', async () => {
+    API_BASE = $('#apiBase').value;
+    persist();
+    await refreshMetaFromSource({
+      source: SOURCE,
+      apiBase: API_BASE,
+      staticMeta: { dataset_version: STATIC_DATASET_VERSION, tags: STATIC_DATA_TAGS, at: STATIC_AT },
+      setVersion: (v) => {
+        DATASET_VERSION = v || '';
+        $('#datasetVersion').textContent = DATASET_VERSION;
+      },
+      setTags: (t) => {
+        DATA_TAGS = Array.isArray(t) ? t.slice().sort((a,b)=>a.localeCompare(b)) : [];
+        updateTagsPanel();
+      },
+      setDefaultAt: (d) => {
+        if (!$('#at').value) $('#at').value = d || '';
+      },
+      setMeta: (meta) => {
+        if (SOURCE === 'api') {
+          API_DATASET_VERSION = meta.dataset_version || '';
+          API_DATA_TAGS = Array.isArray(meta.tags) ? meta.tags.slice().sort((a,b)=>a.localeCompare(b)) : [];
+          API_AT = meta.at || (meta.generated_at ? String(meta.generated_at).slice(0,10) : '');
+        } else {
+          STATIC_DATASET_VERSION = meta.dataset_version || STATIC_DATASET_VERSION;
+          STATIC_DATA_TAGS = Array.isArray(meta.tags) ? meta.tags.slice().sort((a,b)=>a.localeCompare(b)) : STATIC_DATA_TAGS;
+          STATIC_AT = meta.at || (meta.generated_at ? String(meta.generated_at).slice(0,10) : STATIC_AT);
+        }
+      },
+    });
+    try { await applyFilters(); } catch(err) { console.error(err); }
+  });
+  document.getElementById('copyCurl').addEventListener('click', async () => {
+    const at = $('#at').value || null; const jurisdiction = $('#jur').value; const modality = $('#mod').value; const text = buildCurl({ at, jurisdiction, modality });
+    try { await navigator.clipboard.writeText(text); } catch(_) { console.log('clipboard failed'); }
+    const c = document.getElementById('copied'); c.style.display='inline'; setTimeout(()=>{c.style.display='none';}, 800);
+  });
+  $('#reset').addEventListener('click', async () => {
+    $('#at').value = STATIC_AT;
+    $('#jur').value = '*';
+    $('#mod').value = '*';
+    $('#source').value = 'static';
+    SOURCE = 'static';
+    DATASET_VERSION = STATIC_DATASET_VERSION;
+    DATA_TAGS = STATIC_DATA_TAGS.slice();
+    $('#datasetVersion').textContent = DATASET_VERSION;
+    updateTagsPanel();
+    try { await applyFilters(); } catch(err) { console.error(err); }
+  });
+}
+
+main().catch(err => {
+  console.error(err);
+  alert('Failed to load data: ' + err.message);
+});
+</script>
+</body>
+</html>

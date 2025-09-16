@@ -1,0 +1,27 @@
+{
+  "name": "@tf-lang/trace2tags",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "prebuild": "pnpm --filter @tf-lang/utils run build",
+    "build": "tsc -p tsconfig.build.json",
+    "preartifacts": "pnpm run build",
+    "test": "vitest run",
+    "artifacts": "node dist/artifacts.js"
+  },
+  "dependencies": {
+    "@tf-lang/utils": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.1",
+    "typescript": "^5.5.0",
+    "vitest": "^2.1.3"
+  }
+}

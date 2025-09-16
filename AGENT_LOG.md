@@ -112,3 +112,34 @@
 - [F7] Updated PR_REPORT summary to capture final review fixes.
 - Commands: n/a (documentation only).
 - Notes: Highlights Ajv migration, BTreeMap canon, Map/Set semantics, and scoped stubs.
+
+## 2025-09-16T03:26:41Z
+- [T2] Implemented runtime & tooling epic: tf-check CLI, execution adapters, trace mapper, and coverage generator.
+- Commands: `pnpm --filter @tf-lang/tf-check run test`, `pnpm --filter @tf-lang/adapter-execution-ts run test`, `pnpm --filter @tf-lang/trace2tags run test`, `pnpm --filter @tf-lang/coverage-generator run test`, `cargo test --workspace --all-targets --manifest-path crates/Cargo.toml`.
+- Notes: Generated canonical artifacts under `out/t2/`, added parity between TS/Rust adapters, and wired CI workflow `t2-runtime` with determinism checks.
+
+## 2025-09-16T04:30:59Z
+- [T2] Review fixes: camelCase parity, tf-check parser reuse, mapper guards, CI hardening.
+- Commands: `pnpm -r --filter @tf-lang/tf-check test`, `pnpm -r --filter @tf-lang/adapter-execution-ts test`, `pnpm -r --filter @tf-lang/trace2tags test`, `pnpm -r --filter @tf-lang/coverage-generator test`, `cargo test --workspace --all-targets --manifest-path crates/Cargo.toml`, `pnpm --filter @tf-lang/* run artifacts` (double executions with diffs).
+- Notes: tf-lang-l0 now builds to `dist/` for runtime reuse, parity job fails on mismatch, mapper tolerates malformed details, artifacts confirmed deterministic.
+
+## 2025-09-16T05:26:38Z
+- [T2] Review batch 2 follow-up: introduced shared utils, hardened coverage/parity, aligned CLI + clap, and verified artifacts twice.
+- Commands: `pnpm -w install`, `pnpm --filter "./packages/utils" install`, `pnpm -r --filter "./packages/utils" run build`, `pnpm --filter "./packages/tf-lang-l0-ts" install`, `pnpm -r --filter "./packages/tf-lang-l0-ts" run build`, `pnpm --filter @tf-lang/adapter-execution-ts install`, `pnpm -r --filter @tf-lang/adapter-execution-ts run build`, `pnpm --filter @tf-lang/trace2tags install`, `pnpm -r --filter @tf-lang/trace2tags run build`, `pnpm --filter @tf-lang/coverage-generator install`, `pnpm -r --filter @tf-lang/coverage-generator run build`, `pnpm --filter @tf-lang/tf-check install`, `pnpm -r --filter @tf-lang/tf-check run build`, `pnpm -r --filter @tf-lang/* run test`, `cargo test --workspace --all-targets --manifest-path crates/Cargo.toml`, `pnpm --filter @tf-lang/adapter-execution-ts run fixtures`, `pnpm --filter @tf-lang/trace2tags run artifacts`, `pnpm --filter @tf-lang/coverage-generator run artifacts`, `pnpm --filter @tf-lang/tf-check run artifacts`, `pnpm --filter @tf-lang/adapter-execution-ts run parity` (x2).
+- Notes: Added vitest coverage for utils helpers; coverage HTML test now checks escaped quotes; parity harness updated for clap `dump --spec/--out` flags. Artifacts regenerated twice for determinism, parity JSON shows `equal: true`.
+
+## 2025-09-16T10:04:30Z
+- [Pages] docs/ currently lacks index.html; contains markdown and claims-explorer HTML.
+- [Pages] claims demo lives in services/claims-api-ts (TypeScript server build only; need static export).
+- [Pages] pages.yml just uploads docs/ without build; no pnpm install.
+- Actions next: add build:pages script, copy-to-docs script, relative Vite config or equivalent, new docs/index.html, update workflow.
+
+## 2025-09-16T10:09:25Z
+- [Pages] Added build:pages + copy-to-docs pipeline for claims API service; script now stages dist bundle and static demo into docs/claims with dataset copy.
+- [Pages] Created docs/index.html landing page linking to claims demo.
+- [Pages] Pages workflow now installs deps, runs build:pages, and uploads docs artifact.
+- Commands: `pnpm -r --filter "./services/claims-api-ts" run build:pages`.
+
+## 2025-09-16T10:33:22Z
+- [Pages] Workflow installs pnpm via action, builds claims demo, uploads docs artifact (no CLI smoke).
+- [tf-lang-l0] Added prepublish build, @noble/hashes dep already present; bumped version to 0.1.1.

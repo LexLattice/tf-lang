@@ -1,0 +1,12 @@
+tf-check — validate TF-Lang specs
+
+Usage:
+  tf-check --help                     Show this message
+  tf-check validate --input <path>    Validate a spec file
+  tf-check validate --input <path> --out <dir>  Write result.json next to CLI output
+  tf-check artifacts [--out <dir>]    Emit canonical help.txt and result.json for CI
+
+Exit codes:
+  0 — validation succeeded
+  1 — validation failed (invalid input)
+  2 — CLI misuse (missing flags, unknown command)

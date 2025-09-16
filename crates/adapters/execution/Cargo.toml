@@ -1,0 +1,11 @@
+[package]
+name = "tf-adapters-execution"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+clap = { version = "4.5", features = ["derive"] }

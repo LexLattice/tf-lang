@@ -1,4 +1,6 @@
 import { createServer as createHttpServer } from 'node:http';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { canonicalJsonBytes, blake3hex, DummyHost } from 'tf-lang-l0';
 import { makeHandler, type LruCache } from './handler.js';
 import { makeRawHandler } from './makeRawHandler.js';
@@ -58,7 +60,9 @@ export function createServer(deps = createHost()) {
 export { makeHandler } from './handler.js';
 export { makeRawHandler } from './makeRawHandler.js';
 
-if (process.argv[1] === new URL(import.meta.url).pathname) {
+const modulePath = fileURLToPath(import.meta.url);
+
+if (process.argv[1] && path.resolve(process.argv[1]) === modulePath) {
   const port = Number(process.env.PORT || 8787);
   const host = process.env.HOST || '0.0.0.0';
   createServer().listen(port, host, () => {

@@ -1,10 +1,11 @@
 
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { buildClaims, legalPrecedence, Query } from '../../legal.js';
 import { conflictDetect } from 'claims-core-ts';
 
-const here = path.dirname(new URL(import.meta.url).pathname);
+const here = path.dirname(fileURLToPath(new URL(import.meta.url)));
 const acts = JSON.parse(fs.readFileSync(path.join(here, 'acts.json'), 'utf-8'));
 const clauses = JSON.parse(fs.readFileSync(path.join(here, 'clauses.json'), 'utf-8'));
 

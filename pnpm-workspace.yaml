@@ -1,6 +1,10 @@
 
 packages:
+  - "packages/utils"
   - "packages/*"
   - "packages/oracles/*"
+  - "packages/adapters/*/*"
+  - "packages/mapper/*"
+  - "packages/coverage/*"
 
   - "services/*"

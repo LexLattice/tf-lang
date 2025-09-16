@@ -1,0 +1,17 @@
+{
+  "source": {
+    "kind": "file",
+    "path": "fixtures/sample-spec.json"
+  },
+  "status": "ok",
+  "summary": {
+    "name": "demo-plan",
+    "operations": {
+      "copy": 1,
+      "create_network": 1,
+      "create_vm": 1
+    },
+    "stepCount": 3,
+    "version": "0.1"
+  }
+}

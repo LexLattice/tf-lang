@@ -79,6 +79,16 @@ function subsetOfInner(actual: unknown, expected: unknown, segments: Array<strin
 
   if (Array.isArray(actual) || Array.isArray(expected)) {
     if (!Array.isArray(actual) || !Array.isArray(expected)) {
+      // If actual is an array but expected is not, surface the first index as unknown
+      // to avoid emitting a trailing slash for nested roots.
+      if (Array.isArray(actual)) {
+        return {
+          ok: false,
+          code: "E_FIELD_UNKNOWN",
+          message: "unknown field present",
+          path: pointerFromSegments([...segments, 0]),
+        };
+      }
       return notSubset(segments);
     }
     for (let i = 0; i < actual.length; i++) {

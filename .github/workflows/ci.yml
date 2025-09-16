@@ -19,7 +19,7 @@ jobs:
         with:
           node-version: '20'
       - run: pnpm -w install --frozen-lockfile
-      - run: pnpm -C packages/tf-lang-l0-ts test
+      - run: pnpm -r --filter "./packages/tf-lang-l0-ts" test
 
   rust:
     name: Rust build & test
@@ -61,8 +61,8 @@ jobs:
           sudo apt-get install -y curl build-essential pkg-config libssl-dev
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           echo "${HOME}/.cargo/bin" >> $GITHUB_PATH
-      - run: pnpm --filter tf-lang-l0 exec vitest run tests/spec.adapter.test.ts
-      - run: pnpm --filter tf-lang-l0 exec vitest run tests/spec.adapter.test.ts
+      - run: pnpm -w --filter "./packages/tf-lang-l0-ts" exec vitest run tests/spec.adapter.test.ts
+      - run: pnpm -w --filter "./packages/tf-lang-l0-ts" exec vitest run tests/spec.adapter.test.ts
       - run: $HOME/.cargo/bin/cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml spec_adapter
       - run: $HOME/.cargo/bin/cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml spec_adapter
 
@@ -124,13 +124,13 @@ jobs:
           target: runtime
           platforms: linux/amd64
           push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-          outputs: type=digest
           tags: |
             ${{ env.REGISTRY }}/${{ steps.repo.outputs.repo_lc }}/claims-api-ts:0.2
             ${{ env.REGISTRY }}/${{ steps.repo.outputs.repo_lc }}/claims-api-ts:latest
           sbom: false
           provenance: false
       - name: Rebuild to verify digest
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         id: rebuild
         uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
@@ -144,8 +144,10 @@ jobs:
           no-cache: true
           outputs: type=digest
       - name: Compare digests
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: test "${{ steps.build.outputs.digest }}" = "${{ steps.rebuild.outputs.digest }}"
       - name: Summarize digests
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           {
             echo "build digest:  ${{ steps.build.outputs.digest }}"

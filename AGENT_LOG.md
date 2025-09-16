@@ -112,3 +112,8 @@
 - [F7] Updated PR_REPORT summary to capture final review fixes.
 - Commands: n/a (documentation only).
 - Notes: Highlights Ajv migration, BTreeMap canon, Map/Set semantics, and scoped stubs.
+
+## 2025-09-16T02:58:39Z
+- [F8] Adjusted CI installs to use workspace root for pnpm.
+- Commands: n/a (workflow-only change).
+- Notes: Ensures devDependencies (vitest) are available during CI test runs.

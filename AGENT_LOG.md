@@ -47,3 +47,8 @@
 - [R4] Compiled PR_REPORT with determinism evidence and follow-ups for PR #110.
 - Commands: n/a (documentation only).
 - Notes: README TODOs track ambient stub replacement.
+
+## 2025-09-16T01:06:20Z
+- [S1] Swapped TS spec adapter to Ajv-backed validation with schema-derived error mapping.
+- Commands: n/a (code change only).
+- Notes: First non-oneOf Ajv error mapped to existing E_SPEC_* codes.

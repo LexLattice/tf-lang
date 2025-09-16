@@ -31,26 +31,40 @@ jobs:
       - name: Pack & run tf-check
         run: |
           ROOT=$PWD
-          pushd packages/tf-check >/dev/null
-          TARBALL=$(pnpm pack | tail -n1)
-          popd
+          TMPDIR=/tmp/tfcheck
+          rm -rf "$TMPDIR"
+          mkdir -p "$TMPDIR"
+
           pushd packages/utils >/dev/null
           UTILS_TARBALL=$(pnpm pack | tail -n1)
           popd
+
           pushd packages/tf-lang-l0-ts >/dev/null
           L0_TARBALL=$(pnpm pack | tail -n1)
           popd
-          mkdir -p /tmp/tfcheck && cd /tmp/tfcheck
-          cat <<'PKG' > package.json
+
+          pushd packages/tf-check >/dev/null
+          TF_TARBALL=$(pnpm pack | tail -n1)
+          popd
+
+          mkdir -p "$TMPDIR/node_modules/@tf-lang/utils" \
+                   "$TMPDIR/node_modules/@tf-lang/tf-check" \
+                   "$TMPDIR/node_modules/tf-lang-l0" \
+                   "$TMPDIR/node_modules"
+
+          tar -xzf "$ROOT/packages/utils/$UTILS_TARBALL" --strip-components=1 -C "$TMPDIR/node_modules/@tf-lang/utils"
+          tar -xzf "$ROOT/packages/tf-lang-l0-ts/$L0_TARBALL" --strip-components=1 -C "$TMPDIR/node_modules/tf-lang-l0"
+          tar -xzf "$ROOT/packages/tf-check/$TF_TARBALL" --strip-components=1 -C "$TMPDIR/node_modules/@tf-lang/tf-check"
+
+          cat <<'PKG' > "$TMPDIR/package.json"
           {
             "name": "tfcheck-smoke",
             "private": true,
             "license": "MIT"
           }
           PKG
-          pnpm add "$ROOT/packages/utils/$UTILS_TARBALL" "$ROOT/packages/tf-lang-l0-ts/$L0_TARBALL"
-          pnpm add "$ROOT/packages/tf-check/$TARBALL"
-          pnpm exec tf-check --help >/dev/null
+
+          node "$TMPDIR/node_modules/@tf-lang/tf-check/dist/cli.js" --help >/dev/null
       - name: No URL.pathname in ESM helpers
         run: |
           ! git grep -n "new URL(.*import.meta.url).*\\.pathname" -- "packages/**" || \

@@ -10,7 +10,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
+    "prefixtures": "pnpm run build",
     "fixtures": "node dist/artifacts.js",
+    "preparity": "pnpm run build",
     "parity": "node dist/parity.js"
   },
   "dependencies": {

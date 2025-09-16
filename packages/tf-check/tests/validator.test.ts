@@ -44,6 +44,21 @@ describe("tf-check validation", () => {
     expect(result.status).toBe("error");
     if (result.status !== "error") return;
     expect(result.error.code).toBe("E_SPEC_OP_UNKNOWN");
+    expect(result.error.path).toBe("/steps/0/op");
+    expect(result.error.message).toBe("E_SPEC_OP_UNKNOWN /steps/0/op");
+  });
+
+  it("maps schema errors from tf-lang-l0", () => {
+    const spec = {
+      name: "missing version",
+      steps: [],
+    };
+    const result = validateSpec(spec);
+    expect(result.status).toBe("error");
+    if (result.status !== "error") return;
+    expect(result.error.code).toBe("E_SPEC_VERSION");
+    expect(result.error.path).toBe("/version");
+    expect(result.error.message).toBe("E_SPEC_VERSION /version");
   });
 
   it("writes canonical artifacts", async () => {

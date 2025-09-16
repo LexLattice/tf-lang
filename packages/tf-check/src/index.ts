@@ -1,6 +1,8 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 
+import { parseSpec as l0ParseSpec, type TfSpec as L0TfSpec } from "tf-lang-l0";
+
 export type AllowedOp = "copy" | "create_vm" | "create_network";
 
 export interface CopyStep {
@@ -20,9 +22,9 @@ export interface CreateNetworkStep {
 
 export type Step = CopyStep | CreateVmStep | CreateNetworkStep;
 
-export interface TfSpec {
-  version: string;
-  name: string;
+type BaseSpec = Omit<L0TfSpec, "steps">;
+
+export interface TfSpec extends BaseSpec {
   steps: Step[];
 }
 
@@ -120,160 +122,37 @@ function summarize(spec: TfSpec): ValidationSummary {
   };
 }
 
-interface ValidationError {
-  code: string;
-  path: string;
-  message: string;
+function mapL0Error(error: unknown): { code: string; path: string; message: string } {
+  const message = (error instanceof Error ? error.message : String(error)) ?? "";
+  const match = message.match(/^(E_SPEC_[A-Z_]+)\s+(\/.*)$/);
+  if (match) {
+    return { code: match[1], path: match[2], message };
+  }
+  return { code: "E_SPEC_UNKNOWN", path: "/", message };
 }
 
-function pointerSegment(segment: string | number): string {
-  const raw = typeof segment === "number" ? String(segment) : segment;
-  return raw.replace(/~/g, "~0").replace(/\//g, "~1");
-}
-
-function pointer(...segments: Array<string | number>): string {
-  if (segments.length === 0) return "/";
-  return `/${segments.map(pointerSegment).join("/")}`;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function parseInput(input: string | Uint8Array | object): unknown {
-  if (typeof input === "string") {
-    return JSON.parse(input);
-  }
-  if (input instanceof Uint8Array) {
-    return JSON.parse(new TextDecoder().decode(input));
-  }
-  return input;
-}
-
-function fail(code: string, pathStr: string): ValidationError {
-  return { code, path: pathStr, message: `${code} ${pathStr}` };
-}
-
-function ensureString(value: unknown, code: string, pathStr: string): ValidationError | string {
-  if (typeof value !== "string" || value.length === 0) {
-    return fail(code, pathStr);
-  }
-  return value;
-}
-
-function ensureInteger(value: unknown, code: string, pathStr: string): ValidationError | number {
-  if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
-    return fail(code, pathStr);
-  }
-  return value;
-}
-
-function checkExtraParams(
-  params: Record<string, unknown>,
-  allowed: string[],
-  base: Array<string | number>
-): ValidationError | null {
-  const allowedSet = new Set(allowed);
-  for (const key of Object.keys(params)) {
-    if (!allowedSet.has(key)) {
-      return fail("E_SPEC_PARAM_UNKNOWN", pointer(...base, "params", key));
-    }
-  }
-  return null;
-}
-
-function parseStep(raw: unknown, index: number): { step: Step } | { error: ValidationError } {
-  if (!isRecord(raw)) {
-    return { error: fail("E_SPEC_STEP", pointer("steps", index)) };
-  }
-  const opValue = raw.op;
-  if (typeof opValue !== "string") {
-    return { error: fail("E_SPEC_OP", pointer("steps", index, "op")) };
-  }
-  if (!isRecord(raw.params)) {
-    return { error: fail("E_SPEC_PARAMS", pointer("steps", index, "params")) };
-  }
-  const params = raw.params;
-
-  switch (opValue as AllowedOp) {
-    case "copy": {
-      const extra = checkExtraParams(params, ["src", "dest"], ["steps", index]);
-      if (extra) return { error: extra };
-      const src = ensureString(params.src, "E_SPEC_PARAM_TYPE", pointer("steps", index, "params", "src"));
-      if (typeof src !== "string") return { error: src };
-      const dest = ensureString(params.dest, "E_SPEC_PARAM_TYPE", pointer("steps", index, "params", "dest"));
-      if (typeof dest !== "string") return { error: dest };
-      return { step: { op: "copy", params: { src, dest } } };
-    }
-    case "create_vm": {
-      const extra = checkExtraParams(params, ["image", "cpus"], ["steps", index]);
-      if (extra) return { error: extra };
-      const image = ensureString(params.image, "E_SPEC_PARAM_TYPE", pointer("steps", index, "params", "image"));
-      if (typeof image !== "string") return { error: image };
-      const cpus = ensureInteger(params.cpus, "E_SPEC_PARAM_TYPE", pointer("steps", index, "params", "cpus"));
-      if (typeof cpus !== "number") return { error: cpus };
-      return { step: { op: "create_vm", params: { image, cpus } } };
-    }
-    case "create_network": {
-      const extra = checkExtraParams(params, ["cidr"], ["steps", index]);
-      if (extra) return { error: extra };
-      const cidr = ensureString(params.cidr, "E_SPEC_PARAM_TYPE", pointer("steps", index, "params", "cidr"));
-      if (typeof cidr !== "string") return { error: cidr };
-      return { step: { op: "create_network", params: { cidr } } };
-    }
-    default:
-      return { error: fail("E_SPEC_OP_UNKNOWN", pointer("steps", index, "op")) };
-  }
-}
-
-function parseSpecValue(value: unknown): { spec: TfSpec } | { error: ValidationError } {
-  if (!isRecord(value)) {
-    return { error: fail("E_SPEC_TYPE", "/") };
-  }
-  const record = value as Record<string, unknown>;
-  const version = ensureString(record.version, "E_SPEC_VERSION", "/version");
-  if (typeof version !== "string") return { error: version };
-  if (version !== "0.1") {
-    return { error: fail("E_SPEC_VERSION", "/version") };
-  }
-  const name = ensureString(record.name, "E_SPEC_NAME", "/name");
-  if (typeof name !== "string") return { error: name };
-  if (!Array.isArray(record.steps)) {
-    return { error: fail("E_SPEC_STEPS", "/steps") };
-  }
-  const steps: Step[] = [];
-  const extraRoot = checkExtraParams(record, ["version", "name", "steps"], []);
-  if (extraRoot) {
-    return { error: extraRoot };
-  }
-  for (let i = 0; i < record.steps.length; i += 1) {
-    const parsed = parseStep(record.steps[i], i);
-    if ("error" in parsed) {
-      return { error: parsed.error };
-    }
-    steps.push(parsed.step);
-  }
-  return { spec: { version, name, steps } };
+function coerceSpec(spec: L0TfSpec): TfSpec {
+  return spec as unknown as TfSpec;
 }
 
 export function validateSpec(
   input: string | Uint8Array | object,
   source: ValidationSource = { kind: "inline" }
 ): ValidationResult {
-  const data = parseInput(input);
-  const parsed = parseSpecValue(data);
-  if ("error" in parsed) {
+  try {
+    const parsed = coerceSpec(l0ParseSpec(input));
+    return {
+      status: "ok",
+      source,
+      summary: summarize(parsed),
+    };
+  } catch (error) {
     return {
       status: "error",
       source,
-      error: parsed.error,
+      error: mapL0Error(error),
     };
   }
-  return {
-    status: "ok",
-    source,
-    summary: summarize(parsed.spec),
-  };
 }
 
 export async function validateSpecFile(filePath: string): Promise<ValidationResult> {

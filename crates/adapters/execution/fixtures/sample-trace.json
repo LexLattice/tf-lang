@@ -5,7 +5,7 @@
   },
   "events": [
     {
-      "step_index": 0,
+      "stepIndex": 0,
       "op": "copy",
       "outcome": "success",
       "params": {
@@ -18,7 +18,7 @@
       }
     },
     {
-      "step_index": 1,
+      "stepIndex": 1,
       "op": "create_vm",
       "outcome": "success",
       "params": {
@@ -32,7 +32,7 @@
       }
     },
     {
-      "step_index": 2,
+      "stepIndex": 2,
       "op": "create_network",
       "outcome": "success",
       "params": {

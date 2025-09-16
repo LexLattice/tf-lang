@@ -12,7 +12,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let spec = load_spec(Path::new("spec.json"))?;
     let trace = execute(&spec)?;
     write_trace(Path::new("trace.json"), &trace)?;
-    Ok(0)
+    Ok(())
 }
 ```
 

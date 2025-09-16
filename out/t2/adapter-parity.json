@@ -1,5 +1,5 @@
 {
-  "equal": false,
+  "equal": true,
   "rustTrace": {
     "events": [
       {
@@ -13,7 +13,7 @@
           "dest": "bucket-b",
           "src": "bucket-a"
         },
-        "step_index": 0
+        "stepIndex": 0
       },
       {
         "details": {
@@ -27,7 +27,7 @@
           "cpus": 2,
           "image": "ubuntu-22.04"
         },
-        "step_index": 1
+        "stepIndex": 1
       },
       {
         "details": {
@@ -39,7 +39,7 @@
         "params": {
           "cidr": "10.0.0.0/24"
         },
-        "step_index": 2
+        "stepIndex": 2
       }
     ],
     "spec": {

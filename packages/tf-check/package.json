@@ -13,9 +13,12 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
+    "preartifacts": "pnpm run build",
     "artifacts": "node dist/artifacts.js"
   },
-  "dependencies": {},
+  "dependencies": {
+    "tf-lang-l0": "workspace:*"
+  },
   "devDependencies": {
     "@types/node": "^24.3.1",
     "typescript": "^5.5.0",

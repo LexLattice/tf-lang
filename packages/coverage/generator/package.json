@@ -10,6 +10,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
+    "preartifacts": "pnpm run build",
     "artifacts": "node dist/artifacts.js"
   },
   "devDependencies": {

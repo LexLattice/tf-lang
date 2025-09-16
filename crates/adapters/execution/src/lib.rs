@@ -28,6 +28,7 @@ pub struct TraceSpec {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct TraceEvent {
     pub step_index: usize,
     pub op: String,

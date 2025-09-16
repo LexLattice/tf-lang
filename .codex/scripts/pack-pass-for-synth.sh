@@ -26,6 +26,42 @@ fi
 command -v gh >/dev/null || { echo "Requires GitHub CLI: gh"; exit 1; }
 command -v jq >/dev/null || { echo "Requires jq"; exit 1; }
 
+if ! REPO_FULL=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null); then
+  echo "Unable to determine repository (gh repo view failed)" >&2
+  exit 1
+fi
+REPO_OWNER="${REPO_FULL%%/*}"
+REPO_NAME="${REPO_FULL#*/}"
+
+REVIEW_THREAD_QUERY=$(cat <<'GRAPHQL'
+query($owner: String!, $name: String!, $number: Int!, $cursor: String) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      reviewThreads(first: 50, after: $cursor) {
+        nodes {
+          isResolved
+          path
+          comments(first: 100) {
+            nodes {
+              author { login }
+              body
+              path
+              line
+              originalLine
+            }
+          }
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
+    }
+  }
+}
+GRAPHQL
+)
+
 GROUP="$1"; shift
 
 # Expand ranges and normalize tokens
@@ -87,20 +123,88 @@ for pl in "${PAIRS[@]}"; do
     echo
     echo "### PR Body"
     echo
-    [[ -n "$body" ]] && echo "$body" || echo "_(empty body)_"
+    if [[ -n "$body" ]]; then
+      printf '%s\n' "$body"
+    else
+      echo "_(empty body)_"
+    fi
   } >> "$OUT_MD"
 
-  # Reviews and issue comments; filter to allowed bot users for Markdown
-  raw=$(gh pr view "$pr" --json reviews,comments)
+  # Reviews, review comments, and review threads (GraphQL) for Markdown/JSON filtering
+  base=$(gh pr view "$pr" --json reviews,comments)
+  threads_json='[]'
+  cursor=""
+  while :; do
+    if [[ -n "$cursor" ]]; then
+      if ! resp=$(gh api graphql \
+          -f query="$REVIEW_THREAD_QUERY" \
+          -F owner="$REPO_OWNER" -F name="$REPO_NAME" \
+          -F number="$pr" -F cursor="$cursor" 2>/dev/null); then
+        threads_json='[]'
+        break
+      fi
+    else
+      if ! resp=$(gh api graphql \
+          -f query="$REVIEW_THREAD_QUERY" \
+          -F owner="$REPO_OWNER" -F name="$REPO_NAME" \
+          -F number="$pr" 2>/dev/null); then
+        threads_json='[]'
+        break
+      fi
+    fi
+
+    nodes=$(jq -c '.data.repository.pullRequest.reviewThreads.nodes // [] | map(.comments = (.comments.nodes // []))' <<<"$resp")
+    [[ -n "$nodes" ]] || nodes='[]'
+    threads_json=$(jq -c --argjson nodes "$nodes" '. + $nodes' <<<"$threads_json")
+
+    has_next=$(jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage' <<<"$resp")
+    if [[ "$has_next" != "true" ]]; then
+      break
+    fi
+    cursor=$(jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.endCursor // empty' <<<"$resp")
+    [[ -n "$cursor" ]] || break
+  done
+
+  raw=$(jq -c --argjson threads "$threads_json" '. + {reviewThreads: $threads}' <<<"$base")
   allow_json=$(printf '%s\n' "${ALLOW[@]}" | jq -R . | jq -s .)
   filt=$(jq -c --argjson allow "$allow_json" '
-      .reviews  = (.reviews  // [] | map(select(.author.login as $u | $allow | index($u))))
-      | .comments = (.comments // [] | map(select(.author.login as $u | $allow | index($u))))
+      def keep_allowed($allow):
+        (. // []
+          | map(select((.author.login? // "") as $u | ($allow | index($u)) != null and ($u | length) > 0)));
+      .reviews  = ((.reviews  // []) | keep_allowed($allow))
+      | .comments = ((.comments // []) | keep_allowed($allow))
+      | .reviewThreads = ((.reviewThreads // [])
+          | map(.comments = ((.comments // []) | keep_allowed($allow)))
+          | map(select((.comments | length) > 0)))
     ' <<<"$raw")
 
   echo -e "\n### Selected Reviews (codex/gemini)\n" >> "$OUT_MD"
-  jq -r '.reviews[]? | "- **\(.author.login)** (\(.state)): \((.body // "") | gsub("\r";""))"' <<<"$filt" >> "$OUT_MD"
-  jq -r '.comments[]? | "- **\(.author.login)**: \((.body // "") | gsub("\r";""))"' <<<"$filt" >> "$OUT_MD"
+  reviews_md=$(jq -r '.reviews[]? | "- **\(.author.login)** (\(.state)): \((.body // "") | gsub("\r";""))"' <<<"$filt")
+  comments_md=$(jq -r '.comments[]? | "- **\(.author.login)**: \((.body // "") | gsub("\r";""))"' <<<"$filt")
+  if [[ -n "$reviews_md" || -n "$comments_md" ]]; then
+    [[ -n "$reviews_md" ]] && printf '%s\n' "$reviews_md" >> "$OUT_MD"
+    [[ -n "$comments_md" ]] && printf '%s\n' "$comments_md" >> "$OUT_MD"
+  else
+    echo "_No selected reviews or comments._" >> "$OUT_MD"
+  fi
+
+  echo -e "\n### Selected Review Threads (codex/gemini)\n" >> "$OUT_MD"
+  threads_md=$(jq -r '
+    (.reviewThreads // [])[]? as $thread
+    | ($thread.comments | if length > 0 then .[0] else {} end) as $first
+    | "- **Thread** on `\($thread.path // ($first.path // "(no path)"))`" +
+        (if ($first.line // $first.originalLine) != null then
+           " (line " + (($first.line // $first.originalLine) | tostring) + ")"
+         else ""
+         end) +
+        " (" + (if $thread.isResolved then "resolved" else "open" end) + ")" ,
+      ($thread.comments[]? | "  - **\(.author.login)**: \((.body // "") | gsub("\r";""))")
+  ' <<<"$filt")
+  if [[ -n "$threads_md" ]]; then
+    printf '%s\n' "$threads_md" >> "$OUT_MD"
+  else
+    echo "_No selected review threads._" >> "$OUT_MD"
+  fi
 
   # JSON row includes filtered reviews/comments; optionally add diff
   if [[ $INCLUDE_DIFF -eq 1 ]]; then
@@ -109,13 +213,15 @@ for pl in "${PAIRS[@]}"; do
                 --arg state "$state" --arg body "$body" --argjson rc "$filt" \
                 --arg diff "$diff_txt" '
           {label:$lbl, pr:($pr|tonumber), url:$url, title:$title, state:$state, body:$body,
-           reviews: ($rc.reviews // []), comments: ($rc.comments // []), diff: $diff}
+           reviews: ($rc.reviews // []), comments: ($rc.comments // []),
+           reviewThreads: ($rc.reviewThreads // []), diff: $diff}
         ' <<<"{}")
   else
     row=$(jq -c --arg lbl "$lbl" --arg pr "$pr" --arg url "$url" --arg title "$title" \
                 --arg state "$state" --arg body "$body" --argjson rc "$filt" '
           {label:$lbl, pr:($pr|tonumber), url:$url, title:$title, state:$state, body:$body,
-           reviews: ($rc.reviews // []), comments: ($rc.comments // [])}
+           reviews: ($rc.reviews // []), comments: ($rc.comments // []),
+           reviewThreads: ($rc.reviewThreads // [])}
         ' <<<"{}")
   fi
   if [[ $first -eq 0 ]]; then printf ',' >> "$OUT_JSON"; fi

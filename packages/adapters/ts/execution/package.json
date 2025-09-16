@@ -6,8 +6,11 @@
   "exports": {
     ".": "./dist/index.js"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
+    "prebuild": "pnpm --filter tf-lang-l0 run build",
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
     "prefixtures": "pnpm run build",

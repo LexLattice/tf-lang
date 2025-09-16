@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { writeArtifacts } from "./index.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = findRepoRoot(new URL(".", import.meta.url).pathname);
+const repoRoot = findRepoRoot(fileURLToPath(new URL(".", import.meta.url)));
 const defaultOut = path.join(repoRoot, "out/t2/tf-check");
 const specPath = path.join(here, "../fixtures/sample-spec.json");
 

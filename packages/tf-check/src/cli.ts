@@ -118,13 +118,7 @@ async function main(): Promise<void> {
   }
 }
 
-const isCliEntry =
-  process.argv[1] &&
-  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-
-if (isCliEntry) {
-  main().catch((error) => {
-    process.stderr.write(`${(error as Error).message}\n`);
-    exit(2);
-  });
-}
+main().catch((error) => {
+  process.stderr.write(`${(error as Error).message}\n`);
+  exit(2);
+});

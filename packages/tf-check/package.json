@@ -9,11 +9,13 @@
   "bin": {
     "tf-check": "dist/cli.js"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "prebuild": "pnpm --filter tf-lang-l0 build",
+    "prebuild": "pnpm --filter @tf-lang/utils run build && pnpm --filter tf-lang-l0 run build",
     "build": "tsc -p tsconfig.json",
-    "pretest": "pnpm --filter tf-lang-l0 build",
+    "pretest": "pnpm --filter tf-lang-l0 run build",
     "test": "vitest run",
     "preartifacts": "pnpm run build",
     "artifacts": "node dist/artifacts.js"

@@ -30,6 +30,7 @@ jobs:
       - run: sha256sum --check out/t2/tf-check.sha
       - name: Pack & run tf-check
         run: |
+          ROOT=$PWD
           pushd packages/tf-check >/dev/null
           TARBALL=$(pnpm pack | tail -n1)
           popd
@@ -41,7 +42,7 @@ jobs:
             "license": "MIT"
           }
           PKG
-          pnpm add "../packages/tf-check/$TARBALL"
+          pnpm add "$ROOT/packages/tf-check/$TARBALL"
           pnpm exec tf-check --help >/dev/null
       - name: No URL.pathname in ESM helpers
         run: |

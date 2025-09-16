@@ -44,6 +44,7 @@ jobs:
         with:
           node-version: '20'
       - run: pnpm -r install --frozen-lockfile
+      - run: pnpm -r --filter "./packages/tf-lang-l0-ts" run build
       - run: pnpm --filter @tf-lang/adapter-execution-ts run build
       - run: pnpm --filter @tf-lang/adapter-execution-ts run test
       - run: pnpm --filter @tf-lang/adapter-execution-ts run fixtures

@@ -89,7 +89,7 @@ export function executeSpec(spec: TfSpec, options: ExecutionOptions = {}): Execu
   let vmCount = 0;
   let networkCount = 0;
 
-  spec.steps.forEach((step, index) => {
+  spec.steps.forEach((step: TfSpec["steps"][number], index: number) => {
     if (isCopyStep(step)) {
       copyCount += 1;
       const details = { src: step.params.src, dest: step.params.dest };

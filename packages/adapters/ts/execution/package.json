@@ -8,6 +8,7 @@
   },
   "files": ["dist"],
   "scripts": {
+    "prebuild": "pnpm -w --filter ./packages/tf-lang-l0-ts run build",
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
     "prefixtures": "pnpm run build",

@@ -96,11 +96,18 @@ jobs:
     runs-on: ubuntu-latest
     env:
       REGISTRY: ghcr.io
-      REPO_LC: ${{ toLower(github.repository) }}
+      REPO_RAW: ${{ github.repository }}
       SOURCE_DATE_EPOCH: 0
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
       - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3
+      - name: Compute lowercase repository
+        id: repo
+        shell: bash
+        env:
+          REPO_RAW: ${{ env.REPO_RAW }}
+        run: |
+          echo "repo_lc=${REPO_RAW,,}" >> "$GITHUB_OUTPUT"
       - name: Login to GHCR
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3
@@ -118,8 +125,8 @@ jobs:
           platforms: linux/amd64
           push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           tags: |
-            ${{ env.REGISTRY }}/${{ env.REPO_LC }}/claims-api-ts:0.2
-            ${{ env.REGISTRY }}/${{ env.REPO_LC }}/claims-api-ts:latest
+            ${{ env.REGISTRY }}/${{ steps.repo.outputs.repo_lc }}/claims-api-ts:0.2
+            ${{ env.REGISTRY }}/${{ steps.repo.outputs.repo_lc }}/claims-api-ts:latest
           sbom: false
           provenance: false
       - name: Rebuild to verify digest
@@ -144,8 +151,8 @@ jobs:
             echo "rebuild digest:${{ steps.rebuild.outputs.digest }}"
             if [ "$GITHUB_EVENT_NAME" = 'push' ] && [ "$GITHUB_REF" = 'refs/heads/main' ]; then
               echo "pushed:"
-              echo "  ${{ env.REGISTRY }}/${{ env.REPO_LC }}/claims-api-ts:0.2@${{ steps.build.outputs.digest }}"
-              echo "  ${{ env.REGISTRY }}/${{ env.REPO_LC }}/claims-api-ts:latest@${{ steps.build.outputs.digest }}"
+              echo "  ${{ env.REGISTRY }}/${{ steps.repo.outputs.repo_lc }}/claims-api-ts:0.2@${{ steps.build.outputs.digest }}"
+              echo "  ${{ env.REGISTRY }}/${{ steps.repo.outputs.repo_lc }}/claims-api-ts:latest@${{ steps.build.outputs.digest }}"
             fi
           } >> $GITHUB_STEP_SUMMARY
       - name: Check JSON fixtures

@@ -6,15 +6,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Ensure legacy scripts/ folder is empty
+      - name: Ensure scripts/ contains only approved stubs
         run: |
           set -euo pipefail
-          if [ -d scripts ]; then
-            count=$(find scripts -type f | wc -l | tr -d ' ')
-            if [ "$count" != "0" ]; then
-              echo "Found files under scripts/:" >&2
-              find scripts -type f -maxdepth 1 -print >&2 || true
-              exit 1
-            fi
+          if [ ! -d scripts ]; then
+            echo "OK: scripts/ missing"
+            exit 0
           fi
-          echo "OK: scripts/ is empty"
+          allowed="check-ambient-stubs.sh oracle-core-results validate-tf-spec"
+          unexpected=0
+          while IFS= read -r file; do
+            name=$(basename "$file")
+            case " $allowed " in
+              *" $name "*) ;;
+              *)
+                echo "Unexpected file in scripts/: $name" >&2
+                unexpected=1
+                ;;
+            esac
+          done < <(find scripts -maxdepth 1 -type f)
+          if [ "$unexpected" -eq 1 ]; then
+            exit 1
+          fi
+          echo "OK: scripts/ only contains approved stubs"

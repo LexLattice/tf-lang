@@ -11,6 +11,7 @@ import {
   validateSpecFile,
   writeArtifacts,
 } from "../src/index.js";
+import { runValidate } from "../src/cli.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const fixture = path.join(here, "../fixtures/sample-spec.json");
@@ -74,5 +75,22 @@ describe("tf-check validation", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("tf-check CLI parsing", () => {
+  it("accepts --input=value form", async () => {
+    const exitCode = await runValidate([`--input=${fixture}`]);
+    expect(exitCode).toBe(0);
+  });
+
+  it("rejects unknown flags", async () => {
+    const exitCode = await runValidate(["--input", fixture, "--unknown", "nope"]);
+    expect(exitCode).toBe(2);
+  });
+
+  it("rejects missing values", async () => {
+    const exitCode = await runValidate(["--input"]);
+    expect(exitCode).toBe(2);
   });
 });

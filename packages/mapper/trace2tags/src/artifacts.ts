@@ -1,10 +1,12 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { findRepoRoot } from "@tf-lang/utils";
+
 import { generateArtifacts } from "./index.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(here, "../../../..");
+const repoRoot = findRepoRoot(new URL(".", import.meta.url).pathname);
 const tracePath = path.join(here, "../fixtures/traces.jsonl");
 const outPath = path.join(repoRoot, "out/t2/trace-tags.json");
 

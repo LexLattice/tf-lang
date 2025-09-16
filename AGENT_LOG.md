@@ -37,3 +37,8 @@
 - [R2] Added ambient stub fence script to enforce policy scope.
 - Commands: n/a (script addition only).
 - Notes: Script fails if `.d.ts` files appear outside `services/claims-api-ts/src/types/`.
+
+## 2025-09-16T00:32:46Z
+- [R3] Tweaked determinism failure return path to use safe conversion API.
+- Commands: `cargo fmt --manifest-path crates/oracles/determinism/Cargo.toml`.
+- Notes: No public API changes; maintains Result-based flow.

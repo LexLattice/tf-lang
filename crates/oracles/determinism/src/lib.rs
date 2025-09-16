@@ -130,7 +130,7 @@ pub fn check_determinism(
         .iter()
         .take(5)
         .map(|case| format!("case:{}:run:{}", case.case, case.run));
-    OracleResult::from(with_trace(failure, trace))
+    with_trace(failure, trace).into()
 }
 
 fn canonicalize_run(run: &DeterminismRun, ctx: &OracleCtx) -> CanonicalRun {

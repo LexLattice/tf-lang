@@ -70,7 +70,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: stable
-      - uses: Swatinem/rust-cache@3cf1046959f7ce90f2bbb139f49b41fc1acbfd4a # v2
+      - uses: Swatinem/rust-cache@8cbdedb5103daa674dcf46d3590fe06a76645684 # v2.8.0
         with:
           workspaces: crates -> crates/target
           cache-on-failure: true
@@ -145,7 +145,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: stable
-      - uses: Swatinem/rust-cache@3cf1046959f7ce90f2bbb139f49b41fc1acbfd4a # v2
+      - uses: Swatinem/rust-cache@8cbdedb5103daa674dcf46d3590fe06a76645684 # v2.8.0
         with:
           workspaces: crates -> crates/target
           cache-on-failure: true

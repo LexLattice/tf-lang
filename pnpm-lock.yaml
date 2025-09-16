@@ -143,10 +143,6 @@ importers:
         version: 2.1.9(@types/node@24.3.1)(jsdom@24.1.3)
 
   packages/tf-check:
-    dependencies:
-      tf-lang-l0:
-        specifier: workspace:*
-        version: link:../tf-lang-l0-ts
     devDependencies:
       '@types/node':
         specifier: ^24.3.1

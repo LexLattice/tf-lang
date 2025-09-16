@@ -143,3 +143,9 @@
 ## 2025-09-16T10:33:22Z
 - [Pages] Workflow installs pnpm via action, builds claims demo, uploads docs artifact (no CLI smoke).
 - [tf-lang-l0] Added prepublish build, @noble/hashes dep already present; bumped version to 0.1.1.
+
+## 2025-09-16T12:18:27Z
+- [Pages] workflow now sets up pnpm via actions, installs deps, builds docs, uploads artifact.
+- [tf-lang-l0] version 0.1.1 with prepublish build and @noble/hashes dependency.
+- [CI] tf-check smoke packs tf-lang-l0 + tf-check tarballs locally; no registry use.
+- Commands: `pnpm -r --filter ./packages/tf-lang-l0-ts run build`, `pnpm -r --filter ./packages/tf-check run build`.

@@ -28,43 +28,28 @@ jobs:
           sha256sum out/t2/tf-check/help.txt out/t2/tf-check/result.json > out/t2/tf-check.sha
       - run: pnpm --filter @tf-lang/tf-check run artifacts
       - run: sha256sum --check out/t2/tf-check.sha
-      - name: Pack & run tf-check
+      - name: Pack tf-check and tf-lang-l0, install locally, run bin
+        shell: bash
         run: |
+          set -euo pipefail
           ROOT=$PWD
-          TMPDIR=/tmp/tfcheck
-          rm -rf "$TMPDIR"
-          mkdir -p "$TMPDIR"
-
-          pushd packages/utils >/dev/null
-          UTILS_TARBALL=$(pnpm pack | tail -n1)
-          popd
 
           pushd packages/tf-lang-l0-ts >/dev/null
-          L0_TARBALL=$(pnpm pack | tail -n1)
+          pnpm run build
+          L0_TGZ="$(pnpm pack | tail -n1)"
           popd
 
           pushd packages/tf-check >/dev/null
-          TF_TARBALL=$(pnpm pack | tail -n1)
+          pnpm run build
+          TF_TGZ="$(pnpm pack | tail -n1)"
           popd
 
-          mkdir -p "$TMPDIR/node_modules/@tf-lang/utils" \
-                   "$TMPDIR/node_modules/@tf-lang/tf-check" \
-                   "$TMPDIR/node_modules/tf-lang-l0" \
-                   "$TMPDIR/node_modules"
-
-          tar -xzf "$ROOT/packages/utils/$UTILS_TARBALL" --strip-components=1 -C "$TMPDIR/node_modules/@tf-lang/utils"
-          tar -xzf "$ROOT/packages/tf-lang-l0-ts/$L0_TARBALL" --strip-components=1 -C "$TMPDIR/node_modules/tf-lang-l0"
-          tar -xzf "$ROOT/packages/tf-check/$TF_TARBALL" --strip-components=1 -C "$TMPDIR/node_modules/@tf-lang/tf-check"
-
-          cat <<'PKG' > "$TMPDIR/package.json"
-          {
-            "name": "tfcheck-smoke",
-            "private": true,
-            "license": "MIT"
-          }
-          PKG
-
-          node "$TMPDIR/node_modules/@tf-lang/tf-check/dist/cli.js" --help >/dev/null
+          TMPDIR=$(mktemp -d)
+          pushd "$TMPDIR" >/dev/null
+          pnpm init -y >/dev/null
+          pnpm add "$ROOT/packages/tf-lang-l0-ts/${L0_TGZ}" "$ROOT/packages/tf-check/${TF_TGZ}"
+          pnpm exec tf-check --help >/dev/null
+          popd >/dev/null
       - name: No URL.pathname in ESM helpers
         run: |
           ! git grep -n "new URL(.*import.meta.url).*\\.pathname" -- "packages/**" || \

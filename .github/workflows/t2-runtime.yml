@@ -41,7 +41,7 @@ jobs:
             "license": "MIT"
           }
           PKG
-          pnpm add "../../packages/tf-check/$TARBALL"
+          pnpm add "../packages/tf-check/$TARBALL"
           pnpm exec tf-check --help >/dev/null
       - name: No URL.pathname in ESM helpers
         run: |

@@ -67,3 +67,8 @@
 - [S4] Hardened build-tasks canonicalizer for nulls and arrays.
 - Commands: n/a (script change only).
 - Notes: Order preservation unchanged; early null guard added.
+
+## 2025-09-16T01:09:05Z
+- [S5] Expanded TS test coverage for Ajv error mapping and Map/Set semantics.
+- Commands: n/a (tests only).
+- Notes: Added schema edge cases and container-specific oracle checks.

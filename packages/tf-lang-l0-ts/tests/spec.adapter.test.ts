@@ -32,6 +32,16 @@ describe("tf-spec validation", () => {
     expect(() => parseSpec(bad)).toThrow("E_SPEC_OP_UNKNOWN /steps/0/op");
   });
 
+  it("rejects unknown root field", () => {
+    const bad = {
+      version: "0.1",
+      name: "bad",
+      steps: [],
+      extra: true,
+    };
+    expect(() => parseSpec(bad)).toThrow("E_SPEC_FIELD_UNKNOWN /extra");
+  });
+
   it("rejects missing params", () => {
     const bad = {
       version: "0.1",
@@ -48,5 +58,32 @@ describe("tf-spec validation", () => {
       steps: [{ op: "copy", params: { src: "a", dest: "b", extra: 1 } }]
     };
     expect(() => parseSpec(bad)).toThrow("E_SPEC_PARAM_UNKNOWN /steps/0/params/extra");
+  });
+
+  it("rejects invalid version", () => {
+    const bad = {
+      version: "0.2",
+      name: "bad",
+      steps: []
+    };
+    expect(() => parseSpec(bad)).toThrow("E_SPEC_VERSION /version");
+  });
+
+  it("rejects wrong param type", () => {
+    const bad = {
+      version: "0.1",
+      name: "bad",
+      steps: [{ op: "copy", params: { src: 1, dest: "b" } }]
+    };
+    expect(() => parseSpec(bad)).toThrow("E_SPEC_PARAM_TYPE /steps/0/params/src");
+  });
+
+  it("rejects cpus below minimum", () => {
+    const bad = {
+      version: "0.1",
+      name: "bad",
+      steps: [{ op: "create_vm", params: { image: "img", cpus: 0 } }]
+    };
+    expect(() => parseSpec(bad)).toThrow("E_SPEC_PARAM_TYPE /steps/0/params/cpus");
   });
 });

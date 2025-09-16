@@ -29,6 +29,22 @@ describe("equals", () => {
     expect(r.ok).toBe(false);
     expect(r.path).toBe("/");
   });
+
+  it("detects map value mismatches", () => {
+    const a = new Map<any, any>([[{ id: 1 }, { value: 1 }]]);
+    const b = new Map<any, any>([[{ id: 1 }, { value: 2 }]]);
+    const r = equals(a, b);
+    expect(r.ok).toBe(false);
+    expect(r.path).toBe('/{"id":1}/value');
+  });
+
+  it("detects set membership mismatches", () => {
+    const a = new Set([1, 2]);
+    const b = new Set([1, 3]);
+    const r = equals(a, b);
+    expect(r.ok).toBe(false);
+    expect(r.path).toBe("/1");
+  });
 });
 
 describe("subsetOf", () => {
@@ -77,6 +93,37 @@ describe("subsetOf", () => {
     expect(r.ok).toBe(false);
     expect(r.code).toBe("E_FIELD_UNKNOWN");
     expect(r.path).toBe("/a/0");
+  });
+
+  it("treats map values as deep subsets", () => {
+    const actual = new Map<string, unknown>([["a", { count: 1 }]]);
+    const expected = new Map<string, unknown>([["a", { count: 1, extra: true }], ["b", 2]]);
+    const r = subsetOf(actual, expected);
+    expect(r.ok).toBe(true);
+  });
+
+  it("fails when map key missing", () => {
+    const actual = new Map<string, unknown>([["missing", 1]]);
+    const expected = new Map<string, unknown>([["present", 1]]);
+    const r = subsetOf(actual, expected);
+    expect(r.ok).toBe(false);
+    expect(r.path).toBe('/"missing"');
+  });
+
+  it("treats set values as deep subsets", () => {
+    const actual = new Set([new Map([["x", 1]])]);
+    const expected = new Set([new Map([["x", 1]]), new Map([["y", 2]])]);
+    const r = subsetOf(actual, expected);
+    expect(r.ok).toBe(true);
+  });
+
+  it("fails when set member absent", () => {
+    const actual = new Set([{ id: 1 }]);
+    const expected = new Set([{ id: 2 }]);
+    const r = subsetOf(actual, expected);
+    expect(r.ok).toBe(false);
+    expect(r.code).toBe("E_NOT_SUBSET");
+    expect(r.path).toBe("/");
   });
 });
 

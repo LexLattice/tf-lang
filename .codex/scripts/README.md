@@ -10,7 +10,7 @@ Scripts (canonical helpers)
 - knowledge.sh: Index .codex/knowledge into docs/runs/knowledge.md.
 - lint-briefs.py: Lint .codex/tasks/* for required files and basic YAML sanity.
 - lint-vectors.mjs: Lint vector JSON files for version, pointers, and effect shape.
-- pack-pass.sh: Copy docs/runs/*.md into docs/runs/pack-pass/.
+- pack-pass-for-synth.sh: Package PR bodies and AI bot comments (Codex/Gemini) into Markdown and optional PR diffs into JSON. Filters out generic intro posts (Codex "Codex Review: Here are some suggestions.", Gemini "Summary of Changes"). Includes inline review comments from those bots.
 - pass-bodies.sh: DEPRECATED — prefer pack-pass + pass-report.
 - pass-report.sh: Emit docs/runs/pass-report.md with timestamp and optional GROUP/PRS.
 - prbundle.sh: Bundle PR metadata/comments/diffs into one markdown file.
@@ -22,4 +22,3 @@ Scripts (canonical helpers)
 
 Make targets
 - briefs-index, briefs-check, collect-reports, pass-report, pack-pass, winner, knowledge, release-notes, sync-agents, golden, git-clean-refs.
-

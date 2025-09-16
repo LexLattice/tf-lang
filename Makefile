@@ -14,7 +14,8 @@ help:
 	@echo "  docker-down - docker compose down"
 	@echo "  collect-reports - aggregate parallel run reports"
 	@echo "  pass-report     - write pass summary to docs/runs"
-	@echo "  pack-pass       - copy pass artifacts under docs/runs/pack-pass"
+	@echo "  pack-pass       - package PRs into docs/runs/{GROUP}_input.md and {GROUP}.json"
+	@echo "  pack-pass-all   - same as pack-pass, also include PR diffs in JSON"
 	@echo "  winner          - show path to RUNS_REPORTS.md"
 	@echo "  knowledge       - index .codex/knowledge into docs/runs/knowledge.md"
 	@echo "  release-notes   - draft release notes into docs/runs/release-notes.md"
@@ -130,7 +131,7 @@ pass-bodies:
 #   make pass-bodies GROUP="E2_1" PRS="74:A 75:B 76:C 77:D"
 
 # Additional codex helper targets
-.PHONY: pass-report pack-pass winner knowledge release-notes
+.PHONY: pass-report pack-pass pack-pass-all winner knowledge release-notes
 pass-report:
 	@bash ./.codex/scripts/pass-report.sh
 
@@ -143,6 +144,11 @@ pack-pass:
 #     make pack-pass FLAGS=-all GROUP="T1_1_P1" PRS="123-126"
 #   include a commit diff JSON section:
 #     make pack-pass FLAGS="--commit <SHA>" GROUP="T1_1_P1" PRS="92-96"
+
+pack-pass-all:
+	@./.codex/scripts/pack-pass-for-synth.sh -all $(FLAGS) $(GROUP) $(PRS)
+# usage:
+#   make pack-pass-all GROUP="T1_1_P1" PRS="123-126"
 
 .PHONY: pack-commit
 pack-commit:

@@ -72,3 +72,8 @@
 - [S5] Expanded TS test coverage for Ajv error mapping and Map/Set semantics.
 - Commands: n/a (tests only).
 - Notes: Added schema edge cases and container-specific oracle checks.
+
+## 2025-09-16T01:20:49Z
+- [S6] Re-ran deterministic TS/Rust suites post-rebase and confirmed workspace build.
+- Commands: `pnpm -r --filter './packages/oracles/*' test`, `pnpm -r --filter './packages/tf-lang-l0-ts' test`, `pnpm -r --filter './services/claims-api-ts' test`, `cargo test --workspace --all-targets --manifest-path crates/Cargo.toml`, `pnpm run build`.
+- Notes: Repeats executed to confirm stability after Ajv/spec updates.

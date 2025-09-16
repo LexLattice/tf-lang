@@ -1,13 +1,14 @@
 # PR #110 — Final Polish Summary
 
 ## Summary
-- Re-confirmed determinism fixtures and seeds wired through both runtimes; reran builds/tests twice to ensure stability without altering public APIs.
-- Added a scoped policy guard (`scripts/check-ambient-stubs.sh`) and tightened determinism error flow to rely on safe `Result` conversion.
-- Documented the temporary ambient stubs in the claims API service README and TODO checkboxes; no runtime dependencies changed.
+- TS spec adapter now delegates validation to Ajv against `schema/tf-spec.schema.json`, mapping the first relevant validation error to the existing `E_SPEC_*` codes (including branch-specific param errors and op/version checks).
+- Rust spec adapter behaviour is unchanged; added TODO documenting the future serde-based refactor while keeping the explicit error mapping today.
+- TS oracles `equals`/`subsetOf` gained Map/Set semantics with canonical sorting and README notes; `.codex/scripts/build-tasks-json.mjs` canon is now null-safe.
+- Scoped ambient stubs remain confined to `services/claims-api-ts/src/types/`, enforced by `scripts/check-ambient-stubs.sh`.
 
 ## Not Changed
 - Public exports for `@tf/oracles-*` packages and `tf-oracles-*` crates remain untouched.
-- No new workflows or runtime dependencies were introduced; ambient stubs stay local to `services/claims-api-ts`.
+- No new runtime dependencies were introduced; Ajv already ships in the workspace and is reused here.
 
 ## Evidence (artifacts)
 - determinism fixtures: `packages/oracles/determinism/fixtures/*.json`
@@ -19,15 +20,17 @@
 
 ## Tests & CI
 - `pnpm -r --filter "./packages/oracles/*" build`
-- `pnpm -r --filter "./packages/oracles/*" test`
-- `pnpm -r --filter "./services/claims-api-ts" test`
-- `cargo test --workspace --all-targets --manifest-path crates/Cargo.toml`
+- `pnpm -r --filter "./packages/oracles/*" test` (6 + 7 tests per run, repeated twice)
+- `pnpm -r --filter "./packages/tf-lang-l0-ts" test` (26 tests, repeated twice)
+- `pnpm -r --filter "./services/claims-api-ts" test` (10 tests, repeated twice)
+- `cargo test --workspace --all-targets --manifest-path crates/Cargo.toml` (repeated twice)
 - `pnpm run build`
 - Optional guard: `scripts/check-ambient-stubs.sh` ensures scoped stubs.
 
 ## Implementation Notes
-- Confirmed all internal TS ESM imports use `.js` suffixes; no deep cross-package imports or `as any` in production code touched by PR.
+- Ajv validation is scoped to the new spec adapter implementation; the rest of the package surface remains unchanged.
 - Rust libraries contain no `unwrap()`/panicking paths; dedupe logic relies on `BTreeSet` for deterministic ordering.
+- Map/Set canonicalisation relies on local helpers with deterministic sorting; arrays remain structural deep-partials as documented.
 - Ambient type stubs remain confined to `services/claims-api-ts/src/types/` with TODOs documenting replacement work.
 
 ## Hurdles / Follow-ups

@@ -51,7 +51,7 @@ jobs:
       - run: cp tf-spec/validation.txt tf-spec/validation-run1.txt
       - run: ./scripts/validate-tf-spec
       - run: diff tf-spec/validation-run1.txt tf-spec/validation.txt
-      - uses: actions/upload-artifact@5d2af8a6adfe0d6cf86508eac058c6b64a6bfb41 # v4
+      - uses: actions/upload-artifact@v4
         with:
           name: tf-spec
           path: tf-spec/validation.txt
@@ -84,7 +84,7 @@ jobs:
       - run: cp oracle-core/results.json oracle-core/results.run1.json
       - run: ./scripts/oracle-core-results
       - run: diff oracle-core/results.run1.json oracle-core/results.json
-      - uses: actions/upload-artifact@5d2af8a6adfe0d6cf86508eac058c6b64a6bfb41 # v4
+      - uses: actions/upload-artifact@v4
         with:
           name: oracle-core
           path: |
@@ -124,6 +124,7 @@ jobs:
           target: runtime
           platforms: linux/amd64
           push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          outputs: type=digest
           tags: |
             ${{ env.REGISTRY }}/${{ steps.repo.outputs.repo_lc }}/claims-api-ts:0.2
             ${{ env.REGISTRY }}/${{ steps.repo.outputs.repo_lc }}/claims-api-ts:latest

@@ -34,10 +34,14 @@ const main = async () => {
 
   // Canonical stringify: sort keys recursively
   const canon = (v) => {
+    if (v === null) return null;
     if (Array.isArray(v)) return v.map(canon);
-    if (v && typeof v === 'object') {
+    if (typeof v === 'object') {
       const k = Object.keys(v).sort();
-      const o = {}; for (const key of k) o[key] = canon(v[key]);
+      const o = {};
+      for (const key of k) {
+        o[key] = canon(v[key]);
+      }
       return o;
     }
     return v;
@@ -48,4 +52,3 @@ const main = async () => {
 };
 
 main().catch(err => { console.error(err); process.exit(1); });
-

@@ -62,3 +62,8 @@
 - [S3] Enhanced TS oracles equals/subsetOf for Map/Set support and documented array semantics.
 - Commands: n/a (code change only).
 - Notes: Added shared canonical helpers under `src/oracles/structures.ts`.
+
+## 2025-09-16T01:07:33Z
+- [S4] Hardened build-tasks canonicalizer for nulls and arrays.
+- Commands: n/a (script change only).
+- Notes: Order preservation unchanged; early null guard added.

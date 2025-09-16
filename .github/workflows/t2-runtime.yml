@@ -34,7 +34,13 @@ jobs:
           TARBALL=$(pnpm pack | tail -n1)
           popd
           mkdir -p /tmp/tfcheck && cd /tmp/tfcheck
-          pnpm init -y >/dev/null
+          cat <<'PKG' > package.json
+          {
+            "name": "tfcheck-smoke",
+            "private": true,
+            "license": "MIT"
+          }
+          PKG
           pnpm add "../../packages/tf-check/$TARBALL"
           pnpm exec tf-check --help >/dev/null
       - name: No URL.pathname in ESM helpers

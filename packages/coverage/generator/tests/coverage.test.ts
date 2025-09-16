@@ -81,8 +81,8 @@ describe("coverage generator", () => {
       writeFileSync(tagFile, canonicalJson(maliciousTags));
       await generateCoverageArtifacts({ tagPath: tagFile, outDir: dir });
       const html = readFileSync(path.join(dir, "coverage.html"), "utf-8");
-      expect(html).toContain("&lt;script&gt;alert(&#39;spec&#39;)&lt;/script&gt;");
-      expect(html).toContain("&lt;script&gt;alert(&#39;tag&#39;)&lt;/script&gt;");
+      expect(html).toContain("&lt;script&gt;alert(&#39;spec&#39;)&lt;&#x2F;script&gt;");
+      expect(html).toContain("&lt;script&gt;alert(&#39;tag&#39;)&lt;&#x2F;script&gt;");
       expect(html).not.toContain("<script>alert('spec')</script>");
       expect(html).not.toContain("<script>alert('tag')</script>");
     } finally {

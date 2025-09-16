@@ -4,6 +4,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDb, count, list } from '../src/db.js';
 import { queryHash } from '../src/util.js';
+import { filtersToRecord } from '../src/filters.js';
 import { buildApp } from '../src/app.js';
 import type { Filters } from '../src/types.js';
 import { describe, it, expect } from 'vitest';
@@ -30,7 +31,7 @@ describe('deterministic queries with parameterization', () => {
     expect(results[2]).toBe(results[0]);
     const parsed = JSON.parse(results[0]);
     expect(parsed.dataset_version).toBe('ro-mini-2025-09-09');
-    expect(parsed.query_hash).toBe(queryHash(filters));
+    expect(parsed.query_hash).toBe(queryHash(filtersToRecord(filters)));
     expect(new Set(parsed.samples.map((s: { hash: string }) => s.hash)).size).toBeGreaterThanOrEqual(10);
   });
 
@@ -100,7 +101,7 @@ describe('deterministic queries with parameterization', () => {
     listStmt.free();
     const adHoc = JSON.stringify({
       dataset_version: db.datasetVersion,
-      query_hash: queryHash(filters),
+      query_hash: queryHash(filtersToRecord(filters)),
       filters,
       total,
       items,

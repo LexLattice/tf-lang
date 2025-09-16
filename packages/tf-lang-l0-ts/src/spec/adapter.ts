@@ -37,6 +37,28 @@ function normalizePointer(path: string | undefined): string {
   return path && path.length > 0 ? path : "/";
 }
 
+function decodePointerSegment(segment: string): string {
+  return segment.replace(/~1/g, "/").replace(/~0/g, "~");
+}
+
+function valueAtPointer(root: unknown, pointer: string): unknown {
+  if (!pointer || pointer === "/") {
+    return root;
+  }
+  const segments = pointer
+    .split("/")
+    .slice(1)
+    .map(decodePointerSegment);
+  let current: unknown = root;
+  for (const segment of segments) {
+    if (current === null || typeof current !== "object") {
+      return undefined;
+    }
+    current = (current as Record<string, unknown>)[segment];
+  }
+  return current;
+}
+
 function mapError(error: ErrorObject): never {
   const basePath = error.instancePath ?? "";
   const pointer = normalizePointer(basePath);
@@ -139,9 +161,25 @@ function keywordScore(keyword: string): number {
   }
 }
 
-function firstRelevantError(errors: ErrorObject[] | null | undefined): ErrorObject {
+function firstRelevantError(errors: ErrorObject[] | null | undefined, root: unknown): ErrorObject {
   if (!errors || errors.length === 0) {
     throw new Error("E_SPEC_TYPE /");
+  }
+  const prefer = errors.find((err) => {
+    const path = err.instancePath ?? "";
+    if (err.keyword === "const" || err.keyword === "enum") {
+      if (/^\/steps\/\d+\/op$/.test(path)) {
+        const value = valueAtPointer(root, path);
+        return typeof value === "string" && !ALLOWED_OPS.has(value);
+      }
+      if (path === "/version") {
+        return true;
+      }
+    }
+    return false;
+  });
+  if (prefer) {
+    return prefer;
   }
   const ranked = [...errors].sort((a, b) => {
     const depthDiff = errorDepth(b) - errorDepth(a);
@@ -154,24 +192,8 @@ function firstRelevantError(errors: ErrorObject[] | null | undefined): ErrorObje
 export function parseSpec(input: string | Uint8Array | object): TfSpec {
   const obj = parseInput(input);
 
-  if (obj && typeof obj === "object") {
-    const root = obj as Record<string, unknown>;
-    const steps = root.steps;
-    if (Array.isArray(steps)) {
-      for (let i = 0; i < steps.length; i += 1) {
-        const step = steps[i];
-        if (step && typeof step === "object") {
-          const op = (step as Record<string, unknown>).op;
-          if (typeof op === "string" && !ALLOWED_OPS.has(op)) {
-            throw new Error(`E_SPEC_OP_UNKNOWN /steps/${i}/op`);
-          }
-        }
-      }
-    }
-  }
-
   if (!validateSpec(obj)) {
-    const error = firstRelevantError(validateSpec.errors ?? undefined);
+    const error = firstRelevantError(validateSpec.errors ?? undefined, obj);
     mapError(error);
   }
 

@@ -55,6 +55,7 @@ function subsetOfInner(actual: unknown, expected: unknown, segments: Array<strin
       }
       const result = subsetOfInner(entry.value, match.value, [...segments, entry.label]);
       if (!result.ok) return result;
+      expectedEntries.delete(entry.label);
     }
     return { ok: true };
   }

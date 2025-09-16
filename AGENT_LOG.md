@@ -77,3 +77,38 @@
 - [S6] Re-ran deterministic TS/Rust suites post-rebase and confirmed workspace build.
 - Commands: `pnpm -r --filter './packages/oracles/*' test`, `pnpm -r --filter './packages/tf-lang-l0-ts' test`, `pnpm -r --filter './services/claims-api-ts' test`, `cargo test --workspace --all-targets --manifest-path crates/Cargo.toml`, `pnpm run build`.
 - Notes: Repeats executed to confirm stability after Ajv/spec updates.
+
+## 2025-09-16T01:46:33Z
+- [F1] Updated Rust canonicalizer to rebuild objects via `BTreeMap` and added key-order test.
+- Commands: `cargo fmt --manifest-path crates/oracles/core/Cargo.toml`, `cargo test --workspace --all-targets --manifest-path crates/Cargo.toml`.
+- Notes: Ensures determinism regardless of serde preserve_order feature.
+
+## 2025-09-16T01:47:03Z
+- [F2] Simplified TS spec adapter to rely solely on Ajv error mapping (no pre-checks) with pointer-based selection.
+- Commands: `pnpm -r --filter './packages/tf-lang-l0-ts' test`.
+- Notes: Added pointer helper to prefer valid ops while keeping existing E_SPEC_* codes.
+
+## 2025-09-16T01:47:36Z
+- [F3] Tightened TS subsetOf Map semantics (consume matches) and added duplicate-key coverage.
+- Commands: `pnpm -r --filter './packages/oracles/*' test`.
+- Notes: equals/subsetOf share canonical helpers for Map/Set ordering.
+
+## 2025-09-16T01:48:17Z
+- [F4] Canonical tasks script now encodes Map/Set with deterministic tagging.
+- Commands: n/a (script change only).
+- Notes: Map/Set tagged with `__kind` to maintain identity in canonical JSON.
+
+## 2025-09-16T01:48:44Z
+- [F5] Hardened determinism test repository root discovery with upward search.
+- Commands: `cargo fmt --manifest-path crates/oracles/determinism/Cargo.toml`.
+- Notes: Stops on `.git` or `pnpm-workspace.yaml` to avoid brittle parent traversal.
+
+## 2025-09-16T01:49:11Z
+- [F6] Restored strict Filters typing; added boundary helper and updated tests.
+- Commands: `pnpm -r --filter './services/claims-api-ts' test`.
+- Notes: `filtersToRecord` now adapts strict Filters for hashing.
+
+## 2025-09-16T01:50:21Z
+- [F7] Updated PR_REPORT summary to capture final review fixes.
+- Commands: n/a (documentation only).
+- Notes: Highlights Ajv migration, BTreeMap canon, Map/Set semantics, and scoped stubs.

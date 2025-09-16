@@ -3,7 +3,10 @@
 ## Summary
 - TS spec adapter now delegates validation to Ajv against `schema/tf-spec.schema.json`, mapping the first relevant validation error to the existing `E_SPEC_*` codes (including branch-specific param errors and op/version checks).
 - Rust spec adapter behaviour is unchanged; added TODO documenting the future serde-based refactor while keeping the explicit error mapping today.
-- TS oracles `equals`/`subsetOf` gained Map/Set semantics with canonical sorting and README notes; `.codex/scripts/build-tasks-json.mjs` canon is now null-safe.
+- Rust canonicalization now rebuilds objects through `BTreeMap` to preserve ordering regardless of serde settings.
+- TS spec adapter relies solely on Ajv + mapError; Rust adapter documents the serde follow-up while keeping error codes stable.
+- TS oracles `equals`/`subsetOf` gained Map/Set semantics with canonical sorting and README notes; `.codex/scripts/build-tasks-json.mjs` canon is now null-safe and Map/Set aware.
+- Scoped ambient stubs remain confined to `services/claims-api-ts/src/types/`, enforced by `scripts/check-ambient-stubs.sh`; service filters stay strictly typed via boundary helpers.
 - Scoped ambient stubs remain confined to `services/claims-api-ts/src/types/`, enforced by `scripts/check-ambient-stubs.sh`.
 
 ## Not Changed

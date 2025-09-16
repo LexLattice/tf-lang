@@ -1,5 +1,6 @@
 import type { Filters, Claim, CountResult, ListResult, Evidence } from './types.js';
 import { queryHash } from './util.js';
+import { filtersToRecord } from './filters.js';
 import { buildDb } from '@tf-lang/d1-sqlite';
 import type { Database } from 'sql.js';
 
@@ -78,7 +79,7 @@ export function count(db: ClaimDb, f: Filters): CountResult {
   const samples = runAll(evStmt, r => JSON.parse(String(r.ev)) as Evidence);
   return {
     dataset_version: db.datasetVersion,
-    query_hash: queryHash(f),
+    query_hash: queryHash(filtersToRecord(f)),
     filters: f,
     n,
     samples,
@@ -101,7 +102,7 @@ export function list(db: ClaimDb, f: Filters): ListResult {
   const responseFilters: Filters = { ...f, limit, offset };
   return {
     dataset_version: db.datasetVersion,
-    query_hash: queryHash(responseFilters),
+    query_hash: queryHash(filtersToRecord(responseFilters)),
     filters: responseFilters,
     total,
     items,

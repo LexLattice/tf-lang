@@ -30,3 +30,13 @@ export function parseFilters(q: Record<string, unknown>): Filters {
   }
   return f;
 }
+
+export function filtersToRecord(filters: Filters): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (filters.modality !== undefined) out.modality = filters.modality;
+  if (filters.jurisdiction !== undefined) out.jurisdiction = filters.jurisdiction;
+  if (filters.at !== undefined) out.at = filters.at;
+  if (filters.limit !== undefined) out.limit = filters.limit;
+  if (filters.offset !== undefined) out.offset = filters.offset;
+  return out;
+}

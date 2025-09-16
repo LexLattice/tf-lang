@@ -102,6 +102,16 @@ describe("subsetOf", () => {
     expect(r.ok).toBe(true);
   });
 
+  it("fails when map contains duplicate canonical keys", () => {
+    const key = { id: 1 };
+    const actual = new Map<unknown, unknown>([[key, 1], [{ id: 1 }, 2]]);
+    const expected = new Map<unknown, unknown>([[{ id: 1 }, 1]]);
+    const r = subsetOf(actual, expected);
+    expect(r.ok).toBe(false);
+    expect(r.code).toBe("E_FIELD_UNKNOWN");
+    expect(r.path).toBe('/{"id":1}');
+  });
+
   it("fails when map key missing", () => {
     const actual = new Map<string, unknown>([["missing", 1]]);
     const expected = new Map<string, unknown>([["present", 1]]);

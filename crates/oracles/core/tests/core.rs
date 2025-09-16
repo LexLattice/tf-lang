@@ -68,3 +68,10 @@ fn canonical_string_matches_expected() {
     .expect("string");
     assert_eq!(text, "{\"a\":[3,2,null],\"b\":1}");
 }
+
+#[test]
+fn canonicalizes_key_order_even_when_input_unsorted() {
+    let unsorted = json!({ "z": 1, "a": 2, "m": { "y": 3, "x": 4 } });
+    let text = canonical_string(&unsorted).expect("string");
+    assert_eq!(text, "{\"a\":2,\"m\":{\"x\":4,\"y\":3},\"z\":1}");
+}

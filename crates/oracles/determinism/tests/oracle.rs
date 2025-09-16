@@ -471,10 +471,13 @@ fn fixtures_from_disk() -> Vec<LoadedFixture> {
 }
 
 fn repository_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .and_then(|path| path.parent())
-        .and_then(|path| path.parent())
-        .expect("repository root")
-        .to_path_buf()
+    let mut current = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    loop {
+        if current.join(".git").exists() || current.join("pnpm-workspace.yaml").exists() {
+            return current;
+        }
+        if !current.pop() {
+            panic!("repository root not found");
+        }
+    }
 }

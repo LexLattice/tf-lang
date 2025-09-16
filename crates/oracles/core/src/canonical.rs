@@ -1,4 +1,6 @@
 use serde::Serialize;
+use std::collections::BTreeMap;
+
 use serde_json::{Map, Number, Value};
 use thiserror::Error;
 
@@ -38,10 +40,11 @@ where
 }
 
 fn canonicalize_object(map: Map<String, Value>) -> Value {
-    let canonical: Map<String, Value> = map
+    let btree: BTreeMap<String, Value> = map
         .into_iter()
         .map(|(key, value)| (key, canonicalize_value(value)))
         .collect();
+    let canonical: Map<String, Value> = btree.into_iter().collect();
     Value::Object(canonical)
 }
 

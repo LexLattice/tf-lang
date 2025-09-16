@@ -36,6 +36,18 @@ const main = async () => {
   const canon = (v) => {
     if (v === null) return null;
     if (Array.isArray(v)) return v.map(canon);
+    if (v instanceof Map) {
+      // Tagged encoding keeps Map identity while ensuring deterministic ordering.
+      const entries = Array.from(v.entries()).map(([key, value]) => [canon(key), canon(value)]);
+      entries.sort((a, b) => JSON.stringify(a[0]).localeCompare(JSON.stringify(b[0])));
+      return { __kind: 'Map', entries };
+    }
+    if (v instanceof Set) {
+      // Tagged encoding keeps Set identity with deterministic member order.
+      const values = Array.from(v.values()).map(item => canon(item));
+      values.sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+      return { __kind: 'Set', values };
+    }
     if (typeof v === 'object') {
       const k = Object.keys(v).sort();
       const o = {};

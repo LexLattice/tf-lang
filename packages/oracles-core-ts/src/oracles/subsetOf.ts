@@ -1,5 +1,15 @@
 import type { OracleResult } from "../result.js";
 import { MESSAGES } from "../messages.js";
+import { sortMapEntries, sortSetValues, isPlainObject } from "./structures.js";
+
+/**
+ * Performs a deep structural subset comparison.
+ *
+ * - Objects: every field in `actual` must exist in `expected` and be a subset recursively.
+ * - Arrays: treated positionally (structural match), not mathematical multisets.
+ * - Map: subset if each key exists in `expected` (by canonical form) and the associated value is subset.
+ * - Set: subset if each value in `actual` exists in `expected` (deep equality).
+ */
 
 function escapePointerSegment(segment: string | number): string {
   return String(segment).replace(/~/g, "~0").replace(/\//g, "~1");
@@ -10,26 +20,96 @@ function pointerFromSegments(segments: Array<string | number>): string {
   return `/${segments.map(escapePointerSegment).join("/")}`;
 }
 
+function notSubset(segments: Array<string | number>): OracleResult {
+  const code = "E_NOT_SUBSET" as const;
+  return { ok: false, code, message: MESSAGES[code](), path: pointerFromSegments(segments) };
+}
+
 function subsetOfInner(actual: unknown, expected: unknown, segments: Array<string | number>): OracleResult {
-  if (!actual || typeof actual !== "object" || !expected || typeof expected !== "object") {
-    const code = "E_NOT_SUBSET" as const;
-    return { ok: false, code, message: MESSAGES[code](), path: pointerFromSegments(segments) };
+  if (Object.is(actual, expected)) {
+    return { ok: true };
   }
-  const a = actual as Record<string, unknown>;
-  const e = expected as Record<string, unknown>;
-  for (const k of Object.keys(a).sort()) {
-    if (!(k in e)) {
-      return { ok: false, code: "E_FIELD_UNKNOWN", message: "unknown field present", path: pointerFromSegments([...segments, k]) };
+
+  if (actual === null || expected === null) {
+    return notSubset(segments);
+  }
+
+  if (typeof actual !== "object" || typeof expected !== "object") {
+    return Object.is(actual, expected) ? { ok: true } : notSubset(segments);
+  }
+
+  if (actual instanceof Map || expected instanceof Map) {
+    if (!(actual instanceof Map) || !(expected instanceof Map)) {
+      return notSubset(segments);
     }
-    const av = a[k];
-    const ev = e[k];
-    if (av && typeof av === "object" && ev && typeof ev === "object") {
-      const result = subsetOfInner(av, ev, [...segments, k]);
+    const expectedEntries = new Map(sortMapEntries(expected).map(entry => [entry.label, entry]));
+    for (const entry of sortMapEntries(actual)) {
+      const match = expectedEntries.get(entry.label);
+      if (!match) {
+        return {
+          ok: false,
+          code: "E_FIELD_UNKNOWN",
+          message: "unknown field present",
+          path: pointerFromSegments([...segments, entry.label]),
+        };
+      }
+      const result = subsetOfInner(entry.value, match.value, [...segments, entry.label]);
       if (!result.ok) return result;
-    } else if (!Object.is(av, ev)) {
-      const code = "E_NOT_SUBSET" as const;
-      return { ok: false, code, message: MESSAGES[code](), path: pointerFromSegments([...segments, k]) };
     }
+    return { ok: true };
+  }
+
+  if (actual instanceof Set || expected instanceof Set) {
+    if (!(actual instanceof Set) || !(expected instanceof Set)) {
+      return notSubset(segments);
+    }
+    const remaining = new Map(sortSetValues(expected).map(entry => [entry.label, entry]));
+    for (const entry of sortSetValues(actual)) {
+      const match = remaining.get(entry.label);
+      if (!match) {
+        return notSubset(segments);
+      }
+      const result = subsetOfInner(entry.value, match.value, [...segments, entry.label]);
+      if (!result.ok) return result;
+      remaining.delete(entry.label);
+    }
+    return { ok: true };
+  }
+
+  if (Array.isArray(actual) || Array.isArray(expected)) {
+    if (!Array.isArray(actual) || !Array.isArray(expected)) {
+      return notSubset(segments);
+    }
+    for (let i = 0; i < actual.length; i++) {
+      if (i >= expected.length) {
+        return {
+          ok: false,
+          code: "E_FIELD_UNKNOWN",
+          message: "unknown field present",
+          path: pointerFromSegments([...segments, i]),
+        };
+      }
+      const result = subsetOfInner(actual[i], expected[i], [...segments, i]);
+      if (!result.ok) return result;
+    }
+    return { ok: true };
+  }
+
+  if (!isPlainObject(actual) || !isPlainObject(expected)) {
+    return notSubset(segments);
+  }
+
+  for (const key of Object.keys(actual).sort()) {
+    if (!(key in expected)) {
+      return {
+        ok: false,
+        code: "E_FIELD_UNKNOWN",
+        message: "unknown field present",
+        path: pointerFromSegments([...segments, key]),
+      };
+    }
+    const result = subsetOfInner((actual as Record<string, unknown>)[key], (expected as Record<string, unknown>)[key], [...segments, key]);
+    if (!result.ok) return result;
   }
   return { ok: true };
 }

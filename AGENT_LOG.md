@@ -57,3 +57,8 @@
 - [S2] Documented serde-based refactor plan in Rust spec adapter for future parity work.
 - Commands: n/a (docs only).
 - Notes: Parser logic unchanged to keep E_SPEC_* error codes stable.
+
+## 2025-09-16T01:07:09Z
+- [S3] Enhanced TS oracles equals/subsetOf for Map/Set support and documented array semantics.
+- Commands: n/a (code change only).
+- Notes: Added shared canonical helpers under `src/oracles/structures.ts`.

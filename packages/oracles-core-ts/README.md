@@ -29,3 +29,10 @@ Examples
 - matchesRegex("abc",/^\d+$/) → { ok:false, code:E_REGEX_MISMATCH, path:"/" }
 - nonEmpty("") → { ok:false, code:E_EMPTY, path:"/" }
 
+Container semantics
+
+- `Map` values are compared by canonicalised key ordering; `equals` diff paths
+  point at the offending key label.
+- `Set` comparison sorts members by canonical form before comparing.
+- `subsetOf` treats arrays structurally (index-based) and interprets
+  `Map`/`Set` containers using the same canonical ordering.

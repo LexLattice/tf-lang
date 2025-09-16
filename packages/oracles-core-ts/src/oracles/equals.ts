@@ -1,10 +1,48 @@
 import type { OracleResult } from "../result.js";
 import { MESSAGES } from "../messages.js";
+import { sortMapEntries, sortSetValues, isPlainObject } from "./structures.js";
 
 function diffPath(a: any, b: any, base: string = ""): string | null {
   const path = (k: string | number) =>
     base + "/" + String(k).replace(/~/g, "~0").replace(/\//g, "~1");
   if (Object.is(a, b)) return null;
+
+  if (a instanceof Map || b instanceof Map) {
+    if (!(a instanceof Map) || !(b instanceof Map)) {
+      return base || "/";
+    }
+    const entriesA = sortMapEntries(a);
+    const entriesB = sortMapEntries(b);
+    if (entriesA.length !== entriesB.length) {
+      return base || "/";
+    }
+    for (let i = 0; i < entriesA.length; i++) {
+      const left = entriesA[i];
+      const right = entriesB[i];
+      if (left.label !== right.label) {
+        return path(left.label);
+      }
+      const childPath = diffPath(left.value, right.value, path(left.label));
+      if (childPath) return childPath;
+    }
+    return null;
+  }
+
+  if (a instanceof Set || b instanceof Set) {
+    if (!(a instanceof Set) || !(b instanceof Set)) {
+      return base || "/";
+    }
+    const valuesA = sortSetValues(a);
+    const valuesB = sortSetValues(b);
+    if (valuesA.length !== valuesB.length) {
+      return base || "/";
+    }
+    for (let i = 0; i < valuesA.length; i++) {
+      const childPath = diffPath(valuesA[i].value, valuesB[i].value, path(i));
+      if (childPath) return childPath;
+    }
+    return null;
+  }
 
   if (
     a === null ||
@@ -27,7 +65,7 @@ function diffPath(a: any, b: any, base: string = ""): string | null {
       const p = diffPath(a[i], b[i], path(i));
       if (p) return p;
     }
-  } else {
+  } else if (isPlainObject(a) && isPlainObject(b)) {
     // Both are non-array objects
     const keys = Array.from(new Set([...Object.keys(a), ...Object.keys(b)])).sort();
     for (const k of keys) {
@@ -35,6 +73,8 @@ function diffPath(a: any, b: any, base: string = ""): string | null {
       const p = diffPath(a[k], b[k], path(k));
       if (p) return p;
     }
+  } else {
+    return base || "/";
   }
 
   return null;

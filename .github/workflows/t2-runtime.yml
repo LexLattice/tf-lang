@@ -78,7 +78,7 @@ jobs:
         with:
           node-version: '20'
       - run: pnpm -r install --frozen-lockfile
-      - run: pnpm --filter @tf-lang/trace2tags run build
+      - run: pnpm -r --filter @tf-lang/trace2tags build
       - run: pnpm --filter @tf-lang/trace2tags run test
       - run: pnpm --filter @tf-lang/trace2tags run artifacts
       - run: cp out/t2/trace-tags.json out/t2/trace-tags.run1.json

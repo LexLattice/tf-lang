@@ -26,7 +26,16 @@ jobs:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
         with:
           ref: ${{ inputs.ref || github.ref }}
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - name: Build claims demo into docs/
+        run: pnpm -r --filter "./services/claims-api-ts" run build:pages
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
           path: docs
   deploy:

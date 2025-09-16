@@ -127,3 +127,15 @@
 - [T2] Review batch 2 follow-up: introduced shared utils, hardened coverage/parity, aligned CLI + clap, and verified artifacts twice.
 - Commands: `pnpm -w install`, `pnpm --filter "./packages/utils" install`, `pnpm -r --filter "./packages/utils" run build`, `pnpm --filter "./packages/tf-lang-l0-ts" install`, `pnpm -r --filter "./packages/tf-lang-l0-ts" run build`, `pnpm --filter @tf-lang/adapter-execution-ts install`, `pnpm -r --filter @tf-lang/adapter-execution-ts run build`, `pnpm --filter @tf-lang/trace2tags install`, `pnpm -r --filter @tf-lang/trace2tags run build`, `pnpm --filter @tf-lang/coverage-generator install`, `pnpm -r --filter @tf-lang/coverage-generator run build`, `pnpm --filter @tf-lang/tf-check install`, `pnpm -r --filter @tf-lang/tf-check run build`, `pnpm -r --filter @tf-lang/* run test`, `cargo test --workspace --all-targets --manifest-path crates/Cargo.toml`, `pnpm --filter @tf-lang/adapter-execution-ts run fixtures`, `pnpm --filter @tf-lang/trace2tags run artifacts`, `pnpm --filter @tf-lang/coverage-generator run artifacts`, `pnpm --filter @tf-lang/tf-check run artifacts`, `pnpm --filter @tf-lang/adapter-execution-ts run parity` (x2).
 - Notes: Added vitest coverage for utils helpers; coverage HTML test now checks escaped quotes; parity harness updated for clap `dump --spec/--out` flags. Artifacts regenerated twice for determinism, parity JSON shows `equal: true`.
+
+## 2025-09-16T10:04:30Z
+- [Pages] docs/ currently lacks index.html; contains markdown and claims-explorer HTML.
+- [Pages] claims demo lives in services/claims-api-ts (TypeScript server build only; need static export).
+- [Pages] pages.yml just uploads docs/ without build; no pnpm install.
+- Actions next: add build:pages script, copy-to-docs script, relative Vite config or equivalent, new docs/index.html, update workflow.
+
+## 2025-09-16T10:09:25Z
+- [Pages] Added build:pages + copy-to-docs pipeline for claims API service; script now stages dist bundle and static demo into docs/claims with dataset copy.
+- [Pages] Created docs/index.html landing page linking to claims demo.
+- [Pages] Pages workflow now installs deps, runs build:pages, and uploads docs artifact.
+- Commands: `pnpm -r --filter "./services/claims-api-ts" run build:pages`.

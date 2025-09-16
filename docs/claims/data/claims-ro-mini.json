@@ -1,0 +1,17 @@
+{
+  "dataset_version": "ro-mini-0.1",
+  "generated_at": "2025-09-09T00:00:00Z",
+  "at": "2025-09-09",
+  "claims": [
+    {
+      "id": "C1",
+      "modality": "FORBIDDEN",
+      "jurisdiction": "RO",
+      "effective_from": "2024-01-01",
+      "effective_to": null,
+      "status": "determinate",
+      "text": "https://gov.ro/lege-sanatate#art10",
+      "provenance": { "source": "gov.ro", "hash": "deadbeef" }
+    }
+  ]
+}

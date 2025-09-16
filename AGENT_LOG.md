@@ -52,3 +52,8 @@
 - [S1] Swapped TS spec adapter to Ajv-backed validation with schema-derived error mapping.
 - Commands: n/a (code change only).
 - Notes: First non-oneOf Ajv error mapped to existing E_SPEC_* codes.
+
+## 2025-09-16T01:06:46Z
+- [S2] Documented serde-based refactor plan in Rust spec adapter for future parity work.
+- Commands: n/a (docs only).
+- Notes: Parser logic unchanged to keep E_SPEC_* error codes stable.

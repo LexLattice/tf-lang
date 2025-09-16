@@ -3,6 +3,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use crate::canon::json::canonical_json_bytes;
 
+/// TODO(review): Rework this parser to derive `Deserialize` structures with
+/// `#[serde(deny_unknown_fields)]` and tagged enums, then perform a
+/// post-deserialization pass that translates validation failures into the
+/// existing `E_SPEC_*` codes. That keeps the stable error contract while
+/// letting serde handle the structural validation.
+
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 #[serde(tag = "op", content = "params")]
 pub enum Step {

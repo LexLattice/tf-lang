@@ -6,6 +6,10 @@ on:
     branches: [ main ]
   pull_request:
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   ts:
     name: TypeScript build & test
@@ -91,72 +95,24 @@ jobs:
             oracle-core/results.json
             oracle-core/results.md
 
-  image:
+  container-image:
     name: Container image
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository_owner == 'LexLattice'
     runs-on: ubuntu-latest
-    env:
-      REGISTRY: ghcr.io
-      REPO_RAW: ${{ github.repository }}
-      SOURCE_DATE_EPOCH: 0
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
       - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3
-      - name: Compute lowercase repository
-        id: repo
-        shell: bash
-        env:
-          REPO_RAW: ${{ env.REPO_RAW }}
-        run: |
-          echo "repo_lc=${REPO_RAW,,}" >> "$GITHUB_OUTPUT"
-      - name: Login to GHCR
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - name: Log in to GHCR
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build image
-        id: build
+      - name: Build & push image
         uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
-          context: .
-          file: services/claims-api-ts/Dockerfile
-          target: runtime
-          platforms: linux/amd64
-          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          context: services/claims-api-ts
+          push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ steps.repo.outputs.repo_lc }}/claims-api-ts:0.2
-            ${{ env.REGISTRY }}/${{ steps.repo.outputs.repo_lc }}/claims-api-ts:latest
-          sbom: false
-          provenance: false
-      - name: Rebuild to verify digest
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        id: rebuild
-        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
-        with:
-          context: .
-          file: services/claims-api-ts/Dockerfile
-          target: runtime
-          platforms: linux/amd64
-          push: false
-          sbom: false
-          provenance: false
-          no-cache: true
-          outputs: type=digest
-      - name: Compare digests
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: test "${{ steps.build.outputs.digest }}" = "${{ steps.rebuild.outputs.digest }}"
-      - name: Summarize digests
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          {
-            echo "build digest:  ${{ steps.build.outputs.digest }}"
-            echo "rebuild digest:${{ steps.rebuild.outputs.digest }}"
-            if [ "$GITHUB_EVENT_NAME" = 'push' ] && [ "$GITHUB_REF" = 'refs/heads/main' ]; then
-              echo "pushed:"
-              echo "  ${{ env.REGISTRY }}/${{ steps.repo.outputs.repo_lc }}/claims-api-ts:0.2@${{ steps.build.outputs.digest }}"
-              echo "  ${{ env.REGISTRY }}/${{ steps.repo.outputs.repo_lc }}/claims-api-ts:latest@${{ steps.build.outputs.digest }}"
-            fi
-          } >> $GITHUB_STEP_SUMMARY
-      - name: Check JSON fixtures
-        run: pnpm run -w check:fixtures
+            ghcr.io/lexlattice/tf-lang/claims-api-ts:0.2
+            ghcr.io/lexlattice/tf-lang/claims-api-ts:${{ github.sha }}

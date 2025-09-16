@@ -1,3 +1,4 @@
+import { canonicalize, canonicalJson } from "@tf-lang/utils";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 
@@ -28,25 +29,7 @@ export interface TraceTag {
   metadata: Record<string, unknown>;
 }
 
-function canonicalize(value: unknown): unknown {
-  if (value === null) return null;
-  if (Array.isArray(value)) {
-    return value.map((item) => canonicalize(item));
-  }
-  if (typeof value === "object") {
-    const entries = Object.entries(value as Record<string, unknown>)
-      .map(([k, v]) => [k, canonicalize(v)] as const)
-      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of entries) out[k] = v;
-    return out;
-  }
-  return value;
-}
-
-export function canonicalJson(value: unknown): string {
-  return `${JSON.stringify(canonicalize(value), null, 2)}\n`;
-}
+export { canonicalJson } from "@tf-lang/utils";
 
 function isRecord(x: unknown): x is Record<string, unknown> {
   return !!x && typeof x === "object" && !Array.isArray(x);

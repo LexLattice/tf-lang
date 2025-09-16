@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   canonicalJson,
@@ -11,6 +11,7 @@ import {
   validateSpecFile,
   writeArtifacts,
 } from "../src/index.js";
+import { runValidate } from "../src/cli.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const fixture = path.join(here, "../fixtures/sample-spec.json");
@@ -73,6 +74,47 @@ describe("tf-check validation", () => {
       expect(normalized.endsWith("\n")).toBe(true);
     } finally {
       rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("accepts equals syntax for required flags", async () => {
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    try {
+      const exitCode = await runValidate([`--input=${fixture}`]);
+      expect(exitCode).toBe(0);
+      expect(stderr).not.toHaveBeenCalled();
+    } finally {
+      stdout.mockRestore();
+      stderr.mockRestore();
+    }
+  });
+
+  it("rejects unknown flags", async () => {
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    try {
+      const exitCode = await runValidate(["--input", fixture, "--oops"]);
+      expect(exitCode).toBe(2);
+      const messages = stderr.mock.calls.map((call) => String(call[0]));
+      expect(messages.join(" ")).toContain("unknown flag: --oops");
+    } finally {
+      stdout.mockRestore();
+      stderr.mockRestore();
+    }
+  });
+
+  it("errors when a flag value is missing", async () => {
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    try {
+      const exitCode = await runValidate(["--input", fixture, "--out"]);
+      expect(exitCode).toBe(2);
+      const messages = stderr.mock.calls.map((call) => String(call[0]));
+      expect(messages.join(" ")).toContain("missing value for --out");
+    } finally {
+      stdout.mockRestore();
+      stderr.mockRestore();
     }
   });
 });

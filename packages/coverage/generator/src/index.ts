@@ -1,3 +1,4 @@
+import { canonicalJson, escapeHtml } from "@tf-lang/utils";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 
@@ -36,25 +37,7 @@ export interface CoverageOptions {
   generatedAt?: string;
 }
 
-function canonicalize(value: unknown): unknown {
-  if (value === null) return null;
-  if (Array.isArray(value)) {
-    return value.map((item) => canonicalize(item));
-  }
-  if (typeof value === "object") {
-    const entries = Object.entries(value as Record<string, unknown>)
-      .map(([k, v]) => [k, canonicalize(v)] as const)
-      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of entries) out[k] = v;
-    return out;
-  }
-  return value;
-}
-
-export function canonicalJson(value: unknown): string {
-  return `${JSON.stringify(canonicalize(value), null, 2)}\n`;
-}
+export { canonicalJson } from "@tf-lang/utils";
 
 export function computeCoverage(tags: TraceTag[], options: CoverageOptions = {}): CoverageReport {
   const tagMap = new Map<string, CoverageByTag>();
@@ -118,7 +101,8 @@ export async function loadTags(filePath: string): Promise<TraceTag[]> {
 function coverageHtml(report: CoverageReport): string {
   const rows = Object.entries(report.byTag)
     .map(([tag, info]) => {
-      return `<tr><td>${tag}</td><td>${info.count}</td><td>${info.specs.join(", ")}</td></tr>`;
+      const specs = info.specs.map((spec) => escapeHtml(spec)).join(", ");
+      return `<tr><td>${escapeHtml(tag)}</td><td>${info.count}</td><td>${specs}</td></tr>`;
     })
     .join("");
   return `<!doctype html>
@@ -135,7 +119,7 @@ function coverageHtml(report: CoverageReport): string {
 </head>
 <body>
 <h1>TF Coverage</h1>
-<p>Generated at ${report.generatedAt}</p>
+<p>Generated at ${escapeHtml(report.generatedAt)}</p>
 <table>
 <thead><tr><th>Tag</th><th>Count</th><th>Specs</th></tr></thead>
 <tbody>${rows}</tbody>

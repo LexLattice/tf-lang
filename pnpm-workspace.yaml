@@ -1,5 +1,6 @@
 
 packages:
+  - "packages/utils"
   - "packages/*"
   - "packages/oracles/*"
   - "packages/adapters/*/*"

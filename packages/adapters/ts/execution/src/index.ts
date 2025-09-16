@@ -1,3 +1,4 @@
+import { canonicalJson } from "@tf-lang/utils";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 
@@ -53,30 +54,11 @@ export function isCreateNetworkStep(step: TfSpec["steps"][number]): step is {
 }
 
 const DEFAULT_PREFIXES = {
-  copy: "copy",
   vm: "vm",
   network: "net",
 };
 
-function canonicalize(value: unknown): unknown {
-  if (value === null) return null;
-  if (Array.isArray(value)) {
-    return value.map((item) => canonicalize(item));
-  }
-  if (typeof value === "object") {
-    const entries = Object.entries(value as Record<string, unknown>)
-      .map(([k, v]) => [k, canonicalize(v)] as const)
-      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of entries) out[k] = v;
-    return out;
-  }
-  return value;
-}
-
-export function canonicalJson(value: unknown): string {
-  return `${JSON.stringify(canonicalize(value), null, 2)}\n`;
-}
+export { canonicalJson } from "@tf-lang/utils";
 
 function nextId(prefix: string, counter: number): string {
   return `${prefix}-${counter}`;
@@ -85,13 +67,11 @@ function nextId(prefix: string, counter: number): string {
 export function executeSpec(spec: TfSpec, options: ExecutionOptions = {}): ExecutionTrace {
   const events: TraceEvent[] = [];
   const summary: ResourceSummary = { copies: [], vms: [], networks: [] };
-  let copyCount = 0;
   let vmCount = 0;
   let networkCount = 0;
 
   spec.steps.forEach((step, index) => {
     if (isCopyStep(step)) {
-      copyCount += 1;
       const details = { src: step.params.src, dest: step.params.dest };
       events.push({
         stepIndex: index,

@@ -1,6 +1,7 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 
+import { canonicalJson } from "@tf-lang/utils";
 import { parseSpec as l0ParseSpec, type TfSpec as L0TfSpec } from "tf-lang-l0";
 
 export type AllowedOp = "copy" | "create_vm" | "create_network";
@@ -76,28 +77,7 @@ function normalizePath(p: string | undefined): string | undefined {
   return normalized === "" ? undefined : normalized;
 }
 
-function canonicalize(value: unknown): unknown {
-  if (value === null) return null;
-  if (Array.isArray(value)) {
-    return value.map((item) => canonicalize(item));
-  }
-  if (typeof value === "object") {
-    const entries = Object.entries(value as Record<string, unknown>)
-      .map(([k, v]) => [k, canonicalize(v)] as const)
-      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-    const result: Record<string, unknown> = {};
-    for (const [k, v] of entries) {
-      result[k] = v;
-    }
-    return result;
-  }
-  return value;
-}
-
-export function canonicalJson(value: unknown): string {
-  const canonical = canonicalize(value);
-  return `${JSON.stringify(canonical, null, 2)}\n`;
-}
+export { canonicalJson } from "@tf-lang/utils";
 
 function opCounts(spec: TfSpec): Record<string, number> {
   const counts: Record<string, number> = {};

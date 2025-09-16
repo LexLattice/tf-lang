@@ -20,23 +20,48 @@ function printResult(result: ValidationResult): void {
   process.stdout.write(canonicalJson(result));
 }
 
-function optionValue(args: string[], flag: string): string | undefined {
-  const index = args.indexOf(flag);
-  if (index === -1) return undefined;
-  const value = args[index + 1];
-  if (!value || value.startsWith("-")) {
-    throw new Error(`missing value for ${flag}`);
+function parseFlagArgs(
+  args: string[],
+  allowedFlags: string[]
+): Partial<Record<string, string>> {
+  const allowed = new Set(allowedFlags);
+  const values: Partial<Record<string, string>> = {};
+  let index = 0;
+  while (index < args.length) {
+    const token = args[index];
+    if (!token.startsWith("--")) {
+      throw new Error(`unknown flag: ${token}`);
+    }
+    const [flag, inline] = token.split("=", 2);
+    if (!allowed.has(flag)) {
+      throw new Error(`unknown flag: ${flag}`);
+    }
+    if (inline !== undefined) {
+      if (inline.length === 0) {
+        throw new Error(`missing value for ${flag}`);
+      }
+      values[flag] = inline;
+      index += 1;
+      continue;
+    }
+    const next = args[index + 1];
+    if (!next || next.startsWith("--")) {
+      throw new Error(`missing value for ${flag}`);
+    }
+    values[flag] = next;
+    index += 2;
   }
-  return value;
+  return values;
 }
 
-async function runValidate(args: string[]): Promise<number> {
+export async function runValidate(args: string[]): Promise<number> {
   try {
-    const input = optionValue(args, "--input");
+    const flags = parseFlagArgs(args, ["--input", "--out"]);
+    const input = flags["--input"];
     if (!input) {
       throw new Error("--input <path> is required");
     }
-    const outDir = optionValue(args, "--out");
+    const outDir = flags["--out"];
     const result = await validateSpecFile(input);
     if (outDir) {
       const outputPath = path.join(outDir, "result.json");
@@ -50,14 +75,20 @@ async function runValidate(args: string[]): Promise<number> {
   }
 }
 
-async function runArtifacts(args: string[]): Promise<number> {
-  const outDir = optionValue(args, "--out") ?? path.resolve("out/t2/tf-check");
-  const selfDir = path.dirname(fileURLToPath(import.meta.url));
-  const sample = path.join(selfDir, "../fixtures/sample-spec.json");
-  await writeArtifacts({ outDir, inputPath: sample });
-  const result = await validateSpecFile(sample);
-  printResult(result);
-  return result.status === "ok" ? 0 : 1;
+export async function runArtifacts(args: string[]): Promise<number> {
+  try {
+    const flags = parseFlagArgs(args, ["--out"]);
+    const outDir = flags["--out"] ?? path.resolve("out/t2/tf-check");
+    const selfDir = path.dirname(fileURLToPath(import.meta.url));
+    const sample = path.join(selfDir, "../fixtures/sample-spec.json");
+    await writeArtifacts({ outDir, inputPath: sample });
+    const result = await validateSpecFile(sample);
+    printResult(result);
+    return result.status === "ok" ? 0 : 1;
+  } catch (error) {
+    process.stderr.write(`${(error as Error).message}\n`);
+    return 2;
+  }
 }
 
 async function main(): Promise<void> {
@@ -87,7 +118,13 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((error) => {
-  process.stderr.write(`${(error as Error).message}\n`);
-  exit(2);
-});
+const isCliEntry =
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isCliEntry) {
+  main().catch((error) => {
+    process.stderr.write(`${(error as Error).message}\n`);
+    exit(2);
+  });
+}

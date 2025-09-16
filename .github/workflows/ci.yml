@@ -65,8 +65,8 @@ jobs:
           sudo apt-get install -y curl build-essential pkg-config libssl-dev
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           echo "${HOME}/.cargo/bin" >> $GITHUB_PATH
-      - run: pnpm -w --filter "./packages/tf-lang-l0-ts" exec vitest run tests/spec.adapter.test.ts
-      - run: pnpm -w --filter "./packages/tf-lang-l0-ts" exec vitest run tests/spec.adapter.test.ts
+      - run: pnpm --filter "./packages/tf-lang-l0-ts" run test -- tests/spec.adapter.test.ts
+      - run: pnpm --filter "./packages/tf-lang-l0-ts" run test -- tests/spec.adapter.test.ts
       - run: $HOME/.cargo/bin/cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml spec_adapter
       - run: $HOME/.cargo/bin/cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml spec_adapter
 

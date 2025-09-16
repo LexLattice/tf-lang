@@ -32,3 +32,8 @@
 - [R1] Re-verified determinism packages/builds for PR #110 polish.
 - Commands: `pnpm -r --filter './packages/oracles/*' build`, `pnpm -r --filter './packages/oracles/*' test`, `pnpm -r --filter './services/claims-api-ts' test`, `cargo test --workspace --all-targets --manifest-path crates/Cargo.toml`, `pnpm run build`.
 - Notes: Seeds unchanged; ambient stubs remain scoped to `services/claims-api-ts`.
+
+## 2025-09-16T00:30:58Z
+- [R2] Added ambient stub fence script to enforce policy scope.
+- Commands: n/a (script addition only).
+- Notes: Script fails if `.d.ts` files appear outside `services/claims-api-ts/src/types/`.

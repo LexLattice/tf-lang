@@ -130,7 +130,7 @@ fi
   echo "### Diff Similarity Summary"
   echo
   # Per-PR counts
-  printf "- Per-PR changed lines: "
+  printf '%s' "- Per-PR changed lines: "
   for ((i=0;i<${#LABS[@]};i++)); do
     cnt=$(wc -l < "${FILES[$i]}" 2>/dev/null | awk '{print $1}')
     printf "%s:%s%s" "${LABS[$i]}" "${cnt:-0}" $([[ $i -lt $((${#LABS[@]}-1)) ]] && echo ", " || echo "")

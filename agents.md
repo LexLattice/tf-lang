@@ -1,44 +1,45 @@
-# Agents — T1 Oracles Epic (TS + Rust)
+# Agents — T3 Oracles Epic (Conservation • Idempotence • Transport)
 
-**Mission:** Implement and wire up the remaining T1 tasks (T1_2…T1_9) in `tf-lang`, starting from the T1_1 schema (PR #106). Ship minimal-but-real implementations with deterministic tests, a shared oracle interface, a property-based harness, and mutation coverage.
+**Mission:** Implement the next three cross‑runtime oracles and wire them into CI with deterministic, canonical artifacts:
+- **T3_1 — Conservation** (TS + Rust)
+- **T3_2 — Idempotence** (TS + Rust)
+- **T3_3 — Transport (serialize/round‑trip)** (TS + Rust)
+- **T3_4 — Parity & Contract Tests** (TS↔Rust parity for each oracle)
+- **T3_5 — CI & Docs** (jobs, artifacts, PR reporting)
 
-**North-star “green” checks (must pass in CI):**
-- `oracle-core`, `determinism-oracle`, `conservation-oracle`, `idempotence-oracle`,
-  `transport-region-oracle`, `conservativity-oracle`, `oracle-harness`, `oracle-strength`.
+You will build small packages/crates under the existing oracles core (reuse T1/T2 core types).
 
-**Repository working lanes (TS and Rust):**
-- TS: `packages/oracles/*`, `packages/harness/pbt`, `packages/mutation`
-- Rust: `crates/oracles/*`, `crates/harness/pbt`, `crates/mutation`
-- Docs live beside sources (`README.md`, small diagrams, example fixtures).
+## Rails (must NOT violate)
+- Deterministic: stable key order; canonical JSON; fixed `now` in tests; repeat determinism **2×**.
+- **No runtime deps** (devDeps OK for building/testing, e.g., vitest/tsx/clap in Rust **bin only**).
+- TS: ESM with internal imports ending in **`.js`**; no deep imports across packages; no `as any`.
+- Rust: no `static mut`; no panicking `unwrap()`/`expect()` in libraries; prefer `Result`; use `BTree*` for ordering.
+- Use shared helpers from **`@tf-lang/utils`** (canonical JSON, findRepoRoot, tmp handling, HTML escape). Do **not** duplicate these utilities.
+- Tests must be self‑contained and offline; no network; reproducible seeds checked in.
 
-**Global policy (do not violate):**
-- Must not: cross-test state, nondeterminism, runtime deps (CI‑only dev deps allowed), or file/format drift beyond the task scope; don’t gate merges on local hooks; use canonical JSON where applicable; TS→ no deep imports, add “.js” to internal ESM, no `as any`; Rust→ no `static mut`, no panicking unwraps in libs.  
-  _If you must override a rule, record `{reason, owner, expiry}` in `overrides.json` at task scope and keep it local._ 
+## ABI (stable from T1 core)
+- TS: `Oracle<I,O>(input, ctx) -> Promise<OracleResult>` and helpers from `@tf-lang/oracles-core-ts`.
+- Rust: analogous traits/types from `tf-oracles-core`.
+- **Do not change** the public ABI of the core libraries; implement new oracles as add‑on packages/crates.
 
-**Determinism & parity:**
-- Use canonical JSON encoders; re-run determinism assertions twice; capture seeds; where both runtimes exist, aim for structural parity. Keep tests offline and repeatable.
+## Artifacts (required for CI green)
+- **Conservation:** `out/t3/conservation/report.json`
+- **Idempotence:** `out/t3/idempotence/report.json`
+- **Transport:** `out/t3/transport/report.json`
+- **Parity:** `out/t3/parity/{conservation,idempotence,transport}.json` with `{ "equal": true, ... }`
 
-**Interfaces (authoritative, keep stable):**
-- `Oracle<I,O>`: `check(input: I, ctx: OracleCtx) -> Result<O, OracleError>`  
-- `OracleCtx`: `{ seed: string, now: number, canonicalize: (x:any)=>any }`  
-- `Result`: tagged union `{ ok:true,value:T,warnings? } | { ok:false,error:{code,explain,details?}, trace? }`  
-- Rust: mirror the shape via structs/serde for JSON compatibility.
+All artifacts must be canonical JSON with trailing newline.
 
-**Tooling & deps constraints:**
-- TS dev deps allowed (examples): `fast-check`, `typescript`, `ts-node`, `ajv` for schema validation where needed.
-- Rust dev deps allowed (examples): `proptest`, `serde`, `serde_json`. Avoid new runtime deps.
-- No network in tests; fixtures must be local; long fuzz phases respect a local time budget.
+## Folder targets (create if missing)
+- TS: `packages/oracles/{conservation,idempotence,transport}/`
+- Rust: `crates/oracles/{conservation,idempotence,transport}/`
+- Fixtures: under each TS package: `fixtures/*.json`; mirror minimal fixtures in Rust tests.
 
-**Operational contract during the run:**
-- Work on branch `feature/t1-oracles-epic`.
-- Keep a timestamped build log at `AGENT_LOG.md` (append-only). After each milestone, run tests and commit with a short body including seed(s) used.
-- If blocked, write a single paragraph to `TODO.md` (what, why, next attempt). Prefer smallest working subset over breadth.
+## PR Body — required
+Every PR must use the repo’s PR template and include: Summary, Evidence (artifact checklist), Determinism & Seeds, Tests & CI, Implementation Notes, Hurdles/Follow‑ups.
 
-**Definition of done:**
-- All green checks listed above.
-- `oracle-harness` seeds are reproducible across TS/Rust on at least 5 tricky cases (float/time/I/O avoided).
-- `oracle-strength` mutation kill-rate ≥80% on the targeted mutants.
-- Each oracle has: interface contract + tests + a tiny README + one JSON/Markdown example.
-
-**Artifacts to upload (CI):**
-- `out/t1/oracles-report.json` (rollup), `out/t1/harness-seeds.jsonl`, `out/t1/mutation-matrix.json`, `out/t1/coverage.html`.
+## Early‑stop guardrails
+Do **NOT** stop after infra‑only tweaks. Stop **only** when:
+1) All T3 artifacts exist and are stable across two runs.
+2) TS & Rust tests pass; parity for all three oracles is **true**.
+3) PR is opened with a completed PR body (template sections present).

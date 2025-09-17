@@ -1,4 +1,4 @@
-import { canonicalStringify, err, ok, withTrace } from "@tf/oracles-core";
+import { canonicalJson, err, ok, withTrace } from "@tf/oracles-core";
 import type { Oracle, OracleCtx, OracleResult } from "@tf/oracles-core";
 
 import type {
@@ -103,5 +103,5 @@ function diffRuns(baseline: CanonicalRun, candidate: CanonicalRun): CheckpointMi
 }
 
 function sameValue(left: unknown, right: unknown): boolean {
-  return canonicalStringify(left) === canonicalStringify(right);
+  return canonicalJson(left) === canonicalJson(right);
 }

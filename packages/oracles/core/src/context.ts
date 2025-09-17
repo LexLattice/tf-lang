@@ -1,5 +1,5 @@
 import type { Canonicalizer } from "./canonical.js";
-import { defaultCanonicalize } from "./canonical.js";
+import { canonicalize } from "./canonical.js";
 import type { OracleCtx } from "./result.js";
 
 export interface OracleCtxInit {
@@ -11,6 +11,6 @@ export function createOracleCtx(seed: string, init: OracleCtxInit = {}): OracleC
   return {
     seed,
     now: init.now ?? 0,
-    canonicalize: init.canonicalize ?? defaultCanonicalize,
+    canonicalize: init.canonicalize ?? canonicalize,
   };
 }

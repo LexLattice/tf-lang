@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::canonical::{canonicalize, canonicalize_value, CanonError};
+use crate::canonical::{canonicalize, canonicalize_from, CanonicalizeError};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OracleCtx {
@@ -30,14 +30,14 @@ impl OracleCtx {
         self.now
     }
 
-    pub fn canonicalize<T>(&self, value: &T) -> Result<Value, CanonError>
+    pub fn canonicalize<T>(&self, value: &T) -> Result<Value, CanonicalizeError>
     where
         T: Serialize,
     {
-        canonicalize(value)
+        canonicalize_from(value)
     }
 
     pub fn canonicalize_value(&self, value: Value) -> Value {
-        canonicalize_value(value)
+        canonicalize(&value)
     }
 }

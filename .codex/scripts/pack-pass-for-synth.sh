@@ -29,6 +29,9 @@ command -v jq >/dev/null || { echo "Requires jq"; exit 1; }
 # Resolve repo name for REST endpoints (review comments)
 REPO_NAME="$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || echo)"
 
+# Limit per-file diffs; files with more than DIFF_LIMIT changed lines are excluded
+DIFF_LIMIT="${DIFF_LIMIT:-500}"
+
 GROUP="$1"; shift
 
 # Expand ranges and normalize tokens
@@ -87,25 +90,20 @@ for pl in "${PAIRS[@]}"; do
   # Build normalized change-line set: file|sign|content (trimmed, collapsed ws)
   setfile="${TMP_DIFFDIR}/${lbl}.set"
   FILES+=("$setfile")
-  gh pr diff "$pr" 2>/dev/null | awk '
-    BEGIN{ file="" }
-    /^diff --git /{next}
-    /^index /{next}
-    /^new file mode /{next}
-    /^deleted file mode /{next}
-    /^similarity index /{next}
-    /^dissimilarity index /{next}
-    /^rename (from|to) /{next}
-    /^Binary files /{next}
-    /^@@ /{next}
+  gh pr diff "$pr" 2>/dev/null | awk -v thr="$DIFF_LIMIT" '
+    function flush(){ if (tokn>0 && chg<=thr) { for(i=1;i<=tokn;i++) print tok[i]; } tokn=0; chg=0; file="" }
+    BEGIN{ file=""; tokn=0; chg=0 }
+    /^diff --git /{ flush(); next }
     /^\+\+\+ [ab]\//{ file=substr($0,7); next }
-    /^--- [ab]\//{ file=substr($0,7); next }
+    /^--- [ab]\//{ next }
     /^[+-]/{
       if ($0 ~ /^\+\+\+ / || $0 ~ /^--- /) next;
       sign=substr($0,1,1); content=substr($0,2);
       gsub(/\r/,"",content); gsub(/[ \t]+/," ",content); sub(/^\s+/,"",content); sub(/\s+$/,"",content);
-      print file "|" sign "|" content;
+      tok[++tokn]=file "|" sign "|" content; chg++;
+      next
     }
+    END{ flush() }
   ' | LC_ALL=C sort -u > "$setfile" || :
 done
 
@@ -215,13 +213,24 @@ for pl in "${PAIRS[@]}"; do
   if [[ $INCLUDE_DIFF -eq 1 ]]; then
     tmpdiff=$(mktemp)
     gh pr diff "$pr" > "$tmpdiff" 2>/dev/null || true
+    tmpf=$(mktemp)
+    awk -v thr="$DIFF_LIMIT" '
+      function emit(){ if (bufn>0 && chg<=thr) { for(i=1;i<=bufn;i++) print buf[i]; } bufn=0; chg=0 }
+      BEGIN{ bufn=0; chg=0 }
+      /^diff --git /{ emit(); bufn=0; chg=0; buf[++bufn]=$0; next }
+      {
+        if ($0 ~ /^[+-]/ && $0 !~ /^\+\+\+ / && $0 !~ /^--- /) chg++;
+        buf[++bufn]=$0; next
+      }
+      END{ emit() }
+    ' "$tmpdiff" > "$tmpf" || cp "$tmpdiff" "$tmpf"
     row=$(jq -c --arg lbl "$lbl" --arg pr "$pr" --arg url "$url" --arg title "$title" \
                 --arg state "$state" --arg body "$body" --argjson gc "$filt_gc" --argjson rc "$rc_filt" \
-                --rawfile diff "$tmpdiff" '
+                --rawfile diff "$tmpf" '
           {label:$lbl, pr:($pr|tonumber), url:$url, title:$title, state:$state, body:$body,
            reviews: ($gc.reviews // []), comments: ($gc.comments // []), reviewComments: ($rc // []), diff: $diff}
         ' <<<"{}")
-    rm -f "$tmpdiff"
+    rm -f "$tmpdiff" "$tmpf"
   else
     row=$(jq -c --arg lbl "$lbl" --arg pr "$pr" --arg url "$url" --arg title "$title" \
                 --arg state "$state" --arg body "$body" --argjson gc "$filt_gc" --argjson rc "$rc_filt" '
@@ -246,8 +255,19 @@ if [[ -n "$COMMIT_SHA" ]]; then
   if [[ -z "$commit_section" ]]; then
     tmpc=$(mktemp)
     git show "$COMMIT_SHA" > "$tmpc" 2>/dev/null || true
-    commit_section=$(jq -nc --arg sha "$COMMIT_SHA" --rawfile diff "$tmpc" '{sha:$sha, diffText:$diff}')
-    rm -f "$tmpc"
+    tmpc2=$(mktemp)
+    awk -v thr="$DIFF_LIMIT" '
+      function emit(){ if (bufn>0 && chg<=thr) { for(i=1;i<=bufn;i++) print buf[i]; } bufn=0; chg=0 }
+      BEGIN{ bufn=0; chg=0 }
+      /^diff --git /{ emit(); bufn=0; chg=0; buf[++bufn]=$0; next }
+      {
+        if ($0 ~ /^[+-]/ && $0 !~ /^\+\+\+ / && $0 !~ /^--- /) chg++;
+        buf[++bufn]=$0; next
+      }
+      END{ emit() }
+    ' "$tmpc" > "$tmpc2" || cp "$tmpc" "$tmpc2"
+    commit_section=$(jq -nc --arg sha "$COMMIT_SHA" --rawfile diff "$tmpc2" '{sha:$sha, diffText:$diff}')
+    rm -f "$tmpc" "$tmpc2"
   fi
 fi
 

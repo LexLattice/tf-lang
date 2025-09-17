@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  canonicalStringify,
+  CanonicalizeError,
+  canonicalJson,
+  canonicalize,
   createOracleCtx,
-  defaultCanonicalize,
+  deepEqual,
   err,
   ok,
+  pointerFromSegments,
+  segmentsFromPointer,
   withTrace,
 } from "../src/index.js";
 
@@ -36,44 +40,74 @@ describe("oracles core", () => {
     expect(failure.trace).toEqual(["a", "b"]);
   });
 
-  it("canonicalizes arbitrarily nested data", () => {
-    const ctx = createOracleCtx("0x1", { now: 0 });
+  it("canonicalizes nested structures including map and set", () => {
+    const ctx = createOracleCtx("0xseed", { now: 0 });
+    const map = new Map<unknown, unknown>();
+    map.set({ id: 2, payload: { x: 2, y: 1 } }, { ok: true });
+    map.set({ id: 1, payload: { y: 1, x: 2 } }, { ok: true });
+
     const input = {
-      b: 1,
-      a: [3, 2, undefined, -0, Number.POSITIVE_INFINITY],
-      nested: { y: "x", x: "y" },
+      unordered: { b: 1, a: [3, 2, undefined, -0, Number.POSITIVE_INFINITY] },
       when: new Date("2020-01-01T00:00:00Z"),
+      bytes: new Uint8Array([1, 2, 3]),
+      bag: new Set([3, 1, 2]),
+      mapping: map,
     };
 
     const canonical = ctx.canonicalize(input);
     expect(canonical).toEqual({
-      a: [3, 2, null, 0, "Infinity"],
-      b: 1,
-      nested: { x: "y", y: "x" },
+      bag: [1, 2, 3],
+      bytes: [1, 2, 3],
+      mapping: [
+        {
+          label:
+            "{\"id\":1,\"payload\":{\"x\":2,\"y\":1}}\n",
+          value: { ok: true },
+        },
+        {
+          label:
+            "{\"id\":2,\"payload\":{\"x\":2,\"y\":1}}\n",
+          value: { ok: true },
+        },
+      ],
+      unordered: {
+        a: [3, 2, null, 0, "Infinity"],
+        b: 1,
+      },
       when: "2020-01-01T00:00:00.000Z",
     });
 
-    expect(canonicalStringify(input)).toBe(
-      "{\"a\":[3,2,null,0,\"Infinity\"],\"b\":1,\"nested\":{\"x\":\"y\",\"y\":\"x\"},\"when\":\"2020-01-01T00:00:00.000Z\"}"
+    expect(canonicalJson(input)).toBe(
+      "{\"bag\":[1,2,3],\"bytes\":[1,2,3],\"mapping\":[{\"label\":\"{\\\"id\\\":1,\\\"payload\\\":{\\\"x\\\":2,\\\"y\\\":1}}\\n\",\"value\":{\"ok\":true}},{\"label\":\"{\\\"id\\\":2,\\\"payload\\\":{\\\"x\\\":2,\\\"y\\\":1}}\\n\",\"value\":{\"ok\":true}}],\"unordered\":{\"a\":[3,2,null,0,\"Infinity\"],\"b\":1},\"when\":\"2020-01-01T00:00:00.000Z\"}\n",
     );
   });
 
-  it("provides a deterministic default canonicalizer", () => {
-    const canonical = defaultCanonicalize({ z: 1, a: 2 });
-    expect(Object.keys(canonical)).toEqual(["a", "z"]);
+  it("throws on duplicate canonical map labels", () => {
+    const duplicate = new Map<unknown, unknown>();
+    duplicate.set({ x: 1, y: 2 }, 1);
+    duplicate.set({ y: 2, x: 1 }, 2);
+
+    expect(() => canonicalize(duplicate)).toThrow(CanonicalizeError);
   });
 
-  it("normalizes Set instances deterministically", () => {
-    const ctx = createOracleCtx("0x2", { now: 0 });
-    const input = new Set([
-      { id: 2, payload: { x: 1, y: 2 } },
-      { id: 1, payload: { y: 2, x: 1 } },
-    ]);
+  it("reports first differing pointer via deepEqual", () => {
+    const actual = { a: { b: [1, 2, 3] } };
+    const expected = { a: { b: [1, 2, 4] } };
+    const result = deepEqual(actual, expected);
+    expect(result).toEqual({ ok: false, path: "/a/b/2" });
+  });
 
-    const canonical = ctx.canonicalize(input);
-    expect(canonical).toEqual([
-      { id: 1, payload: { x: 1, y: 2 } },
-      { id: 2, payload: { x: 1, y: 2 } },
-    ]);
+  it("confirms equality when canonical forms match", () => {
+    const left = { a: { x: 1, y: 2 } };
+    const right = { a: { y: 2, x: 1 } };
+    expect(deepEqual(left, right)).toEqual({ ok: true });
+  });
+
+  it("round-trips pointer segments", () => {
+    const segments = ["root", 1, "~special/segment"] as const;
+    const pointer = pointerFromSegments(segments.slice());
+    expect(pointer).toBe("/root/1/~0special~1segment");
+    expect(segmentsFromPointer(pointer)).toEqual(["root", 1, "~special/segment"]);
+    expect(segmentsFromPointer("/")).toEqual([]);
   });
 });

@@ -11,6 +11,9 @@
     "build": "tsc -p tsconfig.json",
     "test": "vitest run"
   },
+  "dependencies": {
+    "@tf/oracles-core": "workspace:*"
+  },
   "devDependencies": {
     "@types/node": "^24.3.1",
     "typescript": "^5.5.0",

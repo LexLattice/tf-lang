@@ -213,13 +213,15 @@ for pl in "${PAIRS[@]}"; do
 
   # JSON row includes filtered reviews/comments; optionally add diff
   if [[ $INCLUDE_DIFF -eq 1 ]]; then
-    diff_txt="$(gh pr diff "$pr" 2>/dev/null || true)"
+    tmpdiff=$(mktemp)
+    gh pr diff "$pr" > "$tmpdiff" 2>/dev/null || true
     row=$(jq -c --arg lbl "$lbl" --arg pr "$pr" --arg url "$url" --arg title "$title" \
                 --arg state "$state" --arg body "$body" --argjson gc "$filt_gc" --argjson rc "$rc_filt" \
-                --arg diff "$diff_txt" '
+                --rawfile diff "$tmpdiff" '
           {label:$lbl, pr:($pr|tonumber), url:$url, title:$title, state:$state, body:$body,
            reviews: ($gc.reviews // []), comments: ($gc.comments // []), reviewComments: ($rc // []), diff: $diff}
         ' <<<"{}")
+    rm -f "$tmpdiff"
   else
     row=$(jq -c --arg lbl "$lbl" --arg pr "$pr" --arg url "$url" --arg title "$title" \
                 --arg state "$state" --arg body "$body" --argjson gc "$filt_gc" --argjson rc "$rc_filt" '
@@ -242,8 +244,10 @@ if [[ -n "$COMMIT_SHA" ]]; then
     fi
   fi
   if [[ -z "$commit_section" ]]; then
-    diff_txt="$(git show "$COMMIT_SHA" 2>/dev/null || echo)"
-    commit_section=$(jq -nc --arg sha "$COMMIT_SHA" --arg diff "$diff_txt" '{sha:$sha, diffText:$diff}')
+    tmpc=$(mktemp)
+    git show "$COMMIT_SHA" > "$tmpc" 2>/dev/null || true
+    commit_section=$(jq -nc --arg sha "$COMMIT_SHA" --rawfile diff "$tmpc" '{sha:$sha, diffText:$diff}')
+    rm -f "$tmpc"
   fi
 fi
 

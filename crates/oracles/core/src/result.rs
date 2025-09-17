@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::canonical::{canonicalize, CanonError};
+use crate::canonical::{canonicalize_from, CanonicalizeError};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OracleError {
@@ -90,12 +90,12 @@ pub fn err_with_details<T>(
     code: &str,
     explain: &str,
     details: Option<T>,
-) -> Result<OracleFailure, CanonError>
+) -> Result<OracleFailure, CanonicalizeError>
 where
     T: Serialize,
 {
     let details_value = match details {
-        Some(payload) => Some(canonicalize(&payload)?),
+        Some(payload) => Some(canonicalize_from(&payload)?),
         None => None,
     };
     Ok(err(code, explain, details_value))

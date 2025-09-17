@@ -9,12 +9,16 @@ The core module exposes:
 - `Oracle<I, O>` – a pure checker returning a deterministic `OracleResult<O>`.
 - `OracleCtx` – execution context `{ seed, now, canonicalize }`.
 - Helpers `ok`, `err`, and `withTrace` for shaping success/failure payloads.
-- `defaultCanonicalize` / `canonicalStringify` for canonical JSON output.
+- Canonical helpers: `canonicalize`, `canonicalJson`, `prettyCanonicalJson`,
+  `deepEqual`, and JSON pointer utilities for consistent diagnostics across
+  runtimes.
 - `createOracleCtx(seed, init?)` for building contexts in tests and fixtures.
 
 All values passed through `canonicalize` are deeply cloned, object keys are
-sorted, floats are rounded to 12 decimals, and unsupported data (e.g. `bigint`)
-are stringified. This keeps diagnostics stable across TS/Rust runtimes.
+sorted, floats are rounded to 12 decimals, sets/maps are rewritten into stable
+arrays, and non-JSON inputs (e.g. `undefined`, `Date`, `bigint`, `symbol`) raise
+`NonJsonValueError`. This keeps diagnostics stable across TS/Rust runtimes and
+ensures pointer-based diffs are repeatable.
 
 ## Usage
 

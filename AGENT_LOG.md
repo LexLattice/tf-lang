@@ -149,3 +149,13 @@
 - [tf-lang-l0] version 0.1.1 with prepublish build and @noble/hashes dependency.
 - [CI] tf-check smoke packs tf-lang-l0 + tf-check tarballs locally; no registry use.
 - Commands: `pnpm -r --filter ./packages/tf-lang-l0-ts run build`, `pnpm -r --filter ./packages/tf-check run build`.
+## 2025-09-16T23:11:00Z
+- T0 — Proof Mode T1 oracles epic start.
+- Remaining budget: 100%.
+## 2025-09-16T23:27:49Z
+- Progress: C1 shared machinery updated (TS/Rust canonicalization, equality, pointers). Tests green.
+- Elapsed: ~17m; Remaining budget ≈ 83%.
+
+## 2025-09-16T23:44:00Z
+- Addressed review notes for canonical helpers: reject non-JSON inputs, added pretty canonical JSON, enforced Map/Set ordering, and expanded TS/Rust tests.
+- Commands: `pnpm -C packages/oracles/core test`, `pnpm -C packages/utils test`, `cargo test --workspace --all-targets --manifest-path crates/Cargo.toml`.

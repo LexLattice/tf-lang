@@ -78,4 +78,4 @@ docs/runs/*.json
 *.db-wal
 
 #codex
-out/
+out/out/

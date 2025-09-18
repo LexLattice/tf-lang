@@ -93,10 +93,12 @@ heartbeat & echo $! > "$OUT_ROOT/_heartbeat.pid"
 start_bg(){ bash -lc "$1" & echo $! > "$2"; }
 if [ "$ENABLE_WATCHERS" = "1" ]; then
   if ! { [ -f "$OUT_ROOT/_fs_watch.pid" ] && kill -0 "$(cat "$OUT_ROOT/_fs_watch.pid")" 2>/dev/null; }; then
-    [ -x "$SCRIPT_DIR/fs_watch.sh" ] && start_bg "FS_EVENTS='create,modify,delete,move,close_write' \"$SCRIPT_DIR/fs_watch.sh\" '$REPO_ROOT'" "$OUT_ROOT/_fs_watch.pid"
+    json_event watcher "fs_watch starting"
+    start_bg "FS_EVENTS='create,modify,delete,move,close_write' bash \"$SCRIPT_DIR/fs_watch.sh\" '$REPO_ROOT'" "$OUT_ROOT/_fs_watch.pid"
   fi
   if ! { [ -f "$OUT_ROOT/_pause_watch.pid" ] && kill -0 "$(cat "$OUT_ROOT/_pause_watch.pid")" 2>/dev/null; }; then
-    [ -x "$SCRIPT_DIR/pause_watch.sh" ] && start_bg "\"$SCRIPT_DIR/pause_watch.sh\" 90" "$OUT_ROOT/_pause_watch.pid"
+    json_event watcher "pause_watch starting (90s)"
+    start_bg "bash \"$SCRIPT_DIR/pause_watch.sh\" 90" "$OUT_ROOT/_pause_watch.pid"
   fi
 fi
 

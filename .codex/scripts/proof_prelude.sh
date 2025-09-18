@@ -25,6 +25,11 @@ if [ -d "$PWD/../out/t3" ] && [ ! -e "$OUT_ROOT/.adopted" ]; then
   touch "$OUT_ROOT/.adopted"
 fi
 
+# --- Feature flags ---
+: "${ENABLE_WATCHERS:=1}"     # 1=on, 0=off
+: "${ENABLE_CMD_TRACE:=0}"    # 1=on (interactive-only), 0=off
+: "${ENABLE_CHECKPOINT_PUSH:=1}"   # 1=on, 0=off
+
 # --- Budget & identity ---
 : "${RUN_BUDGET_S:=1800}"
 : "${RUN_START_ISO:=$(date -Iseconds)}"
@@ -58,13 +63,15 @@ status_update() {
 heartbeat(){ while true; do sleep 60; json_event heartbeat ""; done; }
 heartbeat & echo $! > "$OUT_ROOT/_heartbeat.pid"
 
-# --- Start watchers if present (idempotent) ---
+# --- Start watchers if present (idempotent, gated) ---
 start_bg(){ bash -lc "$1" & echo $! > "$2"; }
-if ! { [ -f "$OUT_ROOT/_fs_watch.pid" ] && kill -0 "$(cat "$OUT_ROOT/_fs_watch.pid")" 2>/dev/null; }; then
-  [ -x "$SCRIPT_DIR/fs_watch.sh" ] && start_bg "FS_EVENTS='create,modify,delete,move,close_write' \"$SCRIPT_DIR/fs_watch.sh\" '$REPO_ROOT'" "$OUT_ROOT/_fs_watch.pid"
-fi
-if ! { [ -f "$OUT_ROOT/_pause_watch.pid" ] && kill -0 "$(cat "$OUT_ROOT/_pause_watch.pid")" 2>/dev/null; }; then
-  [ -x "$SCRIPT_DIR/pause_watch.sh" ] && start_bg "\"$SCRIPT_DIR/pause_watch.sh\" 90" "$OUT_ROOT/_pause_watch.pid"
+if [ "$ENABLE_WATCHERS" = "1" ]; then
+  if ! { [ -f "$OUT_ROOT/_fs_watch.pid" ] && kill -0 "$(cat "$OUT_ROOT/_fs_watch.pid")" 2>/dev/null; }; then
+    [ -x "$SCRIPT_DIR/fs_watch.sh" ] && start_bg "FS_EVENTS='create,modify,delete,move,close_write' \"$SCRIPT_DIR/fs_watch.sh\" '$REPO_ROOT'" "$OUT_ROOT/_fs_watch.pid"
+  fi
+  if ! { [ -f "$OUT_ROOT/_pause_watch.pid" ] && kill -0 "$(cat "$OUT_ROOT/_pause_watch.pid")" 2>/dev/null; }; then
+    [ -x "$SCRIPT_DIR/pause_watch.sh" ] && start_bg "\"$SCRIPT_DIR/pause_watch.sh\" 90" "$OUT_ROOT/_pause_watch.pid"
+  fi
 fi
 
 # --- Streamy runner wrappers (timeout + PTY + line buffering) ---
@@ -86,10 +93,21 @@ run() {
 pn()   { run pnpm --reporter=append-only "$@"; }
 ctest(){ run cargo test --workspace --all-targets -- --nocapture --quiet "$@"; }
 
-# --- Command lifecycle tracer ---
-trap '__cmd_start__=$(date +%s%N); __cmd_str__=$BASH_COMMAND; json_event cmd_start "$__cmd_str__" ",\"start_ns\":$__cmd_start__"' DEBUG
-__pc_old__="${PROMPT_COMMAND:-}"
-PROMPT_COMMAND='__rc__=$?; __end__=$(date +%s%N); if [ -n "${__cmd_str__-}" ]; then __dur__=$((__end__-__cmd_start__)); json_event cmd_end "$__cmd_str__" ",\"rc\":$__rc__,\"dur_ns\":$__dur__"; unset __cmd_str__ __cmd_start__; fi; '"$__pc_old__"
+# --- Command lifecycle tracer (safe, opt-in, interactive-only) ---
+if [[ "$ENABLE_CMD_TRACE" = "1" && $- == *i* && -t 1 ]]; then
+  __pc_old__="${PROMPT_COMMAND:-}"
+  trace_pre() {
+    # re-entrancy guard to avoid recursive DEBUG triggering inside json_event
+    [[ -n "${__TRACE_LOCK:-}" ]] && return
+    __TRACE_LOCK=1
+    __cmd_start__=$(date +%s%N)
+    __cmd_str__=$BASH_COMMAND
+    json_event cmd_start "$__cmd_str__" ",\"start_ns\":$__cmd_start__"
+    unset __TRACE_LOCK
+  }
+  trap 'trace_pre' DEBUG
+  PROMPT_COMMAND='__rc__=$?; if [[ -n "${__cmd_str__-}" ]]; then __end__=$(date +%s%N); __dur__=$((__end__-__cmd_start__)); json_event cmd_end "$__cmd_str__" ",\"rc\":$__rc__,\"dur_ns\":$__dur__"; unset __cmd_str__ __cmd_start__; fi; '"$__pc_old__"
+fi
 
 # --- First artifact guard (never-zero within ≤2m) ---
 ensure_first_artifact() {
@@ -106,7 +124,6 @@ ensure_first_artifact() {
 ensure_first_artifact
 
 # --- Optional: early branch + draft PR + checkpoint pushes ---
-: "${ENABLE_CHECKPOINT_PUSH:=1}"   # set to 0 to disable all git/PR ops
 if [ "$ENABLE_CHECKPOINT_PUSH" = "1" ] && git rev-parse --git-dir >/dev/null 2>&1; then
   : "${GIT_AUTHOR_NAME:=codex-agent}"
   : "${GIT_AUTHOR_EMAIL:=codex-agent@noreply}"
@@ -141,8 +158,6 @@ if [ "$ENABLE_CHECKPOINT_PUSH" = "1" ] && git rev-parse --git-dir >/dev/null 2>&
       gh pr comment --edit-last --body "Checkpoint: $msg ($(date -Iseconds))" >/dev/null 2>&1 || true
     fi
   }
-
-  # expose helper names in the shell for the agent to call
   export -f checkpoint
   bootstrap_branch
 fi

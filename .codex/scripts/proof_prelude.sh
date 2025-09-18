@@ -26,8 +26,8 @@ if [ -d "$PWD/../out/t3" ] && [ ! -e "$OUT_ROOT/.adopted" ]; then
 fi
 
 # --- Feature flags ---
-: "${ENABLE_WATCHERS:=1}"     # 1=on, 0=off
-: "${ENABLE_CMD_TRACE:=0}"    # 1=on (interactive-only), 0=off
+: "${ENABLE_WATCHERS:=1}"          # 1=on, 0=off
+: "${ENABLE_CMD_TRACE:=0}"         # 1=on (interactive-only), 0=off
 : "${ENABLE_CHECKPOINT_PUSH:=1}"   # 1=on, 0=off
 
 # --- Budget & identity ---
@@ -48,15 +48,41 @@ json_event() {
 }
 note() { json_event note "$*"; echo "- $(date -Iseconds) $*" >> AGENT_LOG.md; }
 
+# --- Robust status writer (no set -e abort on jq) ---
 status_update() {
-  local stages="${1:-{}}"; local now; now="$(date +%s)"
-  local used=$((now-START_EPOCH)); local rem=$((DEADLINE_EPOCH-now)); ((rem<0)) && rem=0
-  jq -n --arg start "$RUN_START_ISO" --arg nowi "$(date -Iseconds)" \
-     --argjson total "$RUN_BUDGET_S" --argjson used "$used" --argjson rem "$rem" \
-     --argjson stages "$stages" \
-     '{plan:["S1 idempotence","S2 conservation","S3 transport→parity"],
-       stages:$stages,budget:{start:$start,now:$nowi,total_s:$total,used_s:$used,remaining_s:$rem}}' \
-     > "$OUT_ROOT/_status.json"
+  # Accept JSON string for stages; default {}
+  local stages_json="${1:-{}}"
+  local now_epoch; now_epoch="$(date +%s)"
+  local used=$((now_epoch-START_EPOCH)); local rem=$((DEADLINE_EPOCH-now_epoch)); ((rem<0)) && rem=0
+  local now_iso; now_iso="$(date -Iseconds)"
+
+  set +e
+  jq -n \
+    --arg start "$RUN_START_ISO" \
+    --arg nowi "$now_iso" \
+    --argjson total "$RUN_BUDGET_S" \
+    --argjson used "$used" \
+    --argjson rem "$rem" \
+    --arg stages "$stages_json" \
+    '
+    ($stages | fromjson? // {}) as $S
+    | {
+        plan: ["S1 idempotence","S2 conservation","S3 transport→parity"],
+        stages: $S,
+        budget: {start:$start, now:$nowi, total_s:$total, used_s:$used, remaining_s:$rem}
+      }
+    ' > "$OUT_ROOT/_status.json"
+  local rc=$?
+  set -e
+
+  # Fallback if jq failed for any reason
+  if [ $rc -ne 0 ]; then
+    printf '{"plan":["S1 idempotence","S2 conservation","S3 transport→parity"],"stages":{},"budget":{"start":%s,"now":%s,"total_s":%s,"used_s":%s,"remaining_s":%s}}\n' \
+      "$(printf '%s' "$RUN_START_ISO" | jq -Rs .)" \
+      "$(printf '%s' "$now_iso"       | jq -Rs .)" \
+      "$RUN_BUDGET_S" "$used" "$rem" \
+      > "$OUT_ROOT/_status.json"
+  fi
 }
 
 # --- Heartbeat (1/min) ---
@@ -97,7 +123,6 @@ ctest(){ run cargo test --workspace --all-targets -- --nocapture --quiet "$@"; }
 if [[ "$ENABLE_CMD_TRACE" = "1" && $- == *i* && -t 1 ]]; then
   __pc_old__="${PROMPT_COMMAND:-}"
   trace_pre() {
-    # re-entrancy guard to avoid recursive DEBUG triggering inside json_event
     [[ -n "${__TRACE_LOCK:-}" ]] && return
     __TRACE_LOCK=1
     __cmd_start__=$(date +%s%N)
@@ -123,7 +148,7 @@ ensure_first_artifact() {
 }
 ensure_first_artifact
 
-# --- Optional: early branch + draft PR + checkpoint pushes ---
+# --- Optional: early branch + draft PR + checkpoint pushes (single bootstrap) ---
 if [ "$ENABLE_CHECKPOINT_PUSH" = "1" ] && git rev-parse --git-dir >/dev/null 2>&1; then
   : "${GIT_AUTHOR_NAME:=codex-agent}"
   : "${GIT_AUTHOR_EMAIL:=codex-agent@noreply}"
@@ -133,7 +158,11 @@ if [ "$ENABLE_CHECKPOINT_PUSH" = "1" ] && git rev-parse --git-dir >/dev/null 2>&
   # ensure out/ is ignored (avoid committing artifacts)
   grep -qxF 'out/' .gitignore 2>/dev/null || echo 'out/' >> .gitignore
 
+  # Derive a sane base (avoid nesting proof/proof/…)
   BASE_BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)"
+  if [[ "$BASE_BRANCH" == proof/*/* ]]; then
+    BASE_BRANCH="$(printf '%s\n' "$BASE_BRANCH" | cut -d'/' -f2)"
+  fi
   WORK_BRANCH="proof/${BASE_BRANCH}/${RUN_ID}"
 
   bootstrap_branch() {
@@ -159,7 +188,12 @@ if [ "$ENABLE_CHECKPOINT_PUSH" = "1" ] && git rev-parse --git-dir >/dev/null 2>&
     fi
   }
   export -f checkpoint
-  bootstrap_branch
+
+  # Only bootstrap once per run to avoid proof/proof chains
+  if [ ! -f "$OUT_ROOT/.bootstrapped" ]; then
+    bootstrap_branch
+    touch "$OUT_ROOT/.bootstrapped"
+  fi
 fi
 
 # --- Clean exit: stop background watchers ---
@@ -171,5 +205,5 @@ cleanup_watchers() {
 trap cleanup_watchers EXIT
 
 # --- Initial status & note ---
-status_update '{}'
+status_update '{}'   # safe now via fromjson? //
 note "session_start (T3)"

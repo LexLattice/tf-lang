@@ -1,1 +1,14 @@
-{"version":"0.1.0","subject":"transport","value":{"a":1,"b":[2,3]}}
+{
+  "version": "0.1.0",
+  "subject": "transport",
+  "input": {
+    "cases": [
+      {
+        "name": "round-trip",
+        "seed": "0x01",
+        "json": "{\"a\":1,\"b\":[2,3]}",
+        "value": { "a": 1, "b": [2, 3] }
+      }
+    ]
+  }
+}

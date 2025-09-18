@@ -1,2 +1,9 @@
-{"seed":"0x00000001","now":"2025-09-18T17:22:43.608Z","case":"idempotence.basic","runtime":0.602296}
-{"seed":"0x00000001","now":"2025-09-18T17:22:43.609Z","case":"conservation.basic","runtime":0.312032}
+{"seed":"0x00000001","now":0,"case":"idempotence.basic","status":"pass"}
+{"seed":"0x00000001","now":0,"case":"conservation.basic","status":"pass"}
+{"seed":"0x00000001","now":0,"case":"transport.basic","status":"pass"}
+{"seed":"0x00000002","now":0,"case":"idempotence.basic","status":"pass"}
+{"seed":"0x00000002","now":0,"case":"conservation.basic","status":"pass"}
+{"seed":"0x00000002","now":0,"case":"transport.basic","status":"pass"}
+{"seed":"0x00000003","now":0,"case":"idempotence.basic","status":"pass"}
+{"seed":"0x00000003","now":0,"case":"conservation.basic","status":"pass"}
+{"seed":"0x00000003","now":0,"case":"transport.basic","status":"pass"}

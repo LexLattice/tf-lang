@@ -1,20 +1,18 @@
 {
-  "plan": ["S1 idempotence","S2 conservation","S3 transport→parity"],
-  "stages": {
-    "S1 idempotence": "✅",
-    "S2 conservation": "✅",
-    "S3 transport→parity": "⏳"
+  "plan": {
+    "S1": "transport oracle polish",
+    "S2": "determinism artifacts",
+    "S3": "pointer parity sweep"
   },
-  "downshifts": {
-    "seeds": 1,
-    "repeats": 1,
-    "fixtures": "minimal"
+  "stages": {
+    "S1": "✅",
+    "S2": "✅",
+    "S3": "✅"
   },
   "budget": {
-    "start": "2025-09-18T17:14:58+00:00",
-    "now": "2025-09-18T17:23:34+00:00",
-    "total_s": 1800,
-    "used_s": 516,
-    "remaining_s": 1284
-  }
+    "seeds": {"trajectory": [7, 3, 1], "current": 3},
+    "repeats": {"trajectory": [3, 1], "current": 1},
+    "fixtures": {"trajectory": ["full", "minimal"], "current": "minimal"}
+  },
+  "pointerPolicy": "RFC6901"
 }

@@ -1,1 +1,14 @@
-{"version":"0.1.0","subject":"transport","value":{"z":null,"y":{"x":true}}}
+{
+  "version": "0.1.0",
+  "subject": "transport",
+  "input": {
+    "cases": [
+      {
+        "name": "drift",
+        "seed": "0x02",
+        "json": "{\"z\":null}",
+        "value": { "z": null, "y": { "x": true } }
+      }
+    ]
+  }
+}

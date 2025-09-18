@@ -76,3 +76,6 @@ docs/runs/*.json
 *.sqlite*
 *.db-shm
 *.db-wal
+
+#codex
+out/

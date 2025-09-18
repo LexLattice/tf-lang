@@ -151,3 +151,4 @@
 - Commands: `pnpm -r --filter ./packages/tf-lang-l0-ts run build`, `pnpm -r --filter ./packages/tf-check run build`.
 2025-09-18T16:56:38+00:00 S1: TS idempotence+harness; S2: conservation; S3: transport/parity
 2025-09-18T17:15:15+00:00 Plan: S1 idempotence, S2 conservation, S3 transport/parity
+2025-09-18T21:06:06Z Plan: S1 transport oracle/tests, S2 determinism+reports, S3 pointer semantics+parity

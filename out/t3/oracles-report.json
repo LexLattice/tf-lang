@@ -8,5 +8,10 @@
     "failed": 0,
     "passed": 1,
     "total": 1
+  },
+  "transport": {
+    "failed": 0,
+    "passed": 1,
+    "total": 1
   }
 }

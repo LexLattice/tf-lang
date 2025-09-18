@@ -10,12 +10,15 @@ import { checkConservation } from "@tf/oracles-conservation";
 import type { ConservationInput, ConservationViolation } from "@tf/oracles-conservation";
 import { checkIdempotence } from "@tf/oracles-idempotence";
 import type { IdempotenceInput, IdempotenceMismatch } from "@tf/oracles-idempotence";
+import { checkTransport } from "@tf/oracles-transport";
+import type { TransportInput, TransportMismatch } from "@tf/oracles-transport";
 
 const HARNESS_SEEDS = ["0x00000001"] as const;
 const CONTEXT_SEED = "0xfeed";
 const CONTEXT_NOW = 0;
 const CASE_IDEMPOTENCE = "idempotence.basic";
 const CASE_CONSERVATION = "conservation.basic";
+const CASE_TRANSPORT = "transport.basic";
 const execFileAsync = promisify(execFile);
 
 interface OracleReport {
@@ -36,12 +39,12 @@ async function main(): Promise<void> {
 
   const idempotenceReport: OracleReport = { total: 0, passed: 0, failed: 0 };
   const conservationReport: OracleReport = { total: 0, passed: 0, failed: 0 };
+  const transportReport: OracleReport = { total: 0, passed: 0, failed: 0 };
   const seedsLogLines: string[] = [];
 
   for (const seed of HARNESS_SEEDS) {
     const ctx = createOracleCtx(CONTEXT_SEED, { now: CONTEXT_NOW });
 
-    const idempotenceStarted = process.hrtime.bigint();
     const idempotenceInput = buildIdempotenceInput(seed);
     const idempotenceResult = await checkIdempotence(idempotenceInput, ctx);
 
@@ -56,18 +59,15 @@ async function main(): Promise<void> {
       }
     }
 
-    const idempotenceEnded = process.hrtime.bigint();
-    const idempotenceRuntime = Number(idempotenceEnded - idempotenceStarted) / 1_000_000;
     seedsLogLines.push(
       JSON.stringify({
         seed,
-        now: new Date().toISOString(),
         case: CASE_IDEMPOTENCE,
-        runtime: Number(idempotenceRuntime.toFixed(6)),
+        now: ctx.now,
+        status: idempotenceResult.ok ? "ok" : "fail",
       }),
     );
 
-    const conservationStarted = process.hrtime.bigint();
     const conservationInput = buildConservationInput(seed);
     const conservationResult = await checkConservation(conservationInput, ctx);
 
@@ -82,14 +82,35 @@ async function main(): Promise<void> {
       }
     }
 
-    const conservationEnded = process.hrtime.bigint();
-    const conservationRuntime = Number(conservationEnded - conservationStarted) / 1_000_000;
     seedsLogLines.push(
       JSON.stringify({
         seed,
-        now: new Date().toISOString(),
         case: CASE_CONSERVATION,
-        runtime: Number(conservationRuntime.toFixed(6)),
+        now: ctx.now,
+        status: conservationResult.ok ? "ok" : "fail",
+      }),
+    );
+
+    const transportInput = buildTransportInput(seed);
+    const transportResult = await checkTransport(transportInput, ctx);
+
+    transportReport.total += 1;
+    if (transportResult.ok) {
+      transportReport.passed += 1;
+    } else {
+      transportReport.failed += 1;
+      const mismatch = firstTransportMismatch(transportResult.error.details);
+      if (mismatch && !transportReport.firstFail) {
+        transportReport.firstFail = mismatch;
+      }
+    }
+
+    seedsLogLines.push(
+      JSON.stringify({
+        seed,
+        case: CASE_TRANSPORT,
+        now: ctx.now,
+        status: transportResult.ok ? "ok" : "fail",
       }),
     );
   }
@@ -104,20 +125,29 @@ async function main(): Promise<void> {
   await ensureDir(conservationReportPath);
   await writeFile(conservationReportPath, canonicalJson(conservationReport), "utf-8");
 
+  const transportReportPath = join(outDir, "transport", "report.json");
+  await ensureDir(transportReportPath);
+  await writeFile(transportReportPath, canonicalJson(transportReport), "utf-8");
+
   const oraclesReportPath = join(outDir, "oracles-report.json");
-  const rollup = { idempotence: idempotenceReport, conservation: conservationReport };
+  const rollup = {
+    idempotence: idempotenceReport,
+    conservation: conservationReport,
+    transport: transportReport,
+  };
   await writeFile(oraclesReportPath, canonicalJson(rollup), "utf-8");
 
   const certificatePath = join(outDir, "certificate.json");
   const artifacts = await recordArtifacts(repoRoot, [
     idempotenceReportPath,
     conservationReportPath,
+    transportReportPath,
     oraclesReportPath,
   ]);
   const commit = await gitRevParse(repoRoot);
   const certificate = {
     commit,
-    generatedAt: new Date().toISOString(),
+    generatedAt: CONTEXT_NOW,
     artifacts: artifacts.map(({ path, sha256 }) => ({ path, sha256 })),
   };
   await writeFile(certificatePath, canonicalJson(certificate), "utf-8");
@@ -145,6 +175,22 @@ function buildConservationInput(seed: string): ConservationInput {
     keys: ["records", "warnings", "alerts"],
     before: { records, warnings, alerts },
     after: { records, warnings, alerts },
+  };
+}
+
+function buildTransportInput(seed: string): TransportInput {
+  const vector = deriveVector(seed);
+  return {
+    cases: [
+      {
+        name: `seed:${seed}`,
+        seed,
+        value: {
+          vector,
+          checksum: vector.reduce((accumulator, entry) => accumulator + entry, 0),
+        },
+      },
+    ],
   };
 }
 
@@ -185,6 +231,22 @@ function firstConservationViolation(details: unknown): OracleReport["firstFail"]
     pointer: `/${escapePointerSegment(violation.key)}`,
     left: violation.before,
     right: violation.after,
+  };
+}
+
+function firstTransportMismatch(details: unknown): OracleReport["firstFail"] | undefined {
+  if (!details || typeof details !== "object") {
+    return undefined;
+  }
+  const payload = details as { mismatches?: ReadonlyArray<TransportMismatch> };
+  const mismatch = payload.mismatches?.[0];
+  if (!mismatch) {
+    return undefined;
+  }
+  return {
+    pointer: mismatch.pointer,
+    left: mismatch.expected,
+    right: mismatch.actual,
   };
 }
 

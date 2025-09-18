@@ -169,7 +169,7 @@ function diffValues(left: unknown, right: unknown, segments: Array<string | numb
 
 function pointerFromSegments(segments: Array<string | number>): string {
   if (segments.length === 0) {
-    return "/";
+    return "";
   }
   return `/${segments.map(escapePointerSegment).join("/")}`;
 }

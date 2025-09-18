@@ -16,7 +16,7 @@ function escapePointerSegment(segment: string | number): string {
 }
 
 function pointerFromSegments(segments: Array<string | number>): string {
-  if (segments.length === 0) return "/";
+  if (segments.length === 0) return "";
   return `/${segments.map(escapePointerSegment).join("/")}`;
 }
 

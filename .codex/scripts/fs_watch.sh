@@ -10,7 +10,8 @@ IGNORE_REGEX='(^|/)(\.git|node_modules|target|dist|.pnpm|.pnpm-store|out/t[13]/_
 
 if command -v inotifywait >/dev/null 2>&1; then
   EVENTS="${FS_EVENTS:-create,modify,delete,move,close_write}"
-  inotifywait -m -r -e "$EVENTS" --timefmt '%s' --format '%T|%e|%w|%f' "$WATCH_DIR" \
+  # -q suppresses "Setting up watches..." banner
+  inotifywait -q -m -r -e "$EVENTS" --timefmt '%s' --format '%T|%e|%w|%f' "$WATCH_DIR" \
   | awk -v IGN="$IGNORE_REGEX" -F'|' '
       function esc(s){gsub(/\\/,"\\\\",s);gsub(/"/,"\\\"",s);return s}
       {
@@ -19,9 +20,8 @@ if command -v inotifywait >/dev/null 2>&1; then
         for (i=1;i<=n;i++)
           printf("{\"event\":\"fs_%s\",\"ts_epoch\":%s,\"path\":\"%s\"}\n", tolower(evs[i]), $1, esc(path));
         fflush(stdout);
-      }' >> "$LOG"
+      }' >> "$LOG" 2>/dev/null
 else
-  # macOS fallback (rare in Codex)
   if command -v fswatch >/dev/null 2>&1; then
     fswatch -r "$WATCH_DIR" \
     | while IFS= read -r p; do

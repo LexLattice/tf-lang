@@ -94,11 +94,11 @@ start_bg(){ bash -lc "$1" & echo $! > "$2"; }
 if [ "$ENABLE_WATCHERS" = "1" ]; then
   if ! { [ -f "$OUT_ROOT/_fs_watch.pid" ] && kill -0 "$(cat "$OUT_ROOT/_fs_watch.pid")" 2>/dev/null; }; then
     json_event watcher "fs_watch starting"
-    start_bg "OUT_ROOT=\"$OUT_ROOT\" FS_EVENTS='create,modify,delete,move,close_write' bash \"$SCRIPT_DIR/fs_watch.sh\" '$REPO_ROOT'" "$OUT_ROOT/_fs_watch.pid"
+    start_bg "OUT_ROOT=\"$OUT_ROOT\" FS_EVENTS='create,modify,delete,move,close_write' bash \"$SCRIPT_DIR/fs_watch.sh\" '$REPO_ROOT' >/dev/null 2>&1" "$OUT_ROOT/_fs_watch.pid"
   fi
   if ! { [ -f "$OUT_ROOT/_pause_watch.pid" ] && kill -0 "$(cat "$OUT_ROOT/_pause_watch.pid")" 2>/dev/null; }; then
     json_event watcher "pause_watch starting (90s)"
-    start_bg "bash \"$SCRIPT_DIR/pause_watch.sh\" 90" "$OUT_ROOT/_pause_watch.pid"
+    start_bg "bash \"$SCRIPT_DIR/pause_watch.sh\" 90 >/dev/null 2>&1" "$OUT_ROOT/_pause_watch.pid"
   fi
 fi
 

@@ -1,0 +1,25 @@
+{
+  "name": "@tf/oracles-harness",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./build-reports": "./dist/build-reports.js"
+  },
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "build-reports": "pnpm run build && node dist/build-reports.js"
+  },
+  "dependencies": {
+    "@tf-lang/utils": "workspace:*",
+    "@tf/oracles-core": "workspace:*",
+    "@tf/oracles-idempotence": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.1",
+    "typescript": "^5.5.0"
+  }
+}

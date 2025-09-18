@@ -1,0 +1,18 @@
+{
+  "plan": "S1 Idempotence+harness; S2 Conservation; S3 Transport/parity",
+  "stages": {
+    "S1": "complete",
+    "S2": "pending",
+    "S3": "pending"
+  },
+  "budget": {
+    "start": 3600,
+    "used_s": 900,
+    "remaining_s": 2700
+  },
+  "downshifts": {
+    "seeds": 1,
+    "repeats": 1,
+    "fixtures": "minimal"
+  }
+}

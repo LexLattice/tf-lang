@@ -32,9 +32,11 @@ build/
 **/build/
 .out/
 .next/
-out/
+out/*
 !out/t2/
 !out/t2/**
+!out/t3/
+!out/t3/**
 
 # TypeScript
 *.tsbuildinfo
@@ -78,4 +80,8 @@ docs/runs/*.json
 *.db-wal
 
 #codex
-out/
+out/*
+!out/t2/
+!out/t2/**
+!out/t3/
+!out/t3/**

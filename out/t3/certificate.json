@@ -1,0 +1,10 @@
+{
+  "commit": "fd996382547a7b928a37f351f9321e4596cfa12f",
+  "reports": [
+    {
+      "name": "idempotence",
+      "path": "out/t3/idempotence/report.json",
+      "sha256": "ace9d382de2ba1bbb2a87e83b73b20029597e9b669d882c3d07c84c98e7c3efa"
+    }
+  ]
+}

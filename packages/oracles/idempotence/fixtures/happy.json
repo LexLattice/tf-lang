@@ -1,1 +1,9 @@
-{"version":"0.1.0","subject":"idempotence","input":{"v":[1,2,3]}}
+{
+  "cases": [
+    {
+      "name": "arrays-equal",
+      "once": [1, 2, 3],
+      "twice": [1, 2, 3]
+    }
+  ]
+}

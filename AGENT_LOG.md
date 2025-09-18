@@ -149,3 +149,5 @@
 - [tf-lang-l0] version 0.1.1 with prepublish build and @noble/hashes dependency.
 - [CI] tf-check smoke packs tf-lang-l0 + tf-check tarballs locally; no registry use.
 - Commands: `pnpm -r --filter ./packages/tf-lang-l0-ts run build`, `pnpm -r --filter ./packages/tf-check run build`.
+2025-09-18T16:56:38+00:00 S1: TS idempotence+harness; S2: conservation; S3: transport/parity
+2025-09-18T17:15:15+00:00 Plan: S1 idempotence, S2 conservation, S3 transport/parity

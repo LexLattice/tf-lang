@@ -3,10 +3,27 @@ set -Eeuo pipefail
 
 # --- Resolve locations & output root (T3) ---
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
-REPO_ROOT="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+
+# Find repo root even if sourced from /workspace
+if REPO_TOP="$(git rev-parse --show-toplevel 2>/dev/null)"; then
+  REPO_ROOT="$REPO_TOP"
+else
+  # fallback: find a single child with .git (common in Codex: /workspace/tf-lang)
+  REPO_ROOT="$PWD"
+  for d in "$PWD"/*; do
+    [ -d "$d/.git" ] && REPO_ROOT="$d" && break
+  done
+fi
 cd "$REPO_ROOT"
+
 OUT_ROOT="out/t3"
 mkdir -p "$OUT_ROOT"
+
+# Adopt any stray /workspace/out/t3 from pre-cd actions
+if [ -d "$PWD/../out/t3" ] && [ ! -e "$OUT_ROOT/.adopted" ]; then
+  rsync -a "$PWD/../out/t3/" "$OUT_ROOT/" 2>/dev/null || true
+  touch "$OUT_ROOT/.adopted"
+fi
 
 # --- Budget & identity ---
 : "${RUN_BUDGET_S:=1800}"

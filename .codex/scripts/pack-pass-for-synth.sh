@@ -77,7 +77,8 @@ printf '{ "group": "%s", "runs": [' "$GROUP" > "$OUT_JSON"; first=1
 # - Drop intro messages:
 #   * Codex: bodies starting with "Codex Review: Here are some suggestions."
 #   * Gemini: bodies containing "Summary of Changes"
-ALLOW=('chatgpt-codex-connector' 'gemini-code-assist')
+# Allowlisted bot accounts (both app and [bot] variants)
+ALLOW=('chatgpt-codex-connector' 'chatgpt-codex-connector[bot]' 'gemini-code-assist' 'gemini-code-assist[bot]')
 
 # Precompute normalized diff sets for similarity summary
 TMP_DIFFDIR=$(mktemp -d 2>/dev/null || mktemp -d -t packpass)
@@ -193,7 +194,6 @@ for pl in "${PAIRS[@]}"; do
   # Review comments (inline code comments) via REST; keep only allowed bots, drop intros
   rc_filt='[]'
   if [[ -n "$REPO_NAME" ]]; then
-    # Slurp paginated arrays into a single array, then filter
     rc_raw=$(gh api "repos/${REPO_NAME}/pulls/${pr}/comments" --paginate 2>/dev/null | jq -s '[ .[] | .[] ]' 2>/dev/null || echo '[]')
     rc_filt=$(jq -c --argjson allow "$allow_json" '
       def drop_intro:
@@ -206,8 +206,12 @@ for pl in "${PAIRS[@]}"; do
 
   echo -e "\n### AI Comments (issue)\n" >> "$OUT_MD"
   jq -r '.comments[]? | "- **@\(.author.login)**: \((.body // "") | gsub("\r";""))"' <<<"$filt_gc" >> "$OUT_MD"
+
+  # Add PR reviews (non-inline) from allowed AI bots
+  echo -e "\n### AI Reviews\n" >> "$OUT_MD"
+  jq -r '.reviews[]? | "- **@\(.author.login)** [\(.state)]: \((.body // "") | gsub("\r";""))"' <<<"$filt_gc" >> "$OUT_MD"
   echo -e "\n### AI Review Comments (inline)\n" >> "$OUT_MD"
-  jq -r '.[]? | "- **@\(.user.login)** (\(.path)#:\(.original_line // .line // .position // 0)): \((.body // "") | gsub("\r";""))"' <<<"$rc_filt" >> "$OUT_MD"
+  jq -r '.[]? | "- **@\(.user.login)** (\(.path)#:\(.original_line // .line // .position // 0)): \n\n\((.body // "") | gsub("\r";""))\n"' <<<"$rc_filt" >> "$OUT_MD"
 
   # JSON row includes filtered reviews/comments; optionally add diff
   if [[ $INCLUDE_DIFF -eq 1 ]]; then
@@ -224,19 +228,27 @@ for pl in "${PAIRS[@]}"; do
       }
       END{ emit() }
     ' "$tmpdiff" > "$tmpf" || cp "$tmpdiff" "$tmpf"
+    # Build JSON row with merged comments and detailed reviews (use slurpfile to avoid argjson quoting pitfalls)
+    tmp_gc=$(mktemp); printf '%s\n' "$filt_gc" > "$tmp_gc"
+    tmp_rcj=$(mktemp); printf '%s\n' "$rc_filt" > "$tmp_rcj"
     row=$(jq -c --arg lbl "$lbl" --arg pr "$pr" --arg url "$url" --arg title "$title" \
-                --arg state "$state" --arg body "$body" --argjson gc "$filt_gc" --argjson rc "$rc_filt" \
+                --arg state "$state" --arg body "$body" --slurpfile gc "$tmp_gc" --slurpfile rc "$tmp_rcj" \
                 --rawfile diff "$tmpf" '
           {label:$lbl, pr:($pr|tonumber), url:$url, title:$title, state:$state, body:$body,
-           reviews: ($gc.reviews // []), comments: ($gc.comments // []), reviewComments: ($rc // []), diff: $diff}
+           reviews: ($gc[0].reviews // []), comments: ($gc[0].comments // []), reviewComments: ($rc[0] // []), diff: $diff}
         ' <<<"{}")
+    rm -f "$tmp_gc" "$tmp_rcj"
     rm -f "$tmpdiff" "$tmpf"
   else
+    # Build JSON row with merged comments and detailed reviews (use slurpfile to avoid argjson quoting pitfalls)
+    tmp_gc=$(mktemp); printf '%s\n' "$filt_gc" > "$tmp_gc"
+    tmp_rcj=$(mktemp); printf '%s\n' "$rc_filt" > "$tmp_rcj"
     row=$(jq -c --arg lbl "$lbl" --arg pr "$pr" --arg url "$url" --arg title "$title" \
-                --arg state "$state" --arg body "$body" --argjson gc "$filt_gc" --argjson rc "$rc_filt" '
+                --arg state "$state" --arg body "$body" --slurpfile gc "$tmp_gc" --slurpfile rc "$tmp_rcj" '
           {label:$lbl, pr:($pr|tonumber), url:$url, title:$title, state:$state, body:$body,
-           reviews: ($gc.reviews // []), comments: ($gc.comments // []), reviewComments: ($rc // [])}
+           reviews: ($gc[0].reviews // []), comments: ($gc[0].comments // []), reviewComments: ($rc[0] // [])}
         ' <<<"{}")
+    rm -f "$tmp_gc" "$tmp_rcj"
   fi
   if [[ $first -eq 0 ]]; then printf ',' >> "$OUT_JSON"; fi
   printf '\n%s' "$row" >> "$OUT_JSON"; first=0

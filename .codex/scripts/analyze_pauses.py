@@ -1,29 +1,28 @@
 #!/usr/bin/env python3
 import json
-import re
 import sys
+import os
 import pathlib
 
-progress = pathlib.Path("out/t1/_progress.log")
-pauses = pathlib.Path("out/t1/_pauses.log")
-out_json = pathlib.Path("out/t1/_pause_summary.json")
-ts_re = re.compile(r"\[(\d{4}-\d{2}-\d{2}T[^]]+)\]\[(\d+)\]")
+OUT_ROOT = pathlib.Path(os.environ.get("OUT_ROOT", "out/t3"))
+progress = OUT_ROOT / "_progress.log"
+pauses = OUT_ROOT / "_pauses.log"
+out_json = OUT_ROOT / "_pause_summary.json"
 
 
 def parse_epochs(path):
     epochs = []
     if path.exists():
-        for line in path.read_text().splitlines():
-            m = ts_re.search(line)
-            if m:
-                epochs.append(int(m.group(2)))
-                continue
+        for line in path.read_text(errors="ignore").splitlines():
+            # JSON lines with ts_epoch (our prelude format)
             try:
                 j = json.loads(line)
-                if "ts_epoch" in j:
+                if isinstance(j, dict) and "ts_epoch" in j:
                     epochs.append(int(j["ts_epoch"]))
+                    continue
             except Exception:
                 pass
+            # fallback: none (we no longer emit bracketed timestamps)
     return sorted(epochs)
 
 
@@ -31,7 +30,7 @@ def parse_pause_events(path):
     spans = []
     start = None
     if path.exists():
-        for line in path.read_text().splitlines():
+        for line in path.read_text(errors="ignore").splitlines():
             try:
                 j = json.loads(line)
             except Exception:
@@ -46,9 +45,14 @@ def parse_pause_events(path):
 
 ev = parse_epochs(progress)
 spans = parse_pause_events(pauses)
+
 if not ev:
     print("No events found.", file=sys.stderr)
-    sys.exit(1)
+    out_json.write_text(
+        json.dumps({"event_count": 0, "note": "no progress events"}, indent=2)
+    )
+    sys.exit(0)
+
 wall = ev[-1] - ev[0]
 total_pause = sum([d for (_, _, d) in spans]) if spans else 0
 effective = max(0, wall - total_pause)

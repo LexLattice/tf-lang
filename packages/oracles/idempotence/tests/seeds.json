@@ -1,0 +1,6 @@
+{
+  "ts": {
+    "passProperty": "0x5eed1",
+    "failProperty": "0x5eed2"
+  }
+}

@@ -149,3 +149,9 @@
 - [tf-lang-l0] version 0.1.1 with prepublish build and @noble/hashes dependency.
 - [CI] tf-check smoke packs tf-lang-l0 + tf-check tarballs locally; no registry use.
 - Commands: `pnpm -r --filter ./packages/tf-lang-l0-ts run build`, `pnpm -r --filter ./packages/tf-check run build`.
+
+## 2025-09-18T17:01:05+00:00
+- [T3] Planned sprints: S1 idempotence/harness, S2 conservation, S3 transport/parity.
+
+## 2025-09-18T17:14:36+00:00
+- [T3] Planned sprints: S1 finish idempotence/harness cleanup, S2 conservation oracle, S3 transport/parity scaffold.

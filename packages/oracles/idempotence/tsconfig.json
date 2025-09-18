@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ES2020",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "declaration": true,
+    "outDir": "dist",
+    "rootDir": ".",
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "paths": {
+      "@tf/oracles-core": [
+        "./node_modules/@tf/oracles-core/index.d.ts"
+      ],
+      "@tf/oracles-core/*": [
+        "./node_modules/@tf/oracles-core/*"
+      ]
+    }
+  },
+  "include": [
+    "src"
+  ]
+}

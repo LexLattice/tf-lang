@@ -1,1 +1,17 @@
-{"version":"0.1.0","subject":"idempotence","input":{"v":[1,2,3,4]}}
+{
+  "description": "Second application drifts from the first.",
+  "input": {
+    "cases": [
+      {
+        "name": "array-mutation",
+        "once": { "data": [1, 2, 3, 4] },
+        "twice": { "data": [1, 2, 3, 5] }
+      }
+    ]
+  },
+  "expect": {
+    "ok": false,
+    "casesChecked": 1,
+    "pointer": "/data/3"
+  }
+}

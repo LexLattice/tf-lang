@@ -1,1 +1,16 @@
-{"version":"0.1.0","subject":"idempotence","input":{"v":[1,2,3]}}
+{
+  "description": "Idempotent case keeps canonical result stable.",
+  "input": {
+    "cases": [
+      {
+        "name": "array-identity",
+        "once": { "data": [1, 2, 3] },
+        "twice": { "data": [1, 2, 3] }
+      }
+    ]
+  },
+  "expect": {
+    "ok": true,
+    "casesChecked": 1
+  }
+}

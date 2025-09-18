@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ES2020",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "outDir": "dist",
+    "rootDir": ".",
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "paths": {
+      "@tf/oracles-core": [
+        "./node_modules/@tf/oracles-core/index.d.ts"
+      ],
+      "@tf/oracles-core/*": [
+        "./node_modules/@tf/oracles-core/*"
+      ],
+      "@tf/oracles-idempotence": [
+        "./node_modules/@tf/oracles-idempotence/index.d.ts"
+      ],
+      "@tf/oracles-idempotence/*": [
+        "./node_modules/@tf/oracles-idempotence/*"
+      ],
+      "@tf-lang/utils": [
+        "./node_modules/@tf-lang/utils/index.d.ts"
+      ],
+      "@tf-lang/utils/*": [
+        "./node_modules/@tf-lang/utils/*"
+      ]
+    }
+  },
+  "include": [
+    "src"
+  ]
+}

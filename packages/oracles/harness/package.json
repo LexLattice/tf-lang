@@ -1,0 +1,23 @@
+{
+  "name": "@tf/oracles-harness",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "exports": "./dist/index.js",
+  "license": "MIT",
+  "description": "Harness for running TF-Lang T3 oracle suites and emitting deterministic reports.",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "build-reports": "pnpm run build && node dist/src/build-reports.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@tf-lang/utils": "workspace:*",
+    "@tf/oracles-core": "workspace:*",
+    "@tf/oracles-idempotence": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

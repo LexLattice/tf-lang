@@ -9,13 +9,14 @@
   "description": "Harness for executing TF-Lang oracles and emitting deterministic reports.",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "build-reports": "pnpm --reporter=append-only --filter @tf/oracles-core build && pnpm --reporter=append-only --filter @tf/oracles-idempotence build && pnpm --reporter=append-only --filter @tf/oracles-conservation build && pnpm --reporter=append-only --filter @tf-lang/utils build && pnpm build && node dist/index.js"
+    "build-reports": "pnpm --reporter=append-only --filter @tf/oracles-core build && pnpm --reporter=append-only --filter @tf/oracles-idempotence build && pnpm --reporter=append-only --filter @tf/oracles-conservation build && pnpm --reporter=append-only --filter @tf/oracles-transport build && pnpm --reporter=append-only --filter @tf-lang/utils build && pnpm build && node dist/index.js"
   },
   "dependencies": {
     "@tf-lang/utils": "workspace:*",
     "@tf/oracles-core": "workspace:*",
     "@tf/oracles-idempotence": "workspace:*",
-    "@tf/oracles-conservation": "workspace:*"
+    "@tf/oracles-conservation": "workspace:*",
+    "@tf/oracles-transport": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.12.7",

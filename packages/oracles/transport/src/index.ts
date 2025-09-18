@@ -1,82 +1,113 @@
 import { err, ok, withTrace } from "@tf/oracles-core";
 import type { Oracle, OracleCtx, OracleResult } from "@tf/oracles-core";
 
-import type {
-  IdempotenceApplication,
-  IdempotenceCase,
-  IdempotenceInput,
-  IdempotenceMismatch,
-  IdempotenceReport,
-} from "./types.js";
+import type { TransportDrift, TransportInput, TransportReport } from "./types.js";
 
-export type { IdempotenceApplication, IdempotenceCase, IdempotenceInput, IdempotenceMismatch, IdempotenceReport } from "./types.js";
+export type { TransportDrift, TransportInput, TransportReport } from "./types.js";
 
-const FAILURE_CODE = "E_NOT_IDEMPOTENT" as const;
+const FAILURE_CODE = "E_TRANSPORT_DRIFT" as const;
+const UNSERIALIZABLE = "[unserializable]" as const;
+const INVALID_JSON = "[invalid-json]" as const;
 const MISSING_VALUE = "[missing]" as const;
 
-export function createIdempotenceOracle(): Oracle<IdempotenceInput, IdempotenceReport> {
+export function createTransportOracle(): Oracle<TransportInput, TransportReport> {
   return {
     async check(input, ctx) {
-      return checkIdempotence(input, ctx);
+      return checkTransport(input, ctx);
     },
   };
 }
 
-export async function checkIdempotence(
-  input: IdempotenceInput,
+export async function checkTransport(
+  input: TransportInput,
   ctx: OracleCtx,
-): Promise<OracleResult<IdempotenceReport>> {
+): Promise<OracleResult<TransportReport>> {
   const cases = input.cases ?? [];
-  let casesChecked = 0;
-  let applicationsChecked = 0;
-  const mismatches: IdempotenceMismatch[] = [];
+  const drifts: TransportDrift[] = [];
 
-  for (const idempotenceCase of cases) {
-    casesChecked += 1;
-    const applications = canonicalizeApplications(idempotenceCase.applications ?? [], ctx);
-    if (applications.length <= 1) {
+  let roundTripsChecked = 0;
+
+  for (const transportCase of cases) {
+    roundTripsChecked += 1;
+
+    const original = ctx.canonicalize(transportCase.value);
+    const serialization =
+      transportCase.encoded !== undefined
+        ? ({ ok: true as const, value: transportCase.encoded } satisfies SerializeSuccess)
+        : serializeValue(transportCase.value);
+
+    if (!serialization.ok) {
+      drifts.push({
+        case: transportCase.name,
+        seed: transportCase.seed,
+        pointer: pointerFromSegments([]),
+        before: original,
+        after: UNSERIALIZABLE,
+      });
       continue;
     }
-    const baseline = applications[0];
-    for (let index = 1; index < applications.length; index += 1) {
-      applicationsChecked += 1;
-      const candidate = applications[index];
-      const diff = diffValues(baseline.value, candidate.value);
-      if (diff) {
-        mismatches.push({
-          case: idempotenceCase.name,
-          seed: idempotenceCase.seed,
-          iteration: candidate.iteration,
-          pointer: diff.pointer,
-          expected: diff.left,
-          actual: diff.right,
-        });
-      }
+
+    const parsed = parseJson(serialization.value);
+    if (!parsed.ok) {
+      drifts.push({
+        case: transportCase.name,
+        seed: transportCase.seed,
+        pointer: pointerFromSegments([]),
+        before: original,
+        after: INVALID_JSON,
+      });
+      continue;
+    }
+
+    const normalized = ctx.canonicalize(parsed.value);
+    const diff = diffValues(original, normalized);
+    if (diff) {
+      drifts.push({
+        case: transportCase.name,
+        seed: transportCase.seed,
+        pointer: diff.pointer,
+        before: diff.left,
+        after: diff.right,
+      });
     }
   }
 
-  if (mismatches.length > 0) {
-    const trace = mismatches.slice(0, 5).map((item) => `case:${item.case}:iteration:${item.iteration}`);
-    const failure = err(FAILURE_CODE, "Repeated application diverged", { mismatches });
+  if (drifts.length > 0) {
+    const trace = drifts.slice(0, 5).map((drift) => `case:${drift.case}:${drift.pointer}`);
+    const failure = err(FAILURE_CODE, "Transport round-trip drift detected", { drifts });
     return withTrace(failure, trace);
   }
 
-  return ok({ casesChecked, applicationsChecked });
+  return ok({ casesChecked: cases.length, roundTripsChecked });
 }
 
-interface CanonicalApplication {
-  readonly iteration: number;
-  readonly value: unknown;
+interface SerializeSuccess {
+  readonly ok: true;
+  readonly value: string;
 }
 
-function canonicalizeApplications(
-  applications: ReadonlyArray<IdempotenceApplication>,
-  ctx: OracleCtx,
-): CanonicalApplication[] {
-  return applications.map((application, index) => ({
-    iteration: application.iteration ?? index,
-    value: ctx.canonicalize(application.value),
-  }));
+type SerializeResult = SerializeSuccess | { readonly ok: false };
+
+function serializeValue(value: unknown): SerializeResult {
+  try {
+    const result = JSON.stringify(value);
+    if (typeof result !== "string") {
+      return { ok: false };
+    }
+    return { ok: true, value: result };
+  } catch {
+    return { ok: false };
+  }
+}
+
+type ParseResult = { readonly ok: true; readonly value: unknown } | { readonly ok: false };
+
+function parseJson(value: string): ParseResult {
+  try {
+    return { ok: true, value: JSON.parse(value) };
+  } catch {
+    return { ok: false };
+  }
 }
 
 interface DiffResult {

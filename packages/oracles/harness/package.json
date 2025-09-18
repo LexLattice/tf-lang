@@ -1,0 +1,24 @@
+{
+  "name": "@tf/oracles-harness",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "exports": "./dist/index.js",
+  "license": "MIT",
+  "description": "Harness for executing TF-Lang oracles and emitting deterministic reports.",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "build-reports": "pnpm --reporter=append-only --filter @tf/oracles-core build && pnpm --reporter=append-only --filter @tf/oracles-idempotence build && pnpm --reporter=append-only --filter @tf/oracles-conservation build && pnpm --reporter=append-only --filter @tf-lang/utils build && pnpm build && node dist/index.js"
+  },
+  "dependencies": {
+    "@tf-lang/utils": "workspace:*",
+    "@tf/oracles-core": "workspace:*",
+    "@tf/oracles-idempotence": "workspace:*",
+    "@tf/oracles-conservation": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.7",
+    "typescript": "^5.5.0"
+  }
+}

@@ -1,1 +1,16 @@
-{"version":"0.1.0","subject":"idempotence","input":{"v":[1,2,3,4]}}
+{
+  "version": "0.1.0",
+  "subject": "idempotence",
+  "input": {
+    "cases": [
+      {
+        "name": "vector",
+        "seed": "0x02",
+        "applications": [
+          { "iteration": 0, "value": { "v": [1, 2, 3] } },
+          { "iteration": 1, "value": { "v": [1, 2, 4] } }
+        ]
+      }
+    ]
+  }
+}

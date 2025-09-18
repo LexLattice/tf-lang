@@ -1,1 +1,7 @@
-{"version":"0.1.0","subject":"conservation","keys":["records"],"before":{"records":5},"after":{"records":4}}
+{
+  "version": "0.1.0",
+  "subject": "conservation",
+  "keys": ["records"],
+  "before": { "records": 5 },
+  "after": { "records": 4 }
+}

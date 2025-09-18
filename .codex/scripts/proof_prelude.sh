@@ -94,7 +94,7 @@ start_bg(){ bash -lc "$1" & echo $! > "$2"; }
 if [ "$ENABLE_WATCHERS" = "1" ]; then
   if ! { [ -f "$OUT_ROOT/_fs_watch.pid" ] && kill -0 "$(cat "$OUT_ROOT/_fs_watch.pid")" 2>/dev/null; }; then
     json_event watcher "fs_watch starting"
-    start_bg "FS_EVENTS='create,modify,delete,move,close_write' bash \"$SCRIPT_DIR/fs_watch.sh\" '$REPO_ROOT'" "$OUT_ROOT/_fs_watch.pid"
+    start_bg "OUT_ROOT=\"$OUT_ROOT\" FS_EVENTS='create,modify,delete,move,close_write' bash \"$SCRIPT_DIR/fs_watch.sh\" '$REPO_ROOT'" "$OUT_ROOT/_fs_watch.pid"
   fi
   if ! { [ -f "$OUT_ROOT/_pause_watch.pid" ] && kill -0 "$(cat "$OUT_ROOT/_pause_watch.pid")" 2>/dev/null; }; then
     json_event watcher "pause_watch starting (90s)"
@@ -151,7 +151,10 @@ ensure_first_artifact() {
 ensure_first_artifact
 
 # --- Optional: early branch + draft PR + checkpoint pushes (single bootstrap) ---
-if [ "$ENABLE_CHECKPOINT_PUSH" = "1" ] && git rev-parse --git-dir >/dev/null 2>&1; then
+# Only try PR/ pushes if we have a token and a git repo
+if [ "$ENABLE_CHECKPOINT_PUSH" = "1" ] \
+   && git rev-parse --git-dir >/dev/null 2>&1 \
+   && [ -n "${GH_TOKEN:-${GITHUB_TOKEN:-}}" ]; then
   : "${GIT_AUTHOR_NAME:=codex-agent}"
   : "${GIT_AUTHOR_EMAIL:=codex-agent@noreply}"
   : "${GIT_COMMITTER_NAME:=$GIT_AUTHOR_NAME}"
@@ -170,7 +173,7 @@ if [ "$ENABLE_CHECKPOINT_PUSH" = "1" ] && git rev-parse --git-dir >/dev/null 2>&
   bootstrap_branch() {
     git switch -c "$WORK_BRANCH" 2>/dev/null || git switch "$WORK_BRANCH"
     git add -A
-    git restore --staged out || true
+    git restore --staged out >/dev/null 2>&1 || true
     git commit -m "chore(proof): bootstrap run $RUN_ID" --allow-empty || true
     git push -u origin HEAD >/dev/null 2>&1 || true
     if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
@@ -182,7 +185,7 @@ if [ "$ENABLE_CHECKPOINT_PUSH" = "1" ] && git rev-parse --git-dir >/dev/null 2>&
   checkpoint() {
     local msg="$*"
     git add -A
-    git restore --staged out || true
+    git restore --staged out >/dev/null 2>&1 || true
     git commit -m "chore(proof): $msg [run:$RUN_ID]" || true
     for i in 1 2 3; do git push >/dev/null 2>&1 && break || sleep $((i*2)); done
     if command -v gh >/dev/null 2>&1; then

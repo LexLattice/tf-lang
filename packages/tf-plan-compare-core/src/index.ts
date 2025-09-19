@@ -41,6 +41,7 @@ export interface CompareReport {
   readonly version: string;
   readonly meta: {
     readonly seed: number;
+    readonly specHash: string;
     readonly planVersion: string;
     readonly generatedAt: string;
     readonly notes: readonly string[];
@@ -135,6 +136,7 @@ export function buildCompareReport(
     version: COMPARE_VERSION,
     meta: {
       seed,
+      specHash: scaffold.meta.specHash,
       planVersion: scaffold.meta.version,
       generatedAt: '1970-01-01T00:00:00.000Z',
       notes: [`branches=${branches.length}`],

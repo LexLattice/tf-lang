@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -16,6 +17,11 @@ async function createTempDir(): Promise<string> {
   return dir;
 }
 
+async function hashFile(path: string): Promise<string> {
+  const content = await readFile(path);
+  return createHash('sha256').update(content).digest('hex');
+}
+
 afterAll(async () => {
   await Promise.all(tempDirs.map((dir) => rm(dir, { recursive: true, force: true })));
 });
@@ -23,6 +29,7 @@ afterAll(async () => {
 describe('tf-plan CLI helpers', () => {
   it('enumerates, scores, and exports deterministically', async () => {
     const outputDir = await createTempDir();
+    const repeatDir = await createTempDir();
     const specPath = resolve(process.cwd(), '../../tests/specs/demo.json');
     const plan = await runEnumerateCommand({
       specPath,
@@ -44,5 +51,18 @@ describe('tf-plan CLI helpers', () => {
     await runExportCommand({ planPath, ndjsonPath: exportPath });
     const ndjson = await readFile(exportPath, 'utf8');
     expect(ndjson.trim().split('\n').length).toBe(plan.nodes.length);
+
+    const repeatPlan = await runEnumerateCommand({
+      specPath,
+      seed: 42,
+      outDir: repeatDir,
+    });
+    expect(repeatPlan.nodes.length).toBe(plan.nodes.length);
+    const firstPlanHash = await hashFile(planPath);
+    const secondPlanHash = await hashFile(join(repeatDir, 'plan.json'));
+    expect(secondPlanHash).toEqual(firstPlanHash);
+    const firstNdjsonHash = await hashFile(exportPath);
+    const secondNdjsonHash = await hashFile(join(repeatDir, 'plan.ndjson'));
+    expect(secondNdjsonHash).toEqual(firstNdjsonHash);
   });
 });

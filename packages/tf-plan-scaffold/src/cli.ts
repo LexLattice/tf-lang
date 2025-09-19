@@ -17,12 +17,15 @@ program
   .option('--out <path>', 'Output index JSON path', 'out/t4/scaffold/index.json')
   .option('--base <branch>', 'Base branch name', 'main')
   .option('--apply <path>', 'Apply an existing scaffold index instead of generating')
+  .option('--seed <number>', 'Seed to record in scaffold metadata', '42')
   .action(async (options) => {
     try {
       if (options.apply) {
         await applyScaffold({ indexPath: resolve(options.apply) });
         return;
       }
+      const parsedSeed = Number.parseInt(options.seed, 10);
+      const seed = Number.isFinite(parsedSeed) ? parsedSeed : 42;
       await generateScaffold({
         planNdjsonPath: resolve(options.plan),
         planJsonPath: options.graph ? resolve(options.graph) : undefined,
@@ -30,6 +33,7 @@ program
         template: parseTemplate(options.template, 'dual-stack'),
         outPath: resolve(options.out),
         baseBranch: options.base,
+        seed,
       });
     } catch (error) {
       console.error((error as Error).message);

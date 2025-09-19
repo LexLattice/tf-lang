@@ -21,6 +21,8 @@ jobs:
           version: 10.16.1
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Prepare output directory
+        run: mkdir -p out/t4/compare
       - name: Run tf-check
         run: pnpm tf-check run --mode=ci
       - name: Upload artifacts

@@ -1,4 +1,8 @@
 import { createHash } from 'node:crypto';
+import { createRequire } from 'node:module';
+import Ajv, { type ErrorObject } from 'ajv';
+
+const require = createRequire(import.meta.url);
 
 export const PLAN_GRAPH_VERSION = '0.1.0';
 
@@ -192,9 +196,89 @@ export function hashObject(value: unknown): string {
 
 export type RepoSignals = Readonly<Record<string, unknown>>;
 
-export interface PlanGraphValidationResult {
-  readonly valid: boolean;
-  readonly errors: readonly string[];
+const schemaCache = new Map<string, Readonly<Record<string, unknown>>>();
+
+function loadSchema(name: string): Readonly<Record<string, unknown>> {
+  const cached = schemaCache.get(name);
+  if (cached) {
+    return cached;
+  }
+
+  const candidates = [
+    `../../../schema/${name}`,
+    `../../../../schema/${name}`,
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      const schema = require(candidate) as Record<string, unknown>;
+      const frozen = deepFreeze(schema);
+      schemaCache.set(name, frozen);
+      return frozen;
+    } catch {
+      continue;
+    }
+  }
+
+  throw new Error(`Unable to load schema ${name}`);
 }
 
-export type SchemaValidator = (value: unknown) => PlanGraphValidationResult;
+function formatErrors(errors: readonly ErrorObject[] | null | undefined): string {
+  if (!errors || errors.length === 0) {
+    return 'unknown error';
+  }
+  return errors
+    .map((error) => {
+      const path = error.instancePath && error.instancePath.length > 0 ? error.instancePath : '/';
+      return `${path} ${error.message ?? 'validation failed'}`.trim();
+    })
+    .join('; ');
+}
+
+const ajv = new Ajv({ allErrors: true, strict: true });
+
+const planSchemaInternal = loadSchema('tf-plan.schema.json');
+const branchSchemaInternal = loadSchema('tf-branch.schema.json');
+const compareSchemaInternal = loadSchema('tf-compare.schema.json');
+
+ajv.addSchema(branchSchemaInternal, 'https://tf-lang.dev/schema/tf-branch.schema.json');
+ajv.addSchema(branchSchemaInternal, 'tf-branch.schema.json');
+ajv.addSchema(compareSchemaInternal, 'https://tf-lang.dev/schema/tf-compare.schema.json');
+
+const validatePlanNodeInternal = ajv.compile<PlanNode>(branchSchemaInternal);
+const validateCompareInternal = ajv.compile<unknown>(compareSchemaInternal);
+const validatePlanGraphInternal = ajv.compile<PlanGraph>(planSchemaInternal);
+
+export const planSchema = planSchemaInternal;
+export const branchSchema = branchSchemaInternal;
+export const compareSchema = compareSchemaInternal;
+
+export function validateBranch(node: PlanNode, context = 'plan node'): PlanNode {
+  if (!validatePlanNodeInternal(node)) {
+    const message = formatErrors(validatePlanNodeInternal.errors);
+    throw new Error(`${context} failed validation: ${message}`);
+  }
+  return node;
+}
+
+export function validatePlan(plan: PlanGraph, context = 'plan graph'): PlanGraph {
+  if (!validatePlanGraphInternal(plan)) {
+    const message = formatErrors(validatePlanGraphInternal.errors);
+    throw new Error(`${context} failed validation: ${message}`);
+  }
+
+  plan.nodes.forEach((node, index) => {
+    const label = `${context}.nodes[${index}]`;
+    validateBranch(node, label);
+  });
+
+  return plan;
+}
+
+export function validateCompare<T>(report: T, context = 'compare report'): T {
+  if (!validateCompareInternal(report as unknown)) {
+    const message = formatErrors(validateCompareInternal.errors);
+    throw new Error(`${context} failed validation: ${message}`);
+  }
+  return report;
+}

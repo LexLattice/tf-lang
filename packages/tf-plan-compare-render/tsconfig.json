@@ -9,7 +9,11 @@
     "rootDir": "src",
     "resolveJsonModule": true,
     "skipLibCheck": true,
-    "types": ["node"]
+    "types": ["node"],
+    "paths": {
+      "@tf-lang/tf-plan-compare-core": ["../tf-plan-compare-core/dist/index.d.ts"],
+      "@tf-lang/tf-plan-core": ["../tf-plan-core/dist/index.d.ts"]
+    }
   },
   "include": ["src"],
   "exclude": ["dist"]

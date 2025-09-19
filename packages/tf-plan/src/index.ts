@@ -1,8 +1,5 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
-import { createRequire } from 'node:module';
-import Ajv from 'ajv';
-import type { ErrorObject } from 'ajv';
 import {
   PlanGraph,
   PlanNode,
@@ -10,32 +7,11 @@ import {
   PLAN_GRAPH_VERSION,
   deepFreeze,
   stableSort,
+  validateBranch,
+  validatePlan,
 } from '@tf-lang/tf-plan-core';
 import { enumeratePlan, readSpec } from '@tf-lang/tf-plan-enum';
 import { scorePlanNode } from '@tf-lang/tf-plan-scoring';
-
-const require = createRequire(import.meta.url);
-const planSchema = loadSchema('tf-plan.schema.json');
-const branchSchema = loadSchema('tf-branch.schema.json');
-const ajv = new Ajv({ allErrors: true, strict: false });
-ajv.addSchema(branchSchema, 'tf-branch.schema.json');
-const validatePlanGraph = ajv.compile<PlanGraph>(planSchema);
-const validatePlanNode = ajv.compile<PlanNode>(branchSchema);
-
-function loadSchema(name: string): Record<string, unknown> {
-  const candidates = [
-    `../../../schema/${name}`,
-    `../../../../schema/${name}`,
-  ];
-  for (const candidate of candidates) {
-    try {
-      return require(candidate);
-    } catch {
-      continue;
-    }
-  }
-  throw new Error(`Unable to load schema ${name}`);
-}
 
 function asNumber(value: unknown, fallback: number): number {
   const parsed = typeof value === 'string' ? Number.parseFloat(value) : typeof value === 'number' ? value : fallback;
@@ -66,22 +42,6 @@ export interface ScoreCommandArgs {
 export interface ExportCommandArgs {
   readonly planPath: string;
   readonly ndjsonPath: string;
-}
-
-export function validatePlan(plan: PlanGraph): void {
-  if (!validatePlanGraph(plan)) {
-    const message =
-      validatePlanGraph.errors?.map((error: ErrorObject) => `${error.instancePath} ${error.message}`).join(', ') ?? 'unknown error';
-    throw new Error(`Plan graph failed validation: ${message}`);
-  }
-  plan.nodes.forEach((node) => {
-    if (!validatePlanNode(node)) {
-      const message =
-        validatePlanNode.errors?.map((error: ErrorObject) => `${error.instancePath} ${error.message}`).join(', ') ?? 'unknown error';
-      const nodeId = (node as { nodeId?: string }).nodeId ?? '<unknown>';
-      throw new Error(`Plan node ${nodeId} failed validation: ${message}`);
-    }
-  });
 }
 
 function round(value: number, precision = 3): number {
@@ -180,7 +140,10 @@ async function writeJsonFile(filePath: string, value: unknown): Promise<void> {
 
 async function writeNdjson(filePath: string, nodes: readonly PlanNode[]): Promise<void> {
   await ensureDir(dirname(filePath));
-  const lines = nodes.map((node) => JSON.stringify(node));
+  const lines = nodes.map((node, index) => {
+    validateBranch(node, `plan.nodes[${index}]`);
+    return JSON.stringify(node);
+  });
   const content = `${lines.join('\n')}\n`;
   await writeFile(filePath, content, 'utf8');
 }
@@ -207,10 +170,10 @@ export async function runEnumerateCommand(args: EnumerateCommandArgs): Promise<P
   await writeJsonFile(planPath, plan);
   await writeNdjson(ndjsonPath, plan.nodes);
 
-  const branchNodes = plan.nodes.filter((node) => node.component.startsWith('branch:'));
+  const branchNodes = plan.nodes.filter((node: PlanNode) => node.component.startsWith('branch:'));
   const summary = branchNodes
     .slice(0, 5)
-    .map((node, index) => `${index + 1}. ${node.choice} → total ${node.score.total.toFixed(2)}`)
+    .map((node: PlanNode, index: number) => `${index + 1}. ${node.choice} → total ${node.score.total.toFixed(2)}`)
     .join('\n');
   console.log(`Enumerated ${branchNodes.length} branches (seed=${plan.meta.seed}). Top branches:\n${summary}`);
 

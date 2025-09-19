@@ -98,6 +98,18 @@ const choiceLibrary: Record<TfSpecStep['op'], readonly ComponentChoice[]> = {
   ],
 };
 
+const comparePlanNodes = (left: PlanNode, right: PlanNode): number => {
+  const totalDiff = right.score.total - left.score.total;
+  if (totalDiff !== 0) {
+    return totalDiff;
+  }
+  const riskDiff = left.score.risk - right.score.risk;
+  if (riskDiff !== 0) {
+    return riskDiff;
+  }
+  return left.nodeId.localeCompare(right.nodeId);
+};
+
 function assertValidSpec(spec: TfSpec): void {
   const result = validateSpec(spec);
   if (!result) {
@@ -295,20 +307,10 @@ function enumerateBranches(
     }
     const componentId = componentIds[index];
     const optionsForComponent = componentsById.get(componentId) ?? [];
-    const sortedOptions = stableSort(optionsForComponent, (left, right) => {
-      const totalDiff = right.node.score.total - left.node.score.total;
-      if (totalDiff !== 0) {
-        return totalDiff;
-      }
-      const riskDiff = left.node.score.risk - right.node.score.risk;
-      if (riskDiff !== 0) {
-        return riskDiff;
-      }
-      return left.node.nodeId.localeCompare(right.node.nodeId);
-    });
+    const sortedOptions = stableSort(optionsForComponent, (left, right) => comparePlanNodes(left.node, right.node));
 
-    const beamWidth = options.beamWidth ?? sortedOptions.length;
-    const limited = sortedOptions.slice(0, beamWidth);
+    const beamLimit = Math.min(options.beamWidth ?? sortedOptions.length, sortedOptions.length);
+    const limited = sortedOptions.slice(0, beamLimit);
 
     limited.forEach((choice) => {
       explore(index + 1, [...selected, choice]);
@@ -317,20 +319,10 @@ function enumerateBranches(
 
   explore(0, []);
 
-  const sortedBranches = stableSort(branches, (left, right) => {
-    const totalDiff = right.score.total - left.score.total;
-    if (totalDiff !== 0) {
-      return totalDiff;
-    }
-    const riskDiff = left.score.risk - right.score.risk;
-    if (riskDiff !== 0) {
-      return riskDiff;
-    }
-    return left.nodeId.localeCompare(right.nodeId);
-  });
+  const sortedBranches = stableSort(branches, comparePlanNodes);
 
-  const maxBranches = options.maxBranches ?? sortedBranches.length;
-  const chosen = sortedBranches.slice(0, maxBranches);
+  const maxLimit = Math.min(options.maxBranches ?? sortedBranches.length, sortedBranches.length);
+  const chosen = sortedBranches.slice(0, maxLimit);
 
   // Shuffle deterministically to avoid bias when totals tie.
   const decorated = chosen.map((branch) => ({ branch, key: rng.next() }));
@@ -378,17 +370,7 @@ export function enumeratePlan(spec: TfSpec, options: EnumerateOptions = {}): Pla
 
   const branchIds = new Set(branchNodes.map((branch) => branch.nodeId));
   const nodes: PlanNode[] = [...componentPlans.map((plan) => plan.node), ...branchNodes];
-  const sortedNodes = stableSort(nodes, (left, right) => {
-    const totalDiff = right.score.total - left.score.total;
-    if (totalDiff !== 0) {
-      return totalDiff;
-    }
-    const riskDiff = left.score.risk - right.score.risk;
-    if (riskDiff !== 0) {
-      return riskDiff;
-    }
-    return left.nodeId.localeCompare(right.nodeId);
-  });
+  const sortedNodes = stableSort(nodes, comparePlanNodes);
 
   const edges: PlanEdge[] = branchNodes.flatMap((branch) =>
     branch.deps.map((dependency) => ({ from: branch.nodeId, to: dependency, kind: 'depends' as const })),

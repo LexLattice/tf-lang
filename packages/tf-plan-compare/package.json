@@ -22,7 +22,6 @@
     "@tf-lang/tf-plan-compare-render": "0.1.0",
     "@tf-lang/tf-plan-core": "0.1.0",
     "@tf-lang/tf-plan-scaffold-core": "0.1.0",
-    "ajv": "^8.12.0",
     "commander": "^12.1.0"
   },
   "devDependencies": {

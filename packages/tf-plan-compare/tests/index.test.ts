@@ -1,4 +1,4 @@
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -30,7 +30,13 @@ describe('generateComparison', () => {
     await writeFile(planNdjsonPath, `${ndjson}\n`);
     await writeFile(scaffoldPath, `${JSON.stringify(scaffold, null, 2)}\n`);
 
-    const outputs = await generateComparison({ planNdjsonPath, scaffoldPath, outDir: join(dir, 'out') });
+    const outDir = join(dir, 'out');
+    const outputs = await generateComparison({ planNdjsonPath, scaffoldPath, outDir, seed: 42 });
     expect(outputs.report.branches.length).toBeGreaterThan(0);
+    const html = await readFile(outputs.htmlPath, 'utf8');
+    expect(html).toContain('Content-Security-Policy');
+    expect(html).not.toContain('<script>');
+    const markdown = await readFile(outputs.markdownPath, 'utf8');
+    expect(markdown).toContain('*Spec hash:*');
   });
 });

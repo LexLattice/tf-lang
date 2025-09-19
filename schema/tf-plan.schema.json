@@ -1,5 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://tf-lang.dev/schema/tf-plan.schema.json",
   "title": "tf-plan",
   "type": "object",
   "additionalProperties": false,
@@ -8,7 +9,7 @@
     "version": { "type": "string" },
     "nodes": {
       "type": "array",
-      "items": { "$ref": "tf-branch.schema.json" }
+      "items": { "$ref": "https://tf-lang.dev/schema/tf-branch.schema.json#" }
     },
     "edges": {
       "type": "array",

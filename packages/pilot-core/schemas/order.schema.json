@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tf-lang.dev/schemas/pilot/order.schema.json",
+  "title": "PilotOrder",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ts", "sym", "id", "side", "type", "price", "size"],
+  "properties": {
+    "ts": { "type": "number" },
+    "sym": { "type": "string", "minLength": 1 },
+    "id": { "type": "string", "minLength": 1 },
+    "side": { "type": "string", "enum": ["buy", "sell"] },
+    "type": { "type": "string", "enum": ["limit", "market"] },
+    "price": { "type": "string", "pattern": "^-?\\d+(?:\\.\\d+)?$" },
+    "size": { "type": "string", "pattern": "^-?\\d+(?:\\.\\d+)?$" },
+    "meta": { "type": "object", "additionalProperties": true }
+  }
+}

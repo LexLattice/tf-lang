@@ -1,0 +1,24 @@
+{
+  "name": "@tf-lang/pilot-replay",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "pilot-replay": "dist/cli.js"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@tf-lang/pilot-core": "workspace:*",
+    "csv-parse": "^5.5.6",
+    "fs-extra": "^11.2.0"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^20.12.7",
+    "typescript": "^5.5.4"
+  }
+}

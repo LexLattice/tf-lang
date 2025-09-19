@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tf-lang.dev/schemas/pilot/state.schema.json",
+  "title": "PilotStrategyState",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["seed", "positions"],
+  "properties": {
+    "seed": { "type": "number" },
+    "positions": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "pattern": "^-?\\d+(?:\\.\\d+)?$" }
+    },
+    "pnl": { "type": "string", "pattern": "^-?\\d+(?:\\.\\d+)?$" },
+    "meta": { "type": "object", "additionalProperties": true }
+  }
+}

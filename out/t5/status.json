@@ -1,0 +1,18 @@
+{
+  "seed": 42,
+  "slice": "0:50:1",
+  "files": {
+    "frames.ndjson": {
+      "lines": 12,
+      "sha256": "2a9ed33962d71dd3b2c25cd37db84a09d28fa08d762a7b11b7ebc2d99011bc89"
+    },
+    "orders.ndjson": {
+      "lines": 5,
+      "sha256": "a037409427ddc0b53edd264f3a82346ed22fc84401c57cd76030640ec29af514"
+    },
+    "evaluations.ndjson": {
+      "lines": 1,
+      "sha256": "12880efd9916c6222e32098a4608143a811b2ce38633e3f40ef9d6c37ececceb"
+    }
+  }
+}

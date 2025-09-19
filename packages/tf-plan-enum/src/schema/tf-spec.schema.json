@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "tf-spec",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "name", "steps"],
+  "properties": {
+    "version": { "type": "string" },
+    "name": { "type": "string" },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["op"],
+        "properties": {
+          "op": { "type": "string", "enum": ["copy", "create_vm", "create_network"] },
+          "params": { "type": "object" }
+        }
+      }
+    }
+  }
+}

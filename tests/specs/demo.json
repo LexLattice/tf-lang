@@ -1,0 +1,9 @@
+{
+  "version": "0.1",
+  "name": "demo-plan",
+  "steps": [
+    { "op": "copy", "params": { "src": "app", "dest": "backup" } },
+    { "op": "create_vm", "params": { "image": "ubuntu-22", "cpus": 4 } },
+    { "op": "create_network", "params": { "cidr": "10.0.0.0/24" } }
+  ]
+}

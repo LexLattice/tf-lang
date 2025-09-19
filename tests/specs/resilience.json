@@ -1,0 +1,9 @@
+{
+  "version": "0.1",
+  "name": "resilience",
+  "steps": [
+    { "op": "create_network", "params": { "cidr": "10.10.0.0/16" } },
+    { "op": "copy", "params": { "src": "primary", "dest": "secondary" } },
+    { "op": "create_vm", "params": { "image": "centos-9", "cpus": 8 } }
+  ]
+}

@@ -22,8 +22,17 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
+          cache-dependency-path: '**/pnpm-lock.yaml'   # 👈 optional but helpful for workspaces
+      # Install pnpm (reads the version from package.json: "packageManager": "pnpm@x.y.z")
       - name: Setup pnpm
-        run: corepack enable
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      
+      # (optional sanity check)
+      - name: pnpm version
+        run: pnpm -v
+
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Install deps

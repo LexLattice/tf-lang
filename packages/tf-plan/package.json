@@ -1,0 +1,30 @@
+{
+  "name": "@tf-lang/tf-plan",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "tf-plan": "dist/cli.js"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": ["dist"],
+  "dependencies": {
+    "@tf-lang/tf-plan-core": "0.1.0",
+    "@tf-lang/tf-plan-enum": "0.1.0",
+    "@tf-lang/tf-plan-scoring": "0.1.0",
+    "ajv": "^8.12.0"
+  },
+  "scripts": {
+    "prebuild": "pnpm --filter @tf-lang/tf-plan-enum run build && pnpm --filter @tf-lang/tf-plan-scoring run build",
+    "build": "tsc -p tsconfig.json",
+    "pretest": "pnpm run prebuild",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.1",
+    "typescript": "^5.5.0",
+    "vitest": "^2.1.3"
+  }
+}

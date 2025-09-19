@@ -264,6 +264,81 @@ importers:
         specifier: ^2.0.5
         version: 2.1.9(@types/node@24.3.1)(jsdom@24.1.3)
 
+  packages/tf-plan:
+    dependencies:
+      '@tf-lang/tf-plan-core':
+        specifier: 0.1.0
+        version: link:../tf-plan-core
+      '@tf-lang/tf-plan-enum':
+        specifier: 0.1.0
+        version: link:../tf-plan-enum
+      '@tf-lang/tf-plan-scoring':
+        specifier: 0.1.0
+        version: link:../tf-plan-scoring
+      ajv:
+        specifier: ^8.12.0
+        version: 8.17.1
+    devDependencies:
+      '@types/node':
+        specifier: ^24.3.1
+        version: 24.3.1
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.2
+      vitest:
+        specifier: ^2.1.3
+        version: 2.1.9(@types/node@24.3.1)(jsdom@24.1.3)
+
+  packages/tf-plan-core:
+    devDependencies:
+      '@types/node':
+        specifier: ^24.3.1
+        version: 24.3.1
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.2
+      vitest:
+        specifier: ^2.1.3
+        version: 2.1.9(@types/node@24.3.1)(jsdom@24.1.3)
+
+  packages/tf-plan-enum:
+    dependencies:
+      '@tf-lang/tf-plan-core':
+        specifier: 0.1.0
+        version: link:../tf-plan-core
+      '@tf-lang/tf-plan-scoring':
+        specifier: 0.1.0
+        version: link:../tf-plan-scoring
+    devDependencies:
+      '@types/node':
+        specifier: ^24.3.1
+        version: 24.3.1
+      ajv:
+        specifier: ^8.12.0
+        version: 8.17.1
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.2
+      vitest:
+        specifier: ^2.1.3
+        version: 2.1.9(@types/node@24.3.1)(jsdom@24.1.3)
+
+  packages/tf-plan-scoring:
+    dependencies:
+      '@tf-lang/tf-plan-core':
+        specifier: 0.1.0
+        version: link:../tf-plan-core
+    devDependencies:
+      '@types/node':
+        specifier: ^24.3.1
+        version: 24.3.1
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.2
+      vitest:
+        specifier: ^2.1.3
+        version: 2.1.9(@types/node@24.3.1)(jsdom@24.1.3)
+
   packages/utils:
     devDependencies:
       '@types/node':

@@ -1,0 +1,135 @@
+{
+  "nodes": [
+    {
+      "nodeId": "15b52bbe7244c2463b601715634b4a9f26f1c528f88574483852565b6bfc363a",
+      "specId": "demo-plan",
+      "component": "plan",
+      "choice": "1:create_vm=azure_b2s, 2:create_network=172.16.0.0/16, 3:copy=streaming",
+      "deps": [
+        "1:create_vm",
+        "2:create_network",
+        "3:copy"
+      ],
+      "rationale": "Plan covering 3 components: 1:create_vm=azure_b2s, 2:create_network=172.16.0.0/16, 3:copy=streaming",
+      "score": {
+        "total": 20,
+        "complexity": 8,
+        "risk": 6,
+        "perf": 15,
+        "devTime": 12,
+        "depsReady": 15,
+        "explain": [
+          "1:create_vm: Complexity scaled by choice length (9) and component type; Risk adjusted for maturity signals (component=1:create_vm); Performance inferred from choice keywords (azure_b2s); Development time derived from complexity (2); Dependency readiness 5.00 for 1:create_vm",
+          "2:create_network: Complexity scaled by choice length (13) and component type; Risk adjusted for maturity signals (component=2:create_network); Performance inferred from choice keywords (172.16.0.0/16); Development time derived from complexity (4); Dependency readiness 5.00 for 2:create_network",
+          "3:copy: Complexity scaled by choice length (9) and component type; Risk adjusted for maturity signals (component=3:copy); Performance inferred from choice keywords (streaming); Development time derived from complexity (2); Dependency readiness 5.00 for 3:copy"
+        ]
+      }
+    },
+    {
+      "nodeId": "58ec18e3d9c808972249eb23779de64e3d925a5f79a1bac4481667210d9b1175",
+      "specId": "demo-plan",
+      "component": "plan",
+      "choice": "1:create_vm=azure_b2s, 2:create_network=10.0.0.0/24, 3:copy=cached",
+      "deps": [
+        "1:create_vm",
+        "2:create_network",
+        "3:copy"
+      ],
+      "rationale": "Plan covering 3 components: 1:create_vm=azure_b2s, 2:create_network=10.0.0.0/24, 3:copy=cached",
+      "score": {
+        "total": 20,
+        "complexity": 7,
+        "risk": 6,
+        "perf": 15,
+        "devTime": 11,
+        "depsReady": 15,
+        "explain": [
+          "1:create_vm: Complexity scaled by choice length (9) and component type; Risk adjusted for maturity signals (component=1:create_vm); Performance inferred from choice keywords (azure_b2s); Development time derived from complexity (2); Dependency readiness 5.00 for 1:create_vm",
+          "2:create_network: Complexity scaled by choice length (11) and component type; Risk adjusted for maturity signals (component=2:create_network); Performance inferred from choice keywords (10.0.0.0/24); Development time derived from complexity (4); Dependency readiness 5.00 for 2:create_network",
+          "3:copy: Complexity scaled by choice length (6) and component type; Risk adjusted for maturity signals (component=3:copy); Performance inferred from choice keywords (cached); Development time derived from complexity (1); Dependency readiness 5.00 for 3:copy"
+        ]
+      }
+    },
+    {
+      "nodeId": "61880bce91448e2919bd09c3215f0ab70f426379c02d18b2c624c3ac98b0dfe4",
+      "specId": "demo-plan",
+      "component": "plan",
+      "choice": "1:create_vm=azure_b2s, 2:create_network=172.16.0.0/16, 3:copy=cached",
+      "deps": [
+        "1:create_vm",
+        "2:create_network",
+        "3:copy"
+      ],
+      "rationale": "Plan covering 3 components: 1:create_vm=azure_b2s, 2:create_network=172.16.0.0/16, 3:copy=cached",
+      "score": {
+        "total": 20,
+        "complexity": 7,
+        "risk": 6,
+        "perf": 15,
+        "devTime": 11,
+        "depsReady": 15,
+        "explain": [
+          "1:create_vm: Complexity scaled by choice length (9) and component type; Risk adjusted for maturity signals (component=1:create_vm); Performance inferred from choice keywords (azure_b2s); Development time derived from complexity (2); Dependency readiness 5.00 for 1:create_vm",
+          "2:create_network: Complexity scaled by choice length (13) and component type; Risk adjusted for maturity signals (component=2:create_network); Performance inferred from choice keywords (172.16.0.0/16); Development time derived from complexity (4); Dependency readiness 5.00 for 2:create_network",
+          "3:copy: Complexity scaled by choice length (6) and component type; Risk adjusted for maturity signals (component=3:copy); Performance inferred from choice keywords (cached); Development time derived from complexity (1); Dependency readiness 5.00 for 3:copy"
+        ]
+      }
+    },
+    {
+      "nodeId": "83fb5c746b20515237645d03ac6aa505b0ccd0d27b664b0b9223d035d2a73d93",
+      "specId": "demo-plan",
+      "component": "plan",
+      "choice": "1:create_vm=azure_b2s, 2:create_network=192.168.0.0/24, 3:copy=direct",
+      "deps": [
+        "1:create_vm",
+        "2:create_network",
+        "3:copy"
+      ],
+      "rationale": "Plan covering 3 components: 1:create_vm=azure_b2s, 2:create_network=192.168.0.0/24, 3:copy=direct",
+      "score": {
+        "total": 20,
+        "complexity": 7,
+        "risk": 6,
+        "perf": 15,
+        "devTime": 11,
+        "depsReady": 15,
+        "explain": [
+          "1:create_vm: Complexity scaled by choice length (9) and component type; Risk adjusted for maturity signals (component=1:create_vm); Performance inferred from choice keywords (azure_b2s); Development time derived from complexity (2); Dependency readiness 5.00 for 1:create_vm",
+          "2:create_network: Complexity scaled by choice length (14) and component type; Risk adjusted for maturity signals (component=2:create_network); Performance inferred from choice keywords (192.168.0.0/24); Development time derived from complexity (4); Dependency readiness 5.00 for 2:create_network",
+          "3:copy: Complexity scaled by choice length (6) and component type; Risk adjusted for maturity signals (component=3:copy); Performance inferred from choice keywords (direct); Development time derived from complexity (1); Dependency readiness 5.00 for 3:copy"
+        ]
+      }
+    },
+    {
+      "nodeId": "9a51cdf64761ce3d2e34e21a607199251a8e0ba6784112e9fc467b7e805e98d6",
+      "specId": "demo-plan",
+      "component": "plan",
+      "choice": "1:create_vm=azure_b2s, 2:create_network=10.0.0.0/24, 3:copy=direct",
+      "deps": [
+        "1:create_vm",
+        "2:create_network",
+        "3:copy"
+      ],
+      "rationale": "Plan covering 3 components: 1:create_vm=azure_b2s, 2:create_network=10.0.0.0/24, 3:copy=direct",
+      "score": {
+        "total": 20,
+        "complexity": 7,
+        "risk": 6,
+        "perf": 15,
+        "devTime": 11,
+        "depsReady": 15,
+        "explain": [
+          "1:create_vm: Complexity scaled by choice length (9) and component type; Risk adjusted for maturity signals (component=1:create_vm); Performance inferred from choice keywords (azure_b2s); Development time derived from complexity (2); Dependency readiness 5.00 for 1:create_vm",
+          "2:create_network: Complexity scaled by choice length (11) and component type; Risk adjusted for maturity signals (component=2:create_network); Performance inferred from choice keywords (10.0.0.0/24); Development time derived from complexity (4); Dependency readiness 5.00 for 2:create_network",
+          "3:copy: Complexity scaled by choice length (6) and component type; Risk adjusted for maturity signals (component=3:copy); Performance inferred from choice keywords (direct); Development time derived from complexity (1); Dependency readiness 5.00 for 3:copy"
+        ]
+      }
+    }
+  ],
+  "edges": [],
+  "meta": {
+    "seed": 42,
+    "specHash": "2398378643a402202de40bd83664485879ec2fa95b51dd09bb3d403ea8dbc6fd",
+    "version": "1.0.0"
+  }
+}

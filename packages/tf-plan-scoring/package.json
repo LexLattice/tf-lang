@@ -1,0 +1,24 @@
+{
+  "name": "@tf-lang/tf-plan-scoring",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": ["dist"],
+  "dependencies": {
+    "@tf-lang/tf-plan-core": "0.1.0"
+  },
+  "scripts": {
+    "prebuild": "pnpm --filter @tf-lang/tf-plan-core run build",
+    "build": "tsc -p tsconfig.json",
+    "pretest": "pnpm --filter @tf-lang/tf-plan-core run build",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.1",
+    "typescript": "^5.5.0",
+    "vitest": "^2.1.3"
+  }
+}

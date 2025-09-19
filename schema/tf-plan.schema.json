@@ -1,0 +1,74 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "tf-plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["nodes", "edges", "meta"],
+  "definitions": {
+    "score": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "complexity", "risk", "perf", "devTime", "depsReady", "explain"],
+      "properties": {
+        "total": { "type": "number" },
+        "complexity": { "type": "number" },
+        "risk": { "type": "number" },
+        "perf": { "type": "number" },
+        "devTime": { "type": "number" },
+        "depsReady": { "type": "number" },
+        "explain": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "planNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nodeId", "specId", "component", "choice", "deps", "rationale", "score"],
+      "properties": {
+        "nodeId": { "type": "string" },
+        "specId": { "type": "string" },
+        "component": { "type": "string" },
+        "choice": { "type": "string" },
+        "deps": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "rationale": { "type": "string" },
+        "score": { "$ref": "#/definitions/score" }
+      }
+    },
+    "planEdge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to", "kind"],
+      "properties": {
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "kind": { "type": "string", "enum": ["depends", "sequence"] }
+      }
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seed", "specHash", "version"],
+      "properties": {
+        "seed": { "type": "number" },
+        "specHash": { "type": "string" },
+        "version": { "type": "string" }
+      }
+    }
+  },
+  "properties": {
+    "nodes": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/planNode" }
+    },
+    "edges": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/planEdge" }
+    },
+    "meta": { "$ref": "#/definitions/meta" }
+  }
+}

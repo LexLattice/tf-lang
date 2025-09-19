@@ -1,0 +1,8 @@
+{
+  "version": "0.1",
+  "name": "compute-focus",
+  "steps": [
+    { "op": "create_vm", "params": { "image": "debian-12", "cpus": 4 } },
+    { "op": "create_vm", "params": { "image": "debian-12", "cpus": 2 } }
+  ]
+}

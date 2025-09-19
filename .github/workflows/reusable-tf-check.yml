@@ -1,0 +1,31 @@
+name: reusable-tf-check
+on:
+  workflow_call:
+    inputs:
+      branch:
+        required: true
+        type: string
+      upload:
+        required: false
+        type: boolean
+        default: false
+jobs:
+  tf-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 10.16.1
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Run tf-check
+        run: pnpm tf-check run --mode=ci
+      - name: Upload artifacts
+        if: ${{ inputs.upload }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: tf-check-report
+          path: out/t4/compare

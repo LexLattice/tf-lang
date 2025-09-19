@@ -1,0 +1,75 @@
+name: T4 Plan Scaffold Compare
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 10.16.1
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Build packages
+        run: pnpm -r build
+      - name: Enumerate plan
+        run: pnpm exec tf-plan enumerate --spec tests/specs/demo.json --seed 42 --beam 3 --out out/t4/plan
+      - uses: actions/upload-artifact@v4
+        with:
+          name: t4-plan
+          path: out/t4/plan
+  scaffold:
+    runs-on: ubuntu-latest
+    needs: plan
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 10.16.1
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Build packages
+        run: pnpm -r build
+      - name: Download plan
+        uses: actions/download-artifact@v4
+        with:
+          name: t4-plan
+          path: out/t4/plan
+      - name: Scaffold dry-run
+        run: pnpm exec tf-plan-scaffold scaffold --plan out/t4/plan/plan.ndjson --graph out/t4/plan/plan.json --top 3 --template dual-stack --out out/t4/scaffold/index.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: t4-scaffold
+          path: out/t4/scaffold/index.json
+  compare:
+    runs-on: ubuntu-latest
+    needs: plan
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 10.16.1
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Build packages
+        run: pnpm -r build
+      - name: Download plan
+        uses: actions/download-artifact@v4
+        with:
+          name: t4-plan
+          path: out/t4/plan
+      - name: Download scaffold
+        uses: actions/download-artifact@v4
+        with:
+          name: t4-scaffold
+          path: out/t4/scaffold
+      - name: Compare branches
+        run: pnpm exec tf-plan-compare compare --plan out/t4/plan/plan.ndjson --inputs out/t4/scaffold/index.json --out out/t4/compare
+      - uses: actions/upload-artifact@v4
+        with:
+          name: t4-compare
+          path: out/t4/compare

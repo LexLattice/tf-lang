@@ -1,0 +1,31 @@
+{
+  "name": "@tf-lang/tf-plan-scaffold",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "tf-plan-scaffold": "dist/cli.js"
+  },
+  "main": "dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@tf-lang/tf-plan-core": "0.1.0",
+    "@tf-lang/tf-plan-scaffold-core": "0.1.0",
+    "ajv": "^8.12.0",
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.9",
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.3"
+  }
+}

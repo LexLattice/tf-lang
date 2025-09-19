@@ -1,0 +1,8 @@
+{
+  "version": "0.1",
+  "name": "fast-track",
+  "steps": [
+    { "op": "copy", "params": { "src": "datasets", "dest": "analytics" } },
+    { "op": "create_vm", "params": { "image": "debian-12", "cpus": 2 } }
+  ]
+}

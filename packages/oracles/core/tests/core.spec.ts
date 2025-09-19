@@ -81,4 +81,9 @@ describe("oracles core", () => {
   it("builds RFC-6901 root pointers", () => {
     expect(pointerFromSegments([])).toBe("");
   });
+
+  it("builds RFC-6901 pointers with escaped segments", () => {
+    expect(pointerFromSegments(["alpha", "beta"])).toBe("/alpha/beta");
+    expect(pointerFromSegments(["~", "/", ""])).toBe("/~0/~1/");
+  });
 });

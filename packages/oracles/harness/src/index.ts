@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { writeFile, mkdir } from "node:fs/promises";
-import { dirname, join, relative } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
 
 import { canonicalJson, findRepoRoot, withTmpDir } from "@tf-lang/utils";
 import { createOracleCtx, pointerFromSegments } from "@tf/oracles-core";
@@ -194,7 +194,11 @@ async function main(): Promise<void> {
   const certificateContent = canonicalJson(certificatePayload);
   const certificateHash = createHash("sha256").update(certificateContent).digest("hex");
   await writeFile(certificatePath, certificateContent, "utf-8");
-  await writeFile(`${certificatePath}.sha256`, `${certificateHash}\n`, "utf-8");
+  const certificateHashLine = `${certificateHash}  ${basename(certificatePath)}`;
+  await writeFile(`${certificatePath}.sha256`, `${certificateHashLine}\n`, "utf-8");
+  await execFileAsync("sha256sum", ["-c", `${basename(certificatePath)}.sha256`], {
+    cwd: dirname(certificatePath),
+  });
 }
 
 function buildIdempotenceInput(seed: string): IdempotenceInput {
@@ -345,7 +349,11 @@ async function writeJsonArtifact(
   const content = canonicalJson(payload);
   await writeFile(targetPath, content, "utf-8");
   const hash = createHash("sha256").update(content).digest("hex");
-  await writeFile(`${targetPath}.sha256`, `${hash}\n`, "utf-8");
+  const directory = dirname(targetPath);
+  const base = basename(targetPath);
+  const hashLine = `${hash}  ${base}`;
+  await writeFile(`${targetPath}.sha256`, `${hashLine}\n`, "utf-8");
+  await execFileAsync("sha256sum", ["-c", `${base}.sha256`], { cwd: directory });
   return { path: relative(repoRoot, targetPath).replace(/\\/g, "/"), sha256: hash };
 }
 

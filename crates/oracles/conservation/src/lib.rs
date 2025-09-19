@@ -5,6 +5,7 @@ use serde_json::{json, Map, Value};
 use tf_oracles_core::{err, ok, with_trace, Oracle, OracleCtx, OracleResult, MISSING_VALUE};
 
 const FAILURE_CODE: &str = "E_NOT_CONSERVED";
+const PRECISION_MULTIPLIER: f64 = 1e12;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ConservationInput {
@@ -141,7 +142,7 @@ fn compute_delta(before: &Value, after: &Value) -> Option<f64> {
     match (extract_number(before), extract_number(after)) {
         (Some(left), Some(right)) => {
             let raw = right - left;
-            let formatted = (raw * 1_000_000_000_000.0).round() / 1_000_000_000_000.0;
+            let formatted = (raw * PRECISION_MULTIPLIER).round() / PRECISION_MULTIPLIER;
             if formatted == -0.0 {
                 Some(0.0)
             } else {

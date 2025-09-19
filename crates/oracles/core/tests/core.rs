@@ -85,6 +85,25 @@ fn pointer_root_is_empty() {
 }
 
 #[test]
+fn pointer_segments_escape_characters() {
+    assert_eq!(
+        pointer_from_segments([
+            PointerSegment::from("alpha"),
+            PointerSegment::from("beta"),
+        ]),
+        "/alpha/beta"
+    );
+    assert_eq!(
+        pointer_from_segments([
+            PointerSegment::from("~"),
+            PointerSegment::from("/"),
+            PointerSegment::from(""),
+        ]),
+        "/~0/~1/"
+    );
+}
+
+#[test]
 fn diff_reports_missing_array_entries() {
     let left = json!([1, 2, 3]);
     let right = json!([1, 2]);

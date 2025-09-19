@@ -23,14 +23,25 @@ function defaultCommand(runtime: 'ts' | 'rust'): string {
   return 'cargo run -q --example trace-smoke --features dev_proofs';
 }
 
+function toCommandAndArgs(s: string): [string, string[]] {
+  const parts = s.split(/\s+/);
+  return [parts[0], parts.slice(1)];
+}
+
 export async function runTrace(args: TraceArgs): Promise<number> {
   const filters = parseFilters(args.filter ?? []);
   const predicate = compilePredicate(args.pred);
   const target = args.cmd ?? defaultCommand(args.runtime);
 
-  const child = spawn(target, {
+  // Minimal guard if you keep supporting --cmd
+  if(/[\|\&;\$\(\)\{\}><`]/.test(target)){
+    throw new Error('Illegal characters in --cmd');
+  }
+
+  const [cmd, cmdArgs] = toCommandAndArgs(target);
+  const child = spawn(cmd, cmdArgs, {
     cwd: args.cwd,
-    shell: true,
+    shell: false,
     env: { ...process.env, DEV_PROOFS: '1', TF_TRACE_STDOUT: '1' },
     stdio: ['ignore', 'pipe', 'inherit'],
   });

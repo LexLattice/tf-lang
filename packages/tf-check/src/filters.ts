@@ -58,6 +58,6 @@ export function parseFilters(filters: string[]): Predicate {
 
 export function compilePredicate(source?: string): Predicate {
   if (!source) return TRUE;
-  const fn = new Function('e', `try { return (${source}); } catch { return false; }`) as Predicate;
-  return (event) => Boolean(fn(event));
+  // Disable to avoid RCE; re-enable with a safe parser (e.g., jsep + whitelist).
+  throw new Error('The --pred option is disabled for security reasons.');
 }

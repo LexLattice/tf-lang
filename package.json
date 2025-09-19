@@ -2,8 +2,11 @@
 	"name": "tf-lang",
 	"private": true,
 	"scripts": {
-		"test": "pnpm run --recursive test",
-		"build": "pnpm run --recursive build",
+                "test": "pnpm run --recursive test",
+                "build": "pnpm run --recursive build",
+                "t5:build": "pnpm -w -r build",
+                "t5:test": "pnpm -w -r test",
+                "t5:run": "node packages/pilot-replay/dist/cli.js replay --input tests/data/ticks-mini.csv --seed 42 --slice 0:50:1 --out out/t5/replay/frames.ndjson && node packages/pilot-strategy/dist/cli.js run --strategy momentum --frames out/t5/replay/frames.ndjson --seed 42 --out out/t5/effects/orders.ndjson && node packages/pilot-risk/dist/index.js eval --orders out/t5/effects/orders.ndjson --frames out/t5/replay/frames.ndjson --out out/t5/risk/evaluations.ndjson && node scripts/t5-write-status.js",
 		"preinstall": "corepack enable pnpm",
 		"check:fixtures": "tsx .codex/scripts/check-fixtures-json.ts"
 	},

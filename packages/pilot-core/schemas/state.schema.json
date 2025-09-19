@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PilotState",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["cash", "positions"],
+  "properties": {
+    "cash": { "type": "string" },
+    "positions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["qty"],
+        "properties": {
+          "qty": { "type": "string" },
+          "avgPrice": { "type": "string" },
+          "meta": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

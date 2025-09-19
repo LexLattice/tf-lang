@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PilotOrder",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "ts", "sym", "side", "type", "qty"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "ts": { "type": "string", "pattern": "^-?[0-9]+$" },
+    "sym": { "type": "string", "minLength": 1 },
+    "side": { "type": "string", "enum": ["buy", "sell"] },
+    "type": { "type": "string", "enum": ["market", "limit"] },
+    "qty": { "type": "string" },
+    "price": { "type": "string" },
+    "meta": { "type": "object", "additionalProperties": true }
+  }
+}

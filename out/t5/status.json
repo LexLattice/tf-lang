@@ -1,0 +1,9 @@
+{
+  "done": ["T5.1", "T5.2", "T5.3"],
+  "partial": ["T5.4"],
+  "todo": [],
+  "seed": 42,
+  "specHash": "843c3dc4ff6012d1c8db9fc32295a89eb0032a192b5fb1a963dcabb4f0502f86",
+  "startedAt": "2025-09-19T18:06:18+00:00",
+  "finishedAt": "2025-09-19T18:33:18+00:00"
+}

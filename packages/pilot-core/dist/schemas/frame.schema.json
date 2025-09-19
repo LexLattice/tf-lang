@@ -1,0 +1,37 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "PilotFrame",
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["ts", "sym", "seq"],
+    "properties": {
+        "ts": {
+            "type": "string",
+            "pattern": "^-?[0-9]+$"
+        },
+        "sym": {
+            "type": "string",
+            "minLength": 1
+        },
+        "seq": {
+            "type": "integer",
+            "minimum": 0
+        },
+        "bid": {
+            "type": "string"
+        },
+        "ask": {
+            "type": "string"
+        },
+        "last": {
+            "type": "string"
+        },
+        "vol": {
+            "type": "string"
+        },
+        "meta": {
+            "type": "object",
+            "additionalProperties": true
+        }
+    }
+}

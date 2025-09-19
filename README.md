@@ -1,204 +1,120 @@
+# TF-Lang (v0.3) — True Functions, Oracles & Deterministic Pilot
 
-# TF-Lang Monorepo
+[CI: T4 Plan/Scaffold/Compare](.github/workflows/t4-plan-scaffold-compare.yml)
+[CI: T3 Trace & Perf](.github/workflows/t3-trace-and-perf.yml)
+Version: v0.3
 
-[![deploy](https://github.com/LexLattice/tf-lang/actions/workflows/pages.yml/badge.svg?branch=main)](https://LexLattice.github.io/tf-lang/)
-
-A minimal, deterministic kernel for **True-Function** programs with two runtimes:
-
-- `packages/tf-lang-l0-ts` — TypeScript VM + checker stubs + tests (Vitest)
-- `packages/tf-lang-l0-rs` — Rust VM + checker stubs + tests (cargo)
-
-This repo uses **pnpm workspaces** to manage JS/TS packages. The Rust crate lives alongside and is built by CI.
-
-### v0.2 Highlights
-- Host‑lite finalized (POST `/plan`, `/apply`), canonical JSON and 400/404.
-- Proof tags: shared interfaces, DEV_PROOFS gating, stable Explorer panel.
-- SQLite adapter hardening: prepared reuse, SQL‑only evidence and pagination.
-- GitHub Pages: PR preview artifact, deploy on `main` with live badge.
-- CI images: lowercase GHCR path, digest summary, reproducible builds.
-- Release notes: see [docs/releases/v0.2/README.md](docs/releases/v0.2/README.md).
+## What’s in 0.3
+- T3 — Observability & Parity:
+  - Proof tags & `DEV_PROOFS` gating; `tf-check trace --filter …` JSONL stream.
+  - TS↔Rust parity harness; perf harness for proofs-off path.
+- T4 — Parallel Design Explorer:
+  - `tf-plan` enumerate; `tf-plan-compare` merge recommendation report; CI pipeline.
+- T5 — Pilot (TS path): Replay → Strategy (momentum/mean-reversion) → Risk (exposure).
+  - Deterministic artifacts, seeded runs, and reproducible hashes.
 
 ## Quickstart
-
+### A) Standard developer setup
 ```bash
-# TypeScript
-cd packages/tf-lang-l0-ts
-pnpm i
-pnpm test
-
-# Rust
-cd packages/tf-lang-l0-rs
-cargo test
+pnpm -v && node -v
+pnpm -w -r install
+pnpm -w -r build
 ```
 
-## Structure
-
-- `packages/` — language runtimes
-- `docs/` — design notes and specs
-- `.github/workflows/ci.yml` — CI for TS and Rust
-
-## Design (E–O–L Mini)
-
-**O (Ontology):** World, Snapshot, Plan, Δ, JournalEntry, Claim, Evidence, Region, Effects.  
-**E (Epistemology):** Content addressing (hash of canonical JSON), determinism, provenance-totality, property tests.  
-**L (Logic):** Laws: (1) `rewind ∘ apply = id` at entry boundaries, (2) snapshot determinism, (3) capability-typed effects.
-
-## Host-lite (packages/host-lite)
-
-The `host-lite` package provides a minimal, spec-compliant HTTP server for executing TF-lang programs.
-
-- **Endpoints**: `POST /plan` and `POST /apply`.
-- **Proofs**: Set `DEV_PROOFS=1` to enable proof generation and emission.
-
-## Roadmap
-
-- Canonical JSON encoder for byte-stable hashing across runtimes.
-- Real type/effect checker (SSA, exhaustiveness).
-- Delta algebra + invertibility/compensation laws.
-- Minimal TF registry with semver + manifests.
-
-
----
-
-## Legal adapter demo (RO mini)
-
-Build & run:
-```bash
-pnpm i
-pnpm -C packages/claims-core-ts build
-pnpm -C packages/adapter-legal-ts build
-node packages/adapter-legal-ts/dist/examples/ro-mini/build.js
-```
-
-Expected output:
-- Counts of FORBIDDEN per jurisdiction at a fixed date
-- Any unresolved contradictions (where precedence cannot decide)
-- Sample evidence entries
-
----
-
-## GitHub Pages
-
-This repo publishes the `docs/` folder to GitHub Pages on every push to `main` via `.github/workflows/pages.yml`.
-- Markdown is rendered as static pages (no Jekyll build needed).
-- To preview locally, run `make docs-up` and open http://localhost:8080.
-
-Once pushed to GitHub, enable Pages:
-1) Settings -> Pages -> Build and deployment -> Source: **GitHub Actions**.
-2) Push to `main`. The site will deploy automatically.
-
-
----
-
-## Claims API (services/claims-api-ts)
-
-A tiny Fastify service that serves the same query surface as the demo:
-- `GET /` — list available endpoints
-- `GET /health` — check service health and dataset version
-- `GET /claims/count?modality=FORBIDDEN&jurisdiction=RO&at=2025-09-09`
-- `GET /claims/list?modality=FORBIDDEN&jurisdiction=RO&at=2025-09-09&limit=10&offset=0`
-- `GET /claims/explain/:id`
-
-Run locally:
-```bash
-pnpm i
-pnpm -C packages/claims-core-ts build
-pnpm -C services/claims-api-ts build
-PORT=8787 pnpm -C services/claims-api-ts start
-# in another shell
-curl 'http://localhost:8787/claims/count?modality=FORBIDDEN&jurisdiction=RO&at=2025-09-09'
-```
-
-By default it loads a static seed dataset from `packages/d1-sqlite/fixtures/seed.sql`.
-
-
----
-
-## Docker demo (API + Docs)
-
-Bring up both the **Claims API** (on :8787) and the **Claims Explorer** static site (on :8080):
+### B) Codex Cloud setup (one-liner)
 
 ```bash
-docker compose up --build
-# open http://localhost:8080/claims-explorer.html
-# switch Source -> Live API (http://localhost:8787)
+bash -lc "./scripts/codex/setup.sh"
 ```
 
-Stop:
-```bash
-docker compose down
-```
+## Determinism & Proofs (T3)
 
-
----
-
-## Release v0.1.0
-
-Tag and push:
-```bash
-git tag -a v0.1.0 -m "TF-Lang v0.1.0: L0 kernels, Claims core, Legal adapter, Explorer & API"
-git push origin v0.1.0
-```
-
-GitHub Actions will create a release with auto-notes. You can paste [`RELEASE_NOTES_v0.1.0.md`](./RELEASE_NOTES_v0.1.0.md) into the description if you want a curated overview.
-
----
-
-## Claims Explorer (zero-backend)
-
-The Explorer is a static page that loads a small dataset and can also talk to the live API:
-
-- Page: `docs/claims-explorer.html`
-- Config panel: `docs/config.html` (persists **Source** and **API base** in `localStorage`)
-- Toggle **Source** between:
-  - **Static file** → `docs/data/claims-ro-mini.json`
-  - **Live API** → defaults to `http://localhost:8787`
-
----
-
-## Idempotent behavior guard (golden check)
-
-We lock demo behavior with `.golden/ro-mini.out.txt`. Recompute and diff:
+* Turn proofs on only when tracing:
 
 ```bash
-pnpm -C packages/claims-core-ts build
-pnpm -C packages/adapter-legal-ts build
-node packages/adapter-legal-ts/dist/examples/ro-mini/build.js | diff -u .golden/ro-mini.out.txt -
+DEV_PROOFS=1 node packages/tf-check/dist/cli.js trace \
+  --runtime ts --limit 50 \
+  --out out/t3/trace/ts.jsonl --filter tag=Transport
+head -n 3 out/t3/trace/ts.jsonl | jq -c .
+```
+```json
+{"runtime":"ts","ts":1758319451311,"region":"/acct","oracle":"Transport","seed":0,"tag":{"kind":"Transport","op":"LENS_PROJ","region":"/acct/0"}}
+{"runtime":"ts","ts":1758319451314,"region":"/acct","oracle":"Transport","seed":1,"tag":{"kind":"Transport","op":"LENS_PROJ","region":"/acct/1"}}
+{"runtime":"ts","ts":1758319451314,"region":"/acct","oracle":"Transport","seed":2,"tag":{"kind":"Transport","op":"LENS_PROJ","region":"/acct/2"}}
 ```
 
-If the diff isn’t empty, the change alters behavior. Don’t update `.golden` unless it’s intentional and justified by tests.
+* Parity & perf (paths listed; run on demand).
 
----
-
-## Local dev shortcuts
+## T4 — Plan → Compare (demo)
 
 ```bash
-make setup      # install deps + enable git hooks
-make build      # build TS packages
-make test       # TS + Rust tests
-make golden     # behavior lock check
-make api        # start API on :8787
-make docs-up    # serve docs on :8080
-make docker-up  # compose stack
+node packages/tf-plan/dist/cli.js enumerate \
+  --spec tests/specs/demo.json --seed 42 --beam 3 --out out/t4/plan
+# optional compare if inputs exist
+node packages/tf-plan-compare/dist/cli.js compare \
+  --plan out/t4/plan/plan.ndjson \
+  --inputs out/t4/scaffold/index.json \
+  --out out/t4/compare
 ```
 
-### Git hooks
+* Outputs:
 
-- **pre-commit** runs the golden check.
-- **pre-push** uses a **fast-path**: only tests packages changed in the push range (TS, Rust, or golden).  
-  Enable once per clone:
-  ```bash
-  pnpm run hooks:enable
-  ```
-  Bypass locally if needed (CI still enforces):
-  ```bash
-  GIT_BYPASS_GOLDEN=1 git commit -m "wip"   # skip pre-commit golden
-  FAST_PATH_DISABLE=1 git push              # force full tests instead of fast-path
-  GIT_BYPASS_TESTS=1 git push               # skip pre-push tests
-  ```
+  * `out/t4/plan/plan.json`, `out/t4/plan/plan.ndjson`
+  * (if present) `out/t4/compare/{report.json, report.md, index.html}`
 
----
+## T5 — Pilot (Replay → Strategy → Risk)
 
-## CI fast-path
+* **Deterministic run** (safe then force):
 
-You can keep your main workflow and also run a **path-gated** CI (`.github/workflows/ci_fast.yml`) that only triggers relevant jobs (TS, Rust, or golden) when those areas change. Use **Workflow dispatch** to run everything on demand.
+```bash
+pnpm run t5:run  || true    # safe: fails if artifacts exist
+pnpm run t5:rerun           # force: overwrites artifacts
+cat out/t5/status.json      # lines & sha256 per file
+```
+
+* Example (captured from your run):
+
+  * seed: `42`, slice: `0:50:1`
+  * frames: **12** lines, sha256: `2a9ed33962d71dd3b2c25cd37db84a09d28fa08d762a7b11b7ebc2d99011bc89`
+  * orders: **8** lines, sha256: `81f44de9b15fa7b9c5b631375857765f134f5560051cf7565d353d556449fdc5`
+  * evaluations: **1** lines, sha256: `580478ac3d9fa9befc20bcc735f9aaffc841f55eb1d49fbd82f`
+
+## Repository Map
+
+```
+packages/
+  tf-check/                 # trace CLI (T3.4)
+  tf-plan/ tf-plan-compare/ # T4 planner & compare
+  pilot-core/ replay/ strategy/ risk/  # T5 pilot stack
+scripts/
+  codex/ setup.sh maint.sh
+  t5-run.mjs t5-write-status.js
+out/ (artifacts)/
+```
+
+## CI
+
+* Workflows:
+
+  * T4 Plan/Scaffold/Compare: `.github/workflows/t4-plan-scaffold-compare.yml`
+  * T3 Perf/Trace: `.github/workflows/t3-trace-and-perf.yml`
+* PRs upload artifacts under `out/**`.
+
+## What’s next (0.4)
+
+* Trace Explorer (static, safe UI).
+* WASM & Python bindings (parity with Rust/TS).
+* Streaming scale (1M–10M frames) and perf suite.
+* Plugin SDK + config schema.
+* Release pipeline (packages, SBOMs, checksums).
+
+## Contributing
+
+* PRs must produce deterministic artifacts (same seed ⇒ same hashes).
+* No `shell:true`, no `eval`; CRLF-safe file readers (`/\r?\n/`).
+
+## License 
+
+* MIT
+
+```

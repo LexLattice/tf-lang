@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://tf-lang.dev/schemas/pilot/order.json",
+  "title": "PilotOrder",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "ts", "sym", "side", "quantity"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "ts": { "type": "integer", "minimum": 0 },
+    "sym": { "type": "string", "minLength": 1 },
+    "side": { "type": "string", "enum": ["buy", "sell"] },
+    "quantity": { "type": "string", "pattern": "^-?\\d+(?:\\.\\d+)?$" },
+    "price": { "type": "string", "pattern": "^-?\\d+(?:\\.\\d+)?$" },
+    "meta": { "type": "object", "additionalProperties": true }
+  }
+}

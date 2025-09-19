@@ -1,4 +1,8 @@
 import { createHash } from 'node:crypto';
+import { createRequire } from 'node:module';
+import Ajv, { type ErrorObject, type ValidateFunction } from 'ajv';
+
+const require = createRequire(import.meta.url);
 
 export const PLAN_GRAPH_VERSION = '0.1.0';
 
@@ -192,9 +196,93 @@ export function hashObject(value: unknown): string {
 
 export type RepoSignals = Readonly<Record<string, unknown>>;
 
-export interface PlanGraphValidationResult {
-  readonly valid: boolean;
-  readonly errors: readonly string[];
+const SCHEMA_PREFIXES = [
+  '../../schema',
+  '../../../schema',
+  '../../../../schema',
+] as const;
+
+const schemaCache = new Map<string, Readonly<Record<string, unknown>>>();
+
+function loadSchema(name: string): Readonly<Record<string, unknown>> {
+  const cached = schemaCache.get(name);
+  if (cached) {
+    return cached;
+  }
+
+  for (const prefix of SCHEMA_PREFIXES) {
+    try {
+      const schema = require(`${prefix}/${name}`) as Record<string, unknown>;
+      const frozen = deepFreeze(schema);
+      schemaCache.set(name, frozen);
+      return frozen;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException)?.code !== 'MODULE_NOT_FOUND') {
+        throw error;
+      }
+    }
+  }
+
+  throw new Error(`Unable to load schema ${name}`);
 }
 
-export type SchemaValidator = (value: unknown) => PlanGraphValidationResult;
+const ajv = new Ajv({ allErrors: true, strict: true });
+
+export const TF_BRANCH_SCHEMA = loadSchema('tf-branch.schema.json');
+export const TF_PLAN_SCHEMA = loadSchema('tf-plan.schema.json');
+export const TF_COMPARE_SCHEMA = loadSchema('tf-compare.schema.json');
+
+ajv.addSchema(TF_BRANCH_SCHEMA, 'tf-branch.schema.json');
+ajv.addSchema(TF_PLAN_SCHEMA, 'tf-plan.schema.json');
+ajv.addSchema(TF_COMPARE_SCHEMA, 'tf-compare.schema.json');
+
+const planValidator = ajv.compile<PlanGraph>(TF_PLAN_SCHEMA);
+const branchValidator = ajv.compile<PlanNode>(TF_BRANCH_SCHEMA);
+const compareValidator = ajv.compile<unknown>(TF_COMPARE_SCHEMA);
+
+function formatAjvErrors(errors: ErrorObject[] | null | undefined): string {
+  if (!errors || errors.length === 0) {
+    return 'unknown schema validation error';
+  }
+
+  return errors
+    .map((error) => {
+      const instancePath = error.instancePath || '/';
+      return `${instancePath} ${error.message ?? 'is invalid'}`;
+    })
+    .join(', ');
+}
+
+function enforceValidation<T>(
+  value: unknown,
+  validator: ValidateFunction<T>,
+  label: string,
+): T {
+  if (!validator(value)) {
+    const detail = formatAjvErrors(validator.errors ?? null);
+    throw new Error(`${label} validation failed: ${detail}`);
+  }
+
+  return value as T;
+}
+
+export function validateBranch(value: unknown): PlanNode {
+  return enforceValidation(value, branchValidator, 'Plan branch');
+}
+
+export function validatePlan(value: unknown): PlanGraph {
+  const plan = enforceValidation(value, planValidator, 'Plan graph');
+  plan.nodes.forEach((node, index) => {
+    try {
+      enforceValidation(node, branchValidator, `Plan node at index ${index}`);
+    } catch (error) {
+      const nodeId = (node as { nodeId?: string }).nodeId ?? '<unknown>';
+      throw new Error(`Plan node ${nodeId} failed validation: ${(error as Error).message}`);
+    }
+  });
+  return plan;
+}
+
+export function validateCompare<T>(value: unknown): T {
+  return enforceValidation(value, compareValidator as ValidateFunction<T>, 'Compare report');
+}

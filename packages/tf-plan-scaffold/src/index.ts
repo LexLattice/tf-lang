@@ -1,12 +1,11 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
-import { createRequire } from 'node:module';
-import Ajv from 'ajv';
-import type { ErrorObject } from 'ajv';
 import {
   PlanGraph,
   PlanNode,
   PLAN_GRAPH_VERSION,
+  validateBranch,
+  validatePlan,
 } from '@tf-lang/tf-plan-core';
 import {
   PlanSummaryMeta,
@@ -14,29 +13,6 @@ import {
   TemplateKind,
   createScaffoldPlan,
 } from '@tf-lang/tf-plan-scaffold-core';
-
-const require = createRequire(import.meta.url);
-const planSchema = loadSchema('tf-plan.schema.json');
-const branchSchema = loadSchema('tf-branch.schema.json');
-const ajv = new Ajv({ allErrors: true, strict: false });
-ajv.addSchema(branchSchema, 'tf-branch.schema.json');
-const validateNode = ajv.compile<PlanNode>(branchSchema);
-const validatePlanGraph = ajv.compile<PlanGraph>(planSchema);
-
-function loadSchema(name: string): Record<string, unknown> {
-  const candidates = [
-    `../../../schema/${name}`,
-    `../../../../schema/${name}`,
-  ];
-  for (const candidate of candidates) {
-    try {
-      return require(candidate);
-    } catch {
-      continue;
-    }
-  }
-  throw new Error(`Unable to load schema ${name}`);
-}
 
 async function ensureDir(filePath: string): Promise<void> {
   await mkdir(filePath, { recursive: true });
@@ -65,28 +41,23 @@ async function readNodesFromNdjson(planPath: string): Promise<PlanNode[]> {
   const lines = raw.trim().length === 0 ? [] : raw.trim().split('\n');
   const nodes: PlanNode[] = lines.map((line) => JSON.parse(line) as PlanNode);
   nodes.forEach((node) => {
-    if (!validateNode(node)) {
-      const message =
-        validateNode.errors?.map((error: ErrorObject) => `${error.instancePath} ${error.message}`).join(', ') ?? 'unknown error';
-      throw new Error(`Invalid plan node in NDJSON: ${message}`);
-    }
+    validateBranch(node);
   });
   return nodes;
 }
 
-async function readPlanMeta(planJsonPath: string | undefined, nodes: readonly PlanNode[]): Promise<PlanSummaryMeta> {
+async function readPlanMeta(
+  planJsonPath: string | undefined,
+  nodes: readonly PlanNode[],
+  seedOverride: number,
+): Promise<PlanSummaryMeta> {
   if (planJsonPath) {
     const raw = await readFile(resolve(planJsonPath), 'utf8');
-    const parsed = JSON.parse(raw) as PlanGraph;
-    if (!validatePlanGraph(parsed)) {
-      const message =
-        validatePlanGraph.errors?.map((error: ErrorObject) => `${error.instancePath} ${error.message}`).join(', ') ?? 'unknown error';
-      throw new Error(`Plan graph validation failed: ${message}`);
-    }
+    const parsed = validatePlan(JSON.parse(raw) as PlanGraph);
     return parsed.meta;
   }
 
-  const fallbackSeed = 42;
+  const fallbackSeed = Number.isFinite(seedOverride) ? seedOverride : 42;
   const specHash = nodes.length > 0 ? nodes[0].specId.split(':')[1] ?? 'unknown' : 'unknown';
   return { seed: fallbackSeed, specHash, version: PLAN_GRAPH_VERSION };
 }
@@ -103,6 +74,7 @@ export interface GenerateScaffoldArgs {
   readonly template: TemplateKind;
   readonly outPath: string;
   readonly baseBranch?: string;
+  readonly seed: number;
 }
 
 export interface ApplyScaffoldArgs {
@@ -111,7 +83,7 @@ export interface ApplyScaffoldArgs {
 
 export async function generateScaffold(args: GenerateScaffoldArgs): Promise<ScaffoldPlan> {
   const nodes = await readNodesFromNdjson(args.planNdjsonPath);
-  const meta = await readPlanMeta(args.planJsonPath, nodes);
+  const meta = await readPlanMeta(args.planJsonPath, nodes, args.seed);
   const plan = createScaffoldPlan(nodes, meta, {
     template: args.template,
     top: args.top,

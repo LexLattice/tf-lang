@@ -15,7 +15,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@tf-lang/tf-plan-compare-core": "0.1.0"
+    "@tf-lang/tf-plan-compare-core": "0.1.0",
+    "@tf-lang/tf-plan-core": "0.1.0"
   },
   "devDependencies": {
     "@types/node": "^20.14.9",

@@ -19,4 +19,28 @@ describe('enumeratePlan', () => {
       expect(node.score.explain.length).toBeGreaterThan(0);
     });
   });
+
+  it('applies beamWidth and maxBranches after sorting', () => {
+    const baseline = enumeratePlan(demoSpec, { seed: 42 });
+    const branchNodes = baseline.nodes.filter((node) => node.component.startsWith('branch:'));
+    const sortedBranchIds = branchNodes.map((node) => node.nodeId);
+
+    const beamPlan = enumeratePlan(demoSpec, { seed: 42, beamWidth: 1 });
+    const beamBranchIds = beamPlan.nodes
+      .filter((node) => node.component.startsWith('branch:'))
+      .map((node) => node.nodeId);
+    expect(beamBranchIds).toEqual(sortedBranchIds.slice(0, 1));
+
+    const maxPlan = enumeratePlan(demoSpec, { seed: 42, maxBranches: 2 });
+    const maxBranchIds = maxPlan.nodes
+      .filter((node) => node.component.startsWith('branch:'))
+      .map((node) => node.nodeId);
+    expect(maxBranchIds).toEqual(sortedBranchIds.slice(0, 2));
+
+    const combinedPlan = enumeratePlan(demoSpec, { seed: 42, beamWidth: 2, maxBranches: 2 });
+    const combinedBranchIds = combinedPlan.nodes
+      .filter((node) => node.component.startsWith('branch:'))
+      .map((node) => node.nodeId);
+    expect(combinedBranchIds).toEqual(sortedBranchIds.slice(0, 2));
+  });
 });

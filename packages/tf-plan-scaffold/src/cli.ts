@@ -17,6 +17,7 @@ program
   .option('--out <path>', 'Output index JSON path', 'out/t4/scaffold/index.json')
   .option('--base <branch>', 'Base branch name', 'main')
   .option('--apply <path>', 'Apply an existing scaffold index instead of generating')
+  .option('--seed <number>', 'Seed to use when plan metadata is absent', '42')
   .action(async (options) => {
     try {
       if (options.apply) {
@@ -30,6 +31,7 @@ program
         template: parseTemplate(options.template, 'dual-stack'),
         outPath: resolve(options.out),
         baseBranch: options.base,
+        seed: parseNumber(options.seed, 42),
       });
     } catch (error) {
       console.error((error as Error).message);

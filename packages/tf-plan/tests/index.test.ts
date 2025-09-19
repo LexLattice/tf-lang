@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -44,5 +45,24 @@ describe('tf-plan CLI helpers', () => {
     await runExportCommand({ planPath, ndjsonPath: exportPath });
     const ndjson = await readFile(exportPath, 'utf8');
     expect(ndjson.trim().split('\n').length).toBe(plan.nodes.length);
+  });
+
+  it('produces identical artefacts when rerun with the same seed', async () => {
+    const specPath = resolve(process.cwd(), '../../tests/specs/demo.json');
+    const firstDir = await createTempDir();
+    const secondDir = await createTempDir();
+
+    await runEnumerateCommand({ specPath, seed: 42, outDir: firstDir });
+    await runEnumerateCommand({ specPath, seed: 42, outDir: secondDir });
+
+    const firstPlan = await readFile(join(firstDir, 'plan.json'), 'utf8');
+    const secondPlan = await readFile(join(secondDir, 'plan.json'), 'utf8');
+    const firstNdjson = await readFile(join(firstDir, 'plan.ndjson'), 'utf8');
+    const secondNdjson = await readFile(join(secondDir, 'plan.ndjson'), 'utf8');
+
+    const hash = (content: string): string => createHash('sha256').update(content).digest('hex');
+
+    expect(hash(firstPlan)).toEqual(hash(secondPlan));
+    expect(hash(firstNdjson)).toEqual(hash(secondNdjson));
   });
 });

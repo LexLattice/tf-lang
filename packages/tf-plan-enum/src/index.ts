@@ -12,7 +12,6 @@ import {
   Score,
   deepFreeze,
   hashObject,
-  seedRng,
   stableId,
   stableSort,
 } from '@tf-lang/tf-plan-core';
@@ -276,6 +275,22 @@ function groupByComponent(plans: readonly ComponentPlan[]): Map<string, Componen
   return map;
 }
 
+function comparePlanNodes(left: PlanNode, right: PlanNode): number {
+  const totalDiff = right.score.total - left.score.total;
+  if (totalDiff !== 0) {
+    return totalDiff;
+  }
+  const riskDiff = left.score.risk - right.score.risk;
+  if (riskDiff !== 0) {
+    return riskDiff;
+  }
+  return left.nodeId.localeCompare(right.nodeId);
+}
+
+function compareComponentPlans(left: ComponentPlan, right: ComponentPlan): number {
+  return comparePlanNodes(left.node, right.node);
+}
+
 function enumerateBranches(
   componentsById: Map<string, ComponentPlan[]>,
   specId: string,
@@ -286,7 +301,6 @@ function enumerateBranches(
   const componentIds = [...componentsById.keys()].sort();
   const branchLabel = `branch:${specId}`;
   const branches: PlanNode[] = [];
-  const rng = seedRng(seed);
 
   const explore = (index: number, selected: ComponentPlan[]) => {
     if (index === componentIds.length) {
@@ -295,17 +309,7 @@ function enumerateBranches(
     }
     const componentId = componentIds[index];
     const optionsForComponent = componentsById.get(componentId) ?? [];
-    const sortedOptions = stableSort(optionsForComponent, (left, right) => {
-      const totalDiff = right.node.score.total - left.node.score.total;
-      if (totalDiff !== 0) {
-        return totalDiff;
-      }
-      const riskDiff = left.node.score.risk - right.node.score.risk;
-      if (riskDiff !== 0) {
-        return riskDiff;
-      }
-      return left.node.nodeId.localeCompare(right.node.nodeId);
-    });
+    const sortedOptions = stableSort(optionsForComponent, compareComponentPlans);
 
     const beamWidth = options.beamWidth ?? sortedOptions.length;
     const limited = sortedOptions.slice(0, beamWidth);
@@ -317,34 +321,9 @@ function enumerateBranches(
 
   explore(0, []);
 
-  const sortedBranches = stableSort(branches, (left, right) => {
-    const totalDiff = right.score.total - left.score.total;
-    if (totalDiff !== 0) {
-      return totalDiff;
-    }
-    const riskDiff = left.score.risk - right.score.risk;
-    if (riskDiff !== 0) {
-      return riskDiff;
-    }
-    return left.nodeId.localeCompare(right.nodeId);
-  });
-
+  const sortedBranches = stableSort(branches, comparePlanNodes);
   const maxBranches = options.maxBranches ?? sortedBranches.length;
-  const chosen = sortedBranches.slice(0, maxBranches);
-
-  // Shuffle deterministically to avoid bias when totals tie.
-  const decorated = chosen.map((branch) => ({ branch, key: rng.next() }));
-  decorated.sort((a, b) => {
-    if (a.branch.score.total !== b.branch.score.total) {
-      return b.branch.score.total - a.branch.score.total;
-    }
-    if (a.branch.score.risk !== b.branch.score.risk) {
-      return a.branch.score.risk - b.branch.score.risk;
-    }
-    return a.key - b.key;
-  });
-
-  return decorated.map((entry) => entry.branch);
+  return sortedBranches.slice(0, maxBranches);
 }
 
 export interface EnumeratePlanResult {
@@ -378,17 +357,7 @@ export function enumeratePlan(spec: TfSpec, options: EnumerateOptions = {}): Pla
 
   const branchIds = new Set(branchNodes.map((branch) => branch.nodeId));
   const nodes: PlanNode[] = [...componentPlans.map((plan) => plan.node), ...branchNodes];
-  const sortedNodes = stableSort(nodes, (left, right) => {
-    const totalDiff = right.score.total - left.score.total;
-    if (totalDiff !== 0) {
-      return totalDiff;
-    }
-    const riskDiff = left.score.risk - right.score.risk;
-    if (riskDiff !== 0) {
-      return riskDiff;
-    }
-    return left.nodeId.localeCompare(right.nodeId);
-  });
+  const sortedNodes = stableSort(nodes, comparePlanNodes);
 
   const edges: PlanEdge[] = branchNodes.flatMap((branch) =>
     branch.deps.map((dependency) => ({ from: branch.nodeId, to: dependency, kind: 'depends' as const })),

@@ -4,7 +4,7 @@ import { renderHtml, renderMarkdown } from '../src/index.js';
 
 const report: CompareReport = {
   version: '0.1.0',
-  meta: { seed: 42, planVersion: '0.1.0', generatedAt: '1970-01-01T00:00:00.000Z', notes: [] },
+  meta: { seed: 42, planVersion: '0.1.0', specHash: 'deadbeef', generatedAt: '1970-01-01T00:00:00.000Z', notes: [] },
   branches: [
     {
       nodeId: 'node',

@@ -35,6 +35,7 @@ describe('generateScaffold', () => {
       top: 2,
       template: 'dual-stack',
       outPath,
+      seed: 42,
     });
     expect(scaffold.branches.length).toBeGreaterThan(0);
   });

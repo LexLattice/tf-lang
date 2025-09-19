@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { Frame, Order, canonNumber } from '@tf-lang/pilot-core';
+import { Frame, Order, canonNumber, parseCommonFlags } from '@tf-lang/pilot-core';
 import configSchema from './schemas/config.schema.json' with { type: 'json' };
 
 export interface RiskConfig {
@@ -254,23 +254,32 @@ function printHelp(): void {
   console.log('Usage: pilot-risk eval --orders <file> --frames <file> --out <file>');
 }
 
-function main(argv: string[]): void {
-  const [command, ...rest] = argv;
-  if (command !== 'eval') {
-    printHelp();
-    throw new Error('Expected eval command');
+export function runCli(argv: string[]): number {
+  try {
+    const [command, ...rest] = argv;
+    if (command !== 'eval') {
+      printHelp();
+      throw new Error('Expected eval command');
+    }
+    const common = parseCommonFlags(rest, { requireSeed: false, requireOut: true });
+    if (!common.outPath) {
+      throw new Error('Missing required --out flag');
+    }
+    const options = parseCliArgs(common.rest);
+    const orders = readOrdersNdjson(options.orders);
+    const frames = readFramesNdjson(options.frames);
+    const metrics = evaluateExposureMetrics(orders, frames);
+    writeEvaluationsNdjson(common.outPath, metrics);
+    return 0;
+  } catch (error) {
+    console.error((error as Error).message);
+    return 1;
   }
-  const options = parseCliArgs(rest);
-  const orders = readOrdersNdjson(options.orders);
-  const frames = readFramesNdjson(options.frames);
-  const metrics = evaluateExposureMetrics(orders, frames);
-  writeEvaluationsNdjson(options.out, metrics);
 }
 
 interface RiskCliOptions {
   orders: string;
   frames: string;
-  out: string;
 }
 
 function parseCliArgs(args: string[]): RiskCliOptions {
@@ -284,9 +293,6 @@ function parseCliArgs(args: string[]): RiskCliOptions {
       case '--frames':
         options.frames = args[++i];
         break;
-      case '--out':
-        options.out = args[++i];
-        break;
       case '--help':
       case '-h':
         printHelp();
@@ -296,7 +302,7 @@ function parseCliArgs(args: string[]): RiskCliOptions {
         throw new Error(`Unknown argument: ${arg}`);
     }
   }
-  if (!options.orders || !options.frames || !options.out) {
+  if (!options.orders || !options.frames) {
     throw new Error('Missing required arguments');
   }
   return options as RiskCliOptions;
@@ -304,7 +310,10 @@ function parseCliArgs(args: string[]): RiskCliOptions {
 
 const entryPath = fileURLToPath(import.meta.url);
 if (process.argv[1] && entryPath === resolve(process.argv[1])) {
-  main(process.argv.slice(2));
+  const code = runCli(process.argv.slice(2));
+  if (code !== 0) {
+    process.exitCode = code;
+  }
 }
 
 export { configSchema, validateConfig };

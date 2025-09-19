@@ -1,6 +1,11 @@
-import { describe, expect, it } from 'vitest';
-import { Frame, canonFrame, seedRng, validateOrder } from '@tf-lang/pilot-core';
-import { STRATEGY_DEFAULTS, createStrategy, runStrategy } from '../src/index.js';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+
+import { describe, expect, it, vi } from 'vitest';
+import { Frame, Order, canonFrame, seedRng, validateOrder } from '@tf-lang/pilot-core';
+import { STRATEGY_DEFAULTS, createStrategy, runStrategy, writeOrdersNdjson } from '../src/index.js';
+import { runCli } from '../src/cli.js';
 
 function sampleFrames(): Frame[] {
   return [
@@ -60,5 +65,57 @@ describe('pilot-strategy', () => {
     const expectedFirst = rng();
     const firstOrder = orders[0];
     expect(firstOrder.meta?.rng).toBeCloseTo(expectedFirst, 12);
+  });
+
+  it('writes identical orders NDJSON given the same seed', () => {
+    const frames = sampleFrames();
+    const base = mkdtempSync(join(tmpdir(), 'pilot-strategy-ndjson-'));
+    const outA = join(base, 'orders-a.ndjson');
+    const outB = join(base, 'orders-b.ndjson');
+    const options = { strategy: 'momentum' as const, framesPath: '', seed: 42 };
+    writeOrdersNdjson(outA, runStrategy(options, frames).orders);
+    writeOrdersNdjson(outB, runStrategy(options, frames).orders);
+    const first = readFileSync(outA, 'utf-8');
+    const second = readFileSync(outB, 'utf-8');
+    expect(second).toBe(first);
+    rmSync(base, { recursive: true, force: true });
+  });
+
+  it('rejects invalid orders when writing NDJSON', () => {
+    const base = mkdtempSync(join(tmpdir(), 'pilot-strategy-invalid-'));
+    const outPath = join(base, 'orders.ndjson');
+    const invalidOrder = {
+      id: 'o-1',
+      ts: 1,
+      sym: '',
+      side: 'buy',
+      quantity: '1',
+    } as Order;
+    expect(() => writeOrdersNdjson(outPath, [invalidOrder])).toThrow(/Order validation failed/);
+    rmSync(base, { recursive: true, force: true });
+  });
+
+  it('cli refuses to overwrite outputs without --force', () => {
+    const base = mkdtempSync(join(tmpdir(), 'pilot-strategy-cli-'));
+    const framesPath = join(base, 'frames.ndjson');
+    const outPath = join(base, 'orders.ndjson');
+    const frames = sampleFrames();
+    writeFileSync(framesPath, frames.map((frame) => JSON.stringify(frame)).join('\n') + '\n');
+    writeFileSync(outPath, 'existing');
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const code = runCli([
+      'run',
+      '--strategy',
+      'momentum',
+      '--frames',
+      framesPath,
+      '--seed',
+      '42',
+      '--out',
+      outPath,
+    ]);
+    expect(code).toBe(1);
+    errorSpy.mockRestore();
+    rmSync(base, { recursive: true, force: true });
   });
 });

@@ -1,5 +1,5 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { describe, expect, it } from 'vitest';
@@ -14,6 +14,7 @@ import {
   summariseFile,
   writeStatusFile,
   toMinorUnits,
+  parseCommonFlags,
 } from '../src/index.js';
 
 describe('pilot-core helpers', () => {
@@ -89,8 +90,36 @@ describe('pilot-core helpers', () => {
       outPath: statusPath,
     });
     const status = JSON.parse(readFileSync(statusPath, 'utf-8'));
+    expect(status.ok).toBe(true);
     expect(status.seed).toBe(42);
     expect(status.files.sample.lines).toBe(2);
     rmSync(base, { recursive: true, force: true });
+  });
+
+  it('parses common CLI flags and enforces output safety', () => {
+    const base = mkdtempSync(join(tmpdir(), 'pilot-core-flags-'));
+    const outPath = join(base, 'frames.ndjson');
+    const result = parseCommonFlags(['--seed', '42', '--slice', '0:10:1', '--out', outPath], {
+      requireOut: true,
+    });
+    expect(result.seed).toBe(42);
+    expect(result.slice).toBe('0:10:1');
+    expect(result.outPath).toBe(outPath);
+    expect(result.rest).toHaveLength(0);
+    writeFileSync(outPath, 'existing');
+    expect(() =>
+      parseCommonFlags(['--seed', '42', '--out', outPath], {
+        requireOut: true,
+      }),
+    ).toThrow(/already exists/);
+    rmSync(base, { recursive: true, force: true });
+
+    const statusPath = resolve('out/t5/status.json');
+    if (existsSync(statusPath)) {
+      const payload = JSON.parse(readFileSync(statusPath, 'utf-8'));
+      expect(payload.ok).toBe(true);
+      expect(payload.seed).toBe(42);
+      expect(payload.slice).toBe('0:50:1');
+    }
   });
 });

@@ -2,6 +2,8 @@
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { parseCommonFlags } from '@tf-lang/pilot-core';
+
 import {
   STRATEGY_DEFAULTS,
   StrategyName,
@@ -14,33 +16,42 @@ import {
 interface CliOptions {
   strategy: StrategyName;
   frames: string;
-  seed: number;
-  out: string;
   overrides: Partial<Record<StrategyName, Partial<StrategyParams[StrategyName]>>>;
 }
 
-function main(argv: string[]): void {
-  if (argv.includes('--help') || argv.includes('-h')) {
-    printHelp();
-    return;
-  }
+export function runCli(argv: string[]): number {
+  const helpRequested = argv.includes('--help') || argv.includes('-h');
   const filtered = argv.filter((arg) => arg !== '--help' && arg !== '-h');
-  const [command, ...rest] = filtered;
-  if (command !== 'run') {
-    throw new Error('Usage: pilot-strategy run --strategy <name> --frames <file> --seed <seed> --out <file>');
+  try {
+    if (helpRequested) {
+      printHelp();
+      return 0;
+    }
+    const [command, ...rest] = filtered;
+    if (command !== 'run') {
+      throw new Error('Usage: pilot-strategy run --strategy <name> --frames <file> --seed <seed> --out <file>');
+    }
+    const common = parseCommonFlags(rest, { requireSeed: true, requireOut: true });
+    if (!common.outPath) {
+      throw new Error('Missing required --out flag');
+    }
+    const options = parseArgs(common.rest);
+    const frames = readFramesNdjson(options.frames);
+    const result = runStrategy(
+      {
+        strategy: options.strategy,
+        framesPath: options.frames,
+        seed: common.seed,
+        params: options.overrides[options.strategy],
+      },
+      frames,
+    );
+    writeOrdersNdjson(common.outPath, result.orders);
+    return 0;
+  } catch (error) {
+    console.error((error as Error).message);
+    return 1;
   }
-  const options = parseArgs(rest);
-  const frames = readFramesNdjson(options.frames);
-  const result = runStrategy(
-    {
-      strategy: options.strategy,
-      framesPath: options.frames,
-      seed: options.seed,
-      params: options.overrides[options.strategy],
-    },
-    frames,
-  );
-  writeOrdersNdjson(options.out, result.orders);
 }
 
 function parseArgs(args: string[]): CliOptions {
@@ -86,23 +97,11 @@ function parseArgs(args: string[]): CliOptions {
       case '--frames':
         options.frames = args[++i];
         break;
-      case '--seed': {
-        const raw = args[++i];
-        const seed = Number(raw);
-        if (!Number.isFinite(seed)) {
-          throw new Error('Seed must be finite');
-        }
-        options.seed = seed;
-        break;
-      }
-      case '--out':
-        options.out = args[++i];
-        break;
       default:
         throw new Error(`Unknown argument: ${arg}`);
     }
   }
-  if (!options.strategy || !options.frames || options.seed === undefined || !options.out) {
+  if (!options.strategy || !options.frames) {
     throw new Error('Missing required arguments');
   }
   return options as CliOptions;
@@ -132,5 +131,8 @@ function printHelp(): void {
 
 const entryPath = fileURLToPath(import.meta.url);
 if (process.argv[1] && entryPath === resolve(process.argv[1])) {
-  main(process.argv.slice(2));
+  const code = runCli(process.argv.slice(2));
+  if (code !== 0) {
+    process.exitCode = code;
+  }
 }

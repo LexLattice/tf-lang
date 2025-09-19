@@ -9,6 +9,7 @@ import {
   State,
   canonNumber,
   canonOrder,
+  validateOrder,
   seedRng,
 } from '@tf-lang/pilot-core';
 
@@ -196,6 +197,16 @@ export function readFramesNdjson(path: string): Frame[] {
 export function writeOrdersNdjson(path: string, orders: Order[]): void {
   const directory = dirname(path);
   mkdirSync(directory, { recursive: true });
+  orders.forEach((order, index) => ensureValidOrder(order, index));
   const content = orders.map((order) => JSON.stringify(order)).join('\n');
   writeFileSync(path, content + (orders.length ? '\n' : ''));
+}
+
+function ensureValidOrder(order: Order, index: number): void {
+  if (!validateOrder(order)) {
+    const [issue] = validateOrder.errors ?? [];
+    const path = issue?.instancePath ?? '/';
+    const message = issue?.message ?? 'is invalid';
+    throw new Error(`Order validation failed at index ${index}: ${path} ${message}`);
+  }
 }

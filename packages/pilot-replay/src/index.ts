@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { mkdirSync } from 'node:fs';
 
-import { Frame, canonFrame } from '@tf-lang/pilot-core';
+import { Frame, canonFrame, validateFrame } from '@tf-lang/pilot-core';
 
 export interface ReplayOptions {
   input: string;
@@ -80,6 +80,7 @@ export function replay(options: ReplayOptions): ReplayResult {
 export function writeFramesNdjson(outPath: string, frames: Frame[]): void {
   const directory = dirname(outPath);
   mkdirSync(directory, { recursive: true });
+  frames.forEach((frame, index) => ensureValidFrame(frame, index));
   const content = frames.map((frame) => JSON.stringify(frame)).join('\n');
   writeFileSync(outPath, content + (frames.length ? '\n' : ''));
 }
@@ -97,4 +98,13 @@ function sortFrames(frames: Frame[]): Frame[] {
     }
     return a.seq - b.seq;
   });
+}
+
+function ensureValidFrame(frame: Frame, index: number): void {
+  if (!validateFrame(frame)) {
+    const [issue] = validateFrame.errors ?? [];
+    const path = issue?.instancePath ?? '/';
+    const message = issue?.message ?? 'is invalid';
+    throw new Error(`Frame validation failed at index ${index}: ${path} ${message}`);
+  }
 }

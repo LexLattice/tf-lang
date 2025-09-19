@@ -58,8 +58,12 @@ jobs:
         run: DEV_PROOFS=1 node packages/tf-lang-l0-ts/scripts/measure-dev-proofs.js
 
       - name: Rust perf OFF
+        env:
+          DEV_PROOFS: '0'
         run: cargo run -q --manifest-path packages/tf-lang-l0-rs/Cargo.toml --example measure-dev-proofs
       - name: Rust perf ON
+        env:
+          DEV_PROOFS: '1'
         run: cargo run -q --manifest-path packages/tf-lang-l0-rs/Cargo.toml --example measure-dev-proofs --features dev_proofs
 
       - name: Check threshold (≤1%)

@@ -1,0 +1,62 @@
+{
+  "version": "0.1.0",
+  "meta": {
+    "seed": 42,
+    "planVersion": "0.1.0",
+    "specHash": "0cb630e68e6bf8a348049bd54c48b6d60e5dfb50b41df7526bb8947b2d0ea667",
+    "generatedAt": "1970-01-01T00:00:00.000Z",
+    "notes": [
+      "branches=3"
+    ]
+  },
+  "branches": [
+    {
+      "nodeId": "b7e8b3ebecdbb614e662765f9149727e9029932fcf271df17b5397b4cb4b97c5",
+      "branchName": "t4/dual-stack/b7e8b3ebecdb",
+      "planChoice": "copy#1=object storage replication; create_network#3=flat network with security groups; create_vm#2=gpu accelerated workers",
+      "rank": 1,
+      "score": {
+        "total": 6.541,
+        "risk": 3.598,
+        "complexity": 7.354,
+        "perf": 6.56,
+        "devTime": 8.677,
+        "depsReady": 6.5
+      },
+      "summary": "t4/dual-stack/b7e8b3ebecdb ranks #1 with total 6.54 (risk 3.60)",
+      "oracles": []
+    },
+    {
+      "nodeId": "d9c6d9cad0d1ba1db1b68710d0eaba901bb53e8ced480cf116f3fec334bc6084",
+      "branchName": "t4/dual-stack/d9c6d9cad0d1",
+      "planChoice": "copy#1=delta snapshot streaming; create_network#3=flat network with security groups; create_vm#2=gpu accelerated workers",
+      "rank": 2,
+      "score": {
+        "total": 6.527,
+        "risk": 3.516,
+        "complexity": 7.354,
+        "perf": 6.556,
+        "devTime": 8.677,
+        "depsReady": 6.5
+      },
+      "summary": "t4/dual-stack/d9c6d9cad0d1 ranks #2 with total 6.53 (risk 3.52)",
+      "oracles": []
+    },
+    {
+      "nodeId": "9f365d97abaffe0febbec8c11e6066d24634b66ff3150011e953e3e736c11a3f",
+      "branchName": "t4/dual-stack/9f365d97abaf",
+      "planChoice": "copy#1=object storage replication; create_network#3=segmented service mesh; create_vm#2=gpu accelerated workers",
+      "rank": 3,
+      "score": {
+        "total": 6.497,
+        "risk": 3.598,
+        "complexity": 7.233,
+        "perf": 6.514,
+        "devTime": 8.617,
+        "depsReady": 6.5
+      },
+      "summary": "t4/dual-stack/9f365d97abaf ranks #3 with total 6.50 (risk 3.60)",
+      "oracles": []
+    }
+  ]
+}

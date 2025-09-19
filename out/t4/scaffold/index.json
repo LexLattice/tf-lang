@@ -1,0 +1,170 @@
+{
+  "version": "0.1.0",
+  "template": "dual-stack",
+  "generatedAt": "1970-01-01T00:00:00.000Z",
+  "meta": {
+    "seed": 42,
+    "specHash": "0cb630e68e6bf8a348049bd54c48b6d60e5dfb50b41df7526bb8947b2d0ea667",
+    "version": "0.1.0"
+  },
+  "branches": [
+    {
+      "nodeId": "b7e8b3ebecdbb614e662765f9149727e9029932fcf271df17b5397b4cb4b97c5",
+      "branchName": "t4/dual-stack/b7e8b3ebecdb",
+      "workingDir": "branches/b7e8b3ebecdb",
+      "template": "dual-stack",
+      "planChoice": "copy#1=object storage replication; create_network#3=flat network with security groups; create_vm#2=gpu accelerated workers",
+      "summary": "t4/dual-stack/b7e8b3ebecdb tracks copy#1=object storage replication; create_network#3=flat network with security groups; create_vm#2=gpu accelerated workers (total 6.54)",
+      "repoActions": [
+        {
+          "type": "checkout",
+          "params": {
+            "base": "main"
+          }
+        },
+        {
+          "type": "createBranch",
+          "params": {
+            "name": "t4/dual-stack/b7e8b3ebecdb"
+          }
+        },
+        {
+          "type": "applyTemplate",
+          "params": {
+            "template": "dual-stack"
+          }
+        },
+        {
+          "type": "updateScripts",
+          "params": {
+            "scripts": {
+              "t4:oracle": "pnpm tf-check run --mode=ci",
+              "t4:report": "pnpm tf-plan compare --plan out/t4/plan/plan.ndjson --inputs out/t4/scaffold/index.json --out out/t4/compare"
+            }
+          }
+        }
+      ],
+      "ciActions": [
+        {
+          "type": "workflow",
+          "path": ".github/workflows/t4-dual-stack-b7e8b3ebecdb.yml",
+          "uses": ".github/workflows/reusable-tf-check.yml",
+          "with": {
+            "branch": "t4/dual-stack/b7e8b3ebecdb",
+            "upload": true
+          }
+        }
+      ]
+    },
+    {
+      "nodeId": "d9c6d9cad0d1ba1db1b68710d0eaba901bb53e8ced480cf116f3fec334bc6084",
+      "branchName": "t4/dual-stack/d9c6d9cad0d1",
+      "workingDir": "branches/d9c6d9cad0d1",
+      "template": "dual-stack",
+      "planChoice": "copy#1=delta snapshot streaming; create_network#3=flat network with security groups; create_vm#2=gpu accelerated workers",
+      "summary": "t4/dual-stack/d9c6d9cad0d1 tracks copy#1=delta snapshot streaming; create_network#3=flat network with security groups; create_vm#2=gpu accelerated workers (total 6.53)",
+      "repoActions": [
+        {
+          "type": "checkout",
+          "params": {
+            "base": "main"
+          }
+        },
+        {
+          "type": "createBranch",
+          "params": {
+            "name": "t4/dual-stack/d9c6d9cad0d1"
+          }
+        },
+        {
+          "type": "applyTemplate",
+          "params": {
+            "template": "dual-stack"
+          }
+        },
+        {
+          "type": "updateScripts",
+          "params": {
+            "scripts": {
+              "t4:oracle": "pnpm tf-check run --mode=ci",
+              "t4:report": "pnpm tf-plan compare --plan out/t4/plan/plan.ndjson --inputs out/t4/scaffold/index.json --out out/t4/compare"
+            }
+          }
+        }
+      ],
+      "ciActions": [
+        {
+          "type": "workflow",
+          "path": ".github/workflows/t4-dual-stack-d9c6d9cad0d1.yml",
+          "uses": ".github/workflows/reusable-tf-check.yml",
+          "with": {
+            "branch": "t4/dual-stack/d9c6d9cad0d1",
+            "upload": true
+          }
+        }
+      ]
+    },
+    {
+      "nodeId": "9f365d97abaffe0febbec8c11e6066d24634b66ff3150011e953e3e736c11a3f",
+      "branchName": "t4/dual-stack/9f365d97abaf",
+      "workingDir": "branches/9f365d97abaf",
+      "template": "dual-stack",
+      "planChoice": "copy#1=object storage replication; create_network#3=segmented service mesh; create_vm#2=gpu accelerated workers",
+      "summary": "t4/dual-stack/9f365d97abaf tracks copy#1=object storage replication; create_network#3=segmented service mesh; create_vm#2=gpu accelerated workers (total 6.50)",
+      "repoActions": [
+        {
+          "type": "checkout",
+          "params": {
+            "base": "main"
+          }
+        },
+        {
+          "type": "createBranch",
+          "params": {
+            "name": "t4/dual-stack/9f365d97abaf"
+          }
+        },
+        {
+          "type": "applyTemplate",
+          "params": {
+            "template": "dual-stack"
+          }
+        },
+        {
+          "type": "updateScripts",
+          "params": {
+            "scripts": {
+              "t4:oracle": "pnpm tf-check run --mode=ci",
+              "t4:report": "pnpm tf-plan compare --plan out/t4/plan/plan.ndjson --inputs out/t4/scaffold/index.json --out out/t4/compare"
+            }
+          }
+        }
+      ],
+      "ciActions": [
+        {
+          "type": "workflow",
+          "path": ".github/workflows/t4-dual-stack-9f365d97abaf.yml",
+          "uses": ".github/workflows/reusable-tf-check.yml",
+          "with": {
+            "branch": "t4/dual-stack/9f365d97abaf",
+            "upload": true
+          }
+        }
+      ]
+    }
+  ],
+  "lookup": {
+    "b7e8b3ebecdbb614e662765f9149727e9029932fcf271df17b5397b4cb4b97c5": {
+      "branchName": "t4/dual-stack/b7e8b3ebecdb",
+      "workingDir": "branches/b7e8b3ebecdb"
+    },
+    "d9c6d9cad0d1ba1db1b68710d0eaba901bb53e8ced480cf116f3fec334bc6084": {
+      "branchName": "t4/dual-stack/d9c6d9cad0d1",
+      "workingDir": "branches/d9c6d9cad0d1"
+    },
+    "9f365d97abaffe0febbec8c11e6066d24634b66ff3150011e953e3e736c11a3f": {
+      "branchName": "t4/dual-stack/9f365d97abaf",
+      "workingDir": "branches/9f365d97abaf"
+    }
+  }
+}

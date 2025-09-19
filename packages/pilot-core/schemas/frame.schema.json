@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tf-lang.dev/schemas/pilot/frame.schema.json",
+  "title": "PilotFrame",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ts", "sym", "seq", "bid", "ask", "last", "volume"],
+  "properties": {
+    "ts": { "type": "number" },
+    "sym": { "type": "string", "minLength": 1 },
+    "seq": { "type": "number" },
+    "bid": { "type": "string", "pattern": "^-?\\d+(?:\\.\\d+)?$" },
+    "ask": { "type": "string", "pattern": "^-?\\d+(?:\\.\\d+)?$" },
+    "last": { "type": "string", "pattern": "^-?\\d+(?:\\.\\d+)?$" },
+    "volume": { "type": "string", "pattern": "^-?\\d+(?:\\.\\d+)?$" },
+    "meta": { "type": "object", "additionalProperties": true }
+  }
+}

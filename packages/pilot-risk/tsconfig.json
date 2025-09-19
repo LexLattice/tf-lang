@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "declaration": true,
+    "declarationMap": true,
+    "module": "node16",
+    "target": "es2019",
+    "moduleResolution": "node16",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "strict": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["dist", "node_modules"]
+}

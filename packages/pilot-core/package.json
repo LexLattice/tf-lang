@@ -1,0 +1,27 @@
+{
+  "name": "@tf-lang/pilot-core",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./schemas/frame": "./schemas/frame.schema.json",
+    "./schemas/order": "./schemas/order.schema.json",
+    "./schemas/state": "./schemas/state.schema.json"
+  },
+  "files": ["dist", "schemas"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.7",
+    "typescript": "^5.5.4"
+  }
+}

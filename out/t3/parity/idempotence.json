@@ -1,4 +1,25 @@
 {
   "equal": true,
-  "note": "scaffold"
+  "oracle": "idempotence",
+  "rust": [
+    {
+      "ok": true,
+      "value": {
+        "applicationsChecked": 1,
+        "casesChecked": 1
+      }
+    }
+  ],
+  "seeds": [
+    "0x00000001"
+  ],
+  "ts": [
+    {
+      "ok": true,
+      "value": {
+        "applicationsChecked": 1,
+        "casesChecked": 1
+      }
+    }
+  ]
 }

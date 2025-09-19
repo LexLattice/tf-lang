@@ -446,6 +446,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "tf-oracles-conservation"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tf-oracles-core",
+ "thiserror",
+]
+
+[[package]]
 name = "tf-oracles-core"
 version = "0.1.0"
 dependencies = [
@@ -459,6 +469,40 @@ name = "tf-oracles-determinism"
 version = "0.1.0"
 dependencies = [
  "proptest",
+ "serde",
+ "serde_json",
+ "tf-oracles-core",
+ "thiserror",
+]
+
+[[package]]
+name = "tf-oracles-idempotence"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tf-oracles-core",
+ "thiserror",
+]
+
+[[package]]
+name = "tf-oracles-runner"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "serde",
+ "serde_json",
+ "tf-oracles-conservation",
+ "tf-oracles-core",
+ "tf-oracles-idempotence",
+ "tf-oracles-transport",
+ "thiserror",
+]
+
+[[package]]
+name = "tf-oracles-transport"
+version = "0.1.0"
+dependencies = [
  "serde",
  "serde_json",
  "tf-oracles-core",

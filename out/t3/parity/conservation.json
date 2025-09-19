@@ -1,4 +1,23 @@
 {
   "equal": true,
-  "note": "scaffold"
+  "oracle": "conservation",
+  "rust": [
+    {
+      "ok": true,
+      "value": {
+        "keysChecked": 3
+      }
+    }
+  ],
+  "seeds": [
+    "0x00000001"
+  ],
+  "ts": [
+    {
+      "ok": true,
+      "value": {
+        "keysChecked": 3
+      }
+    }
+  ]
 }

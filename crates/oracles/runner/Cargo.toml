@@ -1,0 +1,20 @@
+[package]
+name = "tf-oracles-runner"
+version = "0.1.0"
+edition = "2021"
+description = "Command-line runner for TF-Lang oracles"
+license = "MIT"
+
+[[bin]]
+name = "t3-oracle-runner"
+path = "src/main.rs"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+tf-oracles-core = { path = "../core" }
+tf-oracles-conservation = { path = "../conservation" }
+tf-oracles-idempotence = { path = "../idempotence" }
+tf-oracles-transport = { path = "../transport" }
+clap = { version = "4", features = ["derive"] }
+thiserror = { workspace = true }

@@ -1,5 +1,12 @@
 export type { Canonicalizer } from "./canonical.js";
 export { canonicalStringify, defaultCanonicalize } from "./canonical.js";
+export type { DiffOptions, DiffResult } from "./diff.js";
+export {
+  diffValues,
+  escapePointerSegment,
+  isPlainObject,
+  pointerFromSegments,
+} from "./diff.js";
 export type {
   Oracle,
   OracleCtx,

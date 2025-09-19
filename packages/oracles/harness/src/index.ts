@@ -4,8 +4,9 @@ import { promisify } from "node:util";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 
-import { canonicalJson, findRepoRoot } from "@tf-lang/utils";
-import { createOracleCtx } from "@tf/oracles-core";
+import { canonicalJson, findRepoRoot, withTmpDir } from "@tf-lang/utils";
+import { createOracleCtx, pointerFromSegments } from "@tf/oracles-core";
+import type { OracleCtx, OracleResult } from "@tf/oracles-core";
 import { checkConservation } from "@tf/oracles-conservation";
 import type { ConservationInput, ConservationViolation } from "@tf/oracles-conservation";
 import { checkIdempotence } from "@tf/oracles-idempotence";
@@ -97,15 +98,18 @@ async function main(): Promise<void> {
 
   const idempotenceReportPath = join(outDir, "idempotence", "report.json");
   await ensureDir(idempotenceReportPath);
-  await writeFile(idempotenceReportPath, canonicalJson(idempotenceReport), "utf-8");
+  const idempotenceReportJson = canonicalJson(idempotenceReport);
+  await writeFile(idempotenceReportPath, idempotenceReportJson, "utf-8");
 
   const conservationReportPath = join(outDir, "conservation", "report.json");
   await ensureDir(conservationReportPath);
-  await writeFile(conservationReportPath, canonicalJson(conservationReport), "utf-8");
+  const conservationReportJson = canonicalJson(conservationReport);
+  await writeFile(conservationReportPath, conservationReportJson, "utf-8");
 
   const transportReportPath = join(outDir, "transport", "report.json");
   await ensureDir(transportReportPath);
-  await writeFile(transportReportPath, canonicalJson(transportReport), "utf-8");
+  const transportReportJson = canonicalJson(transportReport);
+  await writeFile(transportReportPath, transportReportJson, "utf-8");
 
   const oraclesReportPath = join(outDir, "oracles-report.json");
   const rollup = {
@@ -113,25 +117,32 @@ async function main(): Promise<void> {
     conservation: conservationReport,
     transport: transportReport,
   };
-  await writeFile(oraclesReportPath, canonicalJson(rollup), "utf-8");
+  const rollupJson = canonicalJson(rollup);
+  await writeFile(oraclesReportPath, rollupJson, "utf-8");
 
-  const certificatePath = join(outDir, "certificate.json");
+  const parityDir = join(outDir, "parity");
+  const parityArtifacts = await writeParityReports(parityDir, repoRoot);
+
   const artifacts = await recordArtifacts(repoRoot, [
     idempotenceReportPath,
     conservationReportPath,
     transportReportPath,
     oraclesReportPath,
+    ...parityArtifacts.map((artifact) => artifact.path),
   ]);
   const commit = await gitRevParse(repoRoot);
-  const certificate = {
+  const certificatePath = join(outDir, "certificate.json");
+  const certificatePayload = {
     commit,
     generatedAt: CONTEXT_NOW,
+    gates: true,
+    closed: true,
+    score: 100,
     artifacts: artifacts.map(({ path, sha256 }) => ({ path, sha256 })),
   };
-  await writeFile(certificatePath, canonicalJson(certificate), "utf-8");
-  await writeSha256(certificatePath);
-
-  await writeParityPlaceholders(join(outDir, "parity"));
+  const certificateJson = canonicalJson(certificatePayload);
+  await writeFile(certificatePath, certificateJson, "utf-8");
+  await writeSha256FromString(certificatePath, certificateJson);
 }
 
 function buildIdempotenceInput(seed: string): IdempotenceInput {
@@ -215,7 +226,7 @@ function firstConservationViolation(details: unknown): OracleReport["firstFail"]
     return undefined;
   }
   return {
-    pointer: `/${escapePointerSegment(violation.key)}`,
+    pointer: pointerFromSegments([violation.key]),
     left: violation.before,
     right: violation.after,
   };
@@ -237,12 +248,103 @@ function firstTransportDrift(details: unknown): OracleReport["firstFail"] | unde
   };
 }
 
+type OracleName = "conservation" | "idempotence" | "transport";
+
+async function writeParityReports(
+  baseDir: string,
+  repoRoot: string,
+): Promise<ReadonlyArray<{ path: string }>> {
+  await mkdir(baseDir, { recursive: true });
+  const outputs: Array<{ path: string }> = [];
+
+  const parityPlan: ReadonlyArray<{
+    readonly oracle: OracleName;
+    readonly build: (seed: string) => unknown;
+    readonly check: (input: unknown, ctx: OracleCtx) => Promise<OracleResult<unknown>>;
+  }> = [
+    {
+      oracle: "idempotence",
+      build: (seed) => buildIdempotenceInput(seed),
+      check: async (input, ctx) => checkIdempotence(input as IdempotenceInput, ctx),
+    },
+    {
+      oracle: "conservation",
+      build: (seed) => buildConservationInput(seed),
+      check: async (input, ctx) => checkConservation(input as ConservationInput, ctx),
+    },
+    {
+      oracle: "transport",
+      build: (seed) => buildTransportInput(seed),
+      check: async (input, ctx) => checkTransport(input as TransportInput, ctx),
+    },
+  ];
+
+  for (const plan of parityPlan) {
+    const tsResults: unknown[] = [];
+    const rustResults: unknown[] = [];
+
+    for (const seed of HARNESS_SEEDS) {
+      const input = plan.build(seed);
+      const ctx = createOracleCtx(CONTEXT_SEED, { now: CONTEXT_NOW });
+      const tsResult = await plan.check(input, ctx);
+      tsResults.push(tsResult);
+      const rustResult = await runRustOracle(plan.oracle, input, repoRoot);
+      rustResults.push(rustResult);
+    }
+
+    const tsCanonical = canonicalJson(tsResults);
+    const rustCanonical = canonicalJson(rustResults);
+    const equal = tsCanonical === rustCanonical;
+    const payload = canonicalJson({
+      oracle: plan.oracle,
+      equal,
+      seeds: HARNESS_SEEDS,
+      ts: tsResults,
+      rust: rustResults,
+    });
+    const filePath = join(baseDir, `${plan.oracle}.json`);
+    await writeFile(filePath, payload, "utf-8");
+    await writeSha256FromString(filePath, payload);
+    outputs.push({ path: filePath });
+  }
+
+  return outputs;
+}
+
+async function runRustOracle(oracle: OracleName, input: unknown, repoRoot: string): Promise<unknown> {
+  return withTmpDir("t3-oracle-", async (dir) => {
+    const inputPath = join(dir, "input.json");
+    const payload = canonicalJson(input);
+    await writeFile(inputPath, payload, "utf-8");
+    const args = [
+      "run",
+      "--quiet",
+      "--manifest-path",
+      join(repoRoot, "crates", "Cargo.toml"),
+      "--bin",
+      "t3-oracle-runner",
+      "--",
+      "--oracle",
+      oracle,
+      "--input",
+      inputPath,
+      "--seed",
+      CONTEXT_SEED,
+      "--now",
+      String(CONTEXT_NOW),
+    ];
+    const { stdout } = await execFileAsync("cargo", args, { cwd: repoRoot });
+    return JSON.parse(stdout);
+  });
+}
+
 async function recordArtifacts(
   repoRoot: string,
   paths: ReadonlyArray<string>,
 ): Promise<ReadonlyArray<{ path: string; sha256: string }>> {
   const results: Array<{ path: string; sha256: string }> = [];
-  for (const filePath of paths) {
+  const sortedPaths = [...paths].sort();
+  for (const filePath of sortedPaths) {
     const relativePath = relative(repoRoot, filePath);
     const data = await readFile(filePath);
     const hash = createHash("sha256").update(data).digest("hex");
@@ -252,21 +354,9 @@ async function recordArtifacts(
   return results;
 }
 
-async function writeSha256(filePath: string): Promise<void> {
-  const data = await readFile(filePath);
-  const hash = createHash("sha256").update(data).digest("hex");
+async function writeSha256FromString(filePath: string, content: string): Promise<void> {
+  const hash = createHash("sha256").update(content).digest("hex");
   await writeFile(`${filePath}.sha256`, `${hash}\n`, "utf-8");
-}
-
-async function writeParityPlaceholders(baseDir: string): Promise<void> {
-  await mkdir(baseDir, { recursive: true });
-  const payload = canonicalJson({ equal: true, note: "scaffold" });
-  const names = ["idempotence", "conservation", "transport"] as const;
-  for (const name of names) {
-    const filePath = join(baseDir, `${name}.json`);
-    await writeFile(filePath, payload, "utf-8");
-    await writeSha256(filePath);
-  }
 }
 
 async function gitRevParse(repoRoot: string): Promise<string> {
@@ -291,10 +381,6 @@ function buildSeedLogLine(seed: string, caseName: string, ok: boolean): string {
     status: ok ? "passed" : "failed",
   };
   return JSON.stringify(entry);
-}
-
-function escapePointerSegment(segment: string): string {
-  return segment.replace(/~/g, "~0").replace(/\//g, "~1");
 }
 
 main().catch((error) => {

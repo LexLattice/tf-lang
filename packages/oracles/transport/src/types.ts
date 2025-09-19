@@ -20,4 +20,8 @@ export interface TransportDrift {
   readonly pointer: string;
   readonly before: unknown;
   readonly after: unknown;
+  readonly error?: {
+    readonly code: string;
+    readonly message: string;
+  };
 }

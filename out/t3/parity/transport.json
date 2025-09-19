@@ -1,4 +1,25 @@
 {
   "equal": true,
-  "note": "scaffold"
+  "oracle": "transport",
+  "rust": [
+    {
+      "ok": true,
+      "value": {
+        "casesChecked": 1,
+        "roundTripsChecked": 1
+      }
+    }
+  ],
+  "seeds": [
+    "0x00000001"
+  ],
+  "ts": [
+    {
+      "ok": true,
+      "value": {
+        "casesChecked": 1,
+        "roundTripsChecked": 1
+      }
+    }
+  ]
 }

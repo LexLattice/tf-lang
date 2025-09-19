@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+#[cfg(feature = "dev_proofs")]
+use std::io::Write;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Replace {
@@ -59,6 +61,20 @@ enum DevProofsState {
 
 static DEV_PROOFS_STATE: AtomicU8 = AtomicU8::new(DevProofsState::Uninit as u8);
 
+#[cfg(feature = "dev_proofs")]
+#[derive(Serialize)]
+pub struct ProofMeta<'a> {
+    pub runtime: &'a str,
+    pub ts: u64,
+    pub region: Option<String>,
+    pub gate: Option<String>,
+    pub oracle: Option<String>,
+    pub seed: Option<String>,
+}
+
+#[cfg(not(feature = "dev_proofs"))]
+pub type ProofMeta<'a> = ();
+
 /// Returns true when DEV_PROOFS=1. First call reads the environment and caches
 /// the result for subsequent constant-time checks.
 pub fn dev_proofs_enabled() -> bool {
@@ -83,6 +99,31 @@ pub fn emit(tag: ProofTag) {
     }
     PROOF_LOG.with(|log| log.borrow_mut().push(tag));
 }
+
+#[cfg(feature = "dev_proofs")]
+pub fn emit_tag(tag: &ProofTag, meta: &ProofMeta) {
+    if !dev_proofs_enabled() {
+        return;
+    }
+    if std::env::var("TF_TRACE_STDOUT").ok().as_deref() == Some("1") {
+        let wrapper = serde_json::json!({
+            "runtime": meta.runtime,
+            "ts": meta.ts,
+            "region": meta.region,
+            "gate": meta.gate,
+            "oracle": meta.oracle,
+            "seed": meta.seed,
+            "tag": tag,
+        });
+        let mut stdout = std::io::stdout();
+        let _ = serde_json::to_writer(&mut stdout, &wrapper);
+        let _ = stdout.write_all(b"\n");
+    }
+    PROOF_LOG.with(|log| log.borrow_mut().push(tag.clone()));
+}
+
+#[cfg(not(feature = "dev_proofs"))]
+pub fn emit_tag(_tag: &ProofTag, _meta: &ProofMeta) {}
 
 pub fn flush() -> Vec<ProofTag> {
     PROOF_LOG.with(|log| log.take())

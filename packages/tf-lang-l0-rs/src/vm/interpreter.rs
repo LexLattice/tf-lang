@@ -2,12 +2,38 @@ use crate::canon::{blake3_hex, canonical_json_bytes};
 use crate::model::bytecode::Instr;
 use crate::model::{JournalEntry, Program, World};
 use crate::vm::opcode::Host;
-use crate::proof::{ProofTag, Effect, NormalizationTarget, TransportOp, Replace, emit, dev_proofs_enabled};
+use crate::proof::Replace;
+#[cfg(feature = "dev_proofs")]
+use crate::proof::{ProofTag, Effect, NormalizationTarget, TransportOp};
+#[cfg(feature = "dev_proofs")]
+use crate::proof::ProofMeta;
+#[cfg(feature = "dev_proofs")]
+use std::time::{SystemTime, UNIX_EPOCH};
 use serde_json::Value;
 
 /// Simple VM running SSA bytecode with JSON values as registers.
 pub struct VM<'h> {
     pub host: &'h dyn Host,
+}
+
+#[cfg(feature = "dev_proofs")]
+fn now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+#[cfg(feature = "dev_proofs")]
+fn base_meta() -> ProofMeta<'static> {
+    ProofMeta {
+        runtime: "rust",
+        ts: now_ms(),
+        region: None,
+        gate: None,
+        oracle: None,
+        seed: None,
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -38,7 +64,15 @@ impl<'h> VM<'h> {
                 Instr::Assert { pred, msg } => {
                     let v = get(*pred, &regs)?;
                     if !v.as_bool().unwrap_or(false) {
-                        emit(ProofTag::Refutation { code: "ASSERT".into(), msg: Some(msg.clone()) });
+                        #[cfg(feature = "dev_proofs")]
+                        if crate::proof::dev_proofs_enabled() {
+                            let mut meta = base_meta();
+                            meta.gate = Some("assert".into());
+                            crate::emit_tag!(
+                                ProofTag::Refutation { code: "ASSERT".into(), msg: Some(msg.clone()) },
+                                meta
+                            );
+                        }
                         return Err(VmError::Invalid(format!("ASSERT failed: {}", msg)).into());
                     }
                 }
@@ -99,8 +133,15 @@ impl<'h> VM<'h> {
                 }
                 Instr::LensProj { dst, state, region } => {
                     let sub = self.host.lens_project(get(*state, &regs)?, region)?;
-                    if dev_proofs_enabled() {
-                        emit(ProofTag::Transport { op: TransportOp::LensProj, region: region.clone() });
+                    #[cfg(feature = "dev_proofs")]
+                    if crate::proof::dev_proofs_enabled() {
+                        let mut meta = base_meta();
+                        meta.region = Some(region.clone());
+                        meta.gate = Some("lens_project".into());
+                        crate::emit_tag!(
+                            ProofTag::Transport { op: TransportOp::LensProj, region: region.clone() },
+                            meta
+                        );
                     }
                     regs[*dst as usize] = sub;
                 }
@@ -113,8 +154,15 @@ impl<'h> VM<'h> {
                     let merged = self
                         .host
                         .lens_merge(get(*state, &regs)?, region, get(*sub, &regs)?)?;
-                    if dev_proofs_enabled() {
-                        emit(ProofTag::Transport { op: TransportOp::LensMerge, region: region.clone() });
+                    #[cfg(feature = "dev_proofs")]
+                    if crate::proof::dev_proofs_enabled() {
+                        let mut meta = base_meta();
+                        meta.region = Some(region.clone());
+                        meta.gate = Some("lens_merge".into());
+                        crate::emit_tag!(
+                            ProofTag::Transport { op: TransportOp::LensMerge, region: region.clone() },
+                            meta
+                        );
                     }
                     regs[*dst as usize] = merged;
                 }
@@ -182,8 +230,19 @@ impl<'h> VM<'h> {
                         a.push(get(*r, &regs)?.clone());
                     }
                     let out = self.host.call_tf(tf_id, &a).map_err(|e| {
-                        if dev_proofs_enabled() {
-                            emit(ProofTag::Conservativity { callee: tf_id.clone(), expected: "ok".into(), found: format!("{}", e) });
+                        #[cfg(feature = "dev_proofs")]
+                        if crate::proof::dev_proofs_enabled() {
+                            let mut meta = base_meta();
+                            meta.gate = Some("call_tf".into());
+                            meta.oracle = Some(tf_id.clone());
+                            crate::emit_tag!(
+                                ProofTag::Conservativity {
+                                    callee: tf_id.clone(),
+                                    expected: "ok".into(),
+                                    found: format!("{}", e)
+                                },
+                                meta
+                            );
                         }
                         e
                     })?;
@@ -202,10 +261,18 @@ impl<'h> VM<'h> {
         } else {
             Some(Replace { replace: final_state.clone() })
         };
-        if dev_proofs_enabled() {
-            emit(ProofTag::Witness { delta: delta.clone(), effect: Effect::default() });
+        #[cfg(feature = "dev_proofs")]
+        if crate::proof::dev_proofs_enabled() {
+            let mut witness_meta = base_meta();
+            witness_meta.gate = Some("vm.run".into());
+            crate::emit_tag!(
+                ProofTag::Witness { delta: delta.clone(), effect: Effect::default() },
+                witness_meta
+            );
             for target in [NormalizationTarget::Delta, NormalizationTarget::Effect] {
-                emit(ProofTag::Normalization { target });
+                let mut meta = base_meta();
+                meta.gate = Some("vm.run".into());
+                crate::emit_tag!(ProofTag::Normalization { target }, meta);
             }
         }
         let out = match delta {

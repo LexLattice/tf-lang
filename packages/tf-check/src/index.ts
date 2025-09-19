@@ -65,6 +65,7 @@ export const HELP_TEXT = `tf-check — validate TF-Lang specs\n\n` +
   `  tf-check validate --input <path>    Validate a spec file\n` +
   `  tf-check validate --input <path> --out <dir>  Write result.json next to CLI output\n` +
   `  tf-check artifacts [--out <dir>]    Emit canonical help.txt and result.json for CI\n` +
+  `  tf-check trace --runtime <rt> [options]  Stream DEV_PROOFS JSONL traces\n` +
   `\n` +
   `Flags must be provided individually (e.g., "-h -v"; combined "-hv" is unsupported).\n` +
   `\n` +

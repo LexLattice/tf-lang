@@ -18,7 +18,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "vectors": "tsx scripts/run-vectors.ts",
-    "prepublishOnly": "pnpm run build"
+    "prepublishOnly": "pnpm run build",
+    "pretrace:smoke": "pnpm run build",
+    "trace:smoke": "node ./dist/smoke-trace.js"
   },
   "dependencies": {
     "@noble/hashes": "^2.0.0"

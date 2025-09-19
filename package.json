@@ -1,12 +1,18 @@
 {
 	"name": "tf-lang",
 	"private": true,
-	"scripts": {
-		"test": "pnpm run --recursive test",
-		"build": "pnpm run --recursive build",
-		"preinstall": "corepack enable pnpm",
-		"check:fixtures": "tsx .codex/scripts/check-fixtures-json.ts"
-	},
+        "scripts": {
+                "test": "pnpm run --recursive test",
+                "build": "pnpm run --recursive build",
+                "preinstall": "corepack enable pnpm",
+                "check:fixtures": "tsx .codex/scripts/check-fixtures-json.ts",
+                "t5:build": "pnpm -w -r build",
+                "t5:test": "pnpm -w -r test",
+                "t5:run": "node scripts/t5-run.mjs",
+                "t5:rerun": "node scripts/t5-run.mjs --force",
+                "t5:clean": "node -e \"require('fs').rmSync('out/t5',{recursive:true,force:true}); console.log('cleaned out/t5')\"",
+                "t5:run:obsolete": "echo 'Use node scripts/t5-run.mjs (or t5:rerun) instead' && exit 1"
+        },
 	"devDependencies": {
 		"typescript": "5.9.2",
 		"ajv": "^8.12.0",

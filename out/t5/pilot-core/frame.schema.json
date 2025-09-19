@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://tf-lang.dev/schemas/pilot/frame.schema.json",
+  "title": "PilotFrame",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "ts": { "type": "integer", "minimum": 0 },
+    "sym": { "type": "string", "minLength": 1 },
+    "seq": { "type": "integer", "minimum": 0 },
+    "bid": { "$ref": "#/definitions/decimal" },
+    "ask": { "$ref": "#/definitions/decimal" },
+    "last": { "$ref": "#/definitions/decimal" },
+    "volume": { "$ref": "#/definitions/decimal" }
+  },
+  "required": ["ts", "sym", "seq", "bid", "ask", "last", "volume"],
+  "definitions": {
+    "decimal": {
+      "type": "string",
+      "pattern": "^-?\\d+(?:\\.\\d+)?$"
+    }
+  }
+}

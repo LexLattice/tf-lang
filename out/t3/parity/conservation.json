@@ -1,4 +1,15 @@
 {
   "equal": true,
-  "note": "scaffold"
+  "rust": {
+    "ok": true,
+    "value": {
+      "keysChecked": 3
+    }
+  },
+  "ts": {
+    "ok": true,
+    "value": {
+      "keysChecked": 3
+    }
+  }
 }

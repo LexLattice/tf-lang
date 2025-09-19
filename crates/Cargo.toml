@@ -2,6 +2,9 @@
 members = [
   "oracles/core",
   "oracles/determinism",
+  "oracles/conservation",
+  "oracles/idempotence",
+  "oracles/transport",
   "adapters/execution"
 ]
 resolver = "2"

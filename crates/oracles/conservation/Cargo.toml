@@ -1,0 +1,15 @@
+[package]
+name = "tf-oracles-conservation"
+version = "0.1.0"
+edition = "2021"
+description = "Conservation oracle ensuring key totals remain stable."
+license = "MIT"
+
+[lib]
+name = "tf_oracles_conservation"
+path = "src/lib.rs"
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+tf-oracles-core = { path = "../core" }

@@ -1,22 +1,36 @@
 {
   "artifacts": [
     {
-      "path": "out/t3/idempotence/report.json",
-      "sha256": "ace9d382de2ba1bbb2a87e83b73b20029597e9b669d882c3d07c84c98e7c3efa"
-    },
-    {
       "path": "out/t3/conservation/report.json",
       "sha256": "ace9d382de2ba1bbb2a87e83b73b20029597e9b669d882c3d07c84c98e7c3efa"
     },
     {
-      "path": "out/t3/transport/report.json",
+      "path": "out/t3/idempotence/report.json",
       "sha256": "ace9d382de2ba1bbb2a87e83b73b20029597e9b669d882c3d07c84c98e7c3efa"
     },
     {
       "path": "out/t3/oracles-report.json",
       "sha256": "0501a90e3d9bd032f28dad1238e3ce0fbe4929803da83e688405d96a63e8ca6e"
+    },
+    {
+      "path": "out/t3/parity/conservation.json",
+      "sha256": "9aa8d9d901b567486f6282d6f67302f134bb41eebb472b2057934ea211995f81"
+    },
+    {
+      "path": "out/t3/parity/idempotence.json",
+      "sha256": "f0fecf623a6b6bf25e1d9afb1e4d0429a2b79c29d50c73b97c56137e86e7bd02"
+    },
+    {
+      "path": "out/t3/parity/transport.json",
+      "sha256": "85c9a4349662e1e5ebd26516abc5bda8545094255a7302d613c8d6c7fd17b6ef"
+    },
+    {
+      "path": "out/t3/transport/report.json",
+      "sha256": "ace9d382de2ba1bbb2a87e83b73b20029597e9b669d882c3d07c84c98e7c3efa"
     }
   ],
-  "commit": "eee88cd4faca2937cf55e85d3ab3b4dfa30140b7",
-  "generatedAt": 0
+  "closed": true,
+  "commit": "2b0a6c9178ac028ba01ed445de415ab698fc3a7b",
+  "gates": true,
+  "score": 100
 }

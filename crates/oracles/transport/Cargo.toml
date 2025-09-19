@@ -1,0 +1,15 @@
+[package]
+name = "tf-oracles-transport"
+version = "0.1.0"
+edition = "2021"
+description = "Transport oracle validating JSON round-trips."
+license = "MIT"
+
+[lib]
+name = "tf_oracles_transport"
+path = "src/lib.rs"
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+tf-oracles-core = { path = "../core" }

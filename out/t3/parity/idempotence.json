@@ -1,4 +1,17 @@
 {
   "equal": true,
-  "note": "scaffold"
+  "rust": {
+    "ok": true,
+    "value": {
+      "applicationsChecked": 1,
+      "casesChecked": 1
+    }
+  },
+  "ts": {
+    "ok": true,
+    "value": {
+      "applicationsChecked": 1,
+      "casesChecked": 1
+    }
+  }
 }

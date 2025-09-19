@@ -1,4 +1,17 @@
 {
   "equal": true,
-  "note": "scaffold"
+  "rust": {
+    "ok": true,
+    "value": {
+      "casesChecked": 1,
+      "roundTripsChecked": 1
+    }
+  },
+  "ts": {
+    "ok": true,
+    "value": {
+      "casesChecked": 1,
+      "roundTripsChecked": 1
+    }
+  }
 }

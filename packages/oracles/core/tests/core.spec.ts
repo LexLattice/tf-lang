@@ -6,6 +6,7 @@ import {
   defaultCanonicalize,
   err,
   ok,
+  pointerFromSegments,
   withTrace,
 } from "../src/index.js";
 
@@ -75,5 +76,9 @@ describe("oracles core", () => {
       { id: 1, payload: { x: 1, y: 2 } },
       { id: 2, payload: { x: 1, y: 2 } },
     ]);
+  });
+
+  it("builds RFC-6901 root pointers", () => {
+    expect(pointerFromSegments([])).toBe("");
   });
 });

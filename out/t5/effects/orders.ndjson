@@ -1,0 +1,5 @@
+{"id":"meanReversion-0","ts":1710000007000,"sym":"BTCUSDT","side":"buy","quantity":"0.5","price":"65000.05","meta":{"trigger":"below-band","avg":65000.840000000004,"rng":0.2764023437630385}}
+{"id":"meanReversion-1","ts":1710000008000,"sym":"BTCUSDT","side":"buy","quantity":"0.5","price":"64999.95","meta":{"trigger":"below-band","avg":65000.75,"rng":0.5294158514589071}}
+{"id":"meanReversion-2","ts":1710000009000,"sym":"BTCUSDT","side":"buy","quantity":"0.5","price":"64999.85","meta":{"trigger":"below-band","avg":65000.65,"rng":0.05911232368089259}}
+{"id":"meanReversion-3","ts":1710000010000,"sym":"BTCUSDT","side":"buy","quantity":"0.5","price":"64999.75","meta":{"trigger":"below-band","avg":65000.55,"rng":0.06335184047929943}}
+{"id":"meanReversion-4","ts":1710000011000,"sym":"BTCUSDT","side":"buy","quantity":"0.5","price":"64999.65","meta":{"trigger":"below-band","avg":65000.45,"rng":0.7444168063811958}}

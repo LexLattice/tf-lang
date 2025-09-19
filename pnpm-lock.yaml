@@ -11,6 +11,18 @@ importers:
 
   .:
     devDependencies:
+      '@tf-lang/pilot-core':
+        specifier: workspace:*
+        version: link:packages/pilot-core
+      '@tf-lang/pilot-replay':
+        specifier: workspace:*
+        version: link:packages/pilot-replay
+      '@tf-lang/pilot-risk':
+        specifier: workspace:*
+        version: link:packages/pilot-risk
+      '@tf-lang/pilot-strategy':
+        specifier: workspace:*
+        version: link:packages/pilot-strategy
       '@tf-lang/tf-plan':
         specifier: workspace:*
         version: link:packages/tf-plan
@@ -233,6 +245,73 @@ importers:
         version: 5.9.2
       vitest:
         specifier: ^2.0.5
+        version: 2.1.9(@types/node@24.3.1)(jsdom@24.1.3)
+
+  packages/pilot-core:
+    dependencies:
+      ajv:
+        specifier: ^8.12.0
+        version: 8.17.1
+    devDependencies:
+      '@types/node':
+        specifier: ^24.3.1
+        version: 24.3.1
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.2
+      vitest:
+        specifier: ^2.1.3
+        version: 2.1.9(@types/node@24.3.1)(jsdom@24.1.3)
+
+  packages/pilot-replay:
+    dependencies:
+      '@tf-lang/pilot-core':
+        specifier: workspace:*
+        version: link:../pilot-core
+    devDependencies:
+      '@types/node':
+        specifier: ^24.3.1
+        version: 24.3.1
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.2
+      vitest:
+        specifier: ^2.1.3
+        version: 2.1.9(@types/node@24.3.1)(jsdom@24.1.3)
+
+  packages/pilot-risk:
+    dependencies:
+      '@tf-lang/pilot-core':
+        specifier: workspace:*
+        version: link:../pilot-core
+      ajv:
+        specifier: ^8.12.0
+        version: 8.17.1
+    devDependencies:
+      '@types/node':
+        specifier: ^24.3.1
+        version: 24.3.1
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.2
+      vitest:
+        specifier: ^2.1.3
+        version: 2.1.9(@types/node@24.3.1)(jsdom@24.1.3)
+
+  packages/pilot-strategy:
+    dependencies:
+      '@tf-lang/pilot-core':
+        specifier: workspace:*
+        version: link:../pilot-core
+    devDependencies:
+      '@types/node':
+        specifier: ^24.3.1
+        version: 24.3.1
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.2
+      vitest:
+        specifier: ^2.1.3
         version: 2.1.9(@types/node@24.3.1)(jsdom@24.1.3)
 
   packages/tf-check:

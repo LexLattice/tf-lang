@@ -1,6 +1,6 @@
 # .github/actions/setup-pnpm/action.yml
 name: setup-pnpm
-description: Setup Node + pnpm (reads pinned version from package.json:packageManager), optionally install
+description: Setup Node + pnpm (uses version from package.json "packageManager"), optional install
 inputs:
   node-version:
     description: Node.js version
@@ -14,28 +14,34 @@ inputs:
     description: Use --frozen-lockfile when installing
     required: false
     default: 'true'
+  cache-dependency-path:
+    description: Path(s) to pnpm-lock.yaml for caching (supports globs)
+    required: false
+    default: '**/pnpm-lock.yaml'
 
 runs:
-  using: composite
+  using: "composite"
   steps:
-    # 1) Install pnpm FIRST (reads version from package.json's packageManager)
+    # 1) Node
+    - uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs['node-version'] }}
+        cache: pnpm
+        cache-dependency-path: ${{ inputs['cache-dependency-path'] }}
+
+    # 2) Install pnpm (reads version from package.json: "packageManager": "pnpm@x.y.z")
     - uses: pnpm/action-setup@v4
       with:
         run_install: false
-        # optional: package_json_file: package.json
-
-    # 2) Then setup Node and enable pnpm cache
-    - uses: actions/setup-node@v4
-      with:
-        node-version: ${{ inputs.node-version }}
-        cache: pnpm
-        cache-dependency-path: |
-          pnpm-lock.yaml
-          **/pnpm-lock.yaml
 
     # 3) Sanity check
     - shell: bash
-      run: pnpm -v
+      run: |
+        echo "PATH=$PATH"
+        node -v
+        pnpm -v
+        which pnpm || true
+        command -v pnpm || true
 
     # 4) Optional install
     - if: ${{ inputs.install == 'true' }}

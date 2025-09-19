@@ -32,8 +32,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Unified toolchain (Node + pnpm + cache + install)
-      # Requires: .github/actions/setup-pnpm/action.yml from our previous message
+      # Unified toolchain (pnpm first, then Node with cache, then optional install)
       - name: Setup Node + pnpm
         uses: ./.github/actions/setup-pnpm
         with:

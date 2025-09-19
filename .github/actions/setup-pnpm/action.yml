@@ -1,6 +1,6 @@
 # .github/actions/setup-pnpm/action.yml
 name: setup-pnpm
-description: Setup Node + pnpm (reads pinned version from package.json "packageManager"), optionally run install
+description: Setup pnpm + Node (pnpm first to avoid cache failures), then optionally install deps
 
 inputs:
   node-version:
@@ -27,19 +27,21 @@ inputs:
 runs:
   using: "composite"
   steps:
-    # 1) Node (with pnpm cache)
+    # 1) Install pnpm FIRST so setup-node's "cache: pnpm" has a binary to call.
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        # If you pin pnpm in package.json -> "packageManager": "pnpm@x.y.z"
+        # the action will use that version automatically.
+        run_install: false
+
+    # 2) Now install Node and enable pnpm cache (safe, pnpm exists now).
     - name: Setup Node
       uses: actions/setup-node@v4
       with:
         node-version: ${{ inputs.node-version }}
         cache: pnpm
         cache-dependency-path: ${{ inputs.cache-dependency-path }}
-
-    # 2) pnpm (uses version from package.json: "packageManager": "pnpm@x.y.z")
-    - name: Setup pnpm
-      uses: pnpm/action-setup@v4
-      with:
-        run_install: false
 
     # 3) Sanity: show versions + PATH visibility
     - name: Verify toolchain
@@ -51,6 +53,9 @@ runs:
         npm -v
         pnpm -v
         command -v pnpm
+        # show where pnpm is installed
+        echo "PNPM_HOME=${PNPM_HOME:-}"
+        if command -v pnpm >/dev/null 2>&1; then pnpm store path || true; fi
 
     # 4) Optional install at repo root (or provided working-directory)
     - name: Install dependencies

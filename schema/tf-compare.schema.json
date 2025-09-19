@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tf-lang.dev/schema/tf-compare.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["meta", "branches", "recommended"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seed", "generatedAt", "version"],
+      "properties": {
+        "seed": { "type": "integer" },
+        "generatedAt": { "type": "string", "format": "date-time" },
+        "version": { "type": "string", "minLength": 1 },
+        "inputs": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "plan": { "type": "string", "minLength": 1 },
+            "scaffold": { "type": "string", "minLength": 1 },
+            "oracles": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "branches": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["nodeId", "rank", "score", "scores", "summary"],
+        "properties": {
+          "nodeId": { "type": "string", "pattern": "^[0-9a-f]{12,64}$" },
+          "rank": { "type": "integer", "minimum": 1 },
+          "score": { "type": "number" },
+          "scores": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["score", "weight", "label", "explain"],
+              "properties": {
+                "label": { "type": "string", "minLength": 1 },
+                "score": { "type": "number" },
+                "weight": { "type": "number" },
+                "explain": { "type": "string", "minLength": 1 }
+              }
+            }
+          },
+          "summary": { "type": "string", "minLength": 1 },
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["label", "path"],
+              "properties": {
+                "label": { "type": "string", "minLength": 1 },
+                "path": { "type": "string", "minLength": 1 },
+                "type": { "enum": ["json", "html", "log", "other"] }
+              }
+            }
+          }
+        }
+      }
+    },
+    "recommended": { "type": "string", "pattern": "^[0-9a-f]{12,64}$" }
+  }
+}

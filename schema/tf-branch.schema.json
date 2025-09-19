@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tf-lang.dev/schema/tf-branch.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["nodeId", "specId", "component", "choice", "deps", "rationale", "score"],
+  "properties": {
+    "nodeId": { "type": "string", "pattern": "^[0-9a-f]{12,64}$" },
+    "specId": { "type": "string", "minLength": 1 },
+    "component": { "type": "string", "minLength": 1 },
+    "choice": { "type": "string", "minLength": 1 },
+    "deps": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[0-9a-f]{12,64}$" }
+    },
+    "rationale": { "type": "string", "minLength": 1 },
+    "score": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "complexity", "risk", "perf", "devTime", "depsReady", "explain"],
+      "properties": {
+        "total": { "type": "number" },
+        "complexity": { "type": "number" },
+        "risk": { "type": "number" },
+        "perf": { "type": "number" },
+        "devTime": { "type": "number" },
+        "depsReady": { "type": "number" },
+        "explain": {
+          "type": "array",
+          "minItems": 0,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["metric", "value", "rationale"],
+            "properties": {
+              "metric": { "type": "string", "minLength": 1 },
+              "value": { "type": "number" },
+              "weight": { "type": "number" },
+              "rationale": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    }
+  }
+}

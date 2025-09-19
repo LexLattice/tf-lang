@@ -1,5 +1,8 @@
 use serde_json::{json, Value};
-use tf_oracles_core::{canonical_string, err, ok, with_trace, OracleCtx, OracleResult};
+use tf_oracles_core::{
+    canonical_string, diff_canonical, err, ok, pointer_from_segments, with_trace, OracleCtx,
+    OracleResult, PointerSegment,
+};
 
 #[test]
 fn success_deduplicates_warnings() {
@@ -74,4 +77,38 @@ fn canonicalizes_key_order_even_when_input_unsorted() {
     let unsorted = json!({ "z": 1, "a": 2, "m": { "y": 3, "x": 4 } });
     let text = canonical_string(&unsorted).expect("string");
     assert_eq!(text, "{\"a\":2,\"m\":{\"x\":4,\"y\":3},\"z\":1}");
+}
+
+#[test]
+fn pointer_root_is_empty() {
+    assert_eq!(pointer_from_segments(Vec::<PointerSegment>::new()), "");
+}
+
+#[test]
+fn pointer_segments_escape_characters() {
+    assert_eq!(
+        pointer_from_segments([
+            PointerSegment::from("alpha"),
+            PointerSegment::from("beta"),
+        ]),
+        "/alpha/beta"
+    );
+    assert_eq!(
+        pointer_from_segments([
+            PointerSegment::from("~"),
+            PointerSegment::from("/"),
+            PointerSegment::from(""),
+        ]),
+        "/~0/~1/"
+    );
+}
+
+#[test]
+fn diff_reports_missing_array_entries() {
+    let left = json!([1, 2, 3]);
+    let right = json!([1, 2]);
+    let diff = diff_canonical(&left, &right).expect("diff");
+    assert_eq!(diff.pointer, "/2");
+    assert_eq!(diff.left, json!(3));
+    assert_eq!(diff.right, json!("[missing]"));
 }

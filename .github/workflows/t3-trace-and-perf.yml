@@ -10,14 +10,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # Use composite to ensure pnpm is installed before enabling Node cache
+      - name: Setup Node + pnpm
+        uses: ./.github/actions/setup-pnpm
         with:
           node-version: '20'
-          cache: 'pnpm'
-      - uses: pnpm/action-setup@v4
-        with: { version: 9 }
-      - run: pnpm -v
-      - run: pnpm install --frozen-lockfile
+          install: 'true'
+          frozen: 'true'
+          cache-dependency-path: '**/pnpm-lock.yaml'
 
       # Build tf-check + its local deps + the TS runtime used by defaultCommand()
       - run: pnpm --filter '@tf-lang/utils' -w run build
@@ -42,14 +42,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Setup Node + pnpm
+        uses: ./.github/actions/setup-pnpm
         with:
           node-version: '20'
-          cache: 'pnpm'
-      - uses: pnpm/action-setup@v4
-        with: { version: 9 }
-      - run: pnpm -v
-      - run: pnpm install --frozen-lockfile
+          install: 'true'
+          frozen: 'true'
+          cache-dependency-path: '**/pnpm-lock.yaml'
       - run: pnpm --filter '@tf-lang/utils' -w run build
       - run: pnpm --filter tf-lang-l0 -w run build
 

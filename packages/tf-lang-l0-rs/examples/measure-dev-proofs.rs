@@ -26,7 +26,7 @@ fn now_ms() -> u64 {
 fn run_workload(iterations: u64) {
     #[cfg(feature = "dev_proofs")]
     {
-        if !tf_lang_l0::proof::dev_proofs_enabled() {
+        if !tflang_l0::proof::dev_proofs_enabled() {
             return;
         }
         for i in 0..iterations {

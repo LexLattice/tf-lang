@@ -7,6 +7,7 @@ import * as fc from "fast-check";
 
 import { createOracleCtx } from "@tf/oracles-core";
 import { checkTransport, createTransportOracle } from "../src/index.js";
+import type { TransportDrift } from "../src/index.js";
 
 interface SeedsFile {
   readonly ts: {
@@ -63,7 +64,7 @@ describe("transport oracle", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.code).toBe("E_TRANSPORT_DRIFT");
-      const details = result.error.details as { drifts?: ReadonlyArray<{ pointer: string; before: unknown; after: unknown }> };
+      const details = result.error.details as { drifts?: ReadonlyArray<TransportDrift> };
       const drift = details.drifts?.[0];
       expect(drift?.pointer).toBe("/dropper");
       expect(drift?.before).toBe("[fn dropper]");
@@ -88,12 +89,73 @@ describe("transport oracle", () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      const details = result.error.details as { drifts?: ReadonlyArray<{ pointer: string; after: unknown }> };
+      const details = result.error.details as { drifts?: ReadonlyArray<TransportDrift> };
       const drift = details.drifts?.[0];
       expect(drift?.pointer).toBe("");
       expect(drift?.after).toBe("[invalid-json]");
+      expect(drift?.issue?.code).toBe("E_TRANSPORT_DECODE");
     }
   });
+});
+
+it("treats maps as unserializable", async () => {
+  const ctx = createOracleCtx("0xfeed", { now: 0 });
+  const result = await checkTransport(
+    {
+      cases: [
+        { name: "map", seed: "0x06", value: new Map([["key", 1]]) },
+      ],
+    },
+    ctx,
+  );
+  expect(result.ok).toBe(false);
+  if (!result.ok) {
+    const details = result.error.details as { drifts?: ReadonlyArray<TransportDrift> };
+    const drift = details.drifts?.[0];
+    expect(drift?.pointer).toBe("");
+    expect(drift?.after).toBe("[unserializable]");
+    expect(drift?.issue?.code).toBe("E_TRANSPORT_SERIALIZE");
+  }
+});
+
+it("captures JSON stringify errors for BigInt", async () => {
+  const ctx = createOracleCtx("0xfeed", { now: 0 });
+  const result = await checkTransport(
+    {
+      cases: [
+        { name: "bigint", seed: "0x07", value: { value: BigInt(1) } },
+      ],
+    },
+    ctx,
+  );
+  expect(result.ok).toBe(false);
+  if (!result.ok) {
+    const details = result.error.details as { drifts?: ReadonlyArray<TransportDrift> };
+    const drift = details.drifts?.[0];
+    expect(drift?.pointer).toBe("");
+    expect(drift?.after).toBe("[unserializable]");
+    expect(drift?.issue?.code).toBe("E_TRANSPORT_SERIALIZE");
+  }
+});
+
+it("fails decoding for empty strings", async () => {
+  const ctx = createOracleCtx("0xfeed", { now: 0 });
+  const result = await checkTransport(
+    {
+      cases: [
+        { name: "empty", seed: "0x08", value: { ok: true }, encoded: "" },
+      ],
+    },
+    ctx,
+  );
+  expect(result.ok).toBe(false);
+  if (!result.ok) {
+    const details = result.error.details as { drifts?: ReadonlyArray<TransportDrift> };
+    const drift = details.drifts?.[0];
+    expect(drift?.pointer).toBe("");
+    expect(drift?.after).toBe("[invalid-json]");
+    expect(drift?.issue?.code).toBe("E_TRANSPORT_DECODE");
+  }
 });
 
 function parseSeed(value: string): number {

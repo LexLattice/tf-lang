@@ -11,3 +11,4 @@ export type {
 export { err, ok, withTrace } from "./result.js";
 export type { OracleCtxInit } from "./context.js";
 export { createOracleCtx } from "./context.js";
+export { diffCanonical, pointerFromSegments, escapePointerSegment, isPlainObject } from "./diff.js";

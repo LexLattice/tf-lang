@@ -1,9 +1,9 @@
-import { err, ok, withTrace } from "@tf/oracles-core";
+import { diffCanonical, err, ok, pointerFromSegments, withTrace } from "@tf/oracles-core";
 import type { Oracle, OracleCtx, OracleResult } from "@tf/oracles-core";
 
 import type { TransportDrift, TransportInput, TransportReport } from "./types.js";
 
-export type { TransportDrift, TransportInput, TransportReport } from "./types.js";
+export type { TransportDrift, TransportInput, TransportReport, TransportIssue } from "./types.js";
 
 const FAILURE_CODE = "E_TRANSPORT_DRIFT" as const;
 const UNSERIALIZABLE = "[unserializable]" as const;
@@ -33,7 +33,7 @@ export async function checkTransport(
     const original = ctx.canonicalize(transportCase.value);
     const serialization =
       transportCase.encoded !== undefined
-        ? ({ ok: true as const, value: transportCase.encoded } satisfies SerializeSuccess)
+        ? ensurePreEncoded(transportCase.encoded)
         : serializeValue(transportCase.value);
 
     if (!serialization.ok) {
@@ -43,6 +43,7 @@ export async function checkTransport(
         pointer: pointerFromSegments([]),
         before: original,
         after: UNSERIALIZABLE,
+        issue: serialization,
       });
       continue;
     }
@@ -55,12 +56,13 @@ export async function checkTransport(
         pointer: pointerFromSegments([]),
         before: original,
         after: INVALID_JSON,
+        issue: parsed,
       });
       continue;
     }
 
     const normalized = ctx.canonicalize(parsed.value);
-    const diff = diffValues(original, normalized);
+    const diff = diffCanonical(original, normalized, { missingValue: MISSING_VALUE });
     if (diff) {
       drifts.push({
         case: transportCase.name,
@@ -86,129 +88,102 @@ interface SerializeSuccess {
   readonly value: string;
 }
 
-type SerializeResult = SerializeSuccess | { readonly ok: false };
+interface SerializeFailure {
+  readonly ok: false;
+  readonly code: "E_TRANSPORT_SERIALIZE";
+  readonly message: string;
+}
+
+type SerializeResult = SerializeSuccess | SerializeFailure;
+
+function ensurePreEncoded(encoded: unknown): SerializeResult {
+  if (typeof encoded !== "string") {
+    return { ok: false, code: "E_TRANSPORT_SERIALIZE", message: "pre-encoded payload must be a string" };
+  }
+  return { ok: true, value: encoded };
+}
 
 function serializeValue(value: unknown): SerializeResult {
+  if (containsMap(value)) {
+    // Treat Maps as unsupported for JSON round-trips so drift is recorded deterministically.
+    return { ok: false, code: "E_TRANSPORT_SERIALIZE", message: "Map values are not JSON-serializable" };
+  }
   try {
     const result = JSON.stringify(value);
     if (typeof result !== "string") {
-      return { ok: false };
+      return { ok: false, code: "E_TRANSPORT_SERIALIZE", message: "JSON.stringify returned a non-string" };
     }
     return { ok: true, value: result };
-  } catch {
-    return { ok: false };
+  } catch (error) {
+    return {
+      ok: false,
+      code: "E_TRANSPORT_SERIALIZE",
+      message: error instanceof Error ? error.message : "Unknown serialization error",
+    };
   }
 }
 
-type ParseResult = { readonly ok: true; readonly value: unknown } | { readonly ok: false };
+interface ParseSuccess {
+  readonly ok: true;
+  readonly value: unknown;
+}
+
+interface ParseFailure {
+  readonly ok: false;
+  readonly code: "E_TRANSPORT_DECODE";
+  readonly message: string;
+}
+
+type ParseResult = ParseSuccess | ParseFailure;
 
 function parseJson(value: string): ParseResult {
   try {
     return { ok: true, value: JSON.parse(value) };
-  } catch {
-    return { ok: false };
-  }
-}
-
-interface DiffResult {
-  readonly pointer: string;
-  readonly left: unknown;
-  readonly right: unknown;
-}
-
-function diffValues(left: unknown, right: unknown, segments: Array<string | number> = []): DiffResult | null {
-  if (Object.is(left, right)) {
-    return null;
-  }
-
-  if (left === null || right === null) {
-    if (left === right) {
-      return null;
-    }
+  } catch (error) {
     return {
-      pointer: pointerFromSegments(segments),
-      left,
-      right,
+      ok: false,
+      code: "E_TRANSPORT_DECODE",
+      message: error instanceof Error ? error.message : "Unknown decode error",
     };
   }
-
-  if (Array.isArray(left) || Array.isArray(right)) {
-    if (!Array.isArray(left) || !Array.isArray(right)) {
-      return {
-        pointer: pointerFromSegments(segments),
-        left,
-        right,
-      };
-    }
-    const max = Math.min(left.length, right.length);
-    for (let index = 0; index < max; index += 1) {
-      const child = diffValues(left[index] ?? null, right[index] ?? null, [...segments, index]);
-      if (child) {
-        return child;
-      }
-    }
-    if (left.length !== right.length) {
-      const pointer = pointerFromSegments([...segments, max]);
-      const missingLeft = left.length > right.length ? left[max] ?? null : MISSING_VALUE;
-      const missingRight = right.length > left.length ? right[max] ?? null : MISSING_VALUE;
-      return {
-        pointer,
-        left: missingLeft,
-        right: missingRight,
-      };
-    }
-    return null;
-  }
-
-  if (isPlainObject(left) || isPlainObject(right)) {
-    if (!isPlainObject(left) || !isPlainObject(right)) {
-      return {
-        pointer: pointerFromSegments(segments),
-        left,
-        right,
-      };
-    }
-    const keys = Array.from(new Set([...Object.keys(left), ...Object.keys(right)])).sort();
-    for (const key of keys) {
-      const hasLeft = Object.prototype.hasOwnProperty.call(left, key);
-      const hasRight = Object.prototype.hasOwnProperty.call(right, key);
-      if (!hasLeft || !hasRight) {
-        return {
-          pointer: pointerFromSegments([...segments, key]),
-          left: hasLeft ? (left as Record<string, unknown>)[key] : MISSING_VALUE,
-          right: hasRight ? (right as Record<string, unknown>)[key] : MISSING_VALUE,
-        };
-      }
-      const child = diffValues(
-        (left as Record<string, unknown>)[key],
-        (right as Record<string, unknown>)[key],
-        [...segments, key],
-      );
-      if (child) {
-        return child;
-      }
-    }
-    return null;
-  }
-
-  return {
-    pointer: pointerFromSegments(segments),
-    left,
-    right,
-  };
 }
 
-function pointerFromSegments(segments: Array<string | number>): string {
-  if (segments.length === 0) {
-    return "";
+function containsMap(value: unknown, seen: Set<unknown> = new Set()): boolean {
+  if (value === null || typeof value !== "object") {
+    return false;
   }
-  return `/${segments.map(escapePointerSegment).join("/")}`;
-}
+  if (seen.has(value)) {
+    return false;
+  }
+  if (value instanceof Map) {
+    return true;
+  }
 
-function escapePointerSegment(segment: string | number): string {
-  return String(segment).replace(/~/g, "~0").replace(/\//g, "~1");
-}
+  seen.add(value);
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  if (value instanceof Set) {
+    for (const entry of value.values()) {
+      if (containsMap(entry, seen)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      if (containsMap(entry, seen)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  for (const entry of Object.values(value as Record<string, unknown>)) {
+    if (containsMap(entry, seen)) {
+      return true;
+    }
+  }
+
+  return false;
 }

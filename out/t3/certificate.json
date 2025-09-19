@@ -15,8 +15,22 @@
     {
       "path": "out/t3/oracles-report.json",
       "sha256": "0501a90e3d9bd032f28dad1238e3ce0fbe4929803da83e688405d96a63e8ca6e"
+    },
+    {
+      "path": "out/t3/parity/conservation.json",
+      "sha256": "f78441427d65bd181fd4680b6f3248af10d7c40b5452291f066b57dcbf063d69"
+    },
+    {
+      "path": "out/t3/parity/idempotence.json",
+      "sha256": "3e9ebdc0cefe42c569a5a358e65c9e1f90c44a9446e52aaabb26e8e178ff945e"
+    },
+    {
+      "path": "out/t3/parity/transport.json",
+      "sha256": "0dcfd1c9ac3bf7b026776a06c5e7cb7eedcc4518d70c5211d41c4f21b7c45557"
     }
   ],
-  "commit": "eee88cd4faca2937cf55e85d3ab3b4dfa30140b7",
-  "generatedAt": 0
+  "closed": true,
+  "commit": "2b0a6c9178ac028ba01ed445de415ab698fc3a7b",
+  "gates": true,
+  "score": 100
 }

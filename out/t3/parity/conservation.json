@@ -1,4 +1,65 @@
 {
-  "equal": true,
-  "note": "scaffold"
+  "cases": [
+    {
+      "equal": true,
+      "fixture": "packages/oracles/conservation/fixtures/happy.json",
+      "rust": {
+        "ok": true,
+        "value": {
+          "keysChecked": 2
+        }
+      },
+      "ts": {
+        "ok": true,
+        "value": {
+          "keysChecked": 2
+        }
+      }
+    },
+    {
+      "equal": true,
+      "fixture": "packages/oracles/conservation/fixtures/violation.json",
+      "rust": {
+        "error": {
+          "code": "E_NOT_CONSERVED",
+          "details": {
+            "violations": [
+              {
+                "after": 4,
+                "before": 5,
+                "delta": -1,
+                "key": "records"
+              }
+            ]
+          },
+          "explain": "Conservation violated"
+        },
+        "ok": false,
+        "trace": [
+          "key:records"
+        ]
+      },
+      "ts": {
+        "error": {
+          "code": "E_NOT_CONSERVED",
+          "details": {
+            "violations": [
+              {
+                "after": 4,
+                "before": 5,
+                "delta": -1,
+                "key": "records"
+              }
+            ]
+          },
+          "explain": "Conservation violated"
+        },
+        "ok": false,
+        "trace": [
+          "key:records"
+        ]
+      }
+    }
+  ],
+  "equal": true
 }

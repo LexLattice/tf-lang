@@ -1,0 +1,14 @@
+[package]
+name = "tf-oracles-cli"
+version = "0.1.0"
+edition = "2021"
+description = "Utility runner for TF oracles parity"
+license = "MIT"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+tf-oracles-core = { path = "../core" }
+tf-oracles-conservation = { path = "../conservation" }
+tf-oracles-idempotence = { path = "../idempotence" }
+tf-oracles-transport = { path = "../transport" }

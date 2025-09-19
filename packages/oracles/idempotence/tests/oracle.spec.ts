@@ -7,6 +7,7 @@ import * as fc from "fast-check";
 
 import { createOracleCtx } from "@tf/oracles-core";
 import { checkIdempotence, createIdempotenceOracle } from "../src/index.js";
+import type { IdempotenceMismatch } from "../src/index.js";
 
 interface SeedsFile {
   readonly ts: {
@@ -63,7 +64,7 @@ describe("idempotence oracle", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.code).toBe("E_NOT_IDEMPOTENT");
-      const details = result.error.details as { mismatches?: ReadonlyArray<{ pointer: string }> } | undefined;
+      const details = result.error.details as { mismatches?: ReadonlyArray<IdempotenceMismatch> } | undefined;
       const mismatches = details?.mismatches ?? [];
       expect(mismatches).toHaveLength(1);
       expect(mismatches[0]?.pointer).toBe("/nested/value/1");
@@ -110,11 +111,36 @@ it("surfaces missing fields with JSON pointers", async () => {
   );
   expect(result.ok).toBe(false);
   if (!result.ok) {
-    const details = result.error.details as { mismatches?: ReadonlyArray<{ pointer: string; expected: unknown; actual: unknown }> } | undefined;
+    const details = result.error.details as { mismatches?: ReadonlyArray<IdempotenceMismatch> } | undefined;
     const entry = details?.mismatches?.[0];
     expect(entry?.pointer).toBe("/extra");
     expect(entry?.expected).toBe("[missing]");
     expect(entry?.actual).toBe(42);
+  }
+});
+
+it("uses an empty pointer for root differences", async () => {
+  const ctx = createOracleCtx("0xfeed", { now: 0 });
+  const result = await checkIdempotence(
+    {
+      cases: [
+        {
+          name: "root",
+          seed: "0x05",
+          applications: [
+            { iteration: 0, value: 1 },
+            { iteration: 1, value: 2 },
+          ],
+        },
+      ],
+    },
+    ctx,
+  );
+  expect(result.ok).toBe(false);
+  if (!result.ok) {
+    const details = result.error.details as { mismatches?: ReadonlyArray<IdempotenceMismatch> } | undefined;
+    const entry = details?.mismatches?.[0];
+    expect(entry?.pointer).toBe("");
   }
 });
 

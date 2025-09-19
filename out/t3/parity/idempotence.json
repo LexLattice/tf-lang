@@ -1,4 +1,71 @@
 {
-  "equal": true,
-  "note": "scaffold"
+  "cases": [
+    {
+      "equal": true,
+      "fixture": "packages/oracles/idempotence/fixtures/happy.json",
+      "rust": {
+        "ok": true,
+        "value": {
+          "applicationsChecked": 1,
+          "casesChecked": 1
+        }
+      },
+      "ts": {
+        "ok": true,
+        "value": {
+          "applicationsChecked": 1,
+          "casesChecked": 1
+        }
+      }
+    },
+    {
+      "equal": true,
+      "fixture": "packages/oracles/idempotence/fixtures/mismatch.json",
+      "rust": {
+        "error": {
+          "code": "E_NOT_IDEMPOTENT",
+          "details": {
+            "mismatches": [
+              {
+                "actual": 4,
+                "case": "vector",
+                "expected": 3,
+                "iteration": 1,
+                "pointer": "/v/2",
+                "seed": "0x02"
+              }
+            ]
+          },
+          "explain": "Repeated application diverged"
+        },
+        "ok": false,
+        "trace": [
+          "case:vector:iteration:1"
+        ]
+      },
+      "ts": {
+        "error": {
+          "code": "E_NOT_IDEMPOTENT",
+          "details": {
+            "mismatches": [
+              {
+                "actual": 4,
+                "case": "vector",
+                "expected": 3,
+                "iteration": 1,
+                "pointer": "/v/2",
+                "seed": "0x02"
+              }
+            ]
+          },
+          "explain": "Repeated application diverged"
+        },
+        "ok": false,
+        "trace": [
+          "case:vector:iteration:1"
+        ]
+      }
+    }
+  ],
+  "equal": true
 }

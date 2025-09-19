@@ -20,4 +20,10 @@ export interface TransportDrift {
   readonly pointer: string;
   readonly before: unknown;
   readonly after: unknown;
+  readonly issue?: TransportIssue;
+}
+
+export interface TransportIssue {
+  readonly code: "E_TRANSPORT_SERIALIZE" | "E_TRANSPORT_DECODE";
+  readonly message: string;
 }

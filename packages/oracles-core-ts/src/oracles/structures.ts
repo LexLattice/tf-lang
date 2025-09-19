@@ -1,3 +1,5 @@
+import { isPlainObject as coreIsPlainObject } from "../diff.js";
+
 export function normalizeForComparison(value: unknown): unknown {
   if (value === null || typeof value !== "object") {
     return value;
@@ -67,12 +69,4 @@ export function sortSetValues(set: Set<unknown>): SortedSetEntry[] {
     .sort((a, b) => a.label.localeCompare(b.label));
 }
 
-export function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return (
-    value !== null &&
-    typeof value === "object" &&
-    !Array.isArray(value) &&
-    !(value instanceof Map) &&
-    !(value instanceof Set)
-  );
-}
+export const isPlainObject = coreIsPlainObject;

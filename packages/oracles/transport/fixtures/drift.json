@@ -1,1 +1,17 @@
-{"version":"0.1.0","subject":"transport","value":{"z":null,"y":{"x":true}}}
+{
+  "version": "0.1.0",
+  "subject": "transport",
+  "input": {
+    "cases": [
+      {
+        "name": "dropped-property",
+        "seed": "0x02",
+        "value": {
+          "keep": true,
+          "drop": "value"
+        },
+        "encoded": "{\"keep\":true}"
+      }
+    ]
+  }
+}

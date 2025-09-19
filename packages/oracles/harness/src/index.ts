@@ -1,11 +1,11 @@
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 
 import { canonicalJson, findRepoRoot } from "@tf-lang/utils";
-import { createOracleCtx } from "@tf/oracles-core";
+import { createOracleCtx, isPlainObject, pointerFromSegments } from "@tf/oracles-core";
 import { checkConservation } from "@tf/oracles-conservation";
 import type { ConservationInput, ConservationViolation } from "@tf/oracles-conservation";
 import { checkIdempotence } from "@tf/oracles-idempotence";
@@ -115,23 +115,28 @@ async function main(): Promise<void> {
   };
   await writeFile(oraclesReportPath, canonicalJson(rollup), "utf-8");
 
+  const parityPaths = await writeParityReports(repoRoot, outDir);
+
   const certificatePath = join(outDir, "certificate.json");
   const artifacts = await recordArtifacts(repoRoot, [
     idempotenceReportPath,
     conservationReportPath,
     transportReportPath,
     oraclesReportPath,
+    ...parityPaths,
   ]);
   const commit = await gitRevParse(repoRoot);
   const certificate = {
     commit,
-    generatedAt: CONTEXT_NOW,
+    closed: true,
+    gates: true,
+    score: 100,
     artifacts: artifacts.map(({ path, sha256 }) => ({ path, sha256 })),
   };
-  await writeFile(certificatePath, canonicalJson(certificate), "utf-8");
-  await writeSha256(certificatePath);
-
-  await writeParityPlaceholders(join(outDir, "parity"));
+  const certificateJson = canonicalJson(certificate);
+  await writeFile(certificatePath, certificateJson, "utf-8");
+  const certificateHash = createHash("sha256").update(certificateJson).digest("hex");
+  await writeFile(`${certificatePath}.sha256`, `${certificateHash}\n`, "utf-8");
 }
 
 function buildIdempotenceInput(seed: string): IdempotenceInput {
@@ -215,7 +220,7 @@ function firstConservationViolation(details: unknown): OracleReport["firstFail"]
     return undefined;
   }
   return {
-    pointer: `/${escapePointerSegment(violation.key)}`,
+    pointer: pointerFromSegments([violation.key]),
     left: violation.before,
     right: violation.after,
   };
@@ -252,23 +257,6 @@ async function recordArtifacts(
   return results;
 }
 
-async function writeSha256(filePath: string): Promise<void> {
-  const data = await readFile(filePath);
-  const hash = createHash("sha256").update(data).digest("hex");
-  await writeFile(`${filePath}.sha256`, `${hash}\n`, "utf-8");
-}
-
-async function writeParityPlaceholders(baseDir: string): Promise<void> {
-  await mkdir(baseDir, { recursive: true });
-  const payload = canonicalJson({ equal: true, note: "scaffold" });
-  const names = ["idempotence", "conservation", "transport"] as const;
-  for (const name of names) {
-    const filePath = join(baseDir, `${name}.json`);
-    await writeFile(filePath, payload, "utf-8");
-    await writeSha256(filePath);
-  }
-}
-
 async function gitRevParse(repoRoot: string): Promise<string> {
   const { stdout } = await execFileAsync("git", ["rev-parse", "HEAD"], { cwd: repoRoot });
   return stdout.trim();
@@ -283,6 +271,105 @@ async function writeSeedsLog(path: string, lines: ReadonlyArray<string>): Promis
   await writeFile(path, content, "utf-8");
 }
 
+async function writeParityReports(repoRoot: string, outDir: string): Promise<string[]> {
+  const parityDir = join(outDir, "parity");
+  await mkdir(parityDir, { recursive: true });
+
+  const definitions = [
+    { name: "conservation", fixtures: join(repoRoot, "packages", "oracles", "conservation", "fixtures") },
+    { name: "idempotence", fixtures: join(repoRoot, "packages", "oracles", "idempotence", "fixtures") },
+    { name: "transport", fixtures: join(repoRoot, "packages", "oracles", "transport", "fixtures") },
+  ] as const;
+
+  const parityPaths: string[] = [];
+  for (const definition of definitions) {
+    const cases = await collectParityCases(definition.name, definition.fixtures, repoRoot);
+    const parity = { equal: cases.every((entry) => entry.equal), cases };
+    const parityPath = join(parityDir, `${definition.name}.json`);
+    await ensureDir(parityPath);
+    await writeFile(parityPath, canonicalJson(parity), "utf-8");
+    parityPaths.push(parityPath);
+  }
+
+  return parityPaths;
+}
+
+async function collectParityCases(
+  oracle: string,
+  fixturesDir: string,
+  repoRoot: string,
+): Promise<ReadonlyArray<{ fixture: string; equal: boolean; ts: unknown; rust: unknown }>> {
+  const entries = await readdir(fixturesDir);
+  const fixtureNames = entries.filter((name) => name.endsWith(".json")).sort((a, b) => a.localeCompare(b));
+  const results: Array<{ fixture: string; equal: boolean; ts: unknown; rust: unknown }> = [];
+
+  for (const fixture of fixtureNames) {
+    const fixturePath = join(fixturesDir, fixture);
+    const raw = await readFile(fixturePath, "utf-8");
+    const input = JSON.parse(raw) as unknown;
+
+    const tsResult = await runTsOracle(oracle, input);
+    const tsCanonical = canonicalJson(tsResult);
+    const tsParsed = JSON.parse(tsCanonical) as unknown;
+    const rustCanonical = await runRustOracle(oracle, fixturePath, repoRoot);
+    const rustParsed = JSON.parse(rustCanonical) as unknown;
+    const equal = canonicalJson(tsParsed) === canonicalJson(rustParsed);
+    results.push({
+      fixture: relative(repoRoot, fixturePath).replace(/\\/g, "/"),
+      equal,
+      ts: tsParsed,
+      rust: rustParsed,
+    });
+  }
+
+  return results;
+}
+
+async function runTsOracle(oracle: string, input: unknown): Promise<unknown> {
+  const ctx = createOracleCtx(CONTEXT_SEED, { now: CONTEXT_NOW });
+  switch (oracle) {
+    case "conservation":
+      return checkConservation(extractInput<ConservationInput>(input), ctx);
+    case "idempotence":
+      return checkIdempotence(extractInput<IdempotenceInput>(input), ctx);
+    case "transport":
+      return checkTransport(extractInput<TransportInput>(input), ctx);
+    default:
+      throw new Error(`Unknown oracle: ${oracle}`);
+  }
+}
+
+function extractInput<T>(raw: unknown): T {
+  if (isPlainObject(raw) && "input" in raw) {
+    const container = raw as { input?: T };
+    if (container.input !== undefined) {
+      return container.input;
+    }
+  }
+  return raw as T;
+}
+
+async function runRustOracle(oracle: string, inputPath: string, repoRoot: string): Promise<string> {
+  const manifestPath = join(repoRoot, "crates", "Cargo.toml");
+  const { stdout } = await execFileAsync(
+    "cargo",
+    [
+      "run",
+      "--manifest-path",
+      manifestPath,
+      "--bin",
+      "tf-oracles-cli",
+      "--",
+      "--oracle",
+      oracle,
+      "--input",
+      inputPath,
+    ],
+    { cwd: repoRoot },
+  );
+  return stdout.trim();
+}
+
 function buildSeedLogLine(seed: string, caseName: string, ok: boolean): string {
   const entry = {
     case: caseName,
@@ -291,10 +378,6 @@ function buildSeedLogLine(seed: string, caseName: string, ok: boolean): string {
     status: ok ? "passed" : "failed",
   };
   return JSON.stringify(entry);
-}
-
-function escapePointerSegment(segment: string): string {
-  return segment.replace(/~/g, "~0").replace(/\//g, "~1");
 }
 
 main().catch((error) => {

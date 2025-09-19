@@ -1,4 +1,69 @@
 {
-  "equal": true,
-  "note": "scaffold"
+  "cases": [
+    {
+      "equal": true,
+      "fixture": "packages/oracles/transport/fixtures/drift.json",
+      "rust": {
+        "error": {
+          "code": "E_TRANSPORT_DRIFT",
+          "details": {
+            "drifts": [
+              {
+                "after": "[missing]",
+                "before": "value",
+                "case": "dropped-property",
+                "pointer": "/drop",
+                "seed": "0x02"
+              }
+            ]
+          },
+          "explain": "Transport round-trip drift detected"
+        },
+        "ok": false,
+        "trace": [
+          "case:dropped-property:/drop"
+        ]
+      },
+      "ts": {
+        "error": {
+          "code": "E_TRANSPORT_DRIFT",
+          "details": {
+            "drifts": [
+              {
+                "after": "[missing]",
+                "before": "value",
+                "case": "dropped-property",
+                "pointer": "/drop",
+                "seed": "0x02"
+              }
+            ]
+          },
+          "explain": "Transport round-trip drift detected"
+        },
+        "ok": false,
+        "trace": [
+          "case:dropped-property:/drop"
+        ]
+      }
+    },
+    {
+      "equal": true,
+      "fixture": "packages/oracles/transport/fixtures/happy.json",
+      "rust": {
+        "ok": true,
+        "value": {
+          "casesChecked": 1,
+          "roundTripsChecked": 1
+        }
+      },
+      "ts": {
+        "ok": true,
+        "value": {
+          "casesChecked": 1,
+          "roundTripsChecked": 1
+        }
+      }
+    }
+  ],
+  "equal": true
 }

@@ -1,0 +1,45 @@
+{
+  "version": "0.1",
+  "name": "constrained",
+  "designSpace": [
+    {
+      "component": "frontend",
+      "choices": [
+        {
+          "id": "react",
+          "summary": "React SPA",
+          "tags": ["ga"],
+          "provides": ["cap:spa"]
+        },
+        {
+          "id": "svelte",
+          "summary": "SvelteKit",
+          "tags": ["experimental"],
+          "provides": ["cap:spa"],
+          "heuristics": {
+            "risk": 1.5
+          }
+        }
+      ]
+    },
+    {
+      "component": "api",
+      "choices": [
+        {
+          "id": "edge_functions",
+          "summary": "Edge compute",
+          "tags": ["serverless"],
+          "provides": ["cap:edge"],
+          "requires": ["cap:spa"]
+        },
+        {
+          "id": "lambda",
+          "summary": "AWS Lambda",
+          "tags": ["managed"],
+          "provides": ["cap:edge"],
+          "requires": ["cap:spa"]
+        }
+      ]
+    }
+  ]
+}

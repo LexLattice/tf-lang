@@ -1,0 +1,441 @@
+{
+  "edges": [
+    {
+      "from": "11c47798ba50ed6f30424e6cf39f9b6e0b3a3005f0a0a9034999c4bff65ebfd8",
+      "kind": "composes",
+      "to": "69265f10bac636b48d9d5757e594eee0a8788eb3b2f6a5a52e11bf477c3c68b4"
+    },
+    {
+      "from": "11c47798ba50ed6f30424e6cf39f9b6e0b3a3005f0a0a9034999c4bff65ebfd8",
+      "kind": "composes",
+      "to": "aee1b9ffcb5d0a735e9b67dbcc72054ea0e4c64222cdacfe8f825fe2ffe999cb"
+    },
+    {
+      "from": "11c47798ba50ed6f30424e6cf39f9b6e0b3a3005f0a0a9034999c4bff65ebfd8",
+      "kind": "composes",
+      "to": "d367c4a20cd3c8f6bf185871c34d539104757633b607729edce143fd455843a9"
+    },
+    {
+      "from": "71b7c9a3e70c3b9fea641fbbb3a8242cbbf11ad0ed27b88f1cf1b63438a38dfc",
+      "kind": "depends_on",
+      "to": "9c169ca27c79537229932db824a5729f541276a3c83349c5ed314a86bdcddb11"
+    },
+    {
+      "from": "9754c10bcbacaa0ed23c5fc5355cfbd1ddbada07eadb2c76393019376526a56d",
+      "kind": "composes",
+      "to": "71b7c9a3e70c3b9fea641fbbb3a8242cbbf11ad0ed27b88f1cf1b63438a38dfc"
+    },
+    {
+      "from": "9754c10bcbacaa0ed23c5fc5355cfbd1ddbada07eadb2c76393019376526a56d",
+      "kind": "composes",
+      "to": "9c169ca27c79537229932db824a5729f541276a3c83349c5ed314a86bdcddb11"
+    },
+    {
+      "from": "9754c10bcbacaa0ed23c5fc5355cfbd1ddbada07eadb2c76393019376526a56d",
+      "kind": "composes",
+      "to": "aee1b9ffcb5d0a735e9b67dbcc72054ea0e4c64222cdacfe8f825fe2ffe999cb"
+    },
+    {
+      "from": "b1634e8ebd7a7420c47c1300566efcdaf1c8edd7b89897be61e47f99d33aa99f",
+      "kind": "composes",
+      "to": "69265f10bac636b48d9d5757e594eee0a8788eb3b2f6a5a52e11bf477c3c68b4"
+    },
+    {
+      "from": "b1634e8ebd7a7420c47c1300566efcdaf1c8edd7b89897be61e47f99d33aa99f",
+      "kind": "composes",
+      "to": "aee1b9ffcb5d0a735e9b67dbcc72054ea0e4c64222cdacfe8f825fe2ffe999cb"
+    },
+    {
+      "from": "b1634e8ebd7a7420c47c1300566efcdaf1c8edd7b89897be61e47f99d33aa99f",
+      "kind": "composes",
+      "to": "f7aad58194c0e61a549b2e0ddc3056a53173b6d427dab47271b6fc0c1755278c"
+    },
+    {
+      "from": "d367c4a20cd3c8f6bf185871c34d539104757633b607729edce143fd455843a9",
+      "kind": "depends_on",
+      "to": "69265f10bac636b48d9d5757e594eee0a8788eb3b2f6a5a52e11bf477c3c68b4"
+    },
+    {
+      "from": "fcad96c41586df9774b9ed16887980041a512833d2706e2c2544e969b4a39ede",
+      "kind": "composes",
+      "to": "9c169ca27c79537229932db824a5729f541276a3c83349c5ed314a86bdcddb11"
+    },
+    {
+      "from": "fcad96c41586df9774b9ed16887980041a512833d2706e2c2544e969b4a39ede",
+      "kind": "composes",
+      "to": "aee1b9ffcb5d0a735e9b67dbcc72054ea0e4c64222cdacfe8f825fe2ffe999cb"
+    },
+    {
+      "from": "fcad96c41586df9774b9ed16887980041a512833d2706e2c2544e969b4a39ede",
+      "kind": "composes",
+      "to": "f7aad58194c0e61a549b2e0ddc3056a53173b6d427dab47271b6fc0c1755278c"
+    }
+  ],
+  "meta": {
+    "seed": 42,
+    "specHash": "9320d718e78ca34ae0f3e2178277dcfbf7e065d893cf2494c6111d08c367bdd6",
+    "specId": "demo",
+    "version": "0.1.0"
+  },
+  "nodes": [
+    {
+      "choice": "runtime=node_managed|database=postgres_managed|messaging=sqs_queue",
+      "component": "plan",
+      "deps": [
+        "9c169ca27c79537229932db824a5729f541276a3c83349c5ed314a86bdcddb11",
+        "aee1b9ffcb5d0a735e9b67dbcc72054ea0e4c64222cdacfe8f825fe2ffe999cb",
+        "f7aad58194c0e61a549b2e0ddc3056a53173b6d427dab47271b6fc0c1755278c"
+      ],
+      "nodeId": "fcad96c41586df9774b9ed16887980041a512833d2706e2c2544e969b4a39ede",
+      "rationale": "Branch covers runtime=node_managed|database=postgres_managed|messaging=sqs_queue.\nCloud managed Postgres with backups.\nScore total 5.57\nDurable hosted queues with dead-lettering.\nScore total 5.26\nProvider managed Node.js runtime for rapid iteration.\nScore total 5.73\nAggregate score 11.12 with 15 contributing factors.",
+      "score": {
+        "complexity": 22.79,
+        "depsReady": 26.75,
+        "devTime": 8.75,
+        "explain": [
+          "complexity profile 7.69: velocity influence -0.20, stability 1.14",
+          "performance outlook 6.10: performance metric 1.10",
+          "dependency readiness 9.00: readiness 2.00",
+          "risk profile 1.00: stability delta -1.52, risk floor 0.10",
+          "dev time estimate 3.05: velocity -0.20",
+          "complexity profile 7.55: velocity influence -0.40, stability 1.20",
+          "performance outlook 5.00: performance metric 0.00",
+          "dependency readiness 9.00: readiness 2.00",
+          "risk profile 1.00: stability delta -1.60, risk floor 0.10",
+          "dev time estimate 2.85: velocity -0.40",
+          "complexity profile 7.55: velocity influence -0.40, stability 1.20",
+          "performance outlook 6.75: performance metric 1.00",
+          "dependency readiness 8.75: readiness 1.75",
+          "risk profile 1.05: incidents 0.15, stability delta -1.60",
+          "dev time estimate 2.85: velocity -0.40"
+        ],
+        "perf": 17.85,
+        "risk": 3.05,
+        "total": 11.118000000000002
+      },
+      "specId": "demo"
+    },
+    {
+      "choice": "database=postgres_managed|messaging=sqs_queue|runtime=rust_native",
+      "component": "plan",
+      "deps": [
+        "aee1b9ffcb5d0a735e9b67dbcc72054ea0e4c64222cdacfe8f825fe2ffe999cb",
+        "f7aad58194c0e61a549b2e0ddc3056a53173b6d427dab47271b6fc0c1755278c",
+        "69265f10bac636b48d9d5757e594eee0a8788eb3b2f6a5a52e11bf477c3c68b4"
+      ],
+      "nodeId": "b1634e8ebd7a7420c47c1300566efcdaf1c8edd7b89897be61e47f99d33aa99f",
+      "rationale": "Branch covers database=postgres_managed|messaging=sqs_queue|runtime=rust_native.\nCloud managed Postgres with backups.\nScore total 5.57\nDurable hosted queues with dead-lettering.\nScore total 5.26\nSelf-hosted Rust binary optimized for throughput.\nScore total 4.73\nAggregate score 10.84 with 15 contributing factors.",
+      "score": {
+        "complexity": 22.599999999999998,
+        "depsReady": 25.5,
+        "devTime": 11.8,
+        "explain": [
+          "complexity profile 7.69: velocity influence -0.20, stability 1.14",
+          "performance outlook 6.10: performance metric 1.10",
+          "dependency readiness 9.00: readiness 2.00",
+          "risk profile 1.00: stability delta -1.52, risk floor 0.10",
+          "dev time estimate 3.05: velocity -0.20",
+          "complexity profile 7.55: velocity influence -0.40, stability 1.20",
+          "performance outlook 5.00: performance metric 0.00",
+          "dependency readiness 9.00: readiness 2.00",
+          "risk profile 1.00: stability delta -1.60, risk floor 0.10",
+          "dev time estimate 2.85: velocity -0.40",
+          "complexity profile 7.36: velocity influence 0.40, stability 0.96",
+          "performance outlook 10.00: heuristic 1.25, performance metric 2.10",
+          "dependency readiness 7.50: readiness 1.00",
+          "risk profile 1.22: stability delta -1.28",
+          "dev time estimate 5.90: heuristic 1.50, velocity 0.40"
+        ],
+        "perf": 21.1,
+        "risk": 3.22,
+        "total": 10.835999999999999
+      },
+      "specId": "demo"
+    },
+    {
+      "choice": "runtime=node_managed|database=postgres_managed|messaging=redis_streams",
+      "component": "plan",
+      "deps": [
+        "9c169ca27c79537229932db824a5729f541276a3c83349c5ed314a86bdcddb11",
+        "aee1b9ffcb5d0a735e9b67dbcc72054ea0e4c64222cdacfe8f825fe2ffe999cb",
+        "71b7c9a3e70c3b9fea641fbbb3a8242cbbf11ad0ed27b88f1cf1b63438a38dfc"
+      ],
+      "nodeId": "9754c10bcbacaa0ed23c5fc5355cfbd1ddbada07eadb2c76393019376526a56d",
+      "rationale": "Branch covers runtime=node_managed|database=postgres_managed|messaging=redis_streams.\nCloud managed Postgres with backups.\nScore total 5.57\nIn-memory streams for fan-out eventing.\nScore total 3.75\nProvider managed Node.js runtime for rapid iteration.\nScore total 5.73\nAggregate score 10.42 with 15 contributing factors.",
+      "score": {
+        "complexity": 22.63,
+        "depsReady": 24.5,
+        "devTime": 8.95,
+        "explain": [
+          "complexity profile 7.69: velocity influence -0.20, stability 1.14",
+          "performance outlook 6.10: performance metric 1.10",
+          "dependency readiness 9.00: readiness 2.00",
+          "risk profile 1.00: stability delta -1.52, risk floor 0.10",
+          "dev time estimate 3.05: velocity -0.20",
+          "complexity profile 7.39: velocity influence -0.20, stability 0.84",
+          "performance outlook 6.00: performance metric 1.00",
+          "dependency readiness 6.75: readiness 1.25",
+          "risk profile 2.88: stability delta -1.12",
+          "dev time estimate 3.05: velocity -0.20",
+          "complexity profile 7.55: velocity influence -0.40, stability 1.20",
+          "performance outlook 6.75: performance metric 1.00",
+          "dependency readiness 8.75: readiness 1.75",
+          "risk profile 1.05: incidents 0.15, stability delta -1.60",
+          "dev time estimate 2.85: velocity -0.40"
+        ],
+        "perf": 18.85,
+        "risk": 4.93,
+        "total": 10.42
+      },
+      "specId": "demo"
+    },
+    {
+      "choice": "database=postgres_managed|runtime=rust_native|messaging=nats_cluster",
+      "component": "plan",
+      "deps": [
+        "aee1b9ffcb5d0a735e9b67dbcc72054ea0e4c64222cdacfe8f825fe2ffe999cb",
+        "69265f10bac636b48d9d5757e594eee0a8788eb3b2f6a5a52e11bf477c3c68b4",
+        "d367c4a20cd3c8f6bf185871c34d539104757633b607729edce143fd455843a9"
+      ],
+      "nodeId": "11c47798ba50ed6f30424e6cf39f9b6e0b3a3005f0a0a9034999c4bff65ebfd8",
+      "rationale": "Branch covers database=postgres_managed|runtime=rust_native|messaging=nats_cluster.\nCloud managed Postgres with backups.\nScore total 5.57\nHigh performance messaging cluster.\nScore total 4.25\nSelf-hosted Rust binary optimized for throughput.\nScore total 4.73\nAggregate score 10.40 with 15 contributing factors.",
+      "score": {
+        "complexity": 19.8,
+        "depsReady": 24,
+        "devTime": 12.95,
+        "explain": [
+          "complexity profile 7.69: velocity influence -0.20, stability 1.14",
+          "performance outlook 6.10: performance metric 1.10",
+          "dependency readiness 9.00: readiness 2.00",
+          "risk profile 1.00: stability delta -1.52, risk floor 0.10",
+          "dev time estimate 3.05: velocity -0.20",
+          "complexity profile 4.75: velocity influence 0.00, stability 0.75",
+          "performance outlook 8.75: performance metric 1.75",
+          "dependency readiness 7.50: readiness 1.00",
+          "risk profile 1.50: stability delta -1.00",
+          "dev time estimate 4.00: velocity 0.00",
+          "complexity profile 7.36: velocity influence 0.40, stability 0.96",
+          "performance outlook 10.00: heuristic 1.25, performance metric 2.10",
+          "dependency readiness 7.50: readiness 1.00",
+          "risk profile 1.22: stability delta -1.28",
+          "dev time estimate 5.90: heuristic 1.50, velocity 0.40"
+        ],
+        "perf": 24.85,
+        "risk": 3.72,
+        "total": 10.396000000000003
+      },
+      "specId": "demo"
+    },
+    {
+      "choice": "node_managed",
+      "component": "runtime",
+      "deps": [],
+      "nodeId": "9c169ca27c79537229932db824a5729f541276a3c83349c5ed314a86bdcddb11",
+      "rationale": "Provider managed Node.js runtime for rapid iteration.\nScore total 5.73",
+      "score": {
+        "complexity": 7.55,
+        "depsReady": 8.75,
+        "devTime": 2.85,
+        "explain": [
+          "complexity profile 7.55: velocity influence -0.40, stability 1.20",
+          "performance outlook 6.75: performance metric 1.00",
+          "dependency readiness 8.75: readiness 1.75",
+          "risk profile 1.05: incidents 0.15, stability delta -1.60",
+          "dev time estimate 2.85: velocity -0.40"
+        ],
+        "perf": 6.75,
+        "risk": 1.0499999999999998,
+        "total": 5.733333333333333
+      },
+      "specId": "demo"
+    },
+    {
+      "choice": "postgres_managed",
+      "component": "database",
+      "deps": [],
+      "nodeId": "aee1b9ffcb5d0a735e9b67dbcc72054ea0e4c64222cdacfe8f825fe2ffe999cb",
+      "rationale": "Cloud managed Postgres with backups.\nScore total 5.57",
+      "score": {
+        "complexity": 7.6899999999999995,
+        "depsReady": 9,
+        "devTime": 3.05,
+        "explain": [
+          "complexity profile 7.69: velocity influence -0.20, stability 1.14",
+          "performance outlook 6.10: performance metric 1.10",
+          "dependency readiness 9.00: readiness 2.00",
+          "risk profile 1.00: stability delta -1.52, risk floor 0.10",
+          "dev time estimate 3.05: velocity -0.20"
+        ],
+        "perf": 6.1,
+        "risk": 1,
+        "total": 5.571666666666667
+      },
+      "specId": "demo"
+    },
+    {
+      "choice": "sqs_queue",
+      "component": "messaging",
+      "deps": [],
+      "nodeId": "f7aad58194c0e61a549b2e0ddc3056a53173b6d427dab47271b6fc0c1755278c",
+      "rationale": "Durable hosted queues with dead-lettering.\nScore total 5.26",
+      "score": {
+        "complexity": 7.55,
+        "depsReady": 9,
+        "devTime": 2.85,
+        "explain": [
+          "complexity profile 7.55: velocity influence -0.40, stability 1.20",
+          "performance outlook 5.00: performance metric 0.00",
+          "dependency readiness 9.00: readiness 2.00",
+          "risk profile 1.00: stability delta -1.60, risk floor 0.10",
+          "dev time estimate 2.85: velocity -0.40"
+        ],
+        "perf": 5,
+        "risk": 1,
+        "total": 5.258333333333334
+      },
+      "specId": "demo"
+    },
+    {
+      "choice": "rust_native",
+      "component": "runtime",
+      "deps": [],
+      "nodeId": "69265f10bac636b48d9d5757e594eee0a8788eb3b2f6a5a52e11bf477c3c68b4",
+      "rationale": "Self-hosted Rust binary optimized for throughput.\nScore total 4.73",
+      "score": {
+        "complexity": 7.36,
+        "depsReady": 7.5,
+        "devTime": 5.9,
+        "explain": [
+          "complexity profile 7.36: velocity influence 0.40, stability 0.96",
+          "performance outlook 10.00: heuristic 1.25, performance metric 2.10",
+          "dependency readiness 7.50: readiness 1.00",
+          "risk profile 1.22: stability delta -1.28",
+          "dev time estimate 5.90: heuristic 1.50, velocity 0.40"
+        ],
+        "perf": 10,
+        "risk": 1.2200000000000002,
+        "total": 4.726666666666667
+      },
+      "specId": "demo"
+    },
+    {
+      "choice": "sqlite_embedded",
+      "component": "database",
+      "deps": [],
+      "nodeId": "83a48bad61872dcb6425a54cc5d8ea9f6943a43904122b294863d259df0d60aa",
+      "rationale": "In-process SQLite for edge deployments.\nScore total 4.42",
+      "score": {
+        "complexity": 8.1,
+        "depsReady": 7.5,
+        "devTime": 4.2,
+        "explain": [
+          "complexity profile 8.10: velocity influence 0.20, stability 0.90",
+          "performance outlook 5.90: performance metric 0.90",
+          "dependency readiness 7.50: readiness 1.00",
+          "risk profile 1.30: stability delta -1.20",
+          "dev time estimate 4.20: velocity 0.20"
+        ],
+        "perf": 5.9,
+        "risk": 1.2999999999999998,
+        "total": 4.416666666666667
+      },
+      "specId": "demo"
+    },
+    {
+      "choice": "nats_cluster",
+      "component": "messaging",
+      "deps": [
+        "69265f10bac636b48d9d5757e594eee0a8788eb3b2f6a5a52e11bf477c3c68b4"
+      ],
+      "nodeId": "d367c4a20cd3c8f6bf185871c34d539104757633b607729edce143fd455843a9",
+      "rationale": "High performance messaging cluster.\nScore total 4.25",
+      "score": {
+        "complexity": 4.75,
+        "depsReady": 7.5,
+        "devTime": 4,
+        "explain": [
+          "complexity profile 4.75: velocity influence 0.00, stability 0.75",
+          "performance outlook 8.75: performance metric 1.75",
+          "dependency readiness 7.50: readiness 1.00",
+          "risk profile 1.50: stability delta -1.00",
+          "dev time estimate 4.00: velocity 0.00"
+        ],
+        "perf": 8.75,
+        "risk": 1.5,
+        "total": 4.25
+      },
+      "specId": "demo"
+    },
+    {
+      "choice": "redis_streams",
+      "component": "messaging",
+      "deps": [
+        "9c169ca27c79537229932db824a5729f541276a3c83349c5ed314a86bdcddb11"
+      ],
+      "nodeId": "71b7c9a3e70c3b9fea641fbbb3a8242cbbf11ad0ed27b88f1cf1b63438a38dfc",
+      "rationale": "In-memory streams for fan-out eventing.\nScore total 3.75",
+      "score": {
+        "complexity": 7.39,
+        "depsReady": 6.75,
+        "devTime": 3.05,
+        "explain": [
+          "complexity profile 7.39: velocity influence -0.20, stability 0.84",
+          "performance outlook 6.00: performance metric 1.00",
+          "dependency readiness 6.75: readiness 1.25",
+          "risk profile 2.88: stability delta -1.12",
+          "dev time estimate 3.05: velocity -0.20"
+        ],
+        "perf": 6,
+        "risk": 2.88,
+        "total": 3.748333333333334
+      },
+      "specId": "demo"
+    },
+    {
+      "choice": "dynamo_serverless",
+      "component": "database",
+      "deps": [],
+      "nodeId": "b4e4e131c7985f4b308c4a59d571b5ab94e4dd8cfcba280f22c8c88452c263b6",
+      "rationale": "Serverless key-value store with pay-per-request.\nScore total 2.21",
+      "score": {
+        "complexity": 6.949999999999999,
+        "depsReady": 4.75,
+        "devTime": 2.85,
+        "explain": [
+          "complexity profile 6.95: velocity influence -0.40, stability 0.60",
+          "performance outlook 6.25: performance metric 0.50",
+          "dependency readiness 4.75: readiness 0.75",
+          "risk profile 4.70: stability delta -0.80",
+          "dev time estimate 2.85: velocity -0.40"
+        ],
+        "perf": 6.25,
+        "risk": 4.7,
+        "total": 2.208333333333333
+      },
+      "specId": "demo"
+    },
+    {
+      "choice": "python_batch",
+      "component": "runtime",
+      "deps": [],
+      "nodeId": "576fc73e7f99723b609fb1607768d31eedb727944bc24170bad0c8aa87c942f2",
+      "rationale": "Async workers in Python for background processing.\nScore total 1.11",
+      "score": {
+        "complexity": 6.45,
+        "depsReady": 4.25,
+        "devTime": 2.25,
+        "explain": [
+          "complexity profile 6.45: velocity influence -1.00, stability 0.45",
+          "performance outlook 5.00: performance metric 0.00",
+          "dependency readiness 4.25: readiness 0.25",
+          "risk profile 6.00: incidents 0.60, stability delta -0.60",
+          "dev time estimate 2.25: heuristic -0.75, velocity -1.00"
+        ],
+        "perf": 5,
+        "risk": 6,
+        "total": 1.1083333333333334
+      },
+      "specId": "demo"
+    }
+  ]
+}

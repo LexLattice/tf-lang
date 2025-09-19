@@ -1,0 +1,12 @@
+name: TS Branch {{branchName}}
+on:
+  push:
+    branches:
+      - {{branchName}}
+  workflow_dispatch: {}
+jobs:
+  tf-plan:
+    uses: ./.github/workflows/reusable-tf-check.yml
+    with:
+      branch-name: {{branchName}}
+    secrets: inherit

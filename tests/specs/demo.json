@@ -1,0 +1,174 @@
+{
+  "version": "0.1",
+  "name": "demo",
+  "designSpace": [
+    {
+      "component": "runtime",
+      "description": "Application runtime selection",
+      "choices": [
+        {
+          "id": "node_managed",
+          "title": "Managed Node Runtime",
+          "summary": "Provider managed Node.js runtime for rapid iteration.",
+          "tags": ["managed", "ga", "serverless"],
+          "provides": ["runtime:node", "cap:fast_boot"],
+          "signals": {
+            "stability": 0.9,
+            "performance": 0.7,
+            "velocity": 0.6,
+            "readiness": 0.85,
+            "incidents": 0.05
+          }
+        },
+        {
+          "id": "rust_native",
+          "title": "Native Rust Service",
+          "summary": "Self-hosted Rust binary optimized for throughput.",
+          "tags": ["optimized", "compiled", "ga"],
+          "provides": ["runtime:rust", "cap:low_latency"],
+          "heuristics": {
+            "perf": 1.25,
+            "devTime": 1.5
+          },
+          "signals": {
+            "stability": 0.82,
+            "performance": 0.92,
+            "velocity": 0.4,
+            "readiness": 0.7
+          }
+        },
+        {
+          "id": "python_batch",
+          "title": "Python Batch Jobs",
+          "summary": "Async workers in Python for background processing.",
+          "tags": ["basic", "beta"],
+          "provides": ["runtime:python"],
+          "heuristics": {
+            "devTime": -0.75
+          },
+          "signals": {
+            "stability": 0.65,
+            "performance": 0.5,
+            "velocity": 0.75,
+            "readiness": 0.55,
+            "incidents": 0.2
+          },
+          "excludes": ["messaging:nats_cluster"]
+        }
+      ]
+    },
+    {
+      "component": "database",
+      "description": "Primary data store",
+      "choices": [
+        {
+          "id": "postgres_managed",
+          "title": "Managed Postgres",
+          "summary": "Cloud managed Postgres with backups.",
+          "tags": ["managed", "ga"],
+          "provides": ["cap:sql", "cap:transactions"],
+          "signals": {
+            "stability": 0.88,
+            "performance": 0.72,
+            "velocity": 0.55,
+            "readiness": 0.9
+          }
+        },
+        {
+          "id": "sqlite_embedded",
+          "title": "Embedded SQLite",
+          "summary": "In-process SQLite for edge deployments.",
+          "tags": ["lite", "ga"],
+          "provides": ["cap:sql"],
+          "requires": ["runtime:rust"],
+          "signals": {
+            "stability": 0.8,
+            "performance": 0.68,
+            "velocity": 0.45,
+            "readiness": 0.7
+          }
+        },
+        {
+          "id": "dynamo_serverless",
+          "title": "Serverless Dynamo",
+          "summary": "Serverless key-value store with pay-per-request.",
+          "tags": ["serverless", "managed", "preview"],
+          "provides": ["cap:kv"],
+          "signals": {
+            "stability": 0.7,
+            "performance": 0.6,
+            "velocity": 0.6,
+            "readiness": 0.65
+          }
+        }
+      ]
+    },
+    {
+      "component": "messaging",
+      "description": "Asynchronous messaging fabric",
+      "choices": [
+        {
+          "id": "redis_streams",
+          "title": "Redis Streams",
+          "summary": "In-memory streams for fan-out eventing.",
+          "tags": ["managed", "fast"],
+          "provides": ["cap:low_latency"],
+          "dependsOn": ["runtime:node_managed"],
+          "signals": {
+            "stability": 0.78,
+            "performance": 0.7,
+            "velocity": 0.55,
+            "readiness": 0.75
+          }
+        },
+        {
+          "id": "sqs_queue",
+          "title": "SQS Queue",
+          "summary": "Durable hosted queues with dead-lettering.",
+          "tags": ["managed", "ga"],
+          "provides": ["cap:durable_queue"],
+          "signals": {
+            "stability": 0.9,
+            "performance": 0.5,
+            "velocity": 0.6,
+            "readiness": 0.9
+          }
+        },
+        {
+          "id": "nats_cluster",
+          "title": "NATS JetStream",
+          "summary": "High performance messaging cluster.",
+          "tags": ["optimized", "cluster", "ga"],
+          "provides": ["cap:low_latency", "cap:streaming"],
+          "requires": ["cap:low_latency"],
+          "dependsOn": ["runtime:rust_native"],
+          "signals": {
+            "stability": 0.75,
+            "performance": 0.85,
+            "velocity": 0.5,
+            "readiness": 0.7
+          }
+        }
+      ]
+    }
+  ],
+  "repoSignals": {
+    "global": {
+      "riskFloor": 0.1
+    },
+    "componentSignals": {
+      "database": {
+        "stability": 0.82,
+        "performance": 0.68,
+        "velocity": 0.52,
+        "readiness": 0.85
+      },
+      "messaging": {
+        "stability": 0.76,
+        "performance": 0.7,
+        "velocity": 0.58,
+        "readiness": 0.72
+      }
+    }
+  }
+}

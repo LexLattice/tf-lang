@@ -1,0 +1,27 @@
+{
+  "name": "ts",
+  "description": "TypeScript-focused scaffold template",
+  "workdir": {
+    "files": [
+      { "source": "workdir/README.md", "target": "README.md" },
+      { "source": "workdir/src/index.ts", "target": "src/index.ts" }
+    ]
+  },
+  "ci": {
+    "reusableWorkflow": {
+      "source": "ci/reusable-tf-check.yml",
+      "target": ".github/workflows/reusable-tf-check.yml"
+    },
+    "branchWorkflows": [
+      {
+        "source": "ci/branch-workflow.yml",
+        "target": ".github/workflows/ts-{{branchSlug}}.yml"
+      }
+    ]
+  },
+  "packageJson": {
+    "scripts": {
+      "tf:check": "pnpm --filter @tf-lang/tf-check run artifacts"
+    }
+  }
+}

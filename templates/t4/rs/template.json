@@ -1,0 +1,27 @@
+{
+  "name": "rs",
+  "description": "Rust-focused scaffold template",
+  "workdir": {
+    "files": [
+      { "source": "workdir/README.md", "target": "README.md" },
+      { "source": "workdir/src/lib.rs", "target": "src/lib.rs" }
+    ]
+  },
+  "ci": {
+    "reusableWorkflow": {
+      "source": "ci/reusable-tf-check.yml",
+      "target": ".github/workflows/reusable-tf-check.yml"
+    },
+    "branchWorkflows": [
+      {
+        "source": "ci/branch-workflow.yml",
+        "target": ".github/workflows/rs-{{branchSlug}}.yml"
+      }
+    ]
+  },
+  "packageJson": {
+    "scripts": {
+      "tf:check": "pnpm --filter @tf-lang/tf-check run artifacts"
+    }
+  }
+}

@@ -264,6 +264,126 @@ importers:
         specifier: ^2.0.5
         version: 2.1.9(@types/node@24.3.1)(jsdom@24.1.3)
 
+  packages/tf-plan:
+    dependencies:
+      '@tf-lang/tf-plan-core':
+        specifier: workspace:*
+        version: link:../tf-plan-core
+      '@tf-lang/tf-plan-enum':
+        specifier: workspace:*
+        version: link:../tf-plan-enum
+      '@tf-lang/utils':
+        specifier: workspace:*
+        version: link:../utils
+    devDependencies:
+      '@types/node':
+        specifier: ^24.3.1
+        version: 24.3.1
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.2
+      vitest:
+        specifier: ^2.1.3
+        version: 2.1.9(@types/node@24.3.1)(jsdom@24.1.3)
+
+  packages/tf-plan-core:
+    dependencies:
+      '@tf-lang/utils':
+        specifier: workspace:*
+        version: link:../utils
+      ajv:
+        specifier: ^8.12.0
+        version: 8.17.1
+    devDependencies:
+      '@types/node':
+        specifier: ^24.3.1
+        version: 24.3.1
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.2
+      vitest:
+        specifier: ^2.1.3
+        version: 2.1.9(@types/node@24.3.1)(jsdom@24.1.3)
+
+  packages/tf-plan-enum:
+    dependencies:
+      '@tf-lang/tf-plan-core':
+        specifier: workspace:*
+        version: link:../tf-plan-core
+      '@tf-lang/tf-plan-scoring':
+        specifier: workspace:*
+        version: link:../tf-plan-scoring
+    devDependencies:
+      '@types/node':
+        specifier: ^24.3.1
+        version: 24.3.1
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.2
+      vitest:
+        specifier: ^2.1.3
+        version: 2.1.9(@types/node@24.3.1)(jsdom@24.1.3)
+
+  packages/tf-plan-scaffold:
+    dependencies:
+      '@tf-lang/tf-plan':
+        specifier: workspace:*
+        version: link:../tf-plan
+      '@tf-lang/tf-plan-core':
+        specifier: workspace:*
+        version: link:../tf-plan-core
+      '@tf-lang/tf-plan-scaffold-core':
+        specifier: workspace:*
+        version: link:../tf-plan-scaffold-core
+      '@tf-lang/utils':
+        specifier: workspace:*
+        version: link:../utils
+    devDependencies:
+      '@types/node':
+        specifier: ^24.3.1
+        version: 24.3.1
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.2
+      vitest:
+        specifier: ^2.1.3
+        version: 2.1.9(@types/node@24.3.1)(jsdom@24.1.3)
+
+  packages/tf-plan-scaffold-core:
+    dependencies:
+      '@tf-lang/tf-plan-core':
+        specifier: workspace:*
+        version: link:../tf-plan-core
+      '@tf-lang/utils':
+        specifier: workspace:*
+        version: link:../utils
+    devDependencies:
+      '@types/node':
+        specifier: ^24.3.1
+        version: 24.3.1
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.2
+      vitest:
+        specifier: ^2.1.3
+        version: 2.1.9(@types/node@24.3.1)(jsdom@24.1.3)
+
+  packages/tf-plan-scoring:
+    dependencies:
+      '@tf-lang/tf-plan-core':
+        specifier: workspace:*
+        version: link:../tf-plan-core
+    devDependencies:
+      '@types/node':
+        specifier: ^24.3.1
+        version: 24.3.1
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.2
+      vitest:
+        specifier: ^2.1.3
+        version: 2.1.9(@types/node@24.3.1)(jsdom@24.1.3)
+
   packages/utils:
     devDependencies:
       '@types/node':

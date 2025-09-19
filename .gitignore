@@ -35,6 +35,8 @@ build/
 out/
 !out/t2/
 !out/t2/**
+!out/t4/
+!out/t4/**
 
 # TypeScript
 *.tsbuildinfo

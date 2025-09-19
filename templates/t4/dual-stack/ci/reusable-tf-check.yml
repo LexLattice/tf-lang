@@ -1,0 +1,27 @@
+name: T4 Reusable Check
+on:
+  workflow_call:
+    inputs:
+      branch-name:
+        required: true
+        type: string
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs["branch-name"] }}
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r build
+      - run: pnpm tf:check
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tf-check-${{ inputs["branch-name"] }}
+          path: out/t2/tf-check

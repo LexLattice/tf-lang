@@ -1,0 +1,92 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "tf-plan-branch",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["nodeId", "choice", "score", "rationale", "components", "meta"],
+  "properties": {
+    "nodeId": {
+      "type": "string"
+    },
+    "choice": {
+      "type": "string"
+    },
+    "score": {
+      "$ref": "#/definitions/score"
+    },
+    "rationale": {
+      "type": "string"
+    },
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["component", "choice", "nodeId"],
+        "properties": {
+          "component": {
+            "type": "string"
+          },
+          "choice": {
+            "type": "string"
+          },
+          "nodeId": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["specId", "specHash", "seed", "version"],
+      "properties": {
+        "specId": {
+          "type": "string"
+        },
+        "specHash": {
+          "type": "string"
+        },
+        "seed": {
+          "type": "integer"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "score": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "complexity", "risk", "perf", "devTime", "depsReady", "explain"],
+      "properties": {
+        "total": {
+          "type": "number"
+        },
+        "complexity": {
+          "type": "number"
+        },
+        "risk": {
+          "type": "number"
+        },
+        "perf": {
+          "type": "number"
+        },
+        "devTime": {
+          "type": "number"
+        },
+        "depsReady": {
+          "type": "number"
+        },
+        "explain": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

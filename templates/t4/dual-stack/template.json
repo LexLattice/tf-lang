@@ -1,0 +1,29 @@
+{
+  "name": "dual-stack",
+  "description": "Dual-stack template for evaluating parallel TS and Rust branches",
+  "workdir": {
+    "files": [
+      { "source": "workdir/README.md", "target": "README.md" },
+      { "source": "workdir/Makefile", "target": "Makefile" },
+      { "source": "workdir/src/index.ts", "target": "src/index.ts" },
+      { "source": "workdir/src/lib.rs", "target": "rust/src/lib.rs" }
+    ]
+  },
+  "ci": {
+    "reusableWorkflow": {
+      "source": "ci/reusable-tf-check.yml",
+      "target": ".github/workflows/reusable-tf-check.yml"
+    },
+    "branchWorkflows": [
+      {
+        "source": "ci/branch-workflow.yml",
+        "target": ".github/workflows/t4-{{branchSlug}}.yml"
+      }
+    ]
+  },
+  "packageJson": {
+    "scripts": {
+      "tf:check": "pnpm --filter @tf-lang/tf-check run artifacts"
+    }
+  }
+}

@@ -1,0 +1,207 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "tf-plan-compare",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["meta", "branches", "recommendation"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["specId", "specHash", "seed", "generatedAt", "version", "inputs"],
+      "properties": {
+        "specId": {
+          "type": "string"
+        },
+        "specHash": {
+          "type": "string"
+        },
+        "seed": {
+          "type": "integer"
+        },
+        "generatedAt": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "inputs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["plan", "scaffold"],
+          "properties": {
+            "plan": {
+              "type": "string"
+            },
+            "scaffold": {
+              "type": "string"
+            },
+            "oracles": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "branches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["nodeId", "rank", "score", "outcomes", "artifacts", "summary"],
+        "properties": {
+          "nodeId": {
+            "type": "string"
+          },
+          "rank": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "score": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["total", "normalized"],
+            "properties": {
+              "total": {
+                "type": "number"
+              },
+              "normalized": {
+                "type": "number"
+              }
+            }
+          },
+          "outcomes": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["plan", "oracles"],
+            "properties": {
+              "plan": {
+                "$ref": "#/definitions/scoreBreakdown"
+              },
+              "oracles": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/definitions/oracleOutcome"
+                }
+              }
+            }
+          },
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/artifact"
+            }
+          },
+          "summary": {
+            "type": "string"
+          },
+          "explain": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nodeId", "reason", "confidence"],
+      "properties": {
+        "nodeId": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/artifact"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "scoreBreakdown": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "complexity", "risk", "perf", "devTime", "depsReady", "explain"],
+      "properties": {
+        "total": {
+          "type": "number"
+        },
+        "complexity": {
+          "type": "number"
+        },
+        "risk": {
+          "type": "number"
+        },
+        "perf": {
+          "type": "number"
+        },
+        "devTime": {
+          "type": "number"
+        },
+        "depsReady": {
+          "type": "number"
+        },
+        "explain": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "path"],
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      }
+    },
+    "oracleOutcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "status"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pass", "fail", "warn", "unknown"]
+        },
+        "metrics": {
+          "type": "object",
+          "additionalProperties": {
+            "type": ["number", "string"]
+          }
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

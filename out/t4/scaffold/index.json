@@ -1,0 +1,253 @@
+{
+  "branches": [
+    {
+      "branchName": "plan/demo/runtime-node-managed-database-postgres-managed-messaging-sqs-queue-fcad96c41586",
+      "branchSlug": "runtime-node-managed-database-postgres-managed-messaging-sqs-queue-fcad96c41586",
+      "files": [
+        {
+          "contents": "name: T4 Branch plan/demo/runtime-node-managed-database-postgres-managed-messaging-sqs-queue-fcad96c41586\non:\n  push:\n    branches:\n      - plan/demo/runtime-node-managed-database-postgres-managed-messaging-sqs-queue-fcad96c41586\n  workflow_dispatch: {}\njobs:\n  tf-plan:\n    uses: ./.github/workflows/reusable-tf-check.yml\n    with:\n      branch-name: plan/demo/runtime-node-managed-database-postgres-managed-messaging-sqs-queue-fcad96c41586\n    secrets: inherit\n",
+          "digest": "17c3a584ebbf0c915486159a5fcb228d1050fd7e20ed99371935dc3ab55bdc6b",
+          "path": ".github/workflows/t4-runtime-node-managed-database-postgres-managed-messaging-sqs-queue-fcad96c41586.yml",
+          "sourcePath": "ci/branch-workflow.yml",
+          "target": "ci"
+        },
+        {
+          "contents": ".PHONY: oracle demo lint\n\noracle:\n\tpnpm tf:check\n\ndemo:\n\tcargo test\n\nlint:\n\tpnpm -r lint\n",
+          "digest": "0ecd09b8a234e2b56b9e72279bb7283bb6d39ba5e44d16d5840f9bb6024f6c50",
+          "path": "Makefile",
+          "sourcePath": "workdir/Makefile",
+          "target": "workdir"
+        },
+        {
+          "contents": "# Branch plan/demo/runtime-node-managed-database-postgres-managed-messaging-sqs-queue-fcad96c41586\n\nThis branch scaffolds a dual runtime experiment for plan node `fcad96c41586df9774b9ed16887980041a512833d2706e2c2544e969b4a39ede`.\n\n## Quick start\n\n- Install dependencies: `pnpm install`\n- Build JS artifacts: `pnpm -r build`\n- Run tf-check oracles: `pnpm tf:check`\n- Exercise Rust library: `cargo test`\n\nArtifacts and reports are uploaded via the CI workflow defined in\n`.github/workflows/t4-runtime-node-managed-database-postgres-managed-messaging-sqs-queue-fcad96c41586.yml`.\n",
+          "digest": "680951aeb6002b9b6d98dd21d0842f5d8aff73e873e08eec51602fafa3cee5f9",
+          "path": "README.md",
+          "sourcePath": "workdir/README.md",
+          "target": "workdir"
+        },
+        {
+          "contents": "export interface BranchContext {\n  readonly branchName: string;\n  readonly nodeId: string;\n}\n\nexport function describeBranch(context: BranchContext): string {\n  return `Branch ${context.branchName} evaluates plan node ${context.nodeId}.`;\n}\n\nexport const CURRENT_BRANCH = \"plan/demo/runtime-node-managed-database-postgres-managed-messaging-sqs-queue-fcad96c41586\";\nexport const PLAN_NODE_ID = \"fcad96c41586df9774b9ed16887980041a512833d2706e2c2544e969b4a39ede\";\n",
+          "digest": "49f225ff4b041d3eb4cf0c9c2e51766129777378e06d6aa83fdc2954db9f9726",
+          "path": "src/index.ts",
+          "sourcePath": "workdir/src/index.ts",
+          "target": "workdir"
+        },
+        {
+          "contents": "pub fn summarize_branch() -> String {\n    format!(\n        \"Branch {branch} validates plan node {node}\",\n        branch = \"plan/demo/runtime-node-managed-database-postgres-managed-messaging-sqs-queue-fcad96c41586\",\n        node = \"fcad96c41586df9774b9ed16887980041a512833d2706e2c2544e969b4a39ede\"\n    )\n}\n",
+          "digest": "a5b0dbcdd4f74ff7bbe6a0de0b7d2de2c399ec7a819caa8cd3ba48574a73a999",
+          "path": "rust/src/lib.rs",
+          "sourcePath": "workdir/src/lib.rs",
+          "target": "workdir"
+        }
+      ],
+      "nodeId": "fcad96c41586df9774b9ed16887980041a512833d2706e2c2544e969b4a39ede",
+      "packageJsonUpdates": [],
+      "repoActions": [
+        {
+          "baseBranch": "main",
+          "branchName": "plan/demo/runtime-node-managed-database-postgres-managed-messaging-sqs-queue-fcad96c41586",
+          "type": "create-branch"
+        }
+      ],
+      "summary": {
+        "choice": "runtime=node_managed|database=postgres_managed|messaging=sqs_queue",
+        "component": "plan",
+        "rationale": "Branch covers runtime=node_managed|database=postgres_managed|messaging=sqs_queue.\nCloud managed Postgres with backups.\nScore total 5.57\nDurable hosted queues with dead-lettering.\nScore total 5.26\nProvider managed Node.js runtime for rapid iteration.\nScore total 5.73\nAggregate score 11.12 with 15 contributing factors.",
+        "score": {
+          "complexity": 22.79,
+          "depsReady": 26.75,
+          "devTime": 8.75,
+          "perf": 17.85,
+          "risk": 3.05,
+          "total": 11.118000000000002
+        }
+      },
+      "worktreePath": "worktrees/demo/runtime-node-managed-database-postgres-managed-messaging-sqs-queue-fcad96c41586"
+    },
+    {
+      "branchName": "plan/demo/database-postgres-managed-messaging-sqs-queue-runtime-rust-native-b1634e8ebd7a",
+      "branchSlug": "database-postgres-managed-messaging-sqs-queue-runtime-rust-native-b1634e8ebd7a",
+      "files": [
+        {
+          "contents": "name: T4 Branch plan/demo/database-postgres-managed-messaging-sqs-queue-runtime-rust-native-b1634e8ebd7a\non:\n  push:\n    branches:\n      - plan/demo/database-postgres-managed-messaging-sqs-queue-runtime-rust-native-b1634e8ebd7a\n  workflow_dispatch: {}\njobs:\n  tf-plan:\n    uses: ./.github/workflows/reusable-tf-check.yml\n    with:\n      branch-name: plan/demo/database-postgres-managed-messaging-sqs-queue-runtime-rust-native-b1634e8ebd7a\n    secrets: inherit\n",
+          "digest": "db07cdc18481584e1e996d2cbe593319e0242d36893a002ef5991478567e35d9",
+          "path": ".github/workflows/t4-database-postgres-managed-messaging-sqs-queue-runtime-rust-native-b1634e8ebd7a.yml",
+          "sourcePath": "ci/branch-workflow.yml",
+          "target": "ci"
+        },
+        {
+          "contents": ".PHONY: oracle demo lint\n\noracle:\n\tpnpm tf:check\n\ndemo:\n\tcargo test\n\nlint:\n\tpnpm -r lint\n",
+          "digest": "0ecd09b8a234e2b56b9e72279bb7283bb6d39ba5e44d16d5840f9bb6024f6c50",
+          "path": "Makefile",
+          "sourcePath": "workdir/Makefile",
+          "target": "workdir"
+        },
+        {
+          "contents": "# Branch plan/demo/database-postgres-managed-messaging-sqs-queue-runtime-rust-native-b1634e8ebd7a\n\nThis branch scaffolds a dual runtime experiment for plan node `b1634e8ebd7a7420c47c1300566efcdaf1c8edd7b89897be61e47f99d33aa99f`.\n\n## Quick start\n\n- Install dependencies: `pnpm install`\n- Build JS artifacts: `pnpm -r build`\n- Run tf-check oracles: `pnpm tf:check`\n- Exercise Rust library: `cargo test`\n\nArtifacts and reports are uploaded via the CI workflow defined in\n`.github/workflows/t4-database-postgres-managed-messaging-sqs-queue-runtime-rust-native-b1634e8ebd7a.yml`.\n",
+          "digest": "896961811eed6a46a32be6b87ad7cc99010434534fd3d5bb34f5d3f9dec1032b",
+          "path": "README.md",
+          "sourcePath": "workdir/README.md",
+          "target": "workdir"
+        },
+        {
+          "contents": "export interface BranchContext {\n  readonly branchName: string;\n  readonly nodeId: string;\n}\n\nexport function describeBranch(context: BranchContext): string {\n  return `Branch ${context.branchName} evaluates plan node ${context.nodeId}.`;\n}\n\nexport const CURRENT_BRANCH = \"plan/demo/database-postgres-managed-messaging-sqs-queue-runtime-rust-native-b1634e8ebd7a\";\nexport const PLAN_NODE_ID = \"b1634e8ebd7a7420c47c1300566efcdaf1c8edd7b89897be61e47f99d33aa99f\";\n",
+          "digest": "e643f86252c8bc7d2f021cf2e2178110f4a93a3a1ecb1ca08aa46e7bf10f92f6",
+          "path": "src/index.ts",
+          "sourcePath": "workdir/src/index.ts",
+          "target": "workdir"
+        },
+        {
+          "contents": "pub fn summarize_branch() -> String {\n    format!(\n        \"Branch {branch} validates plan node {node}\",\n        branch = \"plan/demo/database-postgres-managed-messaging-sqs-queue-runtime-rust-native-b1634e8ebd7a\",\n        node = \"b1634e8ebd7a7420c47c1300566efcdaf1c8edd7b89897be61e47f99d33aa99f\"\n    )\n}\n",
+          "digest": "12d55e7730ea4a635dd140e586896f1d11182ff7fdaf6c2af96f566438161fa6",
+          "path": "rust/src/lib.rs",
+          "sourcePath": "workdir/src/lib.rs",
+          "target": "workdir"
+        }
+      ],
+      "nodeId": "b1634e8ebd7a7420c47c1300566efcdaf1c8edd7b89897be61e47f99d33aa99f",
+      "packageJsonUpdates": [],
+      "repoActions": [
+        {
+          "baseBranch": "main",
+          "branchName": "plan/demo/database-postgres-managed-messaging-sqs-queue-runtime-rust-native-b1634e8ebd7a",
+          "type": "create-branch"
+        }
+      ],
+      "summary": {
+        "choice": "database=postgres_managed|messaging=sqs_queue|runtime=rust_native",
+        "component": "plan",
+        "rationale": "Branch covers database=postgres_managed|messaging=sqs_queue|runtime=rust_native.\nCloud managed Postgres with backups.\nScore total 5.57\nDurable hosted queues with dead-lettering.\nScore total 5.26\nSelf-hosted Rust binary optimized for throughput.\nScore total 4.73\nAggregate score 10.84 with 15 contributing factors.",
+        "score": {
+          "complexity": 22.599999999999998,
+          "depsReady": 25.5,
+          "devTime": 11.8,
+          "perf": 21.1,
+          "risk": 3.22,
+          "total": 10.835999999999999
+        }
+      },
+      "worktreePath": "worktrees/demo/database-postgres-managed-messaging-sqs-queue-runtime-rust-native-b1634e8ebd7a"
+    },
+    {
+      "branchName": "plan/demo/runtime-node-managed-database-postgres-managed-messaging-redis-streams-9754c10bcbac",
+      "branchSlug": "runtime-node-managed-database-postgres-managed-messaging-redis-streams-9754c10bcbac",
+      "files": [
+        {
+          "contents": "name: T4 Branch plan/demo/runtime-node-managed-database-postgres-managed-messaging-redis-streams-9754c10bcbac\non:\n  push:\n    branches:\n      - plan/demo/runtime-node-managed-database-postgres-managed-messaging-redis-streams-9754c10bcbac\n  workflow_dispatch: {}\njobs:\n  tf-plan:\n    uses: ./.github/workflows/reusable-tf-check.yml\n    with:\n      branch-name: plan/demo/runtime-node-managed-database-postgres-managed-messaging-redis-streams-9754c10bcbac\n    secrets: inherit\n",
+          "digest": "1dc68dfb7ddfd60dc41bf9f525f3b980a0c229cc8d31b835f22a6ad076178c61",
+          "path": ".github/workflows/t4-runtime-node-managed-database-postgres-managed-messaging-redis-streams-9754c10bcbac.yml",
+          "sourcePath": "ci/branch-workflow.yml",
+          "target": "ci"
+        },
+        {
+          "contents": ".PHONY: oracle demo lint\n\noracle:\n\tpnpm tf:check\n\ndemo:\n\tcargo test\n\nlint:\n\tpnpm -r lint\n",
+          "digest": "0ecd09b8a234e2b56b9e72279bb7283bb6d39ba5e44d16d5840f9bb6024f6c50",
+          "path": "Makefile",
+          "sourcePath": "workdir/Makefile",
+          "target": "workdir"
+        },
+        {
+          "contents": "# Branch plan/demo/runtime-node-managed-database-postgres-managed-messaging-redis-streams-9754c10bcbac\n\nThis branch scaffolds a dual runtime experiment for plan node `9754c10bcbacaa0ed23c5fc5355cfbd1ddbada07eadb2c76393019376526a56d`.\n\n## Quick start\n\n- Install dependencies: `pnpm install`\n- Build JS artifacts: `pnpm -r build`\n- Run tf-check oracles: `pnpm tf:check`\n- Exercise Rust library: `cargo test`\n\nArtifacts and reports are uploaded via the CI workflow defined in\n`.github/workflows/t4-runtime-node-managed-database-postgres-managed-messaging-redis-streams-9754c10bcbac.yml`.\n",
+          "digest": "0fc251e60d01d834caf1d599ebd9fd973bc8bbac45a933597bdf6d5806bcdda9",
+          "path": "README.md",
+          "sourcePath": "workdir/README.md",
+          "target": "workdir"
+        },
+        {
+          "contents": "export interface BranchContext {\n  readonly branchName: string;\n  readonly nodeId: string;\n}\n\nexport function describeBranch(context: BranchContext): string {\n  return `Branch ${context.branchName} evaluates plan node ${context.nodeId}.`;\n}\n\nexport const CURRENT_BRANCH = \"plan/demo/runtime-node-managed-database-postgres-managed-messaging-redis-streams-9754c10bcbac\";\nexport const PLAN_NODE_ID = \"9754c10bcbacaa0ed23c5fc5355cfbd1ddbada07eadb2c76393019376526a56d\";\n",
+          "digest": "620d8606a25ab60cedd6fc75d6a967464ea47a09da32e227932dc10fe902c8c0",
+          "path": "src/index.ts",
+          "sourcePath": "workdir/src/index.ts",
+          "target": "workdir"
+        },
+        {
+          "contents": "pub fn summarize_branch() -> String {\n    format!(\n        \"Branch {branch} validates plan node {node}\",\n        branch = \"plan/demo/runtime-node-managed-database-postgres-managed-messaging-redis-streams-9754c10bcbac\",\n        node = \"9754c10bcbacaa0ed23c5fc5355cfbd1ddbada07eadb2c76393019376526a56d\"\n    )\n}\n",
+          "digest": "ec248f479e564240bbfa297714f9d9fcab9ee44cb17ea29ca1703c73aa7143a8",
+          "path": "rust/src/lib.rs",
+          "sourcePath": "workdir/src/lib.rs",
+          "target": "workdir"
+        }
+      ],
+      "nodeId": "9754c10bcbacaa0ed23c5fc5355cfbd1ddbada07eadb2c76393019376526a56d",
+      "packageJsonUpdates": [],
+      "repoActions": [
+        {
+          "baseBranch": "main",
+          "branchName": "plan/demo/runtime-node-managed-database-postgres-managed-messaging-redis-streams-9754c10bcbac",
+          "type": "create-branch"
+        }
+      ],
+      "summary": {
+        "choice": "runtime=node_managed|database=postgres_managed|messaging=redis_streams",
+        "component": "plan",
+        "rationale": "Branch covers runtime=node_managed|database=postgres_managed|messaging=redis_streams.\nCloud managed Postgres with backups.\nScore total 5.57\nIn-memory streams for fan-out eventing.\nScore total 3.75\nProvider managed Node.js runtime for rapid iteration.\nScore total 5.73\nAggregate score 10.42 with 15 contributing factors.",
+        "score": {
+          "complexity": 22.63,
+          "depsReady": 24.5,
+          "devTime": 8.95,
+          "perf": 18.85,
+          "risk": 4.93,
+          "total": 10.42
+        }
+      },
+      "worktreePath": "worktrees/demo/runtime-node-managed-database-postgres-managed-messaging-redis-streams-9754c10bcbac"
+    }
+  ],
+  "global": {
+    "files": [
+      {
+        "contents": "name: T4 Reusable Check\non:\n  workflow_call:\n    inputs:\n      branch-name:\n        required: true\n        type: string\njobs:\n  verify:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          ref: ${{ inputs[\"branch-name\"] }}\n      - uses: pnpm/action-setup@v3\n        with:\n          version: 9\n      - uses: actions/setup-node@v4\n        with:\n          node-version: 20\n      - run: pnpm install --frozen-lockfile\n      - run: pnpm -r build\n      - run: pnpm tf:check\n      - uses: actions/upload-artifact@v4\n        with:\n          name: tf-check-${{ inputs[\"branch-name\"] }}\n          path: out/t2/tf-check\n",
+        "digest": "987c6becc3c572350ca0fff7f172ee4ca74bd5fc6f7b46381fcc19b524b44858",
+        "path": ".github/workflows/reusable-tf-check.yml",
+        "sourcePath": "ci/reusable-tf-check.yml",
+        "target": "ci"
+      }
+    ],
+    "packageJsonUpdates": [
+      {
+        "path": "package.json",
+        "scripts": {
+          "tf:check": "pnpm --filter @tf-lang/tf-check run artifacts"
+        }
+      }
+    ]
+  },
+  "index": [
+    {
+      "branchName": "plan/demo/runtime-node-managed-database-postgres-managed-messaging-sqs-queue-fcad96c41586",
+      "nodeId": "fcad96c41586df9774b9ed16887980041a512833d2706e2c2544e969b4a39ede",
+      "worktreePath": "worktrees/demo/runtime-node-managed-database-postgres-managed-messaging-sqs-queue-fcad96c41586"
+    },
+    {
+      "branchName": "plan/demo/database-postgres-managed-messaging-sqs-queue-runtime-rust-native-b1634e8ebd7a",
+      "nodeId": "b1634e8ebd7a7420c47c1300566efcdaf1c8edd7b89897be61e47f99d33aa99f",
+      "worktreePath": "worktrees/demo/database-postgres-managed-messaging-sqs-queue-runtime-rust-native-b1634e8ebd7a"
+    },
+    {
+      "branchName": "plan/demo/runtime-node-managed-database-postgres-managed-messaging-redis-streams-9754c10bcbac",
+      "nodeId": "9754c10bcbacaa0ed23c5fc5355cfbd1ddbada07eadb2c76393019376526a56d",
+      "worktreePath": "worktrees/demo/runtime-node-managed-database-postgres-managed-messaging-redis-streams-9754c10bcbac"
+    }
+  ],
+  "meta": {
+    "baseBranch": "main",
+    "branchPrefix": "plan/demo",
+    "limit": 3,
+    "planVersion": "0.1.0",
+    "reusableWorkflowPath": ".github/workflows/reusable-tf-check.yml",
+    "seed": 42,
+    "selectedBranches": 3,
+    "specHash": "9320d718e78ca34ae0f3e2178277dcfbf7e065d893cf2494c6111d08c367bdd6",
+    "specId": "demo",
+    "templateHash": "5593949cfff106c24280cdca1dfeefa3dfb32e45cf39ad55241b5a802e2c2d05",
+    "templateName": "dual-stack",
+    "totalCandidates": 4,
+    "version": "0.1.0",
+    "worktreeRoot": "worktrees/demo"
+  },
+  "template": {
+    "description": "Dual-stack template for evaluating parallel TS and Rust branches",
+    "fileCount": 6,
+    "name": "dual-stack"
+  }
+}

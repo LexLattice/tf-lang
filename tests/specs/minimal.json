@@ -1,0 +1,45 @@
+{
+  "version": "0.1",
+  "name": "minimal",
+  "designSpace": [
+    {
+      "component": "api",
+      "choices": [
+        {
+          "id": "rest",
+          "summary": "REST endpoints",
+          "tags": ["basic"],
+          "provides": ["cap:http"]
+        },
+        {
+          "id": "graphql",
+          "summary": "GraphQL schema",
+          "tags": ["advanced"],
+          "provides": ["cap:http", "cap:graph"],
+          "heuristics": {
+            "complexity": -1
+          }
+        }
+      ]
+    },
+    {
+      "component": "storage",
+      "choices": [
+        {
+          "id": "memory",
+          "summary": "In-memory cache",
+          "tags": ["lite"],
+          "provides": ["cap:fast"],
+          "requires": ["cap:http"]
+        },
+        {
+          "id": "disk",
+          "summary": "Disk persistence",
+          "tags": ["durable"],
+          "provides": ["cap:persist"],
+          "requires": ["cap:http"]
+        }
+      ]
+    }
+  ]
+}

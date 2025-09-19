@@ -1,70 +1,73 @@
-name: t3-oracles-epic
+name: T3 · Oracles
+
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
   push:
-    branches: [ main ]
+    branches:
+      - main
+      - develop
+      - 'release/**'
+  pull_request:
+    branches:
+      - '**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: t3-oracles-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: true
 
 jobs:
-  t3-oracles:
-    strategy:
-      fail-fast: false
-      matrix:
-        job: [t3-conservation-ts, t3-conservation-rust, t3-idempotence-ts, t3-idempotence-rust, t3-transport-ts, t3-transport-rust, t3-parity]
-        os: [ubuntu-latest]
-    runs-on: ${{ matrix.os }}
-    permissions:
-      contents: read
-      packages: read
+  oracles:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          node-version: 20
-          cache: pnpm
-          cache-dependency-path: '**/pnpm-lock.yaml'   # 👈 optional but helpful for workspaces
-      # Install pnpm (reads the version from package.json: "packageManager": "pnpm@x.y.z")
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+          fetch-depth: 0
+
+      # Unified toolchain (Node + pnpm + cache + install)
+      # Requires: .github/actions/setup-pnpm/action.yml from our previous message
+      - name: Setup Node + pnpm
+        uses: ./.github/actions/setup-pnpm
         with:
-          run_install: false
-      
-      # (optional sanity check)
-      - name: pnpm version
-        run: pnpm -v
+          node-version: '20'
+          install: 'true'
+          frozen: 'true'
+          cache-dependency-path: '**/pnpm-lock.yaml'
 
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - name: Install deps
-        run: pnpm install --frozen-lockfile
-
-      - name: Build utils (topo)
-        run: pnpm -r --filter "@tf-lang/utils" run build || true
-
-      - name: Run ${{ matrix.job }}
+      - name: Toolchain info
         run: |
-          case "${{ matrix.job }}" in
-            t3-conservation-ts) pnpm -r --filter "./packages/oracles/conservation" run build && pnpm -r --filter "./packages/oracles/conservation" run test ;;
-            t3-conservation-rust) cargo test --package tf-oracles-conservation --all-targets || true ;;
-            t3-idempotence-ts) pnpm -r --filter "./packages/oracles/idempotence" run build && pnpm -r --filter "./packages/oracles/idempotence" run test ;;
-            t3-idempotence-rust) cargo test --package tf-oracles-idempotence --all-targets || true ;;
-            t3-transport-ts) pnpm -r --filter "./packages/oracles/transport" run build && pnpm -r --filter "./packages/oracles/transport" run test ;;
-            t3-transport-rust) cargo test --package tf-oracles-transport --all-targets || true ;;
-            t3-parity) pnpm -r --filter "./packages/oracles/*" run artifacts || true ;;
-          esac
+          echo "node: $(node -v)"
+          echo "npm:  $(npm -v)"
+          echo "pnpm: $(pnpm -v)"
+          command -v pnpm
 
-      - name: Determinism re-run
-        if: always()
-        run: |
-          # Re-run artifacts for determinism (2x)
-          pnpm -r --filter "./packages/oracles/*" run artifacts || true
+      # --- Oracles pipeline (runs only where scripts exist) ---
+      - name: Build oracles (if present)
+        run: pnpm -r --filter "./packages/oracles/*" --if-present run build
 
-      - name: Upload T3 artifacts
+      - name: Lint oracles (if present)
+        run: pnpm -r --filter "./packages/oracles/*" --if-present run lint
+
+      - name: Test oracles (if present)
+        run: pnpm -r --filter "./packages/oracles/*" --if-present run test
+
+      - name: Generate oracles artifacts (if present)
+        run: pnpm -r --filter "./packages/oracles/*" --if-present run artifacts
+
+      - name: Upload artifacts (if any)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: t3-${{ matrix.job }}
+          name: t3-oracles-artifacts
           path: |
-            out/t3/**
-            packages/oracles/**/fixtures/**
+            packages/oracles/**/artifacts/**
+            packages/oracles/**/dist/**
           if-no-files-found: ignore

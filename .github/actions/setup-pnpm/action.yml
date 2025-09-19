@@ -1,52 +1,64 @@
 # .github/actions/setup-pnpm/action.yml
 name: setup-pnpm
-description: Setup Node + pnpm (uses version from package.json "packageManager"), optional install
+description: Setup Node + pnpm (reads pinned version from package.json "packageManager"), optionally run install
+
 inputs:
   node-version:
-    description: Node.js version
+    description: Node.js version (semver or LTS alias)
     required: false
     default: '20'
   install:
-    description: Run pnpm install after setup
+    description: Run "pnpm install" after setup
     required: false
     default: 'true'
   frozen:
-    description: Use --frozen-lockfile when installing
+    description: Use "--frozen-lockfile" when installing
     required: false
     default: 'true'
+  working-directory:
+    description: Directory where "pnpm install" should be executed
+    required: false
+    default: '.'
   cache-dependency-path:
-    description: Path(s) to pnpm-lock.yaml for caching (supports globs)
+    description: Glob(s) to pnpm-lock.yaml for caching (supports globs)
     required: false
     default: '**/pnpm-lock.yaml'
 
 runs:
   using: "composite"
   steps:
-    # 1) Node
-    - uses: actions/setup-node@v4
+    # 1) Node (with pnpm cache)
+    - name: Setup Node
+      uses: actions/setup-node@v4
       with:
-        node-version: ${{ inputs['node-version'] }}
+        node-version: ${{ inputs.node-version }}
         cache: pnpm
-        cache-dependency-path: ${{ inputs['cache-dependency-path'] }}
+        cache-dependency-path: ${{ inputs.cache-dependency-path }}
 
-    # 2) Install pnpm (reads version from package.json: "packageManager": "pnpm@x.y.z")
-    - uses: pnpm/action-setup@v4
+    # 2) pnpm (uses version from package.json: "packageManager": "pnpm@x.y.z")
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
       with:
         run_install: false
 
-    # 3) Sanity check
-    - shell: bash
-      run: |
-        echo "PATH=$PATH"
-        node -v
-        pnpm -v
-        which pnpm || true
-        command -v pnpm || true
-
-    # 4) Optional install
-    - if: ${{ inputs.install == 'true' }}
+    # 3) Sanity: show versions + PATH visibility
+    - name: Verify toolchain
       shell: bash
       run: |
+        set -euxo pipefail
+        echo "PATH=$PATH"
+        node -v
+        npm -v
+        pnpm -v
+        command -v pnpm
+
+    # 4) Optional install at repo root (or provided working-directory)
+    - name: Install dependencies
+      if: ${{ inputs.install == 'true' }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        set -euxo pipefail
         if [[ "${{ inputs.frozen }}" == "true" ]]; then
           pnpm install --frozen-lockfile
         else

@@ -151,10 +151,18 @@ ensure_first_artifact() {
 ensure_first_artifact
 
 # --- Optional: early branch + draft PR + checkpoint pushes (single bootstrap) ---
-# Only try PR/ pushes if we have a token and a git repo
-if [ "$ENABLE_CHECKPOINT_PUSH" = "1" ] \
-   && git rev-parse --git-dir >/dev/null 2>&1 \
-   && [ -n "${GH_TOKEN:-${GITHUB_TOKEN:-}}" ]; then
+# Only try PR/pushes if git repo and we either (a) are authed or (b) have a token to log in
+if [ "$ENABLE_CHECKPOINT_PUSH" = "1" ] && git rev-parse --git-dir >/dev/null 2>&1; then
+  have_push_creds=0
+  if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+    have_push_creds=1
+  elif [ -n "${GH_TOKEN:-${GITHUB_TOKEN:-}}" ]; then
+    gh auth login --hostname github.com --with-token <<< "${GH_TOKEN:-$GITHUB_TOKEN}" >/dev/null 2>&1 || true
+    gh auth setup-git >/dev/null 2>&1 || true
+    gh auth status >/dev/null 2>&1 && have_push_creds=1 || have_push_creds=0
+  fi
+  if [ "$have_push_creds" = "1" ]; then
+    # … keep the rest of the PR block as-is …
   : "${GIT_AUTHOR_NAME:=codex-agent}"
   : "${GIT_AUTHOR_EMAIL:=codex-agent@noreply}"
   : "${GIT_COMMITTER_NAME:=$GIT_AUTHOR_NAME}"

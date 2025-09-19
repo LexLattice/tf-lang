@@ -1,3 +1,4 @@
+# .github/workflows/t3-trace-and-perf.yml
 name: T3 · Trace & Perf
 
 on:
@@ -14,20 +15,29 @@ jobs:
           node-version: '20'
           cache: 'pnpm'
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
+        with: { version: 9 }
       - run: pnpm -v
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter '@tf-lang/tf-check' run build
-      - name: Smoke trace to file
-        run: node packages/tf-check/dist/cli.js trace --runtime ts --limit 50 --cwd "$PWD" --out out/t3/trace/ts.jsonl --filter tag=Transport
-      - name: Validate JSONL (first 3 lines)
+
+      # Build tf-check + its local deps + the TS runtime used by defaultCommand()
+      - run: pnpm --filter '@tf-lang/utils' -w run build
+      - run: pnpm --filter '@tf-lang/tf-check' -w run build
+      - run: pnpm --filter tf-lang-l0 -w run build
+
+      - name: Make trace dir
+        run: mkdir -p out/t3/trace
+
+      - name: Smoke trace to file (tag filter)
+        run: node packages/tf-check/dist/cli.js trace --runtime ts --limit 200 --cwd "$PWD" --out out/t3/trace/ts.jsonl --filter tag=Transport
+
+      - name: Validate JSONL (first lines)
         run: "head -n 3 out/t3/trace/ts.jsonl | jq -c . >/dev/null"
+
       - uses: actions/upload-artifact@v4
         with:
           name: t3-trace-artifacts
           path: out/t3/trace
-  
+
   perf-dev-proofs:
     runs-on: ubuntu-latest
     steps:
@@ -37,47 +47,44 @@ jobs:
           node-version: '20'
           cache: 'pnpm'
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
+        with: { version: 9 }
       - run: pnpm -v
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter '@tf-lang/utils' run build
-      - run: pnpm --filter tf-lang-l0 run build
+      - run: pnpm --filter '@tf-lang/utils' -w run build
+      - run: pnpm --filter tf-lang-l0 -w run build
+
       - name: TS perf OFF
         run: DEV_PROOFS=0 node packages/tf-lang-l0-ts/scripts/measure-dev-proofs.js
       - name: TS perf ON
         run: DEV_PROOFS=1 node packages/tf-lang-l0-ts/scripts/measure-dev-proofs.js
+
       - name: Rust perf OFF
-        run: DEV_PROOFS=0 cargo run -q --manifest-path packages/tf-lang-l0-rs/Cargo.toml --example measure-dev-proofs
+        run: cargo run -q --manifest-path packages/tf-lang-l0-rs/Cargo.toml --example measure-dev-proofs
       - name: Rust perf ON
-        run: DEV_PROOFS=1 cargo run -q --manifest-path packages/tf-lang-l0-rs/Cargo.toml --example measure-dev-proofs --features dev_proofs
+        run: cargo run -q --manifest-path packages/tf-lang-l0-rs/Cargo.toml --example measure-dev-proofs --features dev_proofs
+
       - name: Check threshold (≤1%)
+        shell: bash
         run: |
           python - <<'PY'
-from pathlib import Path
-import json
+          from pathlib import Path
+          import json
+          def load(path):
+              with Path(path).open() as fh:
+                  return json.load(fh)['mean']
+          ts_off = load('out/t3/perf/dev_proofs_off.json')
+          ts_on  = load('out/t3/perf/dev_proofs_on.json')
+          rs_off = load('out/t3/perf/rs_dev_proofs_off.json')
+          rs_on  = load('out/t3/perf/rs_dev_proofs_on.json')
+          def overhead(on, off):
+              return 0.0 if off == 0 else ((on - off) / off) * 100.0
+          values = {'ts': overhead(ts_on, ts_off), 'rust': overhead(rs_on, rs_off)}
+          for name, pct in values.items():
+              print(f"{name} overhead %: {pct:.4f}")
+              if pct > 1.0:
+                  raise SystemExit(1)
+          PY
 
-def load(path):
-    with Path(path).open() as fh:
-        return json.load(fh)['mean']
-
-ts_off = load('out/t3/perf/dev_proofs_off.json')
-ts_on = load('out/t3/perf/dev_proofs_on.json')
-rs_off = load('out/t3/perf/rs_dev_proofs_off.json')
-rs_on = load('out/t3/perf/rs_dev_proofs_on.json')
-
-def overhead(on, off):
-    return 0.0 if off == 0 else ((on - off) / off) * 100.0
-
-values = {
-    'ts': overhead(ts_on, ts_off),
-    'rust': overhead(rs_on, rs_off),
-}
-for name, value in values.items():
-    print(f"{name} overhead %: {value:.4f}")
-    if value > 1.0:
-        raise SystemExit(1)
-PY
       - uses: actions/upload-artifact@v4
         with:
           name: t3-perf-artifacts

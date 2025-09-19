@@ -57,8 +57,11 @@ export declare function seedRng(seed: number | string): SeededRng;
 export declare function canonicalStringify(value: unknown): string;
 export declare function hashObject(value: unknown): string;
 export type RepoSignals = Readonly<Record<string, unknown>>;
-export interface PlanGraphValidationResult {
-    readonly valid: boolean;
-    readonly errors: readonly string[];
-}
-export type SchemaValidator = (value: unknown) => PlanGraphValidationResult;
+export declare const tfSchemas: Readonly<{
+    readonly branch: Record<string, unknown>;
+    readonly plan: Record<string, unknown>;
+    readonly compare: Record<string, unknown>;
+}>;
+export declare function validateBranch(value: unknown): PlanNode;
+export declare function validatePlan(value: unknown): PlanGraph;
+export declare function validateCompare<T>(value: unknown): T;

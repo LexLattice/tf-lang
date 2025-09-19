@@ -20,7 +20,7 @@
   "dependencies": {
     "@tf-lang/tf-plan-core": "0.1.0",
     "@tf-lang/tf-plan-enum": "0.1.0",
-    "ajv": "^8.12.0",
+    "@tf-lang/tf-plan-scoring": "0.1.0",
     "commander": "^12.1.0"
   },
   "devDependencies": {

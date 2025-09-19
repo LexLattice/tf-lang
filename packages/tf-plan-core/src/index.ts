@@ -1,4 +1,6 @@
 import { createHash } from 'node:crypto';
+import { createRequire } from 'node:module';
+import Ajv, { type ErrorObject, type ValidateFunction } from 'ajv';
 
 export const PLAN_GRAPH_VERSION = '0.1.0';
 
@@ -192,9 +194,70 @@ export function hashObject(value: unknown): string {
 
 export type RepoSignals = Readonly<Record<string, unknown>>;
 
-export interface PlanGraphValidationResult {
-  readonly valid: boolean;
-  readonly errors: readonly string[];
+const require = createRequire(import.meta.url);
+
+function loadSchema(name: string): Record<string, unknown> {
+  const candidates = [`../../../schema/${name}`, `../../../../schema/${name}`];
+  for (const candidate of candidates) {
+    try {
+      return require(candidate);
+    } catch {
+      continue;
+    }
+  }
+  throw new Error(`Unable to load schema ${name}`);
 }
 
-export type SchemaValidator = (value: unknown) => PlanGraphValidationResult;
+function formatErrors(errors: ErrorObject[] | null | undefined): string {
+  if (!errors || errors.length === 0) {
+    return 'unknown error';
+  }
+  return errors
+    .map((error) => {
+      const instance = error.instancePath || '/';
+      const message = error.message ?? 'validation error';
+      return `${instance} ${message}`;
+    })
+    .join(', ');
+}
+
+function assertValid<T>(value: unknown, validator: ValidateFunction<T>, label: string): T {
+  if (validator(value)) {
+    return value;
+  }
+  const details = formatErrors(validator.errors);
+  throw new Error(`${label} failed validation: ${details}`);
+}
+
+const branchSchema = loadSchema('tf-branch.schema.json');
+const planSchema = loadSchema('tf-plan.schema.json');
+const compareSchema = loadSchema('tf-compare.schema.json');
+
+export const tfSchemas = Object.freeze({
+  branch: branchSchema,
+  plan: planSchema,
+  compare: compareSchema,
+});
+
+const ajv = new Ajv({ allErrors: true, strict: true });
+ajv.addSchema(branchSchema, 'tf-branch.schema.json');
+
+const validatePlanGraphFn = ajv.compile<PlanGraph>(planSchema);
+const validatePlanNodeFn = ajv.compile<PlanNode>(branchSchema);
+const validateCompareFn = ajv.compile<unknown>(compareSchema);
+
+export function validateBranch(value: unknown): PlanNode {
+  return assertValid<PlanNode>(value, validatePlanNodeFn, 'Plan node');
+}
+
+export function validatePlan(value: unknown): PlanGraph {
+  const plan = assertValid<PlanGraph>(value, validatePlanGraphFn, 'Plan graph');
+  plan.nodes.forEach((node) => {
+    validateBranch(node);
+  });
+  return plan;
+}
+
+export function validateCompare<T>(value: unknown): T {
+  return assertValid<T>(value, validateCompareFn as ValidateFunction<T>, 'Compare report');
+}

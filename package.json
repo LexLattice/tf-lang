@@ -7,10 +7,13 @@
 		"preinstall": "corepack enable pnpm",
 		"check:fixtures": "tsx .codex/scripts/check-fixtures-json.ts"
 	},
-	"devDependencies": {
-		"typescript": "5.9.2",
-		"ajv": "^8.12.0"
-	},
+        "devDependencies": {
+                "typescript": "5.9.2",
+                "ajv": "^8.12.0",
+                "@tf-lang/tf-plan": "workspace:*",
+                "@tf-lang/tf-plan-scaffold": "workspace:*",
+                "@tf-lang/tf-plan-compare": "workspace:*"
+        },
 	"pnpm": {
 		"onlyBuiltDependencies": [
 			"esbuild"

@@ -9,9 +9,10 @@
     "meta": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["seed", "planVersion", "generatedAt"],
+      "required": ["seed", "specHash", "planVersion", "generatedAt"],
       "properties": {
         "seed": { "type": "number" },
+        "specHash": { "type": "string" },
         "planVersion": { "type": "string" },
         "generatedAt": { "type": "string" },
         "notes": { "type": "array", "items": { "type": "string" } }

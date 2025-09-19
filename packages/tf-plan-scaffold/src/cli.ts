@@ -16,6 +16,7 @@ program
   .option('--template <kind>', 'Template kind (ts|rs|dual-stack)', 'dual-stack')
   .option('--out <path>', 'Output index JSON path', 'out/t4/scaffold/index.json')
   .option('--base <branch>', 'Base branch name', 'main')
+  .option('--seed <number>', 'Seed used when plan metadata is unavailable', '42')
   .option('--apply <path>', 'Apply an existing scaffold index instead of generating')
   .action(async (options) => {
     try {
@@ -23,6 +24,8 @@ program
         await applyScaffold({ indexPath: resolve(options.apply) });
         return;
       }
+      const seedValue = Number.parseInt(options.seed, 10);
+      const seed = Number.isFinite(seedValue) ? seedValue : 42;
       await generateScaffold({
         planNdjsonPath: resolve(options.plan),
         planJsonPath: options.graph ? resolve(options.graph) : undefined,
@@ -30,6 +33,7 @@ program
         template: parseTemplate(options.template, 'dual-stack'),
         outPath: resolve(options.out),
         baseBranch: options.base,
+        seed,
       });
     } catch (error) {
       console.error((error as Error).message);

@@ -30,7 +30,7 @@ describe('generateComparison', () => {
     await writeFile(planNdjsonPath, `${ndjson}\n`);
     await writeFile(scaffoldPath, `${JSON.stringify(scaffold, null, 2)}\n`);
 
-    const outputs = await generateComparison({ planNdjsonPath, scaffoldPath, outDir: join(dir, 'out') });
+    const outputs = await generateComparison({ planNdjsonPath, scaffoldPath, outDir: join(dir, 'out'), seed: 42 });
     expect(outputs.report.branches.length).toBeGreaterThan(0);
   });
 });

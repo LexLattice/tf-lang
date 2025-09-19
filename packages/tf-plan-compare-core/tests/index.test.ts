@@ -60,5 +60,6 @@ describe('buildCompareReport', () => {
     expect(report.branches[0].branchName).toBe('t4/dual-stack/a');
     expect(report.branches[0].rank).toBe(1);
     expect(report.version).toBeDefined();
+    expect(report.meta.specHash).toBe('hash');
   });
 });

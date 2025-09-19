@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -34,6 +35,25 @@ describe('tf-plan CLI helpers', () => {
     const planFile = JSON.parse(await readFile(planPath, 'utf8'));
     expect(planFile.nodes.length).toEqual(plan.nodes.length);
     expect(planFile.meta.seed).toBe(42);
+
+    const hashFile = async (filePath: string): Promise<string> => {
+      const data = await readFile(filePath);
+      return createHash('sha256').update(data).digest('hex');
+    };
+
+    const initialPlanHash = await hashFile(planPath);
+    const initialNdjsonHash = await hashFile(ndjsonPath);
+
+    const rerun = await runEnumerateCommand({
+      specPath,
+      seed: 42,
+      outDir: outputDir,
+    });
+    expect(rerun.meta.seed).toBe(42);
+    const planHash = await hashFile(planPath);
+    const ndjsonHash = await hashFile(ndjsonPath);
+    expect(planHash).toBe(initialPlanHash);
+    expect(ndjsonHash).toBe(initialNdjsonHash);
 
     const scoredPath = join(outputDir, 'plan.scored.json');
     await runScoreCommand({ planPath, outPath: scoredPath });

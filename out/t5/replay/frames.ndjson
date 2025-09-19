@@ -1,0 +1,12 @@
+{"ts":1710000000000,"sym":"BTCUSDT","seq":0,"bid":"65000.1","ask":"65001.2","last":"65000.7","volume":"0.5","meta":{"source":"csv"}}
+{"ts":1710000001000,"sym":"BTCUSDT","seq":1,"bid":"65000.2","ask":"65001.3","last":"65000.8","volume":"0.45","meta":{"source":"csv"}}
+{"ts":1710000002000,"sym":"BTCUSDT","seq":2,"bid":"65000.3","ask":"65001.4","last":"65000.9","volume":"0.55","meta":{"source":"csv"}}
+{"ts":1710000003000,"sym":"BTCUSDT","seq":3,"bid":"65000.4","ask":"65001.5","last":"65001","volume":"0.6","meta":{"source":"csv"}}
+{"ts":1710000004000,"sym":"BTCUSDT","seq":4,"bid":"65000.35","ask":"65001.45","last":"65000.95","volume":"0.52","meta":{"source":"csv"}}
+{"ts":1710000005000,"sym":"BTCUSDT","seq":5,"bid":"65000.25","ask":"65001.35","last":"65000.85","volume":"0.48","meta":{"source":"csv"}}
+{"ts":1710000006000,"sym":"BTCUSDT","seq":6,"bid":"65000.15","ask":"65001.25","last":"65000.75","volume":"0.46","meta":{"source":"csv"}}
+{"ts":1710000007000,"sym":"BTCUSDT","seq":7,"bid":"65000.05","ask":"65001.15","last":"65000.65","volume":"0.42","meta":{"source":"csv"}}
+{"ts":1710000008000,"sym":"BTCUSDT","seq":8,"bid":"64999.95","ask":"65001.05","last":"65000.55","volume":"0.4","meta":{"source":"csv"}}
+{"ts":1710000009000,"sym":"BTCUSDT","seq":9,"bid":"64999.85","ask":"65000.95","last":"65000.45","volume":"0.38","meta":{"source":"csv"}}
+{"ts":1710000010000,"sym":"BTCUSDT","seq":10,"bid":"64999.75","ask":"65000.85","last":"65000.35","volume":"0.36","meta":{"source":"csv"}}
+{"ts":1710000011000,"sym":"BTCUSDT","seq":11,"bid":"64999.65","ask":"65000.75","last":"65000.25","volume":"0.34","meta":{"source":"csv"}}

@@ -12,6 +12,7 @@ import {
   type ValidationResult,
 } from "./index.js";
 import { findRepoRoot } from "@tf-lang/utils";
+import { runTrace, type TraceArgs } from "./commands/trace.js";
 
 const cliDir = path.dirname(fileURLToPath(import.meta.url));
 const sampleSpecPath = path.join(cliDir, "../fixtures/sample-spec.json");
@@ -38,6 +39,13 @@ function resetArtifactsDirCache(): void {
 
 function printHelp(): void {
   process.stdout.write(`${HELP_TEXT}\n`);
+}
+
+function printTraceHelp(): void {
+  process.stdout.write(
+    "Usage: tf-check trace --runtime <ts|rust> [--out <path>] [--filter key=val]...\n" +
+      "                [--limit <n>] [--follow] [--pred <expr>] [--cwd <dir>] [--cmd <string>]\n"
+  );
 }
 
 function printResult(result: ValidationResult): void {
@@ -146,6 +154,113 @@ export async function runArtifacts(args: string[]): Promise<number> {
   }
 }
 
+function parseTraceArgs(args: string[]): TraceArgs {
+  const state: TraceArgs = {
+    runtime: 'ts',
+    out: '-',
+    filter: [],
+    limit: 0,
+    follow: false,
+    cwd: process.cwd(),
+  };
+  let runtimeSet = false;
+  for (let index = 0; index < args.length; ) {
+    const token = args[index];
+    if (!token.startsWith('-')) {
+      throw new Error(`unknown argument: ${token}`);
+    }
+    const [flag, inline] = token.split('=', 2);
+    const readValue = (next?: string): string => {
+      if (inline !== undefined) return inline;
+      if (next === undefined || (next.startsWith('-') && next !== '-')) {
+        throw new Error(`missing value for ${flag}`);
+      }
+      return next;
+    };
+    switch (flag) {
+      case '--runtime': {
+        const value = readValue(args[index + 1]);
+        if (value !== 'ts' && value !== 'rust') {
+          throw new Error(`invalid runtime: ${value}`);
+        }
+        state.runtime = value;
+        runtimeSet = true;
+        index += inline === undefined ? 2 : 1;
+        break;
+      }
+      case '--out': {
+        state.out = readValue(args[index + 1]);
+        index += inline === undefined ? 2 : 1;
+        break;
+      }
+      case '--filter': {
+        const value = readValue(args[index + 1]);
+        state.filter = state.filter.concat(value);
+        index += inline === undefined ? 2 : 1;
+        break;
+      }
+      case '--limit': {
+        const value = Number(readValue(args[index + 1]));
+        if (!Number.isFinite(value) || value < 0) {
+          throw new Error('limit must be a non-negative number');
+        }
+        state.limit = value;
+        index += inline === undefined ? 2 : 1;
+        break;
+      }
+      case '--follow': {
+        state.follow = true;
+        index += 1;
+        break;
+      }
+      case '--pred': {
+        state.pred = readValue(args[index + 1]);
+        index += inline === undefined ? 2 : 1;
+        break;
+      }
+      case '--cwd': {
+        state.cwd = readValue(args[index + 1]);
+        index += inline === undefined ? 2 : 1;
+        break;
+      }
+      case '--cmd': {
+        state.cmd = readValue(args[index + 1]);
+        index += inline === undefined ? 2 : 1;
+        break;
+      }
+      case '--help':
+      case '-h': {
+        throw new Error('--help');
+      }
+      default: {
+        throw new Error(`unknown flag: ${flag}`);
+      }
+    }
+  }
+  if (!runtimeSet) {
+    throw new Error('--runtime <ts|rust> is required');
+  }
+  return state;
+}
+
+export async function runTraceCommand(args: string[]): Promise<number> {
+  if (args.includes('--help') || args.includes('-h')) {
+    printTraceHelp();
+    return 0;
+  }
+  try {
+    const parsed = parseTraceArgs(args);
+    return await runTrace(parsed);
+  } catch (error) {
+    if ((error as Error).message === '--help') {
+      printTraceHelp();
+      return 0;
+    }
+    process.stderr.write(`${(error as Error).message}\n`);
+    return 2;
+  }
+}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   if (args.length === 0 || args.includes("--help") || args.includes("-h")) {
@@ -162,6 +277,11 @@ async function main(): Promise<void> {
     }
     case "artifacts": {
       const exitCode = await runArtifacts(rest);
+      exit(exitCode);
+      return;
+    }
+    case "trace": {
+      const exitCode = await runTraceCommand(rest);
       exit(exitCode);
       return;
     }

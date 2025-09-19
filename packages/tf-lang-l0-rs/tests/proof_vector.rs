@@ -1,3 +1,5 @@
+#![cfg(feature = "dev_proofs")]
+
 use std::fs;
 use std::path::PathBuf;
 use serde::Deserialize;

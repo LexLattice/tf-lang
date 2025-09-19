@@ -1,0 +1,125 @@
+# .github/workflows/t3-trace-and-perf.yml
+name: T3 · Trace & Perf
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  trace-cli:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Use composite to ensure pnpm is installed before enabling Node cache
+      - name: Setup Node + pnpm
+        uses: ./.github/actions/setup-pnpm
+        with:
+          node-version: '20'
+          install: 'true'
+          frozen: 'true'
+          cache-dependency-path: '**/pnpm-lock.yaml'
+
+      # Build tf-check + its local deps + the TS runtime used by defaultCommand()
+      - run: pnpm --filter '@tf-lang/utils' -w run build
+      - run: pnpm --filter '@tf-lang/tf-check' -w run build
+      - run: pnpm --filter tf-lang-l0 -w run build
+
+      - name: Make trace dir
+        run: mkdir -p out/t3/trace
+
+      - name: Smoke trace to file (tag filter)
+        run: node packages/tf-check/dist/cli.js trace --runtime ts --limit 200 --cwd "$PWD" --out out/t3/trace/ts.jsonl --filter tag=Transport
+
+      - name: Validate JSONL (first lines)
+        run: "head -n 3 out/t3/trace/ts.jsonl | jq -c . >/dev/null"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: t3-trace-artifacts
+          path: out/t3/trace
+
+  perf-dev-proofs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node + pnpm
+        uses: ./.github/actions/setup-pnpm
+        with:
+          node-version: '20'
+          install: 'true'
+          frozen: 'true'
+          cache-dependency-path: '**/pnpm-lock.yaml'
+      - run: pnpm --filter '@tf-lang/utils' -w run build
+      - run: pnpm --filter tf-lang-l0 -w run build
+
+      - name: TS perf OFF
+        run: DEV_PROOFS=0 node packages/tf-lang-l0-ts/scripts/measure-dev-proofs.js
+      - name: TS perf ON
+        run: DEV_PROOFS=1 node packages/tf-lang-l0-ts/scripts/measure-dev-proofs.js
+
+      - name: Rust perf OFF
+        env:
+          DEV_PROOFS: '0'
+        run: cargo run -q --manifest-path packages/tf-lang-l0-rs/Cargo.toml --example measure-dev-proofs
+      - name: Rust perf ON
+        env:
+          DEV_PROOFS: '1'
+        run: cargo run -q --manifest-path packages/tf-lang-l0-rs/Cargo.toml --example measure-dev-proofs --features dev_proofs
+
+      - name: Check threshold (≤1% or per-tag budget fallback)
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json, sys
+
+          def load(path):
+              with Path(path).open() as fh:
+                  return json.load(fh)
+
+          ts_off = load('out/t3/perf/dev_proofs_off.json')
+          ts_on  = load('out/t3/perf/dev_proofs_on.json')
+          rs_off = load('out/t3/perf/rs_dev_proofs_off.json')
+          rs_on  = load('out/t3/perf/rs_dev_proofs_on.json')
+
+          def pct_overhead(on, off):
+              return 0.0 if off == 0 else ((on - off) / off) * 100.0
+
+          # When baseline is near-zero, percent is meaningless; fall back to per-tag budget
+          MIN_BASELINE_MS = 1.0  # require at least this much baseline to use %
+          TS_BUDGET_US = 1.0     # fallback: on_mean / iter <= 1.0 microseconds
+          RS_BUDGET_US = 1.0
+
+          failures = []
+          # TS check
+          ts_off_mean, ts_on_mean, ts_iter = ts_off['mean'], ts_on['mean'], ts_on.get('iter', 10000)
+          if ts_off_mean >= MIN_BASELINE_MS:
+              ts_pct = pct_overhead(ts_on_mean, ts_off_mean)
+              print(f"ts overhead %: {ts_pct:.4f}")
+              if ts_pct > 1.0: failures.append('ts %')
+          else:
+              ts_per_us = (ts_on_mean / ts_iter)  # ms per iter
+              ts_per_us *= 1000.0  # convert to microseconds
+              print(f"ts per-tag (us): {ts_per_us:.4f}")
+              if ts_per_us > TS_BUDGET_US: failures.append('ts per-tag')
+
+          # Rust check
+          rs_off_mean, rs_on_mean, rs_iter = rs_off['mean'], rs_on['mean'], rs_on.get('iter', 10000)
+          if rs_off_mean >= MIN_BASELINE_MS:
+              rs_pct = pct_overhead(rs_on_mean, rs_off_mean)
+              print(f"rust overhead %: {rs_pct:.4f}")
+              if rs_pct > 1.0: failures.append('rust %')
+          else:
+              rs_per_us = (rs_on_mean / rs_iter) * 1000.0
+              print(f"rust per-tag (us): {rs_per_us:.4f}")
+              if rs_per_us > RS_BUDGET_US: failures.append('rust per-tag')
+
+          if failures:
+              print('FAIL:', ', '.join(failures))
+              sys.exit(1)
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: t3-perf-artifacts
+          path: out/t3/perf

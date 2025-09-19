@@ -1,3 +1,5 @@
+#![cfg(feature = "dev_proofs")]
+
 use serde_json::json;
 use tflang_l0::model::{Instr, Program};
 use tflang_l0::vm::interpreter::VM;
@@ -39,6 +41,7 @@ fn sample_prog() -> Program {
     }
 }
 
+#[cfg(feature = "dev_proofs")]
 #[test]
 fn dev_proofs_cache_and_toggle() {
     reset_for_test();

@@ -2,7 +2,12 @@ import type { Program } from '../model/bytecode.js';
 import type { Host } from './opcode.js';
 import type { Value, World, JournalEntry } from '../model/types.js';
 import { canonicalJsonBytes, blake3hex } from '../canon/index.js';
-import { emit, devProofsEnabled } from '../proof/index.js';
+import { DEV_PROOFS, emitTag } from '../proof/index.js';
+import type { ProofMeta } from '../proof/emit.js';
+
+function makeMeta(extra: Partial<ProofMeta> = {}): ProofMeta {
+  return { runtime: 'ts', ts: Date.now(), ...extra } as ProofMeta;
+}
 
 export class VM {
   constructor(public host: Host) {}
@@ -44,12 +49,16 @@ export class VM {
         case 'SNAP_ID': regs[ins.dst] = await this.host.snapshot_id(this.get(regs, ins.snapshot)); break;
         case 'LENS_PROJ': {
           regs[ins.dst] = await this.host.lens_project(this.get(regs, ins.state), ins.region);
-          if (devProofsEnabled()) emit({ kind: 'Transport', op: 'LENS_PROJ', region: ins.region });
+          if (DEV_PROOFS) {
+            emitTag({ kind: 'Transport', op: 'LENS_PROJ', region: ins.region }, makeMeta({ region: ins.region, gate: 'lens_project' }));
+          }
           break;
         }
         case 'LENS_MERGE': {
           regs[ins.dst] = await this.host.lens_merge(this.get(regs, ins.state), ins.region, this.get(regs, ins.sub));
-          if (devProofsEnabled()) emit({ kind: 'Transport', op: 'LENS_MERGE', region: ins.region });
+          if (DEV_PROOFS) {
+            emitTag({ kind: 'Transport', op: 'LENS_MERGE', region: ins.region }, makeMeta({ region: ins.region, gate: 'lens_merge' }));
+          }
           break;
         }
         case 'PLAN_SIM': {
@@ -79,7 +88,12 @@ export class VM {
           try {
             regs[ins.dst] = await this.host.call_tf(ins.tf_id, args);
           } catch (e: any) {
-            if (devProofsEnabled()) emit({ kind: 'Conservativity', callee: ins.tf_id, expected: 'ok', found: String(e) });
+            if (DEV_PROOFS) {
+              emitTag(
+                { kind: 'Conservativity', callee: ins.tf_id, expected: 'ok', found: String(e) },
+                makeMeta({ oracle: ins.tf_id, gate: 'call_tf' })
+              );
+            }
             throw e;
           }
           break;
@@ -87,7 +101,9 @@ export class VM {
         case 'ASSERT': {
           const v = this.get(regs, ins.pred);
           if (v !== true) {
-            if (devProofsEnabled()) emit({ kind: 'Refutation', code: 'ASSERT', msg: ins.msg });
+            if (DEV_PROOFS) {
+              emitTag({ kind: 'Refutation', code: 'ASSERT', msg: ins.msg }, makeMeta({ gate: 'assert' }));
+            }
             throw new Error(`ASSERT failed: ${ins.msg}`);
           }
           break;
@@ -109,9 +125,12 @@ export class VM {
     const a = canonicalJsonBytes(initialState);
     const b = canonicalJsonBytes(finalState);
     const delta = Buffer.from(a).equals(Buffer.from(b)) ? null : { replace: finalState };
-    if (devProofsEnabled()) {
-      emit({ kind: 'Witness', delta, effect: { read: [], write: [], external: [] } });
-      (['delta', 'effect'] as const).forEach(target => emit({ kind: 'Normalization', target }));
+    if (DEV_PROOFS) {
+      const baseMeta = makeMeta({ gate: 'vm.run' });
+      emitTag({ kind: 'Witness', delta, effect: { read: [], write: [], external: [] } }, baseMeta);
+      (['delta', 'effect'] as const).forEach(target => {
+        emitTag({ kind: 'Normalization', target }, makeMeta({ gate: 'vm.run' }));
+      });
     }
     return delta;
   }

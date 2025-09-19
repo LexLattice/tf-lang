@@ -1,8 +1,7 @@
 import { createHash } from 'node:crypto';
-import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import Ajv, { type ErrorObject, type ValidateFunction } from 'ajv';
-
-const require = createRequire(import.meta.url);
 
 export const PLAN_GRAPH_VERSION = '0.1.0';
 
@@ -196,34 +195,28 @@ export function hashObject(value: unknown): string {
 
 export type RepoSignals = Readonly<Record<string, unknown>>;
 
-const SCHEMA_PREFIXES = [
-  '../../schema',
-  '../../../schema',
-  '../../../../schema',
-] as const;
+export function resolveSchemaPath(name: string): URL {
+  return new URL(`./schema/${name}`, import.meta.url);
+}
 
 const schemaCache = new Map<string, Readonly<Record<string, unknown>>>();
 
 function loadSchema(name: string): Readonly<Record<string, unknown>> {
   const cached = schemaCache.get(name);
-  if (cached) {
-    return cached;
-  }
+  if (cached) return cached;
 
-  for (const prefix of SCHEMA_PREFIXES) {
-    try {
-      const schema = require(`${prefix}/${name}`) as Record<string, unknown>;
-      const frozen = deepFreeze(schema);
-      schemaCache.set(name, frozen);
-      return frozen;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException)?.code !== 'MODULE_NOT_FOUND') {
-        throw error;
-      }
-    }
+  const url = resolveSchemaPath(name);
+  try {
+    const filePath = fileURLToPath(url);
+    const raw = readFileSync(filePath, 'utf8');
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const frozen = deepFreeze(parsed);
+    schemaCache.set(name, frozen);
+    return frozen;
+  } catch (error) {
+    const reason = (error as Error)?.message ?? String(error);
+    throw new Error(`Unable to load schema ${name} at ${url.toString()}: ${reason}`);
   }
-
-  throw new Error(`Unable to load schema ${name}`);
 }
 
 const ajv = new Ajv({ allErrors: true, strict: true });
@@ -285,4 +278,26 @@ export function validatePlan(value: unknown): PlanGraph {
 
 export function validateCompare<T>(value: unknown): T {
   return enforceValidation(value, compareValidator as ValidateFunction<T>, 'Compare report');
+}
+
+/**
+ * Parse and validate a specId of the form "<name>:<8 hex>".
+ */
+export function parseSpecId(specId: string): { specHash: string } {
+  if (typeof specId !== 'string' || specId.length === 0) {
+    throw new Error(`Invalid specId: expected non-empty string, received ${String(specId)}`);
+  }
+  const idx = specId.lastIndexOf(':');
+  if (idx <= 0 || idx === specId.length - 1) {
+    throw new Error(
+      `Invalid specId '${specId}': expected format '<name>:<8 hex>' with a single colon separator.`,
+    );
+  }
+  const hash = specId.slice(idx + 1);
+  if (!/^[0-9a-f]{8}$/.test(hash)) {
+    throw new Error(
+      `Invalid specId '${specId}': hash part must be 8 lowercase hex characters.`,
+    );
+  }
+  return { specHash: hash } as const;
 }

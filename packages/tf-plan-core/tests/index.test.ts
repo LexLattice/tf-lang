@@ -7,7 +7,8 @@ import {
   seedRng,
   stableId,
   stableSort,
-} from '../src/index.js';
+  parseSpecId,
+} from '../src/index.ts';
 
 describe('PLAN_GRAPH_VERSION', () => {
   it('is pinned for deterministic outputs', () => {
@@ -108,5 +109,15 @@ describe('hashObject', () => {
     expect(hash).toHaveLength(64);
     const same = hashObject({ bar: 2, foo: 1 });
     expect(hash).toEqual(same);
+  });
+});
+
+describe('parseSpecId', () => {
+  it('extracts the short spec hash from a valid specId', () => {
+    expect(parseSpecId('demo:deadbeef').specHash).toBe('deadbeef');
+  });
+  it('rejects invalid formats with helpful messages', () => {
+    expect(() => parseSpecId('invalid')).toThrow(/expected format '<name>:<8 hex>'/);
+    expect(() => parseSpecId('name:BADHASH')).toThrow(/8 lowercase hex/);
   });
 });

@@ -18,14 +18,16 @@ program
   .requiredOption('--spec <path>', 'Path to the tf-spec JSON file')
   .option('--seed <number>', 'Random seed for deterministic enumeration', '42')
   .option('--beam <number>', 'Beam width per component')
+  .option('--beam-width <number>', 'Alias of --beam')
   .option('--max <number>', 'Maximum branch nodes to keep')
   .option('--out <dir>', 'Output directory for plan artifacts', 'out/t4/plan')
   .action(async (options) => {
     try {
+      const beamRaw = options.beam ?? options.beamWidth;
       const plan = await runEnumerateCommand({
         specPath: resolve(options.spec),
         seed: parseNumberOption(options.seed, 42),
-        beamWidth: options.beam ? parseNumberOption(options.beam, 0) : undefined,
+        beamWidth: beamRaw ? parseNumberOption(beamRaw, 0) : undefined,
         maxBranches: options.max ? parseNumberOption(options.max, 0) : undefined,
         outDir: resolve(options.out),
       });

@@ -11,6 +11,15 @@ importers:
 
   .:
     devDependencies:
+      '@tf-lang/tf-plan':
+        specifier: workspace:*
+        version: link:packages/tf-plan
+      '@tf-lang/tf-plan-compare':
+        specifier: workspace:*
+        version: link:packages/tf-plan-compare
+      '@tf-lang/tf-plan-scaffold':
+        specifier: workspace:*
+        version: link:packages/tf-plan-scaffold
       ajv:
         specifier: ^8.12.0
         version: 8.17.1
@@ -272,6 +281,9 @@ importers:
       '@tf-lang/tf-plan-enum':
         specifier: 0.1.0
         version: link:../tf-plan-enum
+      '@tf-lang/tf-plan-scoring':
+        specifier: 0.1.0
+        version: link:../tf-plan-scoring
       commander:
         specifier: ^12.1.0
         version: 12.1.0

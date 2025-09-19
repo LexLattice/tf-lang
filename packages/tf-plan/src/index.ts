@@ -155,7 +155,7 @@ export async function runEnumerateCommand(args: EnumerateCommandArgs): Promise<P
   const spec = await readSpec(args.specPath);
   const plan = enumeratePlan(spec, {
     seed: args.seed,
-    beamWidth: args.beamWidth,
+    beamWidth: args.beamWidth ?? 3,
     maxBranches: args.maxBranches,
   });
   const validated = validatePlan(plan);

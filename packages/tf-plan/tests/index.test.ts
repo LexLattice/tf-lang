@@ -65,4 +65,21 @@ describe('tf-plan CLI helpers', () => {
     expect(hash(firstPlan)).toEqual(hash(secondPlan));
     expect(hash(firstNdjson)).toEqual(hash(secondNdjson));
   });
+
+  it('accepts a custom beam width and writes both artefacts', async () => {
+    const outputDir = await createTempDir();
+    const specPath = resolve(process.cwd(), '../../tests/specs/demo.json');
+    const plan = await runEnumerateCommand({
+      specPath,
+      seed: 42,
+      beamWidth: 2,
+      outDir: outputDir,
+    });
+    const planPath = join(outputDir, 'plan.json');
+    const ndjsonPath = join(outputDir, 'plan.ndjson');
+    const planFile = JSON.parse(await readFile(planPath, 'utf8'));
+    expect(planFile.nodes.length).toEqual(plan.nodes.length);
+    const ndjson = await readFile(ndjsonPath, 'utf8');
+    expect(ndjson.trim().length).toBeGreaterThan(0);
+  });
 });

@@ -18,8 +18,16 @@ jobs:
         run: pnpm -r build
       - name: Prepare plan directory
         run: mkdir -p out/t4/plan
-      - name: Enumerate plan
+      - name: Enumerate plan (first pass)
         run: pnpm exec tf-plan enumerate --spec tests/specs/demo.json --seed 42 --beam 3 --out out/t4/plan
+      - name: Hash plan artefacts (first)
+        run: sha256sum out/t4/plan/plan.json out/t4/plan/plan.ndjson > /tmp/t4-hash-1
+      - name: Enumerate plan (second pass)
+        run: pnpm exec tf-plan enumerate --spec tests/specs/demo.json --seed 42 --beam 3 --out out/t4/plan
+      - name: Hash plan artefacts (second)
+        run: sha256sum out/t4/plan/plan.json out/t4/plan/plan.ndjson > /tmp/t4-hash-2
+      - name: Check determinism (hash compare)
+        run: diff -u /tmp/t4-hash-1 /tmp/t4-hash-2
       - uses: actions/upload-artifact@v4
         with:
           name: t4-plan

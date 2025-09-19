@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve as resolvePath } from 'node:path';
 import Ajv from 'ajv';
 import type { ErrorObject } from 'ajv';
-import tfSpecSchema from '../../../schema/tf-spec.schema.json' with { type: 'json' };
+import tfSpecSchema from './schema/tf-spec.schema.json' with { type: 'json' };
 import {
   PLAN_GRAPH_VERSION,
   PlanEdge,

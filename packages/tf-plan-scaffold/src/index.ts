@@ -6,6 +6,7 @@ import {
   PLAN_GRAPH_VERSION,
   validateBranch,
   validatePlan,
+  parseSpecId,
 } from '@tf-lang/tf-plan-core';
 import {
   PlanSummaryMeta,
@@ -58,7 +59,15 @@ async function readPlanMeta(
   }
 
   const fallbackSeed = Number.isFinite(seedOverride) ? seedOverride : 42;
-  const specHash = nodes.length > 0 ? nodes[0].specId.split(':')[1] ?? 'unknown' : 'unknown';
+  const specHash = nodes.length > 0
+    ? (() => {
+        try {
+          return parseSpecId(nodes[0].specId).specHash;
+        } catch {
+          return 'unknown';
+        }
+      })()
+    : 'unknown';
   return { seed: fallbackSeed, specHash, version: PLAN_GRAPH_VERSION };
 }
 

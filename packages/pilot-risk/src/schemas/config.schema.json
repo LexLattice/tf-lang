@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "required": ["mode"],
   "properties": {
-    "mode": { "type": "string", "enum": ["passThrough"] },
+    "mode": { "type": "string", "enum": ["passThrough", "exposure"] },
     "meta": { "type": "object", "additionalProperties": true }
   }
 }

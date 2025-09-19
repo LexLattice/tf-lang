@@ -110,15 +110,31 @@ export function canonNumber(value: number | string | bigint): string {
   return normaliseDecimal(trimmed);
 }
 
-function normaliseDecimal(input: string): string {
-  if (/^[-+]?\d+(\.\d+)?$/.test(input)) {
-    return stripLeadingZeros(input);
-  }
-  const n = Number(input);
-  if (!Number.isFinite(n)) {
+export function normaliseDecimal(input: string): string {
+  // Accept only canonical decimal strings (no scientific notation) to avoid precision loss.
+  if (!/^[-+]?\d+(?:\.\d+)?$/.test(input)) {
     throw new Error(`Invalid numeric input: ${input}`);
   }
-  return stripLeadingZeros(n.toString());
+  return stripLeadingZeros(input);
+}
+
+/** Convert a canonical decimal string to a scaled integer (BigInt). */
+export function toScaled(input: string, scale: number): bigint {
+  const s = normaliseDecimal(input);
+  const neg = s.startsWith('-');
+  const [int, frac = ''] = (neg ? s.slice(1) : s).split('.');
+  const fracPadded = (frac + '0'.repeat(scale)).slice(0, scale);
+  const digits = (int + fracPadded).replace(/^0+(?=\d)/, '');
+  const bi = digits.length ? BigInt(digits) : 0n;
+  return neg ? -bi : bi;
+}
+
+/** Average of scaled integers with integer half-up rounding. */
+export function avgScaled(values: bigint[]): bigint {
+  if (values.length === 0) return 0n;
+  const n = BigInt(values.length);
+  const sum = values.reduce((a, b) => a + b, 0n);
+  return (sum + n / 2n) / n;
 }
 
 function stripLeadingZeros(input: string): string {

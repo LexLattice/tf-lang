@@ -11,6 +11,8 @@ import {
   canonOrder,
   validateOrder,
   seedRng,
+  toScaled,
+  avgScaled,
 } from '@tf-lang/pilot-core';
 
 export type StrategyName = 'momentum' | 'meanReversion';
@@ -83,19 +85,22 @@ function createMomentumStrategy(config: StrategyConfig<'momentum'>): StrategyCon
   const params = mergeParams('momentum', config.params);
   const window = params.window;
   const quantity = canonNumber(params.quantity);
-  const history: number[] = [];
   let counter = 0;
   const rng = seedRng(config.seed + params.rngOffset);
+  const SCALE = 8; // shared price scale for integer math (preserves cents & subcents)
+  const BIG: bigint = 2n ** 62n; // sentinel (~4e18 units at SCALE=8)
+  const history: bigint[] = [];
   return {
     decide(_state: State, frame: Frame): Order[] {
-      history.push(Number(frame.last));
+      const last = toScaled(frame.last, SCALE);
+      history.push(last);
       if (history.length <= window) {
         return [];
       }
       const recent = history.slice(-window - 1, -1);
-      const last = history[history.length - 1];
-      const maxRecent = Math.max(...recent);
-      const minRecent = Math.min(...recent);
+      // momentum: compare against recent extrema in scaled ints
+      const maxRecent = recent.reduce((m, x) => (x > m ? x : m), -BIG);
+      const minRecent = recent.reduce((m, x) => (x < m ? x : m), BIG);
       const orders: OrderLike[] = [];
       if (last > maxRecent) {
         orders.push({
@@ -126,22 +131,23 @@ function createMomentumStrategy(config: StrategyConfig<'momentum'>): StrategyCon
 function createMeanReversionStrategy(config: StrategyConfig<'meanReversion'>): StrategyContext {
   const params = mergeParams('meanReversion', config.params);
   const window = params.window;
-  const delta = Number(params.delta);
   const quantity = canonNumber(params.quantity);
-  const history: number[] = [];
   let counter = 0;
   const rng = seedRng(config.seed + params.rngOffset);
+  const SCALE = 8;
+  const history: bigint[] = [];
+  const deltaScaled = toScaled(String(params.delta ?? '0'), SCALE);
   return {
     decide(_state: State, frame: Frame): Order[] {
-      history.push(Number(frame.last));
+      const last = toScaled(frame.last, SCALE);
+      history.push(last);
       if (history.length < window) {
         return [];
       }
       const recent = history.slice(-window);
-      const avg = recent.reduce((sum, value) => sum + value, 0) / recent.length;
-      const last = history[history.length - 1];
+      const avg = avgScaled(recent);
       const orders: OrderLike[] = [];
-      if (last < avg - delta) {
+      if (last < avg - deltaScaled) {
         orders.push({
           id: `meanReversion-${counter++}`,
           ts: frame.ts,
@@ -149,9 +155,9 @@ function createMeanReversionStrategy(config: StrategyConfig<'meanReversion'>): S
           side: 'buy',
           quantity,
           price: frame.bid,
-          meta: { trigger: 'below-band', avg, window, delta, rng: rng() },
+          meta: { trigger: 'below-band', avg: Number(avg) / 10 ** SCALE, window, delta: Number(deltaScaled) / 10 ** SCALE, rng: rng() },
         });
-      } else if (last > avg + delta) {
+      } else if (last > avg + deltaScaled) {
         orders.push({
           id: `meanReversion-${counter++}`,
           ts: frame.ts,
@@ -159,7 +165,7 @@ function createMeanReversionStrategy(config: StrategyConfig<'meanReversion'>): S
           side: 'sell',
           quantity,
           price: frame.ask,
-          meta: { trigger: 'above-band', avg, window, delta, rng: rng() },
+          meta: { trigger: 'above-band', avg: Number(avg) / 10 ** SCALE, window, delta: Number(deltaScaled) / 10 ** SCALE, rng: rng() },
         });
       }
       return orders.map(canonOrder);
@@ -189,7 +195,7 @@ export function runStrategy<T extends StrategyName>(
 export function readFramesNdjson(path: string): Frame[] {
   const content = readFileSync(path, 'utf-8');
   return content
-    .split(/\n/)
+    .split(/\r?\n/) // handle LF and CRLF consistently
     .filter((line) => line.trim().length > 0)
     .map((line) => JSON.parse(line) as Frame);
 }

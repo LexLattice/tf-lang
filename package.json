@@ -8,7 +8,10 @@
                 "check:fixtures": "tsx .codex/scripts/check-fixtures-json.ts",
                 "t5:build": "pnpm -w -r build",
                 "t5:test": "pnpm -w -r test",
-                "t5:run": "node packages/pilot-replay/dist/cli.js replay --input tests/data/ticks-mini.csv --seed 42 --slice 0:50:1 --out out/t5/replay/frames.ndjson && node packages/pilot-strategy/dist/cli.js run --strategy momentum --frames out/t5/replay/frames.ndjson --seed 42 --out out/t5/effects/orders.ndjson && node packages/pilot-risk/dist/index.js eval --orders out/t5/effects/orders.ndjson --frames out/t5/replay/frames.ndjson --out out/t5/risk/evaluations.ndjson && node scripts/t5-write-status.js"
+                "t5:run": "node scripts/t5-run.mjs",
+                "t5:rerun": "node scripts/t5-run.mjs --force",
+                "t5:clean": "node -e \"require('fs').rmSync('out/t5',{recursive:true,force:true}); console.log('cleaned out/t5')\"",
+                "t5:run:obsolete": "echo 'Use node scripts/t5-run.mjs (or t5:rerun) instead' && exit 1"
         },
 	"devDependencies": {
 		"typescript": "5.9.2",

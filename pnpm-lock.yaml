@@ -20,6 +20,9 @@ importers:
       '@tf-lang/tf-plan-scaffold':
         specifier: workspace:*
         version: link:packages/tf-plan-scaffold
+      '@tf-lang/utils':
+        specifier: workspace:*
+        version: link:packages/utils
       ajv:
         specifier: ^8.17.1
         version: 8.17.1

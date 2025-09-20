@@ -91,7 +91,7 @@ register('tf:observability/emit-metric@1', ['emit-metric'], 'Observability.EmitM
   return { ok: true };
 });
 
-register('tf:network/publish@1', ['publish'], 'Network.Publish', async (args = {}) => {
+register('tf:network/publish@1', ['publish'], 'Network.Out', async (args = {}) => {
   const topic = args.topic ?? 'default';
   if (!topicQueues.has(topic)) {
     topicQueues.set(topic, []);

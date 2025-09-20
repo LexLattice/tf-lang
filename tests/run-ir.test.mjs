@@ -46,7 +46,7 @@ test('parallel publish and metric capture distinct effects', async () => {
   };
   const out = await runIR(ir, inmem);
   assert.equal(out.ok, true);
-  assert.deepEqual(out.effects, ['Network.Publish', 'Observability.EmitMetric']);
+  assert.deepEqual(out.effects, ['Network.Out', 'Observability.EmitMetric']);
 });
 
 test('hashing is deterministic for equivalent objects', async () => {

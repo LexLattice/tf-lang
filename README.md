@@ -153,6 +153,11 @@ npm run tf -- canon examples/flows/signing.tf -o out/0.4/ir/signing.canon.json
 # Generate TS skeleton for the flow
 npm run tf -- emit --lang ts examples/flows/signing.tf --out out/0.4/codegen-ts/signing
 
+# Execute generated runners with capability manifests and summarize traces
+npm run tf -- emit --lang ts examples/flows/run_storage_ok.tf --out out/0.4/codegen-ts/run_storage_ok
+node out/0.4/codegen-ts/run_storage_ok/run.mjs --caps caps.json
+cat tests/fixtures/trace-sample.jsonl | node packages/tf-l0-tools/trace-summary.mjs --pretty
+
 # Generate capability manifest
 node packages/tf-compose/bin/tf-manifest.mjs examples/flows/manifest_publish.tf
 node packages/tf-compose/bin/tf-manifest.mjs examples/flows/manifest_storage.tf -o out/0.4/manifests/storage.json

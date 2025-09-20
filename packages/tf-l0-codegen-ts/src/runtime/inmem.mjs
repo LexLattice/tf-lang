@@ -6,6 +6,27 @@ const topicQueues = new Map();
 const registry = new Map();
 const handlers = Object.create(null);
 
+function stableStringify(value) {
+  return JSON.stringify(canonicalize(value));
+}
+
+function canonicalize(value) {
+  if (value === null || typeof value !== 'object') {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => canonicalize(item));
+  }
+  const out = {};
+  for (const key of Object.keys(value).sort()) {
+    const canonical = canonicalize(value[key]);
+    if (canonical !== undefined) {
+      out[key] = canonical;
+    }
+  }
+  return out;
+}
+
 function keyFor(uri, key) {
   return `${uri}#${key}`;
 }
@@ -57,7 +78,8 @@ register('tf:resource/compare-and-swap@1', ['compare-and-swap'], 'Storage.Write'
 
 register('tf:information/hash@1', ['hash'], 'Information.Hash', async (args = {}) => {
   const target = Object.prototype.hasOwnProperty.call(args, 'value') ? args.value : args;
-  const digest = createHash('sha256').update(JSON.stringify(target)).digest('hex');
+  const s = stableStringify(target);
+  const digest = createHash('sha256').update(s).digest('hex');
   return { ok: true, hash: `sha256:${digest}` };
 });
 

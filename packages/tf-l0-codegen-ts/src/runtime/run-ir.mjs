@@ -1,3 +1,5 @@
+let clockWarned = false;
+
 function nowTs() {
   const clock = globalThis?.__tf_clock;
   if (clock && typeof clock.nowNs === 'function') {
@@ -9,8 +11,11 @@ function nowTs() {
       if (typeof raw === 'number') {
         return raw;
       }
-    } catch {
-      // fall through to Date.now()
+    } catch (err) {
+      if (!clockWarned) {
+        clockWarned = true;
+        console.warn('tf run-ir: falling back to Date.now() after clock failure', err);
+      }
     }
   }
   return Date.now();
@@ -19,14 +24,6 @@ function nowTs() {
 function toArray(value) {
   if (!value) return [];
   return Array.isArray(value) ? value : [value];
-}
-
-function recordEffect(target, value) {
-  for (const entry of toArray(value)) {
-    if (entry && !target.includes(entry)) {
-      target.push(entry);
-    }
-  }
 }
 
 function resolveAdapter(runtime, prim) {
@@ -65,8 +62,18 @@ function effectFor(runtime, prim) {
   return null;
 }
 
+function recordEffects(target, value) {
+  for (const entry of toArray(value)) {
+    if (entry) {
+      target.add(entry);
+    }
+  }
+}
+
 async function execNode(node, runtime, ctx, input) {
-  if (!node || typeof node !== 'object') return input;
+  if (!node || typeof node !== 'object') {
+    return { value: input, ok: true };
+  }
   switch (node.node) {
     case 'Prim': {
       const adapter = resolveAdapter(runtime, node.prim);
@@ -79,47 +86,62 @@ async function execNode(node, runtime, ctx, input) {
       ctx.ops += 1;
       const result = await adapter(args, runtime?.state ?? {});
       const effect = effectFor(runtime, node.prim) ?? effectFor(runtime, primId);
-      if (effect) recordEffect(ctx.effects, effect);
-      if (node.meta?.effect) recordEffect(ctx.effects, node.meta.effect);
-      if (node.meta?.effects) recordEffect(ctx.effects, node.meta.effects);
+      if (effect) recordEffects(ctx.effects, effect);
+      if (node.meta?.effect) recordEffects(ctx.effects, node.meta.effect);
+      if (node.meta?.effects) recordEffects(ctx.effects, node.meta.effects);
       console.log(JSON.stringify({ prim_id: primId, args, ts }));
-      return result;
+      let ok = true;
+      if (result && typeof result === 'object' && 'ok' in result) {
+        ok = Boolean(result.ok);
+      }
+      return { value: result, ok };
     }
+    case 'Region': // fallthrough
     case 'Seq': {
       let acc = input;
-      for (const child of node.children ?? []) {
-        acc = await execNode(child, runtime, ctx, acc);
+      let ok = true;
+      const children = node.children ?? [];
+      if (children.length === 0) {
+        return { value: acc, ok };
       }
-      return acc;
+      for (const child of children) {
+        const result = await execNode(child, runtime, ctx, acc);
+        acc = result.value;
+        ok = result.ok;
+      }
+      return { value: acc, ok };
     }
     case 'Par': {
       const children = node.children ?? [];
-      return await Promise.all(children.map((child) => execNode(child, runtime, ctx, input)));
-    }
-    case 'Region': {
-      let acc = input;
-      for (const child of node.children ?? []) {
-        acc = await execNode(child, runtime, ctx, acc);
-      }
-      return acc;
+      const results = await Promise.all(children.map((child) => execNode(child, runtime, ctx, input)));
+      const ok = results.every((entry) => entry.ok !== false);
+      return { value: results.map((entry) => entry.value), ok };
     }
     default: {
       if (Array.isArray(node.children)) {
         let acc = input;
+        let ok = true;
         for (const child of node.children) {
-          acc = await execNode(child, runtime, ctx, acc);
+          const result = await execNode(child, runtime, ctx, acc);
+          acc = result.value;
+          ok = result.ok;
         }
-        return acc;
+        return { value: acc, ok };
       }
-      return input;
+      return { value: input, ok: true };
     }
   }
 }
 
 export async function runIR(ir, runtime, options = {}) {
-  const ctx = { effects: [], ops: 0 };
-  const result = await execNode(ir, runtime, ctx, options.input);
-  return { ok: true, result, ops: ctx.ops, effects: ctx.effects };
+  const ctx = { effects: new Set(), ops: 0 };
+  const { value, ok } = await execNode(ir, runtime, ctx, options.input);
+  return {
+    ok: ok !== false,
+    result: value,
+    ops: ctx.ops,
+    effects: Array.from(ctx.effects).sort(),
+  };
 }
 
 export default runIR;

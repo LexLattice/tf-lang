@@ -9,3 +9,9 @@ Until the legacy YAML catalogs are fully curated, the A1 pipeline unions any
 `spec/seed/*.json` overlay into the generated catalog. The seed entries carry
 minimal `effects`, `reads`/`writes`, and `qos` data so the checker, flows, and
 conflict detection stay runnable while curation continues.
+
+### Effect derivation rules
+During build we fill missing `effects` and network `qos` using deterministic name
+based rules for common primitives (e.g. storage, network, crypto).
+Seed overlay entries remain authoritative: existing effect tags or qos blocks are
+never overwritten by the derivation step.

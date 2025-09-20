@@ -8,6 +8,7 @@ import { hash, canonicalize } from '../../tf-l0-ir/src/hash.mjs';
 import { checkIR } from '../../tf-l0-check/src/check.mjs';
 import { manifestFromVerdict } from '../../tf-l0-check/src/manifest.mjs';
 import { checkRegions } from '../../tf-l0-check/src/regions.mjs';
+import { formatDSL, renderIRTree } from '../src/format.mjs';
 
 async function loadCatalog() {
   try {
@@ -23,8 +24,9 @@ const args = rawArgs[0] === '--' ? rawArgs.slice(1) : rawArgs;
 function arg(k) { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : null; }
 
 const cmd = args[0];
-if (!cmd || ['parse', 'check', 'canon', 'emit', 'manifest'].indexOf(cmd) < 0) {
-  console.error('Usage: tf <parse|check|canon|emit|manifest> <flow.tf> [--out path] [--lang ts|rs]');
+const known = new Set(['parse', 'check', 'canon', 'emit', 'manifest', 'fmt', 'show']);
+if (!cmd || !known.has(cmd)) {
+  console.error('Usage: tf <parse|check|canon|emit|manifest|fmt|show> <flow.tf> [--out path] [--lang ts|rs] [--write|-w]');
   process.exit(2);
 }
 const optionKeys = new Set(['--out', '-o', '--lang']);
@@ -45,6 +47,23 @@ const out = arg('-o') || arg('--out');
 
 const src = await readFile(file, 'utf8');
 const ir = parseDSL(src);
+
+if (cmd === 'fmt') {
+  const formatted = formatDSL(ir) + '\n';
+  if (args.includes('-w') || args.includes('--write')) {
+    await writeFile(file, formatted, 'utf8');
+  } else {
+    process.stdout.write(formatted);
+  }
+  process.exit(0);
+}
+
+if (cmd === 'show') {
+  const tree = renderIRTree(ir) + '\n';
+  process.stdout.write(tree);
+  process.exit(0);
+}
+
 const cat = await loadCatalog();
 
 if (cmd === 'parse') {

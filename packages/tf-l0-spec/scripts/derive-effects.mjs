@@ -3,25 +3,62 @@ import { join } from 'node:path';
 import { canonicalize } from './canonical-json.mjs';
 
 const spec = 'packages/tf-l0-spec/spec';
-const rules = JSON.parse(await readFile('packages/tf-l0-spec/rules/effect-rules.json', 'utf8')).rules;
 
-function derive(name) {
-  const n = name.toLowerCase();
-  const out = new Set();
-  for (const r of rules) if (new RegExp(r.match).test(n)) for (const e of r.effects) out.add(e);
-  return Array.from(out);
+const EFFECT_RULES = new Map([
+  ['read-object', ['Storage.Read']],
+  ['list-objects', ['Storage.Read']],
+  ['write-object', ['Storage.Write']],
+  ['delete-object', ['Storage.Write']],
+  ['compare-and-swap', ['Storage.Write']],
+  ['publish', ['Network.Out']],
+  ['request', ['Network.Out']],
+  ['acknowledge', ['Network.Out']],
+  ['subscribe', ['Network.In']],
+  ['hash', ['Pure']],
+  ['serialize', ['Pure']],
+  ['deserialize', ['Pure']],
+  ['sign-data', ['Crypto']],
+  ['verify-signature', ['Crypto']],
+  ['encrypt', ['Crypto']],
+  ['decrypt', ['Crypto']],
+  ['emit-metric', ['Observability']],
+  ['emit-log', ['Observability']]
+]);
+
+const NETWORK_EFFECTS = new Set(['Network.In', 'Network.Out']);
+const DEFAULT_NETWORK_QOS = Object.freeze({
+  delivery_guarantee: 'at-least-once',
+  ordering: 'per-key'
+});
+
+function deriveEffects(name) {
+  const key = typeof name === 'string' ? name.toLowerCase() : '';
+  return EFFECT_RULES.get(key) ?? [];
 }
 
 const catalog = JSON.parse(await readFile(join(spec, 'catalog.json'), 'utf8'));
-for (const p of catalog.primitives) {
-  if (!Array.isArray(p.effects) || p.effects.length === 0) {
-    p.effects = derive(p.name);
+for (const primitive of catalog.primitives) {
+  if (!Array.isArray(primitive.effects) || primitive.effects.length === 0) {
+    primitive.effects = deriveEffects(primitive.name);
+  }
+
+  if (
+    Array.isArray(primitive.effects) &&
+    primitive.effects.some(effect => NETWORK_EFFECTS.has(effect)) &&
+    (!primitive.qos || Object.keys(primitive.qos).length === 0)
+  ) {
+    primitive.qos = { ...DEFAULT_NETWORK_QOS };
   }
 }
-await writeFile(join(spec, 'effects.json'), canonicalize({
-  catalog_semver: catalog.catalog_semver,
-  effects: catalog.primitives.map(p => ({ id: p.id, effects: p.effects }))
-}) + '\n', 'utf8');
+
+await writeFile(
+  join(spec, 'effects.json'),
+  canonicalize({
+    catalog_semver: catalog.catalog_semver,
+    effects: catalog.primitives.map(p => ({ id: p.id, effects: p.effects }))
+  }) + '\n',
+  'utf8'
+);
 
 await writeFile(join(spec, 'catalog.json'), canonicalize(catalog) + '\n', 'utf8');
-console.log("effects derived and catalog.json updated.");
+console.log('effects derived and catalog.json updated.');

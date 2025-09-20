@@ -1,0 +1,1 @@
+Total primitives: 14; Effects: Crypto=2, Network.In=1, Network.Out=3, Observability=1, Pure=3, Storage.Read=1, Storage.Write=3; Network QoS: delivery_guarantee 4/4, ordering 4/4; Unknown effects: 0

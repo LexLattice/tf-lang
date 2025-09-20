@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meta-ontology.local/schemas/footprint-pattern.schema.json",
+  "title": "Footprint Pattern",
+  "type": "object",
+  "required": [
+    "uri"
+  ],
+  "properties": {
+    "uri": {
+      "type": "string",
+      "description": "res://kind/path/:param style pattern"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "read",
+        "write"
+      ]
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

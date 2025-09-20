@@ -4,6 +4,9 @@
 [CI: T3 Trace & Perf](.github/workflows/t3-trace-and-perf.yml)
 Version: v0.3
 
+[![Pages](https://github.com/LexLattice/tf-lang/actions/workflows/pages.yml/badge.svg?branch=main)](https://github.com/LexLattice/tf-lang/actions/workflows/pages.yml)
+**Live site:** https://LexLattice.github.io/tf-lang/
+
 ## What’s in 0.3
 - T3 — Observability & Parity:
   - Proof tags & `DEV_PROOFS` gating; `tf-check trace --filter …` JSONL stream.
@@ -118,3 +121,52 @@ out/ (artifacts)/
 * MIT
 
 ```
+## Meta-Ontology 0.4 — Hard-Ground Starter
+
+This repo skeleton grounds A0 → B4 so builders can flesh out implementations without
+arguing about structure. It includes: IDs & versions, catalog ingest, effects/laws stubs,
+DSL+IR+canonicalizer, checker glue, and TS/Rust codegen skeletons.
+
+### Quick Start
+
+```bash
+# Node 20+ recommended (see ./toolchain/.node-version)
+npm ci
+
+# A0: IDs & Versions (deterministic)
+npm run a0
+
+# A1: Catalog ingest + effects/laws skeleton
+npm run a1
+
+# Parse, check, and canon an example flow
+npm run tf -- parse examples/flows/signing.tf -o out/0.4/ir/signing.ir.json
+npm run tf -- check examples/flows/signing.tf -o out/0.4/flows/signing.verdict.json
+npm run tf -- canon examples/flows/signing.tf -o out/0.4/ir/signing.canon.json
+
+# Generate TS skeleton for the flow
+npm run tf -- emit --lang ts examples/flows/signing.tf --out out/0.4/codegen-ts/signing
+
+# Generate capability manifest
+node packages/tf-compose/bin/tf-manifest.mjs examples/flows/manifest_publish.tf
+node packages/tf-compose/bin/tf-manifest.mjs examples/flows/manifest_storage.tf -o out/0.4/manifests/storage.json
+# Manifests print to stdout or land under out/0.4/manifests/
+```
+
+### Tree
+- `catalogs/` — legacy YAMLs (frontend_primitives.yaml, information_primitives.yaml, interaction_interface.yaml, observability_telemetry.yaml, policy_governance.yaml, process_computation.yaml, resource_infrastructure.yaml, security_primitives.yaml, state_identity.yaml)
+- `packages/`
+  - `tf-l0-spec/` — A0/A1: IDs, versions, catalog ingest, effects/laws scaffolding
+  - `tf-l0-ir/` — IR schema, codecs, canonicalizer
+  - `tf-l0-check/` — effect lattice, footprints, checker glue
+  - `tf-compose/` — CLI: parse/check/canon/emit/manifest
+  - `tf-l0-codegen-ts/` — TS emitter (skeleton)
+  - `tf-l0-codegen-rs/` — Rust emitter (skeleton)
+- `schemas/` — shared JSON Schemas (trace, manifest, catalog, etc.)
+- `examples/flows/` — sample DSL flows
+- `docs/` — DSL cheatsheet, catalog doc, traces, etc.
+- `out/0.4/` — artifacts
+
+### Determinism
+- Canonical JSON writer with stable key order included.
+- Hashes (`sha256`) generated for core artifacts.

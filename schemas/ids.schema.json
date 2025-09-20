@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meta-ontology.local/schemas/ids.schema.json",
+  "title": "IDs File",
+  "type": "object",
+  "required": [
+    "id_policy",
+    "catalog_semver",
+    "primitives"
+  ],
+  "properties": {
+    "id_policy": {
+      "type": "string"
+    },
+    "catalog_semver": {
+      "type": "string"
+    },
+    "primitives": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "domain",
+          "name",
+          "major"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^tf:[a-z0-9\\-]+/[a-z0-9\\-]+@\\d+$"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "major": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": false
+}

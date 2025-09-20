@@ -1,0 +1,55 @@
+{
+  "laws": [
+    {
+      "id": "law:decode-encode-eq-id",
+      "kind": "eq",
+      "applies_to": [
+        "tf:information/decode@1",
+        "tf:information/encode@1"
+      ],
+      "rewrite": "Decode(Encode(x)) => x",
+      "preconditions": []
+    },
+    {
+      "id": "law:serialize-deserialize-eq-id",
+      "kind": "eq",
+      "applies_to": [
+        "tf:information/serialize@1",
+        "tf:information/deserialize@1"
+      ],
+      "rewrite": "Deserialize(Serialize(x)) => x",
+      "preconditions": []
+    },
+    {
+      "id": "law:compress-decompress-eq-id",
+      "kind": "eq",
+      "applies_to": [
+        "tf:information/decompress@1",
+        "tf:information/compress@1"
+      ],
+      "rewrite": "Decompress(Compress(x)) => x",
+      "preconditions": [
+        "no_lossy_mode"
+      ]
+    },
+    {
+      "id": "law:hash-idempotent",
+      "kind": "idempotent",
+      "applies_to": [
+        "tf:information/hash@1"
+      ],
+      "rewrite": "Hash(Hash(x)) => Hash(x)",
+      "preconditions": []
+    },
+    {
+      "id": "law:emitmetric-commutes-with-pure",
+      "kind": "commute-with-pure",
+      "applies_to": [
+        "tf:observability/emit-metric@1",
+        "Pure"
+      ],
+      "rewrite": "EmitMetric ∘ Pure == Pure ∘ EmitMetric",
+      "preconditions": []
+    }
+  ]
+}

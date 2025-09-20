@@ -1,0 +1,115 @@
+- id: policy_governance.l0.EvaluatePolicy
+  description: Evaluate a formal policy against a proposed action and context, returning
+    a decision.
+  inputs:
+  - policy_id: string
+  - context: object
+  outputs:
+  - decision: enum ["allow", "deny", "flag"]
+  - rationale: string
+  meta:
+    deterministic: true
+    audit_log: required
+    latency_class: subâ€‘second
+    complexity: medium
+  tags:
+  - policy
+  - governance
+  - decision
+  version: 1.0.0
+  abstract: true
+- id: policy_governance.l0.EnforceConstraint
+  description: Apply a mandatory constraint (legal, business, technical) and block
+    or modify an action if violated.
+  inputs:
+  - constraint_id: string
+  - action_payload: object
+  outputs:
+  - enforcement_result: enum ["proceed", "modified", "blocked"]
+  meta:
+    enforcement_mode: hard
+    audit_log: required
+    dependency_chain:
+    - EvaluatePolicy
+    complexity: medium
+  tags:
+  - policy
+  - governance
+  - enforcement
+  version: 1.0.0
+  abstract: true
+- id: policy_governance.l0.GrantDelegation
+  description: Delegate a subset of permissions or roles from one identity to another
+    with optional expiration.
+  inputs:
+  - from_identity: string
+  - to_identity: string
+  - permissions: list<string>
+  - ttl: timedelta
+  outputs:
+  - delegation_id: string
+  meta:
+    reversible: via RevokeDelegation
+    audit_log: required
+    complexity: low
+  tags:
+  - policy
+  - delegation
+  - permission
+  version: 1.0.0
+  abstract: true
+- id: policy_governance.l0.RevokeDelegation
+  description: Cancel a previously granted delegation.
+  inputs:
+  - delegation_id: string
+  outputs:
+  - status: enum ["revoked"]
+  meta:
+    audit_log: required
+    dependency_chain:
+    - GrantDelegation
+    complexity: low
+  tags:
+  - policy
+  - delegation
+  - permission
+  version: 1.0.0
+  abstract: true
+- id: policy_governance.l0.RecordDecision
+  description: Persist a signed, immutable record of a governance decision (e.g.,
+    DAO vote, board approval).
+  inputs:
+  - decision_payload: object
+  - signatories: list<string>
+  outputs:
+  - record_id: string
+  meta:
+    immutable: true
+    audit_log: intrinsic
+    complexity: medium
+  tags:
+  - policy
+  - governance
+  - record
+  version: 1.0.0
+  abstract: true
+- id: policy_governance.l0.RolloutFeature
+  description: Gradually enable a feature flag or configuration change across populations
+    with guardrails.
+  inputs:
+  - feature_id: string
+  - rollout_strategy: object
+  outputs:
+  - rollout_id: string
+  meta:
+    reversible: true
+    audit_log: recommended
+    dependency_chain:
+    - EvaluatePolicy
+    complexity: medium
+  tags:
+  - policy
+  - governance
+  - feature_flag
+  version: 1.0.0
+  abstract: true

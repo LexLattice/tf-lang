@@ -1,0 +1,121 @@
+- id: information_primitives.l0.Encode
+  description: Convert data from a higher-level representation to a lower-level byte
+    or character encoding (e.g., UTFâ€‘8, Base64).
+  inputs:
+  - data: any
+  - target_encoding: enum ["utf8", "base64", "hex", "protobuf", "avro"]
+  outputs:
+  - encoded: bytes
+  meta:
+    reversible: true
+    entropy_delta: ~0
+    streaming_safe: true
+    dependency_chain: []
+    complexity: low
+  tags:
+  - information
+  - encoding
+  version: 1.0.0
+  abstract: true
+- id: information_primitives.l0.Decode
+  description: Reconstruct the original data from an encoded byte/char sequence.
+  inputs:
+  - encoded: bytes
+  - source_encoding: enum ["utf8", "base64", "hex", "protobuf", "avro"]
+  outputs:
+  - data: any
+  meta:
+    reversible: true
+    entropy_delta: ~0
+    streaming_safe: true
+    dependency_chain:
+    - Encode
+    complexity: low
+  tags:
+  - information
+  - encoding
+  version: 1.0.0
+  abstract: true
+- id: information_primitives.l0.Hash
+  description: Generate a deterministic fixed-length digest for given data.
+  inputs:
+  - data: any
+  - algorithm: enum ["sha256", "blake3", "keccak256", "md5"]
+  outputs:
+  - digest: string
+  meta:
+    reversible: false
+    entropy_delta: negative
+    collision_risk: varies
+    streaming_safe: true
+    dependency_chain: []
+    complexity: low
+  tags:
+  - information
+  - integrity
+  - identity
+  version: 1.0.0
+  abstract: true
+- id: information_primitives.l0.Serialize
+  description: Convert structured data into a transportable byte/string representation
+    preserving structure (e.g., JSON, MsgPack).
+  inputs:
+  - object: any
+  - format: enum ["json", "msgpack", "yaml", "cbor"]
+  outputs:
+  - serialized: bytes
+  meta:
+    reversible: true
+    entropy_delta: minimal
+    streaming_safe: optional
+    dependency_chain: []
+    complexity: medium
+  tags:
+  - information
+  - serialization
+  version: 1.0.0
+  abstract: true
+- id: information_primitives.l0.Chunk
+  description: Split a byte stream into fixed or variable sized chunks with index
+    for reassembly.
+  inputs:
+  - stream: bytes
+  - chunk_size: int
+  outputs:
+  - chunks: list<Chunk>
+  definitions:
+    Chunk:
+      index: int
+      payload: bytes
+      last: bool
+  meta:
+    reversible: true
+    entropy_delta: 0
+    streaming_safe: n/a
+    dependency_chain: []
+    complexity: low
+  tags:
+  - information
+  - segmentation
+  version: 1.0.0
+  abstract: true
+- id: information_primitives.l0.Compress
+  description: Reduce size of data using lossless compression algorithm.
+  inputs:
+  - data: bytes
+  - algorithm: enum ["gzip", "lz4", "zstd", "brotli"]
+  - level: int
+  outputs:
+  - compressed: bytes
+  meta:
+    reversible: true
+    entropy_delta: negative
+    cpu_cost: high
+    streaming_safe: algorithm_dependent
+    dependency_chain: []
+    complexity: medium
+  tags:
+  - information
+  - compression
+  version: 1.0.0
+  abstract: true

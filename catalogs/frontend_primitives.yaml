@@ -1,0 +1,140 @@
+- id: frontend_primitives.l0.RenderView
+  description: Present a structured visual layout combining static elements and dynamic
+    bindings.
+  inputs:
+  - view_id: string
+  - data_context: object
+  outputs:
+  - rendered_view: ui_fragment
+  meta:
+    modality: visual
+    latency_expectation: <50ms
+    reactive: true
+    accessibility_compliant: WCAG2.1
+    complexity: low
+  tags:
+  - frontend
+  - ui
+  - render
+  version: 1.0.0
+  abstract: true
+- id: frontend_primitives.l0.CollectInput
+  description: Capture user-provided values from fields, controls, or gestures.
+  inputs:
+  - form_schema: object
+  outputs:
+  - input_payload: object
+  meta:
+    modality: tactile|keyboard|voice
+    validation_stage: client
+    reversible: until-submit
+    complexity: low
+  tags:
+  - frontend
+  - input
+  - ux
+  version: 1.0.0
+  abstract: true
+- id: frontend_primitives.l0.ValidateInput
+  description: Apply synchronous client-side validation rules to user input before
+    submission.
+  inputs:
+  - input_payload: object
+  - rules: object
+  outputs:
+  - validation_result: object
+  meta:
+    modality: compute
+    latency_class: immediate
+    complexity: low
+  tags:
+  - frontend
+  - validation
+  version: 1.0.0
+  abstract: true
+- id: frontend_primitives.l0.TriggerAction
+  description: Send a user-initiated command or data submission to a backend endpoint.
+  inputs:
+  - action_endpoint: string
+  - payload: object
+  outputs:
+  - request_id: string
+  meta:
+    modality: click/touch
+    latency_tolerance: <150ms
+    side_effects: network
+    complexity: medium
+  tags:
+  - frontend
+  - interaction
+  version: 1.0.0
+  abstract: true
+- id: frontend_primitives.l0.StreamUpdates
+  description: Subscribe to a backend stream (WebSocket/SSE) and update UI in real-time.
+  inputs:
+  - channel: string
+  - transform_map: object
+  outputs:
+  - ui_patch: ui_fragment
+  meta:
+    modality: visual
+    latency_expectation: real-time
+    backpressure_strategy: buffer|drop
+    complexity: medium
+  tags:
+  - frontend
+  - realtime
+  - streaming
+  version: 1.0.0
+  abstract: true
+- id: frontend_primitives.l0.DisplayNotification
+  description: Show transient or persistent feedback to the user (toast, modal, banner).
+  inputs:
+  - text: string
+  - level: enum ["info", "success", "warning", "error"]
+  outputs:
+  - notification_id: string
+  meta:
+    modality: visual|auditory
+    accessibility_compliant: WCAG2.1
+    duration: ms
+    complexity: low
+  tags:
+  - frontend
+  - feedback
+  version: 1.0.0
+  abstract: true
+- id: frontend_primitives.l0.Navigate
+  description: Change application route or view state in response to user intent.
+  inputs:
+  - target_route: string
+  - params: object
+  outputs:
+  - route_change_id: string
+  meta:
+    modality: click/touch
+    latency_expectation: <100ms
+    complexity: low
+  tags:
+  - frontend
+  - navigation
+  version: 1.0.0
+  abstract: true
+- id: frontend_primitives.l0.ConfirmAction
+  description: Request explicit user confirmation before executing a critical backend
+    action.
+  inputs:
+  - message: string
+  - action_ref: string
+  outputs:
+  - decision: enum ["confirm", "cancel"]
+  meta:
+    modality: dialog
+    blocking: true
+    complexity: low
+  tags:
+  - frontend
+  - security
+  - ux
+  version: 1.0.0
+  abstract: true

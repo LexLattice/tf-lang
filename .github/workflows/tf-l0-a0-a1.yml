@@ -1,0 +1,85 @@
+name: tf-l0 A0/A1 determinism
+
+on:
+  pull_request:
+    paths:
+      - 'packages/**'
+      - 'schemas/**'
+      - 'scripts/**'
+      - 'examples/**'
+      - 'catalogs/**'
+      - 'docs/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node (reads toolchain/.node-version)
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: 'toolchain/.node-version'
+          cache: 'pnpm'
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            **/pnpm-lock.yaml
+
+      # >>> This is the missing piece in CI <<<
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.16.1
+
+      - name: Install
+        run: pnpm -w -r install --frozen-lockfile
+
+      - name: A0
+        run: pnpm run a0
+
+      - name: Validate ids schema
+        run: pnpm run validate:ids
+
+      - name: A1
+        run: pnpm run a1
+
+      - name: Validate catalog schema
+        run: pnpm run validate:catalog
+
+      - name: Lint catalog
+        run: pnpm run lint:catalog
+
+      - name: Autofix (suggest)
+        run: pnpm run suggest:catalog
+
+      - name: Determinism gate (ids.json)
+        run: pnpm run determinism
+
+      - name: CLI smoke (parse/check/canon)
+        run: |
+          pnpm run tf -- parse examples/flows/signing.tf -o out/0.4/ir/signing.ir.json
+          pnpm run tf -- canon examples/flows/signing.tf -o out/0.4/ir/signing.canon.json
+          pnpm run tf -- check examples/flows/signing.tf -o out/0.4/flows/signing.verdict.json
+
+      - name: Full determinism (all outputs)
+        run: pnpm run determinism:full
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Contract break checks
+        run: pnpm run contracts:check-breaking
+
+      - name: Write digests
+        run: pnpm run digest:out
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tf-l0-out
+          path: |
+            out/0.4/**
+            packages/tf-l0-spec/spec/**

@@ -1,0 +1,97 @@
+- id: observability_telemetry.l0.EmitMetric
+  description: Record a single metric datapoint with tags.
+  inputs:
+  - metric_name: string
+  - value: number
+  - tags: object
+  - timestamp: datetime
+  outputs:
+  - ack: string
+  meta:
+    cardinality: high
+    qos: best_effort
+    persistence: timeseries_db
+    complexity: low
+  tags:
+  - observability
+  - metric
+  - telemetry
+  version: 1.0.0
+  abstract: true
+- id: observability_telemetry.l0.AggregateMetric
+  description: Rollâ€‘up raw metric datapoints into aggregated statistics over a time
+    window.
+  inputs:
+  - metric_name: string
+  - window: object
+  - aggregation: enum ["avg", "sum", "min", "max", "p95"]
+  outputs:
+  - aggregated_value: number
+  meta:
+    cardinality: low
+    qos: batch
+    dependency_chain:
+    - EmitMetric
+    complexity: medium
+  tags:
+  - observability
+  - aggregation
+  version: 1.0.0
+  abstract: true
+- id: observability_telemetry.l0.TraceSpan
+  description: Begin or finish a distributed trace span for request observability.
+  inputs:
+  - span_id: string
+  - parent_span_id: string
+  - event: enum ["start", "end"]
+  - metadata: object
+  outputs:
+  - trace_id: string
+  meta:
+    latency_overhead: microseconds
+    qos: best_effort
+    persistence: trace_store
+    complexity: low
+  tags:
+  - observability
+  - tracing
+  version: 1.0.0
+  abstract: true
+- id: observability_telemetry.l0.LogEvent
+  description: Write a structured log entry.
+  inputs:
+  - level: enum ["debug", "info", "warn", "error"]
+  - message: string
+  - context: object
+  - timestamp: datetime
+  outputs:
+  - log_id: string
+  meta:
+    cardinality: very_high
+    qos: best_effort
+    persistence: log_store
+    complexity: low
+  tags:
+  - observability
+  - logging
+  version: 1.0.0
+  abstract: true
+- id: observability_telemetry.l0.AlertThreshold
+  description: Define or update a threshold that triggers an alert when crossed.
+  inputs:
+  - metric_name: string
+  - condition: string
+  - severity: enum ["info", "warning", "critical"]
+  outputs:
+  - alert_id: string
+  meta:
+    evaluator: real_time
+    dependency_chain:
+    - EmitMetric
+    - AggregateMetric
+    complexity: medium
+  tags:
+  - observability
+  - alerting
+  version: 1.0.0
+  abstract: true

@@ -153,6 +153,11 @@ npm run tf -- canon examples/flows/signing.tf -o out/0.4/ir/signing.canon.json
 # Generate TS skeleton for the flow
 npm run tf -- emit --lang ts examples/flows/signing.tf --out out/0.4/codegen-ts/signing
 
+# Enforce manifest caps + summarize traces
+node out/0.4/codegen-ts/signing/run.mjs --caps caps.json
+TF_CAPS='{"effects":["Pure"],"allow_writes_prefixes":[]}' node out/0.4/codegen-ts/signing/run.mjs
+cat tests/fixtures/trace-sample.jsonl | node packages/tf-l0-tools/trace-summary.mjs --top=3 --pretty
+
 # Generate capability manifest
 node packages/tf-compose/bin/tf-manifest.mjs examples/flows/manifest_publish.tf
 node packages/tf-compose/bin/tf-manifest.mjs examples/flows/manifest_storage.tf -o out/0.4/manifests/storage.json

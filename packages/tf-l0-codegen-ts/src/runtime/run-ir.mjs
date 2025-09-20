@@ -1,3 +1,5 @@
+import { validateCapabilities } from './capabilities.mjs';
+
 let clockWarned = false;
 
 function nowTs() {
@@ -142,6 +144,22 @@ export async function runIR(ir, runtime, options = {}) {
     ops: ctx.ops,
     effects: Array.from(ctx.effects).sort(),
   };
+}
+
+export async function runWithCaps(ir, runtime, caps = {}, manifest = {}) {
+  const verdict = validateCapabilities(manifest, caps);
+  if (!verdict.ok) {
+    const failure = { ok: false };
+    if (verdict.missing_effects.length > 0) {
+      failure.missing_effects = verdict.missing_effects;
+    }
+    if (verdict.write_denied.length > 0) {
+      failure.write_denied = verdict.write_denied;
+    }
+    console.error(JSON.stringify(failure));
+    return { ok: false, ops: 0, effects: [] };
+  }
+  return runIR(ir, runtime);
 }
 
 export default runIR;

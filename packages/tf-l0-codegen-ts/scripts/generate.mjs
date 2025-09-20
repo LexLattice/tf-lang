@@ -1,5 +1,7 @@
-import { writeFile, mkdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { writeFile, mkdir, copyFile } from 'node:fs/promises';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { canonicalize } from '../../tf-l0-ir/src/hash.mjs';
 export async function generate(ir, { outDir }) {
   await mkdir(join(outDir, 'src'), { recursive: true });
   await writeFile(join(outDir, 'package.json'), JSON.stringify({ name:"tf-generated", private:true, type:"module", scripts:{ start:"node ./dist/pipeline.mjs" }, dependencies:{} }, null, 2) + '\n', 'utf8');
@@ -8,6 +10,7 @@ export async function generate(ir, { outDir }) {
   await writeFile(join(outDir,'src','trace.ts'), traceUtil(), 'utf8');
   await writeFile(join(outDir,'src','determinism.ts'), determinismUtil(), 'utf8');
   await writeFile(join(outDir,'src','redaction.ts'), redactionUtil(), 'utf8');
+  await emitRuntime(ir, outDir);
 }
 function prims(ir, out=new Set()){ if(!ir||typeof ir!=='object') return out; if(ir.node==='Prim') out.add(ir.prim); for(const c of (ir.children||[])) prims(c,out); return out; }
 function genAdapters(ir){ const names=Array.from(prims(ir)); const methods=names.map(n=>`  ${to(n)}(input: any): Promise<any>`).join('\n'); const stubs=names.map(n=>stub(n)).join('\n\n'); return `export interface Adapters {\n${methods}\n}\n\n${stubs}\n`; function to(n){ return 'prim_'+n.replace(/[^a-z0-9]/g,'_'); } function stub(n){ const m=to(n); return `export async function ${m}(input:any):Promise<any>{ throw new Error('Not wired: ${m}'); }`; } }
@@ -16,3 +19,16 @@ function traceUtil(){ return `import { applyRedaction } from './redaction';\nfun
 function determinismUtil(){ return `export { XorShift32, FixedClock } from './determinism';`; }
 function redactionUtil(){ return `export type { RedactionPolicy } from './redaction';\nexport { applyRedaction } from './redaction';`; }
 function hashCode(s){ let h=0; for(let i=0;i<s.length;i++){ h=((h<<5)-h)+s.charCodeAt(i)|0; } return Math.abs(h); }
+
+async function emitRuntime(ir, outDir) {
+  const moduleDir = dirname(fileURLToPath(import.meta.url));
+  const runtimeSrc = join(moduleDir, '..', 'src', 'runtime');
+  const runtimeOut = join(outDir, 'runtime');
+  await mkdir(runtimeOut, { recursive: true });
+  await copyFile(join(runtimeSrc, 'inmem.mjs'), join(runtimeOut, 'inmem.mjs'));
+  await copyFile(join(runtimeSrc, 'run-ir.mjs'), join(runtimeOut, 'run-ir.mjs'));
+  const canonicalIr = JSON.parse(canonicalize(ir));
+  const irLiteral = JSON.stringify(canonicalIr, null, 2);
+  const runScript = `import { mkdir, readFile, writeFile } from 'node:fs/promises';\nimport { dirname, join } from 'node:path';\nimport { fileURLToPath } from 'node:url';\nimport { runIR } from './runtime/run-ir.mjs';\nimport inmem from './runtime/inmem.mjs';\n\nconst ir = ${irLiteral};\n\nconst result = await runIR(ir, inmem);\nconst summary = (() => {\n  const effects = Array.isArray(result?.effects) ? Array.from(new Set(result.effects)) : [];\n  effects.sort();\n  return { ok: Boolean(result?.ok), ops: result?.ops ?? 0, effects };\n})();\n\nconst here = dirname(fileURLToPath(import.meta.url));\nconst statusSelf = join(here, 'status.json');\nawait writeFile(statusSelf, JSON.stringify(summary, null, 2) + '\\n', 'utf8');\n\nasync function mergeStatus(targetPath) {\n  try {\n    await mkdir(dirname(targetPath), { recursive: true });\n  } catch {}\n  let merged = summary;\n  try {\n    const existingRaw = await readFile(targetPath, 'utf8');\n    const existing = JSON.parse(existingRaw);\n    const effects = new Set([\n      ...(Array.isArray(existing?.effects) ? existing.effects : []),\n      ...summary.effects,\n    ]);\n    merged = {\n      ok: Boolean(existing?.ok) && Boolean(summary.ok),\n      ops: (existing?.ops ?? 0) + (summary.ops ?? 0),\n      effects: Array.from(effects).sort(),\n    };\n  } catch (err) {\n    if (!err || err.code !== 'ENOENT') {\n      console.warn('tf run.mjs: unable to merge status file', err);\n      return;\n    }\n  }\n  await writeFile(targetPath, JSON.stringify(merged, null, 2) + '\\n', 'utf8');\n}\n\nif (process.env.TF_STATUS_PATH) {\n  await mergeStatus(process.env.TF_STATUS_PATH);\n}\n`;
+  await writeFile(join(outDir, 'run.mjs'), runScript, 'utf8');
+}

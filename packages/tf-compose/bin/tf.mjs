@@ -27,7 +27,16 @@ if (!cmd || ['parse', 'check', 'canon', 'emit', 'manifest'].indexOf(cmd) < 0) {
   console.error('Usage: tf <parse|check|canon|emit|manifest> <flow.tf> [--out path] [--lang ts|rs]');
   process.exit(2);
 }
-const file = args[1];
+const optionKeys = new Set(['--out', '-o', '--lang']);
+let file = null;
+for (let i = 1; i < args.length; i++) {
+  const token = args[i];
+  if (optionKeys.has(token)) { i++; continue; }
+  if (token === '--') continue;
+  if (token.startsWith('-')) continue;
+  file = token;
+  break;
+}
 if (!file) {
   console.error('Missing flow path.');
   process.exit(2);

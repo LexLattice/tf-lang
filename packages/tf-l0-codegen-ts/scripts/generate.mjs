@@ -1,5 +1,7 @@
-import { writeFile, mkdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { writeFile, mkdir, readFile } from 'node:fs/promises';
+import { join, dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { canonicalize } from '../../tf-l0-ir/src/hash.mjs';
 export async function generate(ir, { outDir }) {
   await mkdir(join(outDir, 'src'), { recursive: true });
   await writeFile(join(outDir, 'package.json'), JSON.stringify({ name:"tf-generated", private:true, type:"module", scripts:{ start:"node ./dist/pipeline.mjs" }, dependencies:{} }, null, 2) + '\n', 'utf8');
@@ -8,6 +10,7 @@ export async function generate(ir, { outDir }) {
   await writeFile(join(outDir,'src','trace.ts'), traceUtil(), 'utf8');
   await writeFile(join(outDir,'src','determinism.ts'), determinismUtil(), 'utf8');
   await writeFile(join(outDir,'src','redaction.ts'), redactionUtil(), 'utf8');
+  await emitRuntime(ir, outDir);
 }
 function prims(ir, out=new Set()){ if(!ir||typeof ir!=='object') return out; if(ir.node==='Prim') out.add(ir.prim); for(const c of (ir.children||[])) prims(c,out); return out; }
 function genAdapters(ir){ const names=Array.from(prims(ir)); const methods=names.map(n=>`  ${to(n)}(input: any): Promise<any>`).join('\n'); const stubs=names.map(n=>stub(n)).join('\n\n'); return `export interface Adapters {\n${methods}\n}\n\n${stubs}\n`; function to(n){ return 'prim_'+n.replace(/[^a-z0-9]/g,'_'); } function stub(n){ const m=to(n); return `export async function ${m}(input:any):Promise<any>{ throw new Error('Not wired: ${m}'); }`; } }
@@ -16,3 +19,21 @@ function traceUtil(){ return `import { applyRedaction } from './redaction';\nfun
 function determinismUtil(){ return `export { XorShift32, FixedClock } from './determinism';`; }
 function redactionUtil(){ return `export type { RedactionPolicy } from './redaction';\nexport { applyRedaction } from './redaction';`; }
 function hashCode(s){ let h=0; for(let i=0;i<s.length;i++){ h=((h<<5)-h)+s.charCodeAt(i)|0; } return Math.abs(h); }
+
+async function emitRuntime(ir, outDir) {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const runtimeDir = join(outDir, 'runtime');
+  await mkdir(runtimeDir, { recursive: true });
+  await copyRuntimeFile(here, 'inmem.mjs', runtimeDir);
+  await copyRuntimeFile(here, 'run-ir.mjs', runtimeDir);
+
+  const irJson = canonicalize(ir);
+  const runSource = `import { mkdir, writeFile } from 'node:fs/promises';\nimport { dirname, join, resolve } from 'node:path';\nimport { fileURLToPath } from 'node:url';\nimport { runIR } from './runtime/run-ir.mjs';\nimport adapters from './runtime/inmem.mjs';\n\nconst ir = ${irJson};\n\nconst result = await runIR(ir, adapters);\n\nconst here = fileURLToPath(new URL('.', import.meta.url));\nconst summary = { ok: true, ops: result.ops, effects: result.effects };\nconst targets = [\n  resolve(here, '..', '..', 'example', 'run', 'status.json'),\n  join(here, 'status.json'),\n];\nfor (const target of targets) {\n  await mkdir(dirname(target), { recursive: true });\n  await writeFile(target, JSON.stringify(summary, null, 2) + '\\n', 'utf8');\n}\n`;
+  await writeFile(join(outDir, 'run.mjs'), runSource, 'utf8');
+}
+
+async function copyRuntimeFile(baseDir, fileName, runtimeDir) {
+  const srcPath = resolve(baseDir, '../src/runtime', fileName);
+  const contents = await readFile(srcPath, 'utf8');
+  await writeFile(join(runtimeDir, fileName), contents, 'utf8');
+}

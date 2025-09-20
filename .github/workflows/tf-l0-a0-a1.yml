@@ -28,12 +28,9 @@ jobs:
             pnpm-lock.yaml
             **/pnpm-lock.yaml
 
-      - name: Enable corepack & pin pnpm
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.16.1 --activate
-          pnpm -v
-          node -v
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.16.1
 
       - name: Install
         run: pnpm -w -r install --frozen-lockfile

@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meta-ontology.local/schemas/law.schema.json",
+  "title": "Law Registry Item",
+  "type": "object",
+  "required": [
+    "id",
+    "kind",
+    "applies_to"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^law:[a-z0-9\\-]+$"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "eq",
+        "idempotent",
+        "commutative",
+        "associative"
+      ]
+    },
+    "preconditions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "rewrite": {
+      "type": "string"
+    },
+    "applies_to": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

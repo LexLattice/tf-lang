@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meta-ontology.local/schemas/error-taxonomy.schema.json",
+  "title": "Error Taxonomy",
+  "type": "object",
+  "properties": {
+    "retryable": {
+      "type": "boolean"
+    },
+    "categories": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "timeout",
+          "network",
+          "policy",
+          "invalid_input",
+          "io",
+          "conflict",
+          "unknown"
+        ]
+      }
+    }
+  },
+  "additionalProperties": true
+}

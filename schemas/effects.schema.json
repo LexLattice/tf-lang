@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meta-ontology.local/schemas/effects.schema.json",
+  "title": "Effect Families",
+  "type": "object",
+  "properties": {
+    "families": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "Pure",
+          "Time.Read",
+          "Time.Wait",
+          "Randomness.Read",
+          "Network.In",
+          "Network.Out",
+          "Storage.Read",
+          "Storage.Write",
+          "Crypto",
+          "Policy",
+          "Observability"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false
+}

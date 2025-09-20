@@ -1,0 +1,142 @@
+- id: interaction_interface.l0.Publish
+  description: Send a message or event to a named channel for any interested subscribers.
+  inputs:
+  - channel: string
+  - payload: any
+  - qos: enum ["at_most_once", "at_least_once", "exactly_once"]
+  outputs:
+  - ack_id: string
+  meta:
+    latency_class: variable
+    delivery_guarantee: qos
+    security_scope: channel_acl
+    dependency_chain: []
+    complexity: low
+  tags:
+  - interface
+  - pubsub
+  - outbound
+  version: 1.0.0
+  abstract: true
+- id: interaction_interface.l0.Subscribe
+  description: Register interest in a channel or topic and receive messages asynchronously.
+  inputs:
+  - channel: string
+  - filter: string
+  - qos: enum ["at_most_once", "at_least_once", "exactly_once"]
+  outputs:
+  - subscription_id: string
+  meta:
+    latency_class: real-time
+    delivery_guarantee: qos
+    security_scope: channel_acl
+    dependency_chain: []
+    complexity: low
+  tags:
+  - interface
+  - pubsub
+  - inbound
+  version: 1.0.0
+  abstract: true
+- id: interaction_interface.l0.Request
+  description: Invoke a remote procedure or HTTP endpoint expecting a response.
+  inputs:
+  - endpoint: string
+  - method: enum ["GET", "POST", "PUT", "DELETE"]
+  - body: any
+  outputs:
+  - response: any
+  - status_code: int
+  meta:
+    latency_class: request-response
+    delivery_guarantee: rpc_semantics
+    security_scope: auth_context
+    dependency_chain: []
+    complexity: medium
+  tags:
+  - interface
+  - rpc
+  - http
+  version: 1.0.0
+  abstract: true
+- id: interaction_interface.l0.Acknowledge
+  description: Confirm receipt and processing of a message or event.
+  inputs:
+  - ack_id: string
+  - status: enum ["processed", "failed", "ignored"]
+  outputs:
+  - confirmation: string
+  meta:
+    latency_class: minimal
+    delivery_guarantee: idempotent
+    security_scope: channel_acl
+    dependency_chain:
+    - Publish
+    - Subscribe
+    complexity: low
+  tags:
+  - interface
+  - ack
+  version: 1.0.0
+  abstract: true
+- id: interaction_interface.l0.Authorize
+  description: Grant or verify permission for an identity to perform an action on
+    a resource.
+  inputs:
+  - identity_id: string
+  - action: string
+  - resource: string
+  outputs:
+  - decision: enum ["allow", "deny"]
+  meta:
+    latency_class: critical
+    delivery_guarantee: consistency
+    security_scope: auth_service
+    dependency_chain: []
+    complexity: medium
+  tags:
+  - interface
+  - security
+  - permission
+  version: 1.0.0
+  abstract: true
+- id: interaction_interface.l0.Authenticate
+  description: Confirm identity using credentials, tokens, or signatures.
+  inputs:
+  - credential: any
+  - method: enum ["password", "token", "signature", "oauth"]
+  outputs:
+  - identity_id: string
+  - session_token: string
+  meta:
+    latency_class: critical
+    delivery_guarantee: consistency
+    security_scope: auth_service
+    dependency_chain: []
+    complexity: medium
+  tags:
+  - interface
+  - security
+  - identity
+  version: 1.0.0
+  abstract: true
+- id: interaction_interface.l0.Notify
+  description: Send a direct or broadcast notification to user endpoints (email, SMS,
+    webhook).
+  inputs:
+  - target: string
+  - message: string
+  - medium: enum ["email", "sms", "webhook", "push"]
+  outputs:
+  - notification_id: string
+  meta:
+    latency_class: best-effort
+    delivery_guarantee: at_least_once
+    security_scope: notif_service
+    dependency_chain: []
+    complexity: low
+  tags:
+  - interface
+  - notification
+  version: 1.0.0
+  abstract: true

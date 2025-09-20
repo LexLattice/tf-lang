@@ -1,0 +1,143 @@
+- id: process_computation.l0.Transform
+  description: Apply a deterministic function to input data to produce transformed
+    output.
+  inputs:
+  - payload: any
+  - transform_spec: string
+  outputs:
+  - result: any
+  meta:
+    atomicity: true
+    side_effects: none
+    dependency_chain: []
+    complexity: low
+  tags:
+  - process
+  - pure-computation
+  version: 1.0.0
+  abstract: true
+- id: process_computation.l0.Schedule
+  description: Register a callable or workflow for execution at a given time or interval.
+  inputs:
+  - task_ref: string
+  - trigger: enum ["cron", "datetime", "interval", "event"]
+  - policy: object
+  outputs:
+  - schedule_id: string
+  meta:
+    atomicity: n/a
+    side_effects: registry
+    dependency_chain: []
+    complexity: medium
+  tags:
+  - process
+  - orchestration
+  - time
+  version: 1.0.0
+  abstract: true
+- id: process_computation.l0.Await
+  description: Suspend execution until a condition, promise, or event is fulfilled.
+  inputs:
+  - awaitable_id: string
+  - timeout: timedelta
+  outputs:
+  - status: enum ["completed", "timeout", "error"]
+  meta:
+    atomicity: n/a
+    side_effects: blocking
+    dependency_chain: []
+    complexity: low
+  tags:
+  - process
+  - control-flow
+  version: 1.0.0
+  abstract: true
+- id: process_computation.l0.Retry
+  description: Reâ€‘execute a âŸ¦TrueFunctionâŸ§ or task according to a backâ€‘off
+    strategy upon failure.
+  inputs:
+  - task_ref: string
+  - strategy: enum ["fixed", "exponential", "jitter"]
+  - max_attempts: int
+  outputs:
+  - final_status: enum ["success", "failed"]
+  meta:
+    atomicity: wraps
+    side_effects: depends_on_task
+    dependency_chain: []
+    complexity: low
+  tags:
+  - process
+  - resilience
+  version: 1.0.0
+  abstract: true
+- id: process_computation.l0.StartTransaction
+  description: Begin an isolated execution context ensuring atomic commit or rollback.
+  inputs:
+  - scope: enum ["db", "workflow", "inâ€‘memory"]
+  outputs:
+  - tx_id: string
+  meta:
+    isolation_level: read-committed
+    atomicity: start
+    side_effects: none
+    dependency_chain: []
+    complexity: low
+  tags:
+  - process
+  - transaction
+  version: 1.0.0
+  abstract: true
+- id: process_computation.l0.CommitTransaction
+  description: Commit the operations performed in the active transaction.
+  inputs:
+  - tx_id: string
+  outputs:
+  - status: enum ["committed"]
+  meta:
+    atomicity: end
+    dependency_chain:
+    - StartTransaction
+    side_effects: persist
+    complexity: low
+  tags:
+  - process
+  - transaction
+  version: 1.0.0
+  abstract: true
+- id: process_computation.l0.RollbackTransaction
+  description: Abort the active transaction and revert sideâ€‘effects.
+  inputs:
+  - tx_id: string
+  outputs:
+  - status: enum ["rolled_back"]
+  meta:
+    atomicity: end
+    dependency_chain:
+    - StartTransaction
+    side_effects: revert
+    complexity: low
+  tags:
+  - process
+  - transaction
+  version: 1.0.0
+  abstract: true
+- id: process_computation.l0.ExecutePipeline
+  description: Run an ordered set of âŸ¦TrueFunctionsâŸ§ with optional parallel branches
+    and error gates.
+  inputs:
+  - pipeline_spec: object
+  outputs:
+  - pipeline_run_id: string
+  - status: string
+  meta:
+    atomicity: configurable
+    side_effects: depends
+    dependency_chain: []
+    complexity: high
+  tags:
+  - process
+  - orchestration
+  - workflow
+  version: 1.0.0
+  abstract: true

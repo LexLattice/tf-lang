@@ -1,0 +1,77 @@
+{
+  "rules": [
+    {
+      "match": "hash",
+      "effects": [
+        "Pure",
+        "Crypto"
+      ]
+    },
+    {
+      "match": "encode|decode|serialize|deserialize|compress|decompress|chunk|assemble|transform",
+      "effects": [
+        "Pure"
+      ]
+    },
+    {
+      "match": "encrypt|decrypt|sign|verify|derive-key|manage-secret|generate-key",
+      "effects": [
+        "Crypto"
+      ]
+    },
+    {
+      "match": "publish|request|acknowledge",
+      "effects": [
+        "Network.Out"
+      ]
+    },
+    {
+      "match": "subscribe",
+      "effects": [
+        "Network.In"
+      ]
+    },
+    {
+      "match": "read|list",
+      "effects": [
+        "Storage.Read"
+      ]
+    },
+    {
+      "match": "write|delete|compare-and-swap",
+      "effects": [
+        "Storage.Write"
+      ]
+    },
+    {
+      "match": "emit-metric|trace-span|log-event",
+      "effects": [
+        "Observability"
+      ]
+    },
+    {
+      "match": "authorize|policy",
+      "effects": [
+        "Policy"
+      ]
+    },
+    {
+      "match": "now",
+      "effects": [
+        "Time.Read"
+      ]
+    },
+    {
+      "match": "sleep",
+      "effects": [
+        "Time.Wait"
+      ]
+    },
+    {
+      "match": "random",
+      "effects": [
+        "Randomness.Read"
+      ]
+    }
+  ]
+}

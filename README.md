@@ -4,6 +4,9 @@
 [CI: T3 Trace & Perf](.github/workflows/t3-trace-and-perf.yml)
 Version: v0.3
 
+[![Pages](https://github.com/LexLattice/tf-lang/actions/workflows/pages.yml/badge.svg?branch=main)](https://github.com/LexLattice/tf-lang/actions/workflows/pages.yml)
+**Live site:** https://LexLattice.github.io/tf-lang/
+
 ## What’s in 0.3
 - T3 — Observability & Parity:
   - Proof tags & `DEV_PROOFS` gating; `tf-check trace --filter …` JSONL stream.

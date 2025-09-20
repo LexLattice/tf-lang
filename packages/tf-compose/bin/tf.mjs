@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
-import { basename } from 'node:path';
+import { basename, dirname } from 'node:path';
 
 import { parseDSL } from '../src/parser.mjs';
 import { canon } from '../src/canon.mjs';
@@ -17,13 +17,7 @@ async function loadCatalog() {
   }
 }
 
-function arg(k) {
-  const i = process.argv.indexOf(k);
-  return i > 0 ? process.argv[i + 1] : null;
-}
-function has(k) {
-  return process.argv.includes(k);
-}
+function arg(k) { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : null; }
 
 const cmd = process.argv[2];
 if (!cmd || ['parse', 'check', 'canon', 'emit', 'manifest'].indexOf(cmd) < 0) {
@@ -39,27 +33,19 @@ const cat = await loadCatalog();
 
 if (cmd === 'parse') {
   const s = canonicalize(ir) + '\n';
-  if (out) {
-    await mkdir(require('node:path').dirname(out), { recursive: true });
-    await writeFile(out, s, 'utf8');
-  } else {
-    process.stdout.write(s);
-  }
+  if (out) { await mkdir(dirname(out), { recursive: true }); await writeFile(out, s, 'utf8'); }
+  else process.stdout.write(s);
   process.exit(0);
 }
 
 if (cmd === 'check') {
-  // Core type/effect/footprint verdict
   const verdict = checkIR(ir, cat);
 
-  // Region dominance (Authorize / Transaction) using protected list
   let protectedList = [];
   try {
     const p = JSON.parse(await readFile('packages/tf-l0-spec/spec/protected.json', 'utf8'));
     protectedList = p.protected_keywords || [];
-  } catch {
-    // optional
-  }
+  } catch { }
   const regionVerdict = checkRegions(ir, cat, protectedList);
 
   const ok = Boolean(verdict.ok && regionVerdict.ok);
@@ -67,37 +53,18 @@ if (cmd === 'check') {
     .concat(verdict.reasons || [])
     .concat(regionVerdict.reasons || []);
 
-  const payload = JSON.stringify(
-    {
-      ok,
-      effects: verdict.effects || [],
-      reasons
-    },
-    null,
-    2
-  ) + '\n';
-
-  if (out) {
-    await mkdir(require('node:path').dirname(out), { recursive: true });
-    await writeFile(out, payload, 'utf8');
-  } else {
-    process.stdout.write(payload);
-  }
+  const payload = JSON.stringify({ ok, effects: verdict.effects || [], reasons }, null, 2) + '\n';
+  if (out) { await mkdir(dirname(out), { recursive: true }); await writeFile(out, payload, 'utf8'); }
+  else process.stdout.write(payload);
   process.exit(ok ? 0 : 1);
 }
 
 if (cmd === 'canon') {
-  const laws = await readFile('packages/tf-l0-spec/spec/laws.json', 'utf8')
-    .then(JSON.parse)
-    .catch(() => ({ laws: [] }));
+  const laws = await readFile('packages/tf-l0-spec/spec/laws.json', 'utf8').then(JSON.parse).catch(() => ({ laws: [] }));
   const norm = canon(ir, laws);
   const payload = canonicalize(norm) + '\n';
-  if (out) {
-    await mkdir(require('node:path').dirname(out), { recursive: true });
-    await writeFile(out, payload, 'utf8');
-  } else {
-    process.stdout.write(payload);
-  }
+  if (out) { await mkdir(dirname(out), { recursive: true }); await writeFile(out, payload, 'utf8'); }
+  else process.stdout.write(payload);
   process.exit(0);
 }
 
@@ -105,12 +72,8 @@ if (cmd === 'manifest') {
   const verdict = checkIR(ir, cat);
   const mani = manifestFromVerdict(verdict);
   const payload = JSON.stringify(mani, null, 2) + '\n';
-  if (out) {
-    await mkdir(require('node:path').dirname(out), { recursive: true });
-    await writeFile(out, payload, 'utf8');
-  } else {
-    process.stdout.write(payload);
-  }
+  if (out) { await mkdir(dirname(out), { recursive: true }); await writeFile(out, payload, 'utf8'); }
+  else process.stdout.write(payload);
   process.exit(0);
 }
 

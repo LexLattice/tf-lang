@@ -1,0 +1,6 @@
+{"timestamp":"2024-05-01T10:00:00.000Z","prim_id":"tf:resource/write-object@1","effect":{"family":"Storage.Write","name":"put"},"tag":{"object":"orders","keys":["order-123"],"actor":"checkout"}}
+{"timestamp":"2024-05-01T10:02:15.000Z","prim_id":"tf:resource/write-object@1","effect":{"family":"Storage.Write","name":"put"},"tag":{"object":"inventory","keys":["sku-42"]}}
+{"timestamp":"2024-05-01T10:05:30.000Z","prim_id":"tf:resource/publish-event@2","effect":{"family":"Network.Out","name":"publish"},"tag":{"topic":"Orders.created","payload":{"id":"ORDER-456"}}}
+{"timestamp":"2024-05-01T10:07:00.000Z","prim_id":"tf:resource/publish-event@2","effect":{"family":"Network.Out","name":"publish"},"tag":{"topic":"payments.received","payload":{"id":"pay-789"}}}
+{"timestamp":"2024-05-01T10:11:42.000Z","prim_id":"tf:resource/read-object@1","effect":{"family":"Pure"},"tag":"read inventory snapshot"}
+{"timestamp":"2024-05-01T10:13:00.000Z","prim_id":"tf:resource/emit-metric@1","effect":{"family":"Observability"},"tag":{"metric":"orders-latency","value":125}}

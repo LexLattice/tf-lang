@@ -1,33 +1,50 @@
 {
-	"name": "tf-lang",
-	"private": true,
-        "scripts": {
-                "test": "pnpm run --recursive test",
-                "build": "pnpm run --recursive build",
-                "preinstall": "corepack enable pnpm",
-                "check:fixtures": "tsx .codex/scripts/check-fixtures-json.ts",
-                "t5:build": "pnpm -w -r build",
-                "t5:test": "pnpm -w -r test",
-                "t5:run": "node scripts/t5-run.mjs",
-                "t5:rerun": "node scripts/t5-run.mjs --force",
-                "t5:clean": "node -e \"require('fs').rmSync('out/t5',{recursive:true,force:true}); console.log('cleaned out/t5')\"",
-                "t5:run:obsolete": "echo 'Use node scripts/t5-run.mjs (or t5:rerun) instead' && exit 1"
-        },
-	"devDependencies": {
-		"typescript": "5.9.2",
-		"ajv": "^8.12.0",
-		"@tf-lang/tf-plan": "workspace:*",
-		"@tf-lang/tf-plan-scaffold": "workspace:*",
-		"@tf-lang/tf-plan-compare": "workspace:*"
-	},
-	"pnpm": {
-		"onlyBuiltDependencies": [
-			"esbuild"
-		],
-		"overrides": {
-			"esbuild": "0.25.0"
-		}
-	},
-	"version": "0.0.2",
-	"packageManager": "pnpm@10.16.1"
+  "name": "tf-lang",
+  "private": true,
+  "version": "0.0.2",
+  "packageManager": "pnpm@10.16.1",
+  "scripts": {
+    "build": "pnpm run --recursive build",
+    "preinstall": "corepack enable pnpm",
+    "check:fixtures": "tsx .codex/scripts/check-fixtures-json.ts",
+    "t5:build": "pnpm -w -r build",
+    "t5:test": "pnpm -w -r test",
+    "t5:run": "node scripts/t5-run.mjs",
+    "t5:rerun": "node scripts/t5-run.mjs --force",
+    "t5:clean": "node -e \"require('fs').rmSync('out/t5',{recursive:true,force:true}); console.log('cleaned out/t5')\"",
+    "t5:run:obsolete": "echo 'Use node scripts/t5-run.mjs (or t5:rerun) instead' && exit 1",
+    "test:workspace": "pnpm run --recursive test",
+    "test:l0": "node --test tests/*.test.mjs",
+    "test": "pnpm run test:workspace && pnpm run test:l0",
+    "a0": "node packages/tf-l0-spec/scripts/build-ids.mjs && node packages/tf-l0-spec/scripts/finalize-a0.mjs",
+    "a1": "node packages/tf-l0-spec/scripts/build-catalog.mjs && node packages/tf-l0-spec/scripts/derive-effects.mjs && node packages/tf-l0-spec/scripts/build-laws.mjs && node packages/tf-l0-spec/scripts/finalize-a1.mjs",
+    "tf": "node packages/tf-compose/bin/tf.mjs",
+    "validate:ids": "node scripts/validate-ids.mjs",
+    "validate:catalog": "node scripts/validate-catalog.mjs",
+    "lint:catalog": "node scripts/lint-catalog.mjs",
+    "suggest:catalog": "node scripts/autofix-catalog.mjs --mode suggest",
+    "autofix:catalog": "node scripts/autofix-catalog.mjs --apply",
+    "determinism": "bash scripts/determinism-check.sh 'pnpm -s run a0'",
+    "determinism:full": "bash scripts/full-determinism.sh \"pnpm -s run a0 && pnpm -s run a1 && node packages/tf-compose/bin/tf.mjs parse examples/flows/signing.tf -o out/0.4/ir/signing.ir.json && node packages/tf-compose/bin/tf.mjs canon examples/flows/signing.tf -o out/0.4/ir/signing.canon.json\"",
+    "digest:out": "node scripts/write-digests.mjs",
+    "graph:signing": "node scripts/graph-ir.mjs out/0.4/ir/signing.ir.json > out/0.4/graphs/signing.dot",
+    "contracts:baseline:capture": "node scripts/baseline-capture.mjs",
+    "contracts:check-breaking": "node scripts/check-breaking.mjs"
+  },
+  "devDependencies": {
+    "typescript": "5.9.2",
+    "ajv": "^8.17.1",
+    "yaml": "^2.4.5",
+    "@tf-lang/tf-plan": "workspace:*",
+    "@tf-lang/tf-plan-scaffold": "workspace:*",
+    "@tf-lang/tf-plan-compare": "workspace:*"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ],
+    "overrides": {
+      "esbuild": "0.25.0"
+    }
+  }
 }

@@ -1,0 +1,77 @@
+name: tf-l0 A0/A1 determinism
+
+on:
+  pull_request:
+    paths:
+      - 'packages/**'
+      - 'schemas/**'
+      - 'scripts/**'
+      - 'examples/**'
+      - 'catalogs/**'
+      - 'docs/**'
+      - 'package.json'
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: 'toolchain/.node-version'
+          cache: 'npm'
+
+      - name: Install
+        run: npm ci
+
+      - name: A0
+        run: npm run a0
+
+      - name: Validate ids schema
+        run: node scripts/validate-ids.mjs
+
+      - name: A1
+        run: npm run a1
+
+      - name: Validate catalog schema
+        run: node scripts/validate-catalog.mjs
+
+      - name: Lint catalog
+        run: node scripts/lint-catalog.mjs
+
+      - name: Autofix (suggest)
+        run: node scripts/autofix-catalog.mjs --mode suggest
+
+      - name: Determinism gate (ids.json)
+        run: npm run determinism
+
+      - name: CLI smoke (parse/check/canon)
+        run: |
+          node packages/tf-compose/bin/tf.mjs parse examples/flows/signing.tf -o out/0.4/ir/signing.ir.json
+          node packages/tf-compose/bin/tf.mjs canon examples/flows/signing.tf -o out/0.4/ir/signing.canon.json
+          node packages/tf-compose/bin/tf.mjs check examples/flows/signing.tf -o out/0.4/flows/signing.verdict.json
+
+      - name: Full determinism (all outputs)
+        run: bash scripts/full-determinism.sh "npm run a0 && npm run a1 && node packages/tf-compose/bin/tf.mjs parse examples/flows/signing.tf -o out/0.4/ir/signing.ir.json && node packages/tf-compose/bin/tf.mjs canon examples/flows/signing.tf -o out/0.4/ir/signing.canon.json"
+
+      # --- New steps added ---
+      - name: Unit tests
+        run: npm test
+
+      - name: Contract break checks
+        run: node scripts/check-breaking.mjs
+      # -----------------------
+
+      - name: Write digests
+        run: node scripts/write-digests.mjs
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tf-l0-out
+          path: |
+            out/0.4/**
+            packages/tf-l0-spec/spec/**

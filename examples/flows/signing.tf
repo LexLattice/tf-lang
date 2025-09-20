@@ -1,1 +1,1 @@
-serialize |> hash |> sign-data(key_ref="k1")
+serialize |> hash |> authorize{ sign-data(key_ref="k1") }

@@ -16,7 +16,7 @@
     "t5:run:obsolete": "echo 'Use node scripts/t5-run.mjs (or t5:rerun) instead' && exit 1",
     "test:workspace": "pnpm run --recursive test",
     "test:l0": "node --test tests/*.test.mjs",
-    "test": "pnpm run test:workspace && pnpm run test:l0",
+    "test": "pnpm --filter @tf-lang/utils run build && pnpm run test:workspace && pnpm run test:l0",
     "a0": "node packages/tf-l0-spec/scripts/build-ids.mjs && node packages/tf-l0-spec/scripts/finalize-a0.mjs",
     "a1": "node packages/tf-l0-spec/scripts/build-catalog.mjs && node packages/tf-l0-spec/scripts/derive-effects.mjs && node packages/tf-l0-spec/scripts/build-laws.mjs && node packages/tf-l0-spec/scripts/finalize-a1.mjs",
     "tf": "node packages/tf-compose/bin/tf.mjs",

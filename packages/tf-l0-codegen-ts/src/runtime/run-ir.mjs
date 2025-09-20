@@ -1,3 +1,5 @@
+import { validateCapabilities } from './capabilities.mjs';
+
 let clockWarned = false;
 
 function nowTs() {
@@ -142,6 +144,26 @@ export async function runIR(ir, runtime, options = {}) {
     ops: ctx.ops,
     effects: Array.from(ctx.effects).sort(),
   };
+}
+
+export async function runWithCaps(ir, adapters, caps, manifest) {
+  const verdict = validateCapabilities(manifest, caps);
+  if (!verdict.ok) {
+    const parts = [];
+    if (Array.isArray(verdict.missing_effects) && verdict.missing_effects.length > 0) {
+      parts.push(`missing_effects=${verdict.missing_effects.join(',')}`);
+    }
+    if (Array.isArray(verdict.write_denied) && verdict.write_denied.length > 0) {
+      parts.push(`write_denied=${verdict.write_denied.join(',')}`);
+    }
+    if (parts.length === 0) {
+      console.error('tf run-ir: capability check failed');
+    } else {
+      console.error('tf run-ir: capability check failed', parts.join(' '));
+    }
+    return { ok: false, result: null, ops: 0, effects: [] };
+  }
+  return runIR(ir, adapters);
 }
 
 export default runIR;

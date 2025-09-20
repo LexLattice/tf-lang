@@ -1,6 +1,19 @@
 import { unionEffects } from './lattice.mjs';
 import { conflict } from './footprints.mjs';
 
+function mergeQos(base = {}, next = {}) {
+  const result = { ...base };
+  for (const [key, value] of Object.entries(next || {})) {
+    if (value === undefined || value === null) {
+      continue;
+    }
+    if (result[key] === undefined) {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
 /**
  * Effect/type/footprint checker with conservative fallbacks:
  * - If a primitive has no footprints in catalog, infer minimal reads/writes from args.
@@ -22,6 +35,7 @@ function walk(node, catalog) {
       effects: prim.effects || [],
       reads: prim.reads || [],
       writes: prim.writes || [],
+      qos: prim.qos || {},
       reasons: []
     };
   }
@@ -35,6 +49,7 @@ function walk(node, catalog) {
       acc.reads = [...acc.reads, ...(v.reads || [])];
       acc.writes = [...acc.writes, ...(v.writes || [])];
       acc.reasons.push(...(v.reasons || []));
+      acc.qos = mergeQos(acc.qos, v.qos);
     }
     return acc;
   }
@@ -42,6 +57,7 @@ function walk(node, catalog) {
   if (node.node === 'Par') {
     const vs = (node.children || []).map(c => walk(c, catalog));
     let ok = vs.every(v => v.ok);
+    let qos = {};
 
     // pairwise conflict check on writes (same resource URI => conflict)
     for (let i = 0; i < vs.length; i++) {
@@ -52,11 +68,16 @@ function walk(node, catalog) {
       }
     }
 
+    for (const v of vs) {
+      qos = mergeQos(qos, v.qos);
+    }
+
     return {
       ok,
       effects: vs.reduce((e, v) => unionEffects(e, v.effects), []),
       reads: vs.flatMap(v => v.reads || []),
       writes: vs.flatMap(v => v.writes || []),
+      qos,
       reasons: ok ? [] : ['Par conflict: overlapping writes detected']
     };
   }
@@ -71,6 +92,7 @@ function walk(node, catalog) {
       acc.reads = [...acc.reads, ...(v.reads || [])];
       acc.writes = [...acc.writes, ...(v.writes || [])];
       acc.reasons.push(...(v.reasons || []));
+      acc.qos = mergeQos(acc.qos, v.qos);
     }
     return acc;
   }
@@ -79,7 +101,7 @@ function walk(node, catalog) {
 }
 
 function okVerdict() {
-  return { ok: true, effects: [], reads: [], writes: [], reasons: [] };
+  return { ok: true, effects: [], reads: [], writes: [], qos: {}, reasons: [] };
 }
 
 /**

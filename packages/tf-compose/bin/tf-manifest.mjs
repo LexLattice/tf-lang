@@ -1,34 +1,31 @@
 #!/usr/bin/env node
 
-import { readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import process from 'node:process';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { parseArgs } from 'node:util';
 
 const usage = 'Usage: node packages/tf-compose/bin/tf-manifest.mjs <flow.tf> [-o out.json]';
 
 async function main(argv) {
-  const args = argv.slice(2);
-  let flowPath;
-  let outPath;
+  const { values, positionals } = parseArgs({
+    args: argv.slice(2),
+    options: {
+      out: { type: 'string', short: 'o' }
+    },
+    allowPositionals: true
+  });
 
-  for (let i = 0; i < args.length; i += 1) {
-    const arg = args[i];
-    if (arg === '-o') {
-      if (i + 1 >= args.length) {
-        throw new Error('-o requires a file path');
-      }
-      outPath = args[i + 1];
-      i += 1;
-    } else if (!flowPath) {
-      flowPath = arg;
-    } else {
-      throw new Error(`Unexpected argument: ${arg}`);
-    }
-  }
-
-  if (!flowPath) {
+  if (positionals.length === 0) {
     throw new Error('Missing flow path');
   }
+  if (positionals.length > 1) {
+    throw new Error(`Unexpected argument: ${positionals[1]}`);
+  }
+
+  const flowPath = positionals[0];
+  const outPath = values.out;
 
   const [{ parseDSL }, { checkIR }, { manifestFromVerdict }] = await Promise.all([
     import('../src/parser.mjs'),
@@ -36,10 +33,21 @@ async function main(argv) {
     import('../../tf-l0-check/src/manifest.mjs')
   ]);
 
-  const flowSource = await readFile(flowPath, 'utf8');
+  let flowSource;
+  try {
+    flowSource = await readFile(flowPath, 'utf8');
+  } catch (err) {
+    throw new Error(`Failed to read flow at ${flowPath}: ${err.message}`);
+  }
   const ir = parseDSL(flowSource);
 
-  const catalogPath = path.resolve('packages/tf-l0-spec/spec/catalog.json');
+  const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+  const catalogPath = path.resolve(
+    scriptDir,
+    '..',
+    '..',
+    'tf-l0-spec/spec/catalog.json'
+  );
   let catalog;
   try {
     catalog = JSON.parse(await readFile(catalogPath, 'utf8'));
@@ -52,6 +60,7 @@ async function main(argv) {
   const json = JSON.stringify(manifest, null, 2);
 
   if (outPath) {
+    await mkdir(path.dirname(outPath), { recursive: true });
     await writeFile(outPath, `${json}\n`, 'utf8');
   } else {
     console.log(json);

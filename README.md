@@ -146,6 +146,11 @@ npm run tf -- canon examples/flows/signing.tf -o out/0.4/ir/signing.canon.json
 
 # Generate TS skeleton for the flow
 npm run tf -- emit --lang ts examples/flows/signing.tf --out out/0.4/codegen-ts/signing
+
+# Generate capability manifest
+node packages/tf-compose/bin/tf-manifest.mjs examples/flows/manifest_publish.tf
+node packages/tf-compose/bin/tf-manifest.mjs examples/flows/manifest_storage.tf -o out/0.4/manifests/storage.json
+# Manifests print to stdout or land under out/0.4/manifests/
 ```
 
 ### Tree

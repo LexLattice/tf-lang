@@ -3,6 +3,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { basename, dirname } from 'node:path';
 
 import { parseDSL } from '../src/parser.mjs';
+import { formatDSL, formatTree } from '../src/formatter.mjs';
 import { canon } from '../src/canon.mjs';
 import { hash, canonicalize } from '../../tf-l0-ir/src/hash.mjs';
 import { checkIR } from '../../tf-l0-check/src/check.mjs';
@@ -23,11 +24,12 @@ const args = rawArgs[0] === '--' ? rawArgs.slice(1) : rawArgs;
 function arg(k) { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : null; }
 
 const cmd = args[0];
-if (!cmd || ['parse', 'check', 'canon', 'emit', 'manifest'].indexOf(cmd) < 0) {
-  console.error('Usage: tf <parse|check|canon|emit|manifest> <flow.tf> [--out path] [--lang ts|rs]');
+const knownCommands = ['parse', 'check', 'canon', 'emit', 'manifest', 'fmt', 'show'];
+if (!cmd || knownCommands.indexOf(cmd) < 0) {
+  console.error('Usage: tf <' + knownCommands.join('|') + '> <flow.tf> [--out path] [--lang ts|rs]');
   process.exit(2);
 }
-const optionKeys = new Set(['--out', '-o', '--lang']);
+const optionKeys = new Set(['--out', '-o', '--lang', '--write', '-w']);
 let file = null;
 for (let i = 1; i < args.length; i++) {
   const token = args[i];
@@ -42,9 +44,29 @@ if (!file) {
   process.exit(2);
 }
 const out = arg('-o') || arg('--out');
+const writeFlag = args.includes('--write') || args.includes('-w');
 
 const src = await readFile(file, 'utf8');
 const ir = parseDSL(src);
+
+if (cmd === 'fmt') {
+  const formatted = formatDSL(ir);
+  const output = formatted.endsWith('\n') ? formatted : formatted + '\n';
+  if (writeFlag) {
+    await writeFile(file, output, 'utf8');
+  } else {
+    process.stdout.write(output);
+  }
+  process.exit(0);
+}
+
+if (cmd === 'show') {
+  const tree = formatTree(ir);
+  const output = tree ? tree + '\n' : '';
+  process.stdout.write(output);
+  process.exit(0);
+}
+
 const cat = await loadCatalog();
 
 if (cmd === 'parse') {

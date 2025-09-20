@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tf-lang.dev/schemas/manifest.v0.4.schema.json",
+  "title": "TF Capability Manifest v0.4",
+  "type": "object",
+  "oneOf": [
+    { "$ref": "#/$defs/legacyManifest" },
+    { "$ref": "#/$defs/newManifest" }
+  ],
+  "$defs": {
+    "footprintEntry": {
+      "type": "object",
+      "properties": {
+        "uri": { "type": "string" },
+        "mode": {
+          "type": "string",
+          "enum": ["read", "write"]
+        },
+        "notes": { "type": "string" }
+      },
+      "required": ["uri", "mode"],
+      "additionalProperties": false
+    },
+    "footprintReadEntry": {
+      "allOf": [
+        { "$ref": "#/$defs/footprintEntry" },
+        {
+          "properties": {
+            "mode": { "const": "read" }
+          }
+        }
+      ]
+    },
+    "footprintWriteEntry": {
+      "allOf": [
+        { "$ref": "#/$defs/footprintEntry" },
+        {
+          "properties": {
+            "mode": { "const": "write" }
+          }
+        }
+      ]
+    },
+    "legacyManifest": {
+      "type": "object",
+      "properties": {
+        "effects": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "footprints": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/footprintEntry" }
+        },
+        "scopes": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["effects", "footprints", "scopes"],
+      "not": {
+        "anyOf": [
+          { "required": ["required_effects"] },
+          { "required": ["footprints_rw"] },
+          { "required": ["qos"] }
+        ]
+      }
+    },
+    "newManifest": {
+      "type": "object",
+      "properties": {
+        "required_effects": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "footprints_rw": {
+          "type": "object",
+          "properties": {
+            "reads": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/footprintReadEntry" }
+            },
+            "writes": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/footprintWriteEntry" }
+            }
+          },
+          "required": ["reads", "writes"],
+          "additionalProperties": false
+        },
+        "qos": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {},
+              "maxProperties": 0
+            },
+            {
+              "type": "object",
+              "properties": {
+                "delivery_guarantee": {
+                  "type": "string",
+                  "enum": ["at-least-once"]
+                },
+                "ordering": {
+                  "type": "string",
+                  "enum": ["per-key"]
+                }
+              },
+              "required": ["delivery_guarantee", "ordering"],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": ["required_effects", "footprints_rw", "qos"]
+    }
+  }
+}

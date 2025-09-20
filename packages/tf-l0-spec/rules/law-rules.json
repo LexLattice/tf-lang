@@ -43,12 +43,12 @@
     },
     {
       "id": "law:emitmetric-commutes-with-pure",
-      "kind": "commutative",
+      "kind": "commute-with-pure",
       "applies_to": [
         "tf:observability/emit-metric@1",
         "Pure"
       ],
-      "rewrite": "EmitMetric \u2218 Pure == Pure \u2218 EmitMetric",
+      "rewrite": "EmitMetric ∘ Pure == Pure ∘ EmitMetric",
       "preconditions": []
     }
   ]

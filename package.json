@@ -6,6 +6,7 @@
   "scripts": {
     "build": "pnpm run --recursive build",
     "preinstall": "corepack enable pnpm",
+    "postinstall": "pnpm --filter @tf-lang/utils run build",
     "check:fixtures": "tsx .codex/scripts/check-fixtures-json.ts",
     "t5:build": "pnpm -w -r build",
     "t5:test": "pnpm -w -r test",

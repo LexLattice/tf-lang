@@ -30,6 +30,12 @@ pnpm -w -r build
 bash -lc "./scripts/codex/setup.sh"
 ```
 
+### Policy checks
+
+Policy check:
+`node packages/tf-compose/bin/tf-policy.mjs check examples/flows/txn_ok.tf`
+Use `--forbid-outside` to reject writes outside transactions, and `--catalog <path>` to supply a catalog; otherwise the CLI falls back to name-based detection with a warning.
+
 ## Determinism & Proofs (T3)
 
 * Turn proofs on only when tracing:

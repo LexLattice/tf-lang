@@ -155,6 +155,7 @@ node packages/tf-compose/bin/tf-manifest.mjs examples/flows/manifest_storage.tf 
 # Filter trace JSONL streams
 cat out/t3/trace/ts.jsonl | node packages/tf-l0-tools/trace-filter.mjs --effect=Network.Out --grep=orders --pretty
 cat tests/fixtures/trace-sample.jsonl | node packages/tf-l0-tools/trace-filter.mjs --prim=tf:resource/write-object@1
+Tip: malformed lines are skipped with a warning; pass --quiet to suppress it.
 ```
 
 ### Tree

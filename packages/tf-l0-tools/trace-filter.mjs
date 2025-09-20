@@ -3,7 +3,7 @@ import { parseArgs } from 'node:util';
 import { createInterface } from 'node:readline';
 
 const {
-  values: { prim, effect, grep, pretty, help },
+  values: { prim, effect, grep, pretty, help, quiet },
   positionals,
 } = parseArgs({
   options: {
@@ -12,6 +12,7 @@ const {
     grep: { type: 'string' },
     pretty: { type: 'boolean', default: false },
     help: { type: 'boolean', default: false },
+    quiet: { type: 'boolean', default: false },
   },
   allowPositionals: true,
 });
@@ -22,7 +23,9 @@ if (positionals.length > 0) {
 }
 
 if (help) {
-  console.log('Usage: trace-filter [--prim=id] [--effect=name] [--grep=substring] [--pretty]');
+  console.log(
+    'Usage: trace-filter [--prim=id] [--effect=name] [--grep=substring] [--pretty] [--quiet]'
+  );
   console.log('Reads JSONL traces from stdin and emits the filtered subset to stdout.');
   process.exit(0);
 }
@@ -33,10 +36,11 @@ const rl = createInterface({
   crlfDelay: Infinity,
 });
 
-let wroteAny = false;
-
 rl.on('line', (line) => {
-  const record = parseLine(line);
+  const { record, invalid } = parseLine(line);
+  if (invalid && !quiet) {
+    process.stderr.write('warn: skipping invalid JSON line\n');
+  }
   if (!record) {
     return;
   }
@@ -44,28 +48,19 @@ rl.on('line', (line) => {
     return;
   }
   const json = pretty ? JSON.stringify(record, null, 2) : JSON.stringify(record);
-  if (wroteAny) {
-    process.stdout.write('\n');
-  }
   process.stdout.write(json);
-  wroteAny = true;
-});
-
-rl.on('close', () => {
-  if (wroteAny) {
-    process.stdout.write('\n');
-  }
+  process.stdout.write('\n');
 });
 
 function parseLine(line) {
   const trimmed = line.trim();
   if (trimmed.length === 0) {
-    return null;
+    return { record: null, invalid: false };
   }
   try {
-    return JSON.parse(trimmed);
+    return { record: JSON.parse(trimmed), invalid: false };
   } catch (error) {
-    return null;
+    return { record: null, invalid: true };
   }
 }
 

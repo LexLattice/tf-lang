@@ -21,6 +21,7 @@
     "a1:summary": "node scripts/effects-summary.mjs",
     "a1:all": "pnpm run a1 && pnpm run a1:summary",
     "tf": "node packages/tf-compose/bin/tf.mjs",
+    "trace:filter": "node packages/tf-l0-tools/trace-filter.mjs",
     "validate:ids": "node scripts/validate-ids.mjs",
     "validate:catalog": "node scripts/validate-catalog.mjs",
     "lint:catalog": "node scripts/lint-catalog.mjs",

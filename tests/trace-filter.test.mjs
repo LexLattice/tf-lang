@@ -7,10 +7,13 @@ import { promises as fs } from 'node:fs';
 const scriptPath = fileURLToPath(new URL('../packages/tf-l0-tools/trace-filter.mjs', import.meta.url));
 const fixturePath = fileURLToPath(new URL('./fixtures/trace-sample.jsonl', import.meta.url));
 
-async function runCli(args, { input } = {}) {
+const toolDir = fileURLToPath(new URL('../packages/tf-l0-tools/', import.meta.url));
+
+async function runCli(args, { input, cwd } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [scriptPath, ...args], {
       stdio: ['pipe', 'pipe', 'pipe'],
+      cwd,
     });
 
     let stdout = '';
@@ -73,17 +76,35 @@ test('pretty printing emits multi-line JSON blocks', async () => {
   assert.ok(matches.length >= 2, 'expected multiple pretty-printed records');
 });
 
-test('ignores invalid JSON lines without crashing', async () => {
+test('invalid JSON lines emit warnings unless suppressed', async () => {
   const lines = [
     '{"prim_id":"one","effect":"Pure","tag":"ok"}',
     'this is not json',
     '{"prim_id":"two","effect":"Pure","tag":"orders"}'
   ];
   const input = `${lines.join('\n')}\n`;
-  const { code, stdout, stderr } = await runCli(['--effect=Pure', '--grep=orders'], { input });
-  assert.equal(code, 0, stderr);
-  const trimmed = stdout.trim();
-  assert.ok(trimmed.length > 0);
-  const parsed = JSON.parse(trimmed);
-  assert.equal(parsed.prim_id, 'two');
+
+  const withWarning = await runCli(['--effect=Pure'], { input });
+  assert.equal(withWarning.code, 0, withWarning.stderr);
+  const rows = withWarning.stdout.trim().split('\n');
+  assert.equal(rows.length, 2);
+  assert.equal(withWarning.stderr, 'warn: skipping invalid JSON line\n');
+
+  const suppressed = await runCli(['--effect=Pure', '--quiet'], { input });
+  assert.equal(suppressed.code, 0, suppressed.stderr);
+  const suppressedRows = suppressed.stdout.trim().split('\n');
+  assert.deepEqual(suppressedRows, rows);
+  assert.equal(suppressed.stderr, '');
+});
+
+test('CLI can run from the tool directory', async () => {
+  const fixture = await fs.readFile(fixturePath, 'utf8');
+  const fromRoot = await runCli(['--effect=Pure'], { input: fixture });
+  assert.equal(fromRoot.code, 0, fromRoot.stderr);
+
+  const fromToolDir = await runCli(['--effect=Pure'], { input: fixture, cwd: toolDir });
+  assert.equal(fromToolDir.code, 0, fromToolDir.stderr);
+
+  assert.equal(fromToolDir.stdout, fromRoot.stdout);
+  assert.equal(fromToolDir.stderr, fromRoot.stderr);
 });

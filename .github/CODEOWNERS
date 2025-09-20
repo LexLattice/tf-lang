@@ -1,0 +1,5 @@
+* @lexlattice @spec-guardian @ci-sheriff
+packages/tf-l0-spec/** @spec-guardian
+schemas/** @spec-guardian
+packages/tf-l0-check/** @spec-guardian
+.github/** @ci-sheriff

@@ -1,0 +1,18 @@
+{
+  "protected_keywords": [
+    "encrypt",
+    "decrypt",
+    "sign",
+    "verify",
+    "manage-secret",
+    "generate-key",
+    "random-bytes",
+    "write-object",
+    "compare-and-swap",
+    "acquire-lease",
+    "renew-lease",
+    "release-lease",
+    "request",
+    "publish"
+  ]
+}

@@ -1,0 +1,103 @@
+- id: resource_infrastructure.l0.ProvisionResource
+  description: Allocate a new infrastructure resource (compute, storage, network)
+    with a specified configuration.
+  inputs:
+  - resource_type: enum ["compute", "storage", "network", "database", "cache"]
+  - spec: object
+  - tags: object
+  outputs:
+  - resource_id: string
+  meta:
+    lifecycle: alloc
+    cost_model: provider
+    latency_class: minutes
+    reversible: via DeprovisionResource
+    complexity: medium
+  tags:
+  - resource
+  - infrastructure
+  - provisioning
+  version: 1.0.0
+  abstract: true
+- id: resource_infrastructure.l0.ScaleResource
+  description: Adjust capacity of an existing resource (up or down) according to scaling
+    policy.
+  inputs:
+  - resource_id: string
+  - direction: enum ["up", "down"]
+  - scale_spec: object
+  outputs:
+  - new_capacity: object
+  meta:
+    lifecycle: mutate
+    cost_model: burst
+    latency_class: minutes
+    reversible: symmetrical
+    dependency_chain:
+    - ProvisionResource
+    complexity: medium
+  tags:
+  - resource
+  - scaling
+  version: 1.0.0
+  abstract: true
+- id: resource_infrastructure.l0.ThrottleResource
+  description: Temporarily cap throughput or concurrency limits on a resource.
+  inputs:
+  - resource_id: string
+  - limit_spec: object
+  - duration: timedelta
+  outputs:
+  - throttling_id: string
+  meta:
+    lifecycle: transient
+    cost_model: neutral
+    latency_class: seconds
+    reversible: auto-expire
+    dependency_chain:
+    - ProvisionResource
+    complexity: low
+  tags:
+  - resource
+  - throttling
+  version: 1.0.0
+  abstract: true
+- id: resource_infrastructure.l0.DeprovisionResource
+  description: Release a resource and all associated cost obligations.
+  inputs:
+  - resource_id: string
+  - mode: enum ["terminate", "archive"]
+  outputs:
+  - status: enum ["terminated", "archived"]
+  meta:
+    lifecycle: dealloc
+    cost_model: release
+    latency_class: minutes
+    reversible: mode=="archive"
+    dependency_chain:
+    - ProvisionResource
+    complexity: low
+  tags:
+  - resource
+  - deprovision
+  version: 1.0.0
+  abstract: true
+- id: resource_infrastructure.l0.TrackCost
+  description: Emit or retrieve cost metrics for a resource over time.
+  inputs:
+  - resource_id: string
+  - window: object
+  outputs:
+  - cost_report: object
+  meta:
+    lifecycle: observe
+    latency_class: batch
+    dependency_chain:
+    - ProvisionResource
+    complexity: low
+  tags:
+  - resource
+  - cost
+  - telemetry
+  version: 1.0.0
+  abstract: true

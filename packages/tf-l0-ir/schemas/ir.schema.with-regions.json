@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meta-ontology.local/schemas/ir.schema.with-regions.json",
+  "title": "IR (with Regions)",
+  "type": "object",
+  "oneOf": [
+    {
+      "$ref": "#/definitions/Prim"
+    },
+    {
+      "$ref": "#/definitions/Seq"
+    },
+    {
+      "$ref": "#/definitions/Par"
+    },
+    {
+      "$ref": "#/definitions/Region"
+    }
+  ],
+  "definitions": {
+    "Prim": {
+      "type": "object",
+      "properties": {
+        "node": {
+          "const": "Prim"
+        },
+        "prim": {
+          "type": "string"
+        },
+        "args": {
+          "type": "object"
+        },
+        "meta": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "node",
+        "prim"
+      ],
+      "additionalProperties": true
+    },
+    "Seq": {
+      "type": "object",
+      "properties": {
+        "node": {
+          "const": "Seq"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#"
+          }
+        },
+        "meta": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "node",
+        "children"
+      ],
+      "additionalProperties": true
+    },
+    "Par": {
+      "type": "object",
+      "properties": {
+        "node": {
+          "const": "Par"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#"
+          }
+        },
+        "meta": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "node",
+        "children"
+      ],
+      "additionalProperties": true
+    },
+    "Region": {
+      "type": "object",
+      "properties": {
+        "node": {
+          "const": "Region"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "Authorize",
+            "Transaction"
+          ]
+        },
+        "attrs": {
+          "type": "object"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#"
+          }
+        },
+        "meta": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "node",
+        "kind",
+        "children"
+      ],
+      "additionalProperties": true
+    }
+  }
+}

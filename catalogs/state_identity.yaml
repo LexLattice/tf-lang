@@ -1,0 +1,137 @@
+- id: state_identity.l0.InstantiateEntity
+  description: Create a new unique entity in the system with an assigned identity
+    key.
+  inputs:
+  - entity_type: string
+  - seed_attributes: object
+  outputs:
+  - entity_id: string
+  meta:
+    mutability: creates-new
+    conflict_semantics: none
+    reversible: false
+    dependency_chain: []
+    complexity: low
+  tags:
+  - state
+  - identity
+  - creation
+  version: 1.0.0
+  abstract: true
+- id: state_identity.l0.Version
+  description: Produce a new immutable version pointer for a mutable entity state
+    snapshot.
+  inputs:
+  - entity_id: string
+  - changeset: object
+  outputs:
+  - version_id: string
+  meta:
+    mutability: immutable-version
+    conflict_semantics: optimistic
+    reversible: true
+    dependency_chain:
+    - InstantiateEntity
+    complexity: medium
+  tags:
+  - state
+  - versioning
+  version: 1.0.0
+  abstract: true
+- id: state_identity.l0.Snapshot
+  description: Capture the full state of an entity at a specific version into a portable
+    representation.
+  inputs:
+  - entity_id: string
+  - version_id: string
+  outputs:
+  - snapshot: bytes
+  meta:
+    mutability: read-only
+    reversible: true
+    dependency_chain:
+    - Version
+    complexity: low
+  tags:
+  - state
+  - snapshot
+  - backup
+  version: 1.0.0
+  abstract: true
+- id: state_identity.l0.Diff
+  description: Compute the difference between two versions or snapshots of an entity.
+  inputs:
+  - left: bytes
+  - right: bytes
+  outputs:
+  - patch: bytes
+  meta:
+    mutability: derived
+    reversible: true
+    dependency_chain:
+    - Snapshot
+    complexity: medium
+  tags:
+  - state
+  - diff
+  version: 1.0.0
+  abstract: true
+- id: state_identity.l0.Merge
+  description: Apply a patch or changeset to an entity, producing a new consistent
+    state respecting conflict rules.
+  inputs:
+  - base_snapshot: bytes
+  - patch: bytes
+  - strategy: enum ["fast-forward", "three-way", "crdt"]
+  outputs:
+  - merged_snapshot: bytes
+  meta:
+    mutability: writes-new
+    conflict_semantics: strategy-dependent
+    reversible: conditional
+    dependency_chain:
+    - Diff
+    complexity: high
+  tags:
+  - state
+  - merge
+  version: 1.0.0
+  abstract: true
+- id: state_identity.l0.Tag
+  description: Assign a human-meaningful alias or label to a specific version for
+    easy reference.
+  inputs:
+  - version_id: string
+  - label: string
+  outputs:
+  - tag_id: string
+  meta:
+    mutability: metadata-only
+    reversible: true
+    dependency_chain:
+    - Version
+    complexity: low
+  tags:
+  - state
+  - identity
+  - tagging
+  version: 1.0.0
+  abstract: true
+- id: state_identity.l0.DeleteEntity
+  description: Mark an entity as deleted, with optional softâ€‘delete retention policy.
+  inputs:
+  - entity_id: string
+  - mode: enum ["soft", "hard"]
+  outputs:
+  - status: string
+  meta:
+    mutability: destructive
+    reversible: mode=="soft"
+    dependency_chain:
+    - InstantiateEntity
+    complexity: low
+  tags:
+  - state
+  - deletion
+  version: 1.0.0
+  abstract: true

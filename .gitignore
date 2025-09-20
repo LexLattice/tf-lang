@@ -79,3 +79,6 @@ docs/runs/*.json
 
 #codex
 out/out/
+# Meta-Ontology 0.4 skeleton
+*.tmp
+out

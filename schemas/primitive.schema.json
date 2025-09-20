@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meta-ontology.local/schemas/primitive.schema.json",
+  "title": "L0 Primitive",
+  "type": "object",
+  "required": [
+    "id",
+    "domain",
+    "name",
+    "major"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^tf:[a-z0-9\\-]+/[a-z0-9\\-]+@\\d+$"
+    },
+    "domain": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "major": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "effects": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "reads": {
+      "type": "array",
+      "items": {
+        "$ref": "https://meta-ontology.local/schemas/footprint-pattern.schema.json"
+      }
+    },
+    "writes": {
+      "type": "array",
+      "items": {
+        "$ref": "https://meta-ontology.local/schemas/footprint-pattern.schema.json"
+      }
+    },
+    "keys": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "data_classes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "pii",
+          "phi",
+          "secrets",
+          "financial",
+          "none"
+        ]
+      }
+    },
+    "errors": {
+      "$ref": "https://meta-ontology.local/schemas/error-taxonomy.schema.json"
+    },
+    "qos": {
+      "type": "object",
+      "properties": {
+        "delivery_guarantee": {
+          "type": "string",
+          "enum": [
+            "none",
+            "at-most-once",
+            "at-least-once",
+            "exactly-once"
+          ]
+        },
+        "ordering": {
+          "type": "string",
+          "enum": [
+            "none",
+            "per-key",
+            "global"
+          ]
+        },
+        "visibility_timeout_ms": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

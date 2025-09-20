@@ -1,0 +1,14 @@
+{
+  "scripts": {
+    "validate:ids": "node scripts/validate-ids.mjs",
+    "validate:catalog": "node scripts/validate-catalog.mjs",
+    "lint:catalog": "node scripts/lint-catalog.mjs",
+    "autofix:catalog": "node scripts/autofix-catalog.mjs --apply",
+    "suggest:catalog": "node scripts/autofix-catalog.mjs --mode suggest",
+    "determinism:full": "bash scripts/full-determinism.sh \"npm run a0 && npm run a1 && node packages/tf-compose/bin/tf.mjs parse examples/flows/signing.tf -o out/0.4/ir/signing.ir.json && node packages/tf-compose/bin/tf.mjs canon examples/flows/signing.tf -o out/0.4/ir/signing.canon.json\""
+  },
+  "devDependencies": {
+    "ajv": "^8.17.1",
+    "yaml": "^2.4.5"
+  }
+}

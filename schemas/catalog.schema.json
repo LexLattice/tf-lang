@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meta-ontology.local/schemas/catalog.schema.json",
+  "title": "L0 Catalog",
+  "type": "object",
+  "required": [
+    "catalog_semver",
+    "primitives"
+  ],
+  "properties": {
+    "catalog_semver": {
+      "type": "string"
+    },
+    "primitives": {
+      "type": "array",
+      "items": {
+        "$ref": "https://meta-ontology.local/schemas/primitive.schema.json"
+      }
+    }
+  },
+  "additionalProperties": false
+}

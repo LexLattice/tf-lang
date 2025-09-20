@@ -1,0 +1,134 @@
+- id: security_primitives.l0.GenerateKeyPair
+  description: Produce a new asymmetric keypair for encryption or signing.
+  inputs:
+  - algorithm: enum ["RSA", "EC", "Ed25519", "ECDSA", "RSA-PSS"]
+  - key_size: int
+  outputs:
+  - public_key: string
+  - private_key: string
+  meta:
+    reversible: one-way
+    security_level: depends_on_key_size
+    storage_hint: secret_store
+    complexity: medium
+  tags:
+  - security
+  - crypto
+  - keygen
+  version: 1.0.0
+  abstract: true
+- id: security_primitives.l0.EncryptData
+  description: Encrypt plaintext data using symmetric or asymmetric algorithm.
+  inputs:
+  - plaintext: bytes
+  - key: string
+  - algorithm: enum ["AES-GCM", "ChaCha20-Poly1305", "RSA-OAEP", "ECIES"]
+  outputs:
+  - ciphertext: bytes
+  - iv: bytes
+  meta:
+    reversible: via DecryptData
+    confidentiality: high
+    complexity: medium
+  tags:
+  - security
+  - crypto
+  - encryption
+  version: 1.0.0
+  abstract: true
+- id: security_primitives.l0.DecryptData
+  description: Decrypt ciphertext back into plaintext.
+  inputs:
+  - ciphertext: bytes
+  - key: string
+  - iv: bytes
+  - algorithm: enum ["AES-GCM", "ChaCha20-Poly1305", "RSA-OAEP", "ECIES"]
+  outputs:
+  - plaintext: bytes
+  meta:
+    reversible: true
+    confidentiality: high
+    dependency_chain:
+    - EncryptData
+    complexity: medium
+  tags:
+  - security
+  - crypto
+  - decryption
+  version: 1.0.0
+  abstract: true
+- id: security_primitives.l0.SignData
+  description: Produce a digital signature for data using a private key.
+  inputs:
+  - data: bytes
+  - private_key: string
+  - algorithm: enum ["RSA-PSS", "ECDSA", "EdDSA"]
+  outputs:
+  - signature: bytes
+  meta:
+    authenticity: provides
+    non_repudiation: provides
+    complexity: low
+  tags:
+  - security
+  - crypto
+  - signing
+  version: 1.0.0
+  abstract: true
+- id: security_primitives.l0.VerifySignature
+  description: Verify a digital signature using the corresponding public key.
+  inputs:
+  - data: bytes
+  - signature: bytes
+  - public_key: string
+  - algorithm: enum ["RSA-PSS", "ECDSA", "EdDSA"]
+  outputs:
+  - valid: bool
+  meta:
+    authenticity: checks
+    dependency_chain:
+    - SignData
+    complexity: low
+  tags:
+  - security
+  - crypto
+  - verification
+  version: 1.0.0
+  abstract: true
+- id: security_primitives.l0.DeriveKey
+  description: Derive a symmetric key from a password or master key using KDF.
+  inputs:
+  - secret: bytes
+  - salt: bytes
+  - kdf: enum ["PBKDF2", "scrypt", "Argon2id", "HKDF"]
+  - iterations: int
+  outputs:
+  - derived_key: bytes
+  meta:
+    reversible: one-way
+    security_level: depends_on_params
+    complexity: medium
+  tags:
+  - security
+  - crypto
+  - kdf
+  version: 1.0.0
+  abstract: true
+- id: security_primitives.l0.ManageSecret
+  description: Store, rotate, or revoke a secret in a secure vault.
+  inputs:
+  - secret: bytes
+  - action: enum ["store", "rotate", "revoke", "retrieve"]
+  - metadata: object
+  outputs:
+  - secret_id: string
+  - status: string
+  meta:
+    confidentiality: highest
+    audit_log: required
+    complexity: medium
+  tags:
+  - security
+  - secret_management
+  version: 1.0.0
+  abstract: true

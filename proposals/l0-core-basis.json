@@ -1,0 +1,275 @@
+{
+  "catalog_semver": "0.4.0-alpha.0",
+  "primitives": [
+    {
+      "id": "tf:information/encode@1",
+      "domain": "information",
+      "name": "encode",
+      "major": 1
+    },
+    {
+      "id": "tf:information/decode@1",
+      "domain": "information",
+      "name": "decode",
+      "major": 1
+    },
+    {
+      "id": "tf:information/serialize@1",
+      "domain": "information",
+      "name": "serialize",
+      "major": 1
+    },
+    {
+      "id": "tf:information/deserialize@1",
+      "domain": "information",
+      "name": "deserialize",
+      "major": 1
+    },
+    {
+      "id": "tf:information/compress@1",
+      "domain": "information",
+      "name": "compress",
+      "major": 1
+    },
+    {
+      "id": "tf:information/decompress@1",
+      "domain": "information",
+      "name": "decompress",
+      "major": 1
+    },
+    {
+      "id": "tf:information/chunk@1",
+      "domain": "information",
+      "name": "chunk",
+      "major": 1
+    },
+    {
+      "id": "tf:information/assemble@1",
+      "domain": "information",
+      "name": "assemble",
+      "major": 1
+    },
+    {
+      "id": "tf:information/hash@1",
+      "domain": "information",
+      "name": "hash",
+      "major": 1
+    },
+    {
+      "id": "tf:security/generate-key-pair@1",
+      "domain": "security",
+      "name": "generate-key-pair",
+      "major": 1
+    },
+    {
+      "id": "tf:security/encrypt-data@1",
+      "domain": "security",
+      "name": "encrypt-data",
+      "major": 1
+    },
+    {
+      "id": "tf:security/decrypt-data@1",
+      "domain": "security",
+      "name": "decrypt-data",
+      "major": 1
+    },
+    {
+      "id": "tf:security/sign-data@1",
+      "domain": "security",
+      "name": "sign-data",
+      "major": 1
+    },
+    {
+      "id": "tf:security/verify-signature@1",
+      "domain": "security",
+      "name": "verify-signature",
+      "major": 1
+    },
+    {
+      "id": "tf:security/derive-key@1",
+      "domain": "security",
+      "name": "derive-key",
+      "major": 1
+    },
+    {
+      "id": "tf:security/manage-secret@1",
+      "domain": "security",
+      "name": "manage-secret",
+      "major": 1
+    },
+    {
+      "id": "tf:security/random-bytes@1",
+      "domain": "security",
+      "name": "random-bytes",
+      "major": 1
+    },
+    {
+      "id": "tf:interaction/publish@1",
+      "domain": "interaction",
+      "name": "publish",
+      "major": 1
+    },
+    {
+      "id": "tf:interaction/subscribe@1",
+      "domain": "interaction",
+      "name": "subscribe",
+      "major": 1
+    },
+    {
+      "id": "tf:interaction/acknowledge@1",
+      "domain": "interaction",
+      "name": "acknowledge",
+      "major": 1
+    },
+    {
+      "id": "tf:interaction/request@1",
+      "domain": "interaction",
+      "name": "request",
+      "major": 1
+    },
+    {
+      "id": "tf:resource/read-object@1",
+      "domain": "resource",
+      "name": "read-object",
+      "major": 1
+    },
+    {
+      "id": "tf:resource/write-object@1",
+      "domain": "resource",
+      "name": "write-object",
+      "major": 1
+    },
+    {
+      "id": "tf:resource/delete-object@1",
+      "domain": "resource",
+      "name": "delete-object",
+      "major": 1
+    },
+    {
+      "id": "tf:resource/list-objects@1",
+      "domain": "resource",
+      "name": "list-objects",
+      "major": 1
+    },
+    {
+      "id": "tf:resource/compare-and-swap@1",
+      "domain": "resource",
+      "name": "compare-and-swap",
+      "major": 1
+    },
+    {
+      "id": "tf:resource/acquire-lease@1",
+      "domain": "resource",
+      "name": "acquire-lease",
+      "major": 1
+    },
+    {
+      "id": "tf:resource/renew-lease@1",
+      "domain": "resource",
+      "name": "renew-lease",
+      "major": 1
+    },
+    {
+      "id": "tf:resource/release-lease@1",
+      "domain": "resource",
+      "name": "release-lease",
+      "major": 1
+    },
+    {
+      "id": "tf:state/instantiate-entity@1",
+      "domain": "state",
+      "name": "instantiate-entity",
+      "major": 1
+    },
+    {
+      "id": "tf:state/version@1",
+      "domain": "state",
+      "name": "version",
+      "major": 1
+    },
+    {
+      "id": "tf:state/snapshot@1",
+      "domain": "state",
+      "name": "snapshot",
+      "major": 1
+    },
+    {
+      "id": "tf:state/diff@1",
+      "domain": "state",
+      "name": "diff",
+      "major": 1
+    },
+    {
+      "id": "tf:state/merge@1",
+      "domain": "state",
+      "name": "merge",
+      "major": 1
+    },
+    {
+      "id": "tf:state/tag@1",
+      "domain": "state",
+      "name": "tag",
+      "major": 1
+    },
+    {
+      "id": "tf:policy/authorize@1",
+      "domain": "policy",
+      "name": "authorize",
+      "major": 1
+    },
+    {
+      "id": "tf:policy/record-decision@1",
+      "domain": "policy",
+      "name": "record-decision",
+      "major": 1
+    },
+    {
+      "id": "tf:policy/grant-delegation@1",
+      "domain": "policy",
+      "name": "grant-delegation",
+      "major": 1
+    },
+    {
+      "id": "tf:policy/revoke-delegation@1",
+      "domain": "policy",
+      "name": "revoke-delegation",
+      "major": 1
+    },
+    {
+      "id": "tf:observability/emit-metric@1",
+      "domain": "observability",
+      "name": "emit-metric",
+      "major": 1
+    },
+    {
+      "id": "tf:observability/trace-span@1",
+      "domain": "observability",
+      "name": "trace-span",
+      "major": 1
+    },
+    {
+      "id": "tf:observability/log-event@1",
+      "domain": "observability",
+      "name": "log-event",
+      "major": 1
+    },
+    {
+      "id": "tf:process/transform@1",
+      "domain": "process",
+      "name": "transform",
+      "major": 1
+    },
+    {
+      "id": "tf:process/now@1",
+      "domain": "process",
+      "name": "now",
+      "major": 1
+    },
+    {
+      "id": "tf:process/sleep@1",
+      "domain": "process",
+      "name": "sleep",
+      "major": 1
+    }
+  ]
+}

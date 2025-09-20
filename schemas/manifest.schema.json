@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meta-ontology.local/schemas/manifest.schema.json",
+  "title": "Capability Manifest",
+  "type": "object",
+  "required": [
+    "effects",
+    "scopes",
+    "footprints"
+  ],
+  "properties": {
+    "effects": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "scopes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "footprints": {
+      "type": "array",
+      "items": {
+        "$ref": "https://meta-ontology.local/schemas/footprint-pattern.schema.json"
+      }
+    },
+    "seed": {
+      "type": "integer"
+    },
+    "clock_epoch": {
+      "type": "integer"
+    },
+    "catalog_hash": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

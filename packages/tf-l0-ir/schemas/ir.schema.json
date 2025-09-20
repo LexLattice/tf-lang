@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meta-ontology.local/schemas/ir.schema.json",
+  "title": "IR",
+  "type": "object",
+  "properties": {
+    "node": {
+      "type": "string",
+      "enum": [
+        "Prim",
+        "Seq",
+        "Par"
+      ]
+    },
+    "prim": {
+      "type": "string"
+    },
+    "args": {
+      "type": "object"
+    },
+    "children": {
+      "type": "array",
+      "items": {
+        "$ref": "#"
+      }
+    },
+    "meta": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "node"
+  ],
+  "additionalProperties": true
+}

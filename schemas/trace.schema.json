@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meta-ontology.local/schemas/trace.schema.json",
+  "title": "T3 Trace Envelope v0",
+  "type": "object",
+  "required": [
+    "ts_ns",
+    "flow_id",
+    "run_id",
+    "node_id",
+    "prim_id",
+    "span_id",
+    "in_hash",
+    "out_hash",
+    "effects"
+  ],
+  "properties": {
+    "ts_ns": {
+      "type": "string"
+    },
+    "flow_id": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "node_id": {
+      "type": "string"
+    },
+    "prim_id": {
+      "type": "string"
+    },
+    "span_id": {
+      "type": "string"
+    },
+    "parent_span_id": {
+      "type": "string"
+    },
+    "in_hash": {
+      "type": "string"
+    },
+    "out_hash": {
+      "type": "string"
+    },
+    "effects": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "lease_id": {
+      "type": "string"
+    },
+    "etag": {
+      "type": "string"
+    },
+    "resource_uri": {
+      "type": "string"
+    },
+    "idempotency_key": {
+      "type": "string"
+    },
+    "err": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}

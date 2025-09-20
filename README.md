@@ -151,6 +151,10 @@ npm run tf -- emit --lang ts examples/flows/signing.tf --out out/0.4/codegen-ts/
 node packages/tf-compose/bin/tf-manifest.mjs examples/flows/manifest_publish.tf
 node packages/tf-compose/bin/tf-manifest.mjs examples/flows/manifest_storage.tf -o out/0.4/manifests/storage.json
 # Manifests print to stdout or land under out/0.4/manifests/
+
+# Filter trace output (JSONL) by prim/effect/tag
+cat out/t3/trace/ts.jsonl | node packages/tf-l0-tools/trace-filter.mjs --effect=Network.Out --grep=orders --pretty
+cat tests/fixtures/trace-sample.jsonl | node packages/tf-l0-tools/trace-filter.mjs --prim=tf:resource/write-object@1
 ```
 
 ### Tree

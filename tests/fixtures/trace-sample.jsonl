@@ -1,0 +1,6 @@
+{"prim_id":"tf:resource/write-object@1","effect":"Storage.Write","tag":{"bucket":"cust","object":"profile"}}
+{"prim_id":"tf:resource/write-object@1","effect":"Storage.Write","tag":{"topic":"Orders","status":"queued"}}
+{"prim_id":"tf:resource/publish-event@1","effect":"Network.Out","tag":{"topic":"orders","count":1}}
+{"prim_id":"tf:resource/publish-event@1","effect":"Network.Out","tag":{"topic":"notifications","count":3}}
+{"prim_id":"tf:resource/log@1","effect":"Observability","tag":"log: user action"}
+{"prim_id":"tf:resource/calc@1","effect":"Pure","tag":{"summary":"Compute ORDERS metrics"}}

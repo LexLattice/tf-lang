@@ -18,6 +18,8 @@
     "test": "pnpm run test:workspace && pnpm run test:l0",
     "a0": "node packages/tf-l0-spec/scripts/build-ids.mjs && node packages/tf-l0-spec/scripts/finalize-a0.mjs",
     "a1": "node packages/tf-l0-spec/scripts/build-catalog.mjs && node packages/tf-l0-spec/scripts/derive-effects.mjs && node packages/tf-l0-spec/scripts/build-laws.mjs && node packages/tf-l0-spec/scripts/finalize-a1.mjs",
+    "a1:summary": "node scripts/effects-summary.mjs",
+    "a1:all": "pnpm run a1 && pnpm run a1:summary",
     "tf": "node packages/tf-compose/bin/tf.mjs",
     "validate:ids": "node scripts/validate-ids.mjs",
     "validate:catalog": "node scripts/validate-catalog.mjs",

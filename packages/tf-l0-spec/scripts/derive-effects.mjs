@@ -14,7 +14,9 @@ function derive(name) {
 
 const catalog = JSON.parse(await readFile(join(spec, 'catalog.json'), 'utf8'));
 for (const p of catalog.primitives) {
-  p.effects = derive(p.name);
+  if (!Array.isArray(p.effects) || p.effects.length === 0) {
+    p.effects = derive(p.name);
+  }
 }
 await writeFile(join(spec, 'effects.json'), canonicalize({
   catalog_semver: catalog.catalog_semver,

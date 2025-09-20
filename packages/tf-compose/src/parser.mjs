@@ -13,8 +13,9 @@ function tokenize(s) {
     if (/\s/.test(c)) { i++; continue; }
     if (s.startsWith('|>', i)) { out.push({t:'PIPE'}); i+=2; continue; }
     if (s.startsWith('par{', i)) { out.push({t:'PAR_OPEN'}); i+=4; continue; }
-    if (s.startsWith('authorize{', i)) { out.push({t:'REGION_AUTH'}); i+=10; continue; }
-    if (s.startsWith('txn{', i)) { out.push({t:'REGION_TXN'}); i+=4; continue; }
+    if (s.startsWith('seq{', i)) { out.push({t:'SEQ_OPEN'}); i+=4; continue; }
+    if (s.startsWith('authorize', i) && ['{','('].includes(s[i+9])) { out.push({t:'REGION_AUTH'}); i+=9; continue; }
+    if (s.startsWith('txn', i) && ['{','('].includes(s[i+3])) { out.push({t:'REGION_TXN'}); i+=3; continue; }
     if (c==='{' ) { out.push({t:'LBRACE'}); i++; continue; }
     if (c==='}') { out.push({t:'RBRACE'}); i++; continue; }
     if (c==='(' ) { out.push({t:'LPAREN'}); i++; continue; }
@@ -80,6 +81,7 @@ function parseRegion(t, kind){
 
 function parseStep(t){
   if (maybe(t,'PAR_OPEN')) return parseBlock(t, { node:'Par', children: [] });
+  if (maybe(t,'SEQ_OPEN')) return parseBlock(t, { node:'Seq', children: [] });
   if (maybe(t,'REGION_AUTH')) return parseRegion(t, 'Authorize');
   if (maybe(t,'REGION_TXN')) return parseRegion(t, 'Transaction');
   const id = take(t,'IDENT').v;

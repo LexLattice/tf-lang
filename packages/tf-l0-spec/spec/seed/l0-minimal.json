@@ -1,0 +1,148 @@
+{
+  "primitives": [
+    {
+      "id": "tf:resource/write-object@1",
+      "domain": "resource",
+      "name": "write-object",
+      "major": 1,
+      "effects": ["Storage.Write"],
+      "writes": [
+        {
+          "uri": "res://kv/<bucket>/:<key>",
+          "mode": "write",
+          "notes": "seed"
+        }
+      ]
+    },
+    {
+      "id": "tf:resource/read-object@1",
+      "domain": "resource",
+      "name": "read-object",
+      "major": 1,
+      "effects": ["Storage.Read"],
+      "reads": [
+        {
+          "uri": "res://kv/<bucket>/:<key>",
+          "mode": "read",
+          "notes": "seed"
+        }
+      ]
+    },
+    {
+      "id": "tf:resource/compare-and-swap@1",
+      "domain": "resource",
+      "name": "compare-and-swap",
+      "major": 1,
+      "effects": ["Storage.Write"],
+      "writes": [
+        {
+          "uri": "res://kv/<bucket>/:<key>",
+          "mode": "write",
+          "notes": "seed"
+        }
+      ]
+    },
+    {
+      "id": "tf:resource/delete-object@1",
+      "domain": "resource",
+      "name": "delete-object",
+      "major": 1,
+      "effects": ["Storage.Write"],
+      "writes": [
+        {
+          "uri": "res://kv/<bucket>/:<key>",
+          "mode": "write",
+          "notes": "seed"
+        }
+      ]
+    },
+    {
+      "id": "tf:network/publish@1",
+      "domain": "network",
+      "name": "publish",
+      "major": 1,
+      "effects": ["Network.Out"],
+      "qos": {
+        "delivery_guarantee": "at-least-once",
+        "ordering": "per-key"
+      }
+    },
+    {
+      "id": "tf:network/subscribe@1",
+      "domain": "network",
+      "name": "subscribe",
+      "major": 1,
+      "effects": ["Network.In"],
+      "qos": {
+        "delivery_guarantee": "at-least-once",
+        "ordering": "per-key"
+      }
+    },
+    {
+      "id": "tf:network/request@1",
+      "domain": "network",
+      "name": "request",
+      "major": 1,
+      "effects": ["Network.Out"],
+      "qos": {
+        "delivery_guarantee": "at-least-once",
+        "ordering": "per-key"
+      }
+    },
+    {
+      "id": "tf:network/acknowledge@1",
+      "domain": "network",
+      "name": "acknowledge",
+      "major": 1,
+      "effects": ["Network.Out"],
+      "qos": {
+        "delivery_guarantee": "at-least-once",
+        "ordering": "per-key"
+      }
+    },
+    {
+      "id": "tf:information/hash@1",
+      "domain": "information",
+      "name": "hash",
+      "major": 1,
+      "effects": ["Pure"]
+    },
+    {
+      "id": "tf:information/serialize@1",
+      "domain": "information",
+      "name": "serialize",
+      "major": 1,
+      "effects": ["Pure"]
+    },
+    {
+      "id": "tf:information/deserialize@1",
+      "domain": "information",
+      "name": "deserialize",
+      "major": 1,
+      "effects": ["Pure"]
+    },
+    {
+      "id": "tf:security/sign-data@1",
+      "domain": "security",
+      "name": "sign-data",
+      "major": 1,
+      "effects": ["Crypto"],
+      "data_classes": ["secrets"]
+    },
+    {
+      "id": "tf:security/verify-signature@1",
+      "domain": "security",
+      "name": "verify-signature",
+      "major": 1,
+      "effects": ["Crypto"],
+      "data_classes": ["none"]
+    },
+    {
+      "id": "tf:observability/emit-metric@1",
+      "domain": "observability",
+      "name": "emit-metric",
+      "major": 1,
+      "effects": ["Observability"]
+    }
+  ]
+}

@@ -17,14 +17,21 @@ async function loadCatalog() {
   }
 }
 
-function arg(k) { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : null; }
+const rawArgs = process.argv.slice(2);
+const args = rawArgs[0] === '--' ? rawArgs.slice(1) : rawArgs;
 
-const cmd = process.argv[2];
+function arg(k) { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : null; }
+
+const cmd = args[0];
 if (!cmd || ['parse', 'check', 'canon', 'emit', 'manifest'].indexOf(cmd) < 0) {
   console.error('Usage: tf <parse|check|canon|emit|manifest> <flow.tf> [--out path] [--lang ts|rs]');
   process.exit(2);
 }
-const file = process.argv[3];
+const file = args[1];
+if (!file) {
+  console.error('Missing flow path.');
+  process.exit(2);
+}
 const out = arg('-o') || arg('--out');
 
 const src = await readFile(file, 'utf8');

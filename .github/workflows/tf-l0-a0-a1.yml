@@ -20,20 +20,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Node (reads toolchain/.node-version)
       - uses: actions/setup-node@v4
         with:
-          node-version-file: 'toolchain/.node-version'   # reads "20.10.0"
-          cache: 'pnpm'                                  # <-- pnpm cache
+          node-version-file: 'toolchain/.node-version'
+          cache: 'pnpm'
           cache-dependency-path: |
             pnpm-lock.yaml
             **/pnpm-lock.yaml
 
-      - name: Enable corepack & pin pnpm
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.16.1 --activate
-          pnpm -v
-          node -v
+      # >>> This is the missing piece in CI <<<
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.16.1
 
       - name: Install
         run: pnpm -w -r install --frozen-lockfile

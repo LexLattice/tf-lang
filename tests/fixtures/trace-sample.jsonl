@@ -1,0 +1,7 @@
+{"prim_id":"tf:resource/write-object@1","effect":"Storage.Write","tag":{"bucket":"orders","key":"order-123.json"},"payload":{"size":1024}}
+{"prim_id":"tf:resource/write-object@1","effect":"Storage.Write","tag":{"bucket":"orders","key":"order-124.json"},"payload":{"size":2048}}
+{"prim_id":"tf:integration/publish-topic@1","effect":"Network.Out","tag":{"topic":"orders","event":"OrderCreated"},"payload":{"order_id":"ord_901"}}
+{"prim_id":"tf:integration/publish-topic@1","effect":"Network.Out","tag":{"topic":"shipments","event":"ShipmentReady"},"payload":{"shipment_id":"ship_432"}}
+{"prim_id":"tf:service/generate-report@1","effect":"Pure","tag":{"report":"daily-summary"},"payload":{"duration_ms":210}}
+{"prim_id":"tf:service/log-metric@1","effect":"Observability","tag":{"metric":"orders_processed","value":42},"payload":{}}
+{"prim_id":"tf:service/calculate-tax@1","effect":"Pure","tag":"tax:ORDERS:calc","payload":{"region":"EU"}}

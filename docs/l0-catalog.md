@@ -18,5 +18,6 @@ Hashing primitives classify as Pure; Crypto is reserved for secret-bearing opera
 ### Manifest compatibility
 For v0.4 manifests we emit both the legacy `effects`/`footprints` fields and the new
 `required_effects`/`footprints_rw`/`qos` structure for downstream compatibility. The
-schema and CLI validator accept either shape so existing consumers can migrate on
-their own schedule.
+two shapes are mutually exclusive, but the schema and CLI validator accept either so
+consumers can migrate on their own schedule. Use
+`node scripts/validate-manifest.mjs <path>` to confirm conformance.

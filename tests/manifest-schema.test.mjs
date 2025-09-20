@@ -95,3 +95,39 @@ test('footprint entries require mode', () => {
 
   assertInvalid(badManifest, 'manifest without mode unexpectedly passed');
 });
+
+test('legacy manifest rejects required_effects mixing shapes', () => {
+  const mixedManifest = {
+    effects: ['Network.Out'],
+    footprints: [
+      {
+        uri: 'res://kv/foo',
+        mode: 'read'
+      }
+    ],
+    scopes: [],
+    required_effects: ['Network.Out']
+  };
+
+  assertInvalid(mixedManifest, 'legacy manifest with required_effects unexpectedly passed');
+});
+
+test('new manifest requires qos ordering', () => {
+  const qosMissingOrdering = {
+    required_effects: ['Network.Out'],
+    footprints_rw: {
+      reads: [
+        {
+          uri: 'res://kv/foo',
+          mode: 'read'
+        }
+      ],
+      writes: []
+    },
+    qos: {
+      delivery_guarantee: 'exactly-once'
+    }
+  };
+
+  assertInvalid(qosMissingOrdering, 'manifest without qos ordering unexpectedly passed');
+});

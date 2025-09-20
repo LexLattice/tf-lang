@@ -66,11 +66,19 @@
           "items": { "$ref": "#/$defs/footprintEntry" }
         },
         "scopes": { "$ref": "#/$defs/stringArray" },
+        "required_effects": false,
         "seed": { "type": "integer" },
         "clock_epoch": { "type": "integer" },
         "catalog_hash": { "type": "string" }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "not": {
+        "type": "object",
+        "required": ["required_effects"],
+        "properties": {
+          "required_effects": true
+        }
+      }
     },
     "newManifest": {
       "type": "object",
@@ -93,16 +101,25 @@
           "additionalProperties": false
         },
         "qos": {
-          "type": "object",
-          "properties": {
-            "delivery_guarantee": {
-              "enum": ["at-least-once"]
+          "oneOf": [
+            {
+              "type": "object",
+              "maxProperties": 0
             },
-            "ordering": {
-              "enum": ["per-key"]
+            {
+              "type": "object",
+              "required": ["delivery_guarantee", "ordering"],
+              "properties": {
+                "delivery_guarantee": {
+                  "enum": ["at-least-once", "exactly-once", "best-effort"]
+                },
+                "ordering": {
+                  "enum": ["per-key", "global", "none"]
+                }
+              },
+              "additionalProperties": false
             }
-          },
-          "additionalProperties": false
+          ]
         },
         "effects": { "$ref": "#/$defs/stringArray" },
         "footprints": {

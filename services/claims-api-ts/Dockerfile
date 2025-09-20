@@ -6,29 +6,45 @@ ARG NODE_BASE=node:20-alpine@sha256:6a91081a440be0b57336fbc4ee87f3dab1a2fd6f80cd
 # build (with deploy)
 ########################
 FROM ${NODE_BASE} AS build
-ENV PNPM_HOME=/root/.local/share/pnpm
-ENV PATH=$PNPM_HOME:$PATH
-RUN corepack enable
+ENV CI=true
+ENV NODE_ENV=production
 WORKDIR /repo
 
-# copy manifests first for caching
+ARG PNPM_VERSION=10.16.1
+RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+
+# workspace roots first
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json .npmrc ./
+
+# service + core manifests
 COPY packages/claims-core-ts/package.json packages/claims-core-ts/package.json
 COPY services/claims-api-ts/package.json services/claims-api-ts/package.json
 
-# fetch deps into PNPM store cache
+# prefetch just what we need (closure) and exclude root
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
-    pnpm fetch
+  pnpm fetch \
+    --filter "./services/claims-api-ts..." \
+    --filter "./packages/claims-core-ts..." \
+    --filter "!@workspace:root"
 
-# bring sources
+# sources
 COPY packages/ ./packages/
 COPY services/ ./services/
 
-# install, build, and deploy only the service to /deploy
+# install only those two (exclude root), build them
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
-    pnpm i --frozen-lockfile && \
-    pnpm -r -F "claims-core-ts" -F "claims-api-ts" build && \
-    pnpm deploy --legacy --filter claims-api-ts /deploy
+  pnpm install --frozen-lockfile \
+    --filter "./services/claims-api-ts..." \
+    --filter "./packages/claims-core-ts..." \
+    --filter "!@workspace:root" \
+  && pnpm -r -F "claims-core-ts" -F "claims-api-ts" build
+
+# make a self-contained /deploy without 'pnpm deploy'
+RUN set -eux; \
+  cd services/claims-api-ts; \
+  pnpm install --prod --frozen-lockfile --link-workspace-packages; \
+  mkdir -p /deploy; \
+  cp -R dist package.json node_modules /deploy/
 
 ########################
 # runtime

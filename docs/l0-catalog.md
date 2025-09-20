@@ -14,3 +14,7 @@ conflict detection stay runnable while curation continues.
 Deterministic name-based rules fill in missing effect tags and network QoS only when the catalog lacks curated data.
 Seed overlays remain authoritative for existing effects or qos values.
 Hashing primitives classify as Pure; Crypto is reserved for secret-bearing operations (sign/verify/encrypt/decrypt).
+
+### Manifest compatibility
+For v0.4 manifests we emit both the legacy `effects`/`footprints` shape and the new `required_effects`/`footprints_rw` plus `qos` block so downstream tools stay compatible.
+The JSON schema and validator accept either layout, making it safe to mix old and new consumers during the rollout.

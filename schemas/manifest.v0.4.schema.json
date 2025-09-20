@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tf-lang.dev/schemas/manifest/v0.4",
+  "title": "TF capability manifest",
+  "type": "object",
+  "oneOf": [
+    { "$ref": "#/$defs/legacyManifest" },
+    { "$ref": "#/$defs/newManifest" }
+  ],
+  "$defs": {
+    "legacyManifest": {
+      "type": "object",
+      "required": ["effects", "footprints", "scopes"],
+      "properties": {
+        "effects": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "footprints": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/footprintEntry" }
+        },
+        "scopes": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "not": {
+        "required": ["required_effects"]
+      }
+    },
+    "newManifest": {
+      "type": "object",
+      "required": ["required_effects", "footprints_rw", "qos"],
+      "properties": {
+        "required_effects": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "footprints_rw": {
+          "type": "object",
+          "required": ["reads", "writes"],
+          "properties": {
+            "reads": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/readFootprint" }
+            },
+            "writes": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/writeFootprint" }
+            }
+          },
+          "additionalProperties": false
+        },
+        "qos": {
+          "type": "object",
+          "properties": {
+            "delivery_guarantee": {
+              "type": "string",
+              "enum": ["at-least-once"]
+            },
+            "ordering": {
+              "type": "string",
+              "enum": ["per-key"]
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    "footprintEntry": {
+      "type": "object",
+      "required": ["uri", "mode"],
+      "properties": {
+        "uri": { "type": "string", "minLength": 1 },
+        "mode": { "type": "string", "enum": ["read", "write"] },
+        "notes": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "readFootprint": {
+      "allOf": [
+        { "$ref": "#/$defs/footprintEntry" },
+        {
+          "type": "object",
+          "properties": { "mode": { "const": "read" } }
+        }
+      ]
+    },
+    "writeFootprint": {
+      "allOf": [
+        { "$ref": "#/$defs/footprintEntry" },
+        {
+          "type": "object",
+          "properties": { "mode": { "const": "write" } }
+        }
+      ]
+    }
+  }
+}

@@ -10,6 +10,7 @@ on:
       - 'catalogs/**'
       - 'docs/**'
       - 'package.json'
+      - 'pnpm-lock.yaml'
   push:
     branches: [ main ]
 
@@ -21,52 +22,60 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version-file: 'toolchain/.node-version'
-          cache: 'npm'
+          node-version-file: 'toolchain/.node-version'   # reads "20.10.0"
+          cache: 'pnpm'                                  # <-- pnpm cache
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            **/pnpm-lock.yaml
+
+      - name: Enable corepack & pin pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.16.1 --activate
+          pnpm -v
+          node -v
 
       - name: Install
-        run: npm ci
+        run: pnpm -w -r install --frozen-lockfile
 
       - name: A0
-        run: npm run a0
+        run: pnpm run a0
 
       - name: Validate ids schema
-        run: node scripts/validate-ids.mjs
+        run: pnpm run validate:ids
 
       - name: A1
-        run: npm run a1
+        run: pnpm run a1
 
       - name: Validate catalog schema
-        run: node scripts/validate-catalog.mjs
+        run: pnpm run validate:catalog
 
       - name: Lint catalog
-        run: node scripts/lint-catalog.mjs
+        run: pnpm run lint:catalog
 
       - name: Autofix (suggest)
-        run: node scripts/autofix-catalog.mjs --mode suggest
+        run: pnpm run suggest:catalog
 
       - name: Determinism gate (ids.json)
-        run: npm run determinism
+        run: pnpm run determinism
 
       - name: CLI smoke (parse/check/canon)
         run: |
-          node packages/tf-compose/bin/tf.mjs parse examples/flows/signing.tf -o out/0.4/ir/signing.ir.json
-          node packages/tf-compose/bin/tf.mjs canon examples/flows/signing.tf -o out/0.4/ir/signing.canon.json
-          node packages/tf-compose/bin/tf.mjs check examples/flows/signing.tf -o out/0.4/flows/signing.verdict.json
+          pnpm run tf -- parse examples/flows/signing.tf -o out/0.4/ir/signing.ir.json
+          pnpm run tf -- canon examples/flows/signing.tf -o out/0.4/ir/signing.canon.json
+          pnpm run tf -- check examples/flows/signing.tf -o out/0.4/flows/signing.verdict.json
 
       - name: Full determinism (all outputs)
-        run: bash scripts/full-determinism.sh "npm run a0 && npm run a1 && node packages/tf-compose/bin/tf.mjs parse examples/flows/signing.tf -o out/0.4/ir/signing.ir.json && node packages/tf-compose/bin/tf.mjs canon examples/flows/signing.tf -o out/0.4/ir/signing.canon.json"
+        run: pnpm run determinism:full
 
-      # --- New steps added ---
       - name: Unit tests
-        run: npm test
+        run: pnpm test
 
       - name: Contract break checks
-        run: node scripts/check-breaking.mjs
-      # -----------------------
+        run: pnpm run contracts:check-breaking
 
       - name: Write digests
-        run: node scripts/write-digests.mjs
+        run: pnpm run digest:out
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

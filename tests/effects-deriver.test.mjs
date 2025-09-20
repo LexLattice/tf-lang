@@ -1,17 +1,32 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { applyEffectsAndQos, run as deriveEffects } from '../packages/tf-l0-spec/scripts/derive-effects.mjs';
+
+const catalogPath = 'packages/tf-l0-spec/spec/catalog.json';
 
 async function loadCatalog() {
-  const raw = await readFile('packages/tf-l0-spec/spec/catalog.json', 'utf8');
+  const raw = await readFile(catalogPath, 'utf8');
   return JSON.parse(raw);
 }
 
-test('derive-effects: curated seed entries retain their effects', async () => {
+await deriveEffects();
+
+test('derive-effects: curated seed entries retain their effects and qos', async () => {
   const catalog = await loadCatalog();
-  const primitive = catalog.primitives.find(p => p.id === 'tf:resource/write-object@1');
-  assert.ok(primitive, 'write-object primitive present');
-  assert.deepEqual(primitive.effects, ['Storage.Write']);
+
+  const writeObject = catalog.primitives.find(p => p.id === 'tf:resource/write-object@1');
+  assert.ok(writeObject, 'write-object primitive present');
+  assert.deepEqual(writeObject.effects, ['Storage.Write']);
+  assert.deepEqual(writeObject.qos, {});
+
+  const publish = catalog.primitives.find(p => p.id === 'tf:network/publish@1');
+  assert.ok(publish, 'publish primitive present');
+  assert.deepEqual(publish.effects, ['Network.Out']);
+  assert.deepEqual(publish.qos, {
+    delivery_guarantee: 'at-least-once',
+    ordering: 'per-key'
+  });
 });
 
 test('derive-effects: all primitives have non-empty effects', async () => {
@@ -22,14 +37,39 @@ test('derive-effects: all primitives have non-empty effects', async () => {
   assert.equal(missing.length, 0, `primitives without effects: ${missing.join(', ')}`);
 });
 
-test('derive-effects: network primitives expose qos delivery guarantees', async () => {
-  const catalog = await loadCatalog();
-  const networkPrimitives = catalog.primitives.filter(p =>
-    Array.isArray(p.effects) && p.effects.some(effect => effect.startsWith('Network.'))
-  );
-  assert.ok(networkPrimitives.length > 0, 'expected network primitives in catalog');
-  const missing = networkPrimitives
-    .filter(p => typeof p.qos?.delivery_guarantee !== 'string' || p.qos.delivery_guarantee.length === 0)
-    .map(p => p.id);
-  assert.equal(missing.length, 0, `network primitives missing qos.delivery_guarantee: ${missing.join(', ')}`);
+test('derive-effects: network qos defaults fill gaps without overriding', () => {
+  const seeded = applyEffectsAndQos({
+    id: 'test:network/publish@1',
+    name: 'publish',
+    effects: ['Network.Out']
+  });
+  assert.deepEqual(seeded.qos, {
+    delivery_guarantee: 'at-least-once',
+    ordering: 'per-key'
+  });
+
+  const partial = applyEffectsAndQos({
+    id: 'test:network/subscribe@1',
+    name: 'subscribe',
+    effects: ['Network.In'],
+    qos: { delivery_guarantee: 'exactly-once' }
+  });
+  assert.deepEqual(partial.qos, {
+    delivery_guarantee: 'exactly-once',
+    ordering: 'per-key'
+  });
+
+  const curated = applyEffectsAndQos({
+    id: 'test:network/request@1',
+    name: 'request',
+    effects: ['Network.Out'],
+    qos: {
+      delivery_guarantee: 'exactly-once',
+      ordering: 'global'
+    }
+  });
+  assert.deepEqual(curated.qos, {
+    delivery_guarantee: 'exactly-once',
+    ordering: 'global'
+  });
 });

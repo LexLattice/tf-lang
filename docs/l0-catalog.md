@@ -11,6 +11,6 @@ minimal `effects`, `reads`/`writes`, and `qos` data so the checker, flows, and
 conflict detection stay runnable while curation continues.
 
 ### Effect derivation rules
-Deterministic name matches fill gaps for primitives (e.g. read-object → Storage.Read, publish → Network.Out, sign-data → Crypto).
-The deriver only applies when a primitive lacks effects or QoS, so curated seed overlays remain authoritative.
-Network operations default to at-least-once/per-key QoS when missing to ensure consistent coverage.
+Deterministic name-based rules fill in missing effect tags and network QoS only when the catalog lacks curated data.
+Seed overlays remain authoritative for existing effects or qos values.
+Hashing primitives classify as Pure; Crypto is reserved for secret-bearing operations (sign/verify/encrypt/decrypt).

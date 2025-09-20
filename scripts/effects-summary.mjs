@@ -16,10 +16,12 @@ const unknownEffects = [];
 let networkTotal = 0;
 let networkWithDelivery = 0;
 let networkWithOrdering = 0;
-const networkMissing = [];
+const missingDelivery = [];
+const missingOrdering = [];
 
 for (const primitive of catalog.primitives) {
-  const effects = Array.isArray(primitive.effects) ? primitive.effects : [];
+  const effectsValue = primitive.effects ?? [];
+  const effects = Array.isArray(effectsValue) ? effectsValue : [];
 
   if (effects.length === 0) {
     unknownEffects.push(primitive.id);
@@ -37,28 +39,32 @@ for (const primitive of catalog.primitives) {
     const hasOrdering =
       typeof primitive.qos?.ordering === 'string' && primitive.qos.ordering.length > 0;
 
-    if (hasDelivery) networkWithDelivery += 1;
-    if (hasOrdering) networkWithOrdering += 1;
+    if (hasDelivery) {
+      networkWithDelivery += 1;
+    } else {
+      missingDelivery.push(primitive.id);
+    }
 
-    if (!hasDelivery || !hasOrdering) {
-      const missing = [];
-      if (!hasDelivery) missing.push('delivery_guarantee');
-      if (!hasOrdering) missing.push('ordering');
-      networkMissing.push({ id: primitive.id, missing });
+    if (hasOrdering) {
+      networkWithOrdering += 1;
+    } else {
+      missingOrdering.push(primitive.id);
     }
   }
 }
 
 const summary = {
-  catalog_semver: catalog.catalog_semver,
-  effect_counts: Object.fromEntries(Array.from(effectCounts.entries()).sort(([a], [b]) => a.localeCompare(b))),
-  unknown_effects: unknownEffects,
+  effect_counts: Object.fromEntries(
+    Array.from(effectCounts.entries()).sort(([a], [b]) => a.localeCompare(b))
+  ),
   network_qos: {
     total: networkTotal,
     with_delivery_guarantee: networkWithDelivery,
     with_ordering: networkWithOrdering,
-    missing: networkMissing
-  }
+    missing_delivery_guarantee: missingDelivery,
+    missing_ordering: missingOrdering
+  },
+  unknown_effects: unknownEffects
 };
 
 await mkdir(outputDir, { recursive: true });
@@ -67,11 +73,8 @@ await writeFile(summaryJsonPath, canonicalize(summary) + '\n', 'utf8');
 const effectParts = Array.from(effectCounts.entries())
   .sort(([a], [b]) => a.localeCompare(b))
   .map(([effect, count]) => `${effect}=${count}`);
-const textSummary = [
-  `Effects: ${effectParts.join(', ')}`,
-  `Unknown=${unknownEffects.length}`,
-  `Network QoS: delivery=${networkWithDelivery}/${networkTotal}, ordering=${networkWithOrdering}/${networkTotal}`
-].join(' | ');
+const textSummary =
+  `Effects: ${effectParts.join(', ')} | Unknown=${unknownEffects.length} | Network QoS: delivery=${networkWithDelivery}/${networkTotal}, ordering=${networkWithOrdering}/${networkTotal}`;
 
 await writeFile(summaryTextPath, `${textSummary}\n`, 'utf8');
 

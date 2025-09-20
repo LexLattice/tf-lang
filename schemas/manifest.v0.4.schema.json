@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meta-ontology.local/schemas/manifest.v0.4.schema.json",
+  "title": "Capability Manifest v0.4",
+  "type": "object",
+  "oneOf": [
+    { "$ref": "#/$defs/legacyManifest" },
+    { "$ref": "#/$defs/newManifest" }
+  ],
+  "$defs": {
+    "stringArray": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "footprintEntry": {
+      "type": "object",
+      "required": ["uri", "mode"],
+      "properties": {
+        "uri": {
+          "type": "string"
+        },
+        "mode": {
+          "enum": ["read", "write"]
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "readFootprint": {
+      "allOf": [
+        { "$ref": "#/$defs/footprintEntry" },
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "const": "read"
+            }
+          }
+        }
+      ]
+    },
+    "writeFootprint": {
+      "allOf": [
+        { "$ref": "#/$defs/footprintEntry" },
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "const": "write"
+            }
+          }
+        }
+      ]
+    },
+    "legacyManifest": {
+      "type": "object",
+      "required": ["effects", "footprints", "scopes"],
+      "properties": {
+        "effects": { "$ref": "#/$defs/stringArray" },
+        "footprints": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/footprintEntry" }
+        },
+        "scopes": { "$ref": "#/$defs/stringArray" },
+        "required_effects": false,
+        "seed": { "type": "integer" },
+        "clock_epoch": { "type": "integer" },
+        "catalog_hash": { "type": "string" }
+      },
+      "additionalProperties": false,
+      "not": {
+        "type": "object",
+        "required": ["required_effects"],
+        "properties": {
+          "required_effects": true
+        }
+      }
+    },
+    "newManifest": {
+      "type": "object",
+      "required": ["required_effects", "footprints_rw", "qos"],
+      "properties": {
+        "required_effects": { "$ref": "#/$defs/stringArray" },
+        "footprints_rw": {
+          "type": "object",
+          "required": ["reads", "writes"],
+          "properties": {
+            "reads": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/readFootprint" }
+            },
+            "writes": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/writeFootprint" }
+            }
+          },
+          "additionalProperties": false
+        },
+        "qos": {
+          "oneOf": [
+            {
+              "type": "object",
+              "maxProperties": 0
+            },
+            {
+              "type": "object",
+              "required": ["delivery_guarantee", "ordering"],
+              "properties": {
+                "delivery_guarantee": {
+                  "enum": ["at-least-once", "exactly-once", "best-effort"]
+                },
+                "ordering": {
+                  "enum": ["per-key", "global", "none"]
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "effects": { "$ref": "#/$defs/stringArray" },
+        "footprints": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/footprintEntry" }
+        },
+        "scopes": { "$ref": "#/$defs/stringArray" },
+        "seed": { "type": "integer" },
+        "clock_epoch": { "type": "integer" },
+        "catalog_hash": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

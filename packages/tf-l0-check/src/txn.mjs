@@ -1,6 +1,10 @@
+const NAME_BASED_WRITE = /^(write-object|delete-object|compare-and-swap)$/;
+const SPECIAL_REGEX_CHARS = /[.*+?^${}()|[\]\\]/g;
+
 const DEFAULT_OPTS = {
   requireIdempotencyKeyInTxn: true,
-  forbidWritesOutsideTxn: false
+  forbidWritesOutsideTxn: false,
+  onFallbackToNameDetection: undefined
 };
 
 export function checkTransactions(ir, catalog, opts = {}) {
@@ -8,25 +12,31 @@ export function checkTransactions(ir, catalog, opts = {}) {
   const reasons = [];
 
   function visit(node, insideTxn = false) {
-    if (!node || typeof node !== 'object') {
+    if (node == null) {
       return;
     }
 
-    if (node.node === 'Region') {
-      const nextInside = insideTxn || node.kind === 'Transaction';
-      for (const child of node.children || []) {
-        visit(child, nextInside);
+    if (Array.isArray(node)) {
+      for (const child of node) {
+        visit(child, insideTxn);
       }
+      return;
+    }
+
+    if (typeof node !== 'object') {
       return;
     }
 
     if (node.node === 'Prim') {
       handlePrim(node, insideTxn);
-      return;
     }
 
-    for (const child of node.children || []) {
-      visit(child, insideTxn);
+    const isTxnRegion = node.node === 'Region' && node.kind === 'Transaction';
+    const nextInside = insideTxn || isTxnRegion;
+    const children = Array.isArray(node.children) ? node.children : [];
+
+    for (const child of children) {
+      visit(child, nextInside);
     }
   }
 
@@ -62,24 +72,47 @@ export function checkTransactions(ir, catalog, opts = {}) {
     }
 
     const entry = lookupCatalogPrimitive(name);
-    const effects = Array.isArray(entry?.effects) ? entry.effects : [];
-    if (effects.some((effect) => String(effect).toLowerCase() === 'storage.write'.toLowerCase())) {
+    if (entry) {
+      const effects = Array.isArray(entry.effects) ? entry.effects : [];
+      return effects.includes('Storage.Write');
+    }
+
+    if (NAME_BASED_WRITE.test(name)) {
+      options.onFallbackToNameDetection?.();
       return true;
     }
 
-    return /^(write-object|delete-object|compare-and-swap)$/.test(name);
+    return false;
   }
 
   function lookupCatalogPrimitive(name) {
     const primitives = Array.isArray(catalog?.primitives) ? catalog.primitives : [];
-    return (
-      primitives.find((p) => (p.name || '').toLowerCase() === name) ||
-      primitives.find((p) => (p.id || '').toLowerCase().endsWith(`/${name}@1`)) ||
-      null
-    );
+    if (primitives.length === 0) {
+      return null;
+    }
+
+    const lowerName = name.toLowerCase();
+    const byName = primitives.find((p) => (p.name || '').toLowerCase() === lowerName);
+    if (byName) {
+      return byName;
+    }
+
+    const idRegex = new RegExp(`/${escapeRegex(lowerName)}@\\d+$`, 'i');
+    for (const prim of primitives) {
+      const id = prim?.id;
+      if (typeof id === 'string' && idRegex.test(id)) {
+        return prim;
+      }
+    }
+
+    return null;
   }
 
   visit(ir, false);
 
   return { ok: reasons.length === 0, reasons };
+}
+
+function escapeRegex(value) {
+  return value.replace(SPECIAL_REGEX_CHARS, '\\$&');
 }

@@ -23,10 +23,10 @@ async function readFlow(relativePath) {
   return readFile(path.resolve(repoRoot, relativePath), 'utf8');
 }
 
-async function runPolicyCli(args) {
+async function runPolicyCli(args, options = {}) {
   const cliPath = path.resolve(repoRoot, 'packages/tf-compose/bin/tf-policy.mjs');
   const child = spawn(process.execPath, [cliPath, ...args], {
-    cwd: repoRoot,
+    cwd: options.cwd ?? repoRoot,
     stdio: ['ignore', 'pipe', 'pipe']
   });
 
@@ -63,7 +63,9 @@ test('missing idempotency key in txn is flagged', async () => {
   const verdict = checkTransactions(ir, catalog);
 
   assert.equal(verdict.ok, false);
-  assert.ok(verdict.reasons.some((r) => r.includes('requires idempotency_key')));
+  assert.deepEqual(verdict.reasons, [
+    'txn: write-object requires idempotency_key or compare-and-swap'
+  ]);
 });
 
 test('policy CLI forbids writes outside txn when requested', async () => {
@@ -73,8 +75,39 @@ test('policy CLI forbids writes outside txn when requested', async () => {
     '--forbid-outside'
   ]);
 
-  assert.notEqual(result.code, 0);
+  assert.equal(result.code, 1);
   const parsed = JSON.parse(result.stdout);
   assert.equal(parsed.ok, false);
-  assert.ok(parsed.reasons.some((r) => r.includes('outside transaction')));
+  assert.deepEqual(parsed.reasons, ['policy: write-object outside transaction']);
+  assert.equal(result.stderr.includes('warn:'), false);
+});
+
+test('policy CLI warns and falls back when catalog is missing', async () => {
+  const result = await runPolicyCli([
+    'check',
+    'examples/flows/write_outside_txn.tf',
+    '--forbid-outside',
+    '--catalog',
+    'does-not-exist.json'
+  ]);
+
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /warn: catalog not found or invalid/);
+  assert.match(result.stderr, /warn: using name-based detection; supply --catalog to avoid false negatives/);
+  const parsed = JSON.parse(result.stdout);
+  assert.equal(parsed.ok, false);
+  assert.deepEqual(parsed.reasons, ['policy: write-object outside transaction']);
+});
+
+test('policy CLI locates catalog when run from its own directory', async () => {
+  const cliDir = path.resolve(repoRoot, 'packages/tf-compose/bin');
+  const result = await runPolicyCli([
+    'check',
+    '../../../examples/flows/txn_ok.tf'
+  ], { cwd: cliDir });
+
+  assert.equal(result.code, 0);
+  const parsed = JSON.parse(result.stdout);
+  assert.equal(parsed.ok, true);
+  assert.deepEqual(parsed.reasons, []);
 });

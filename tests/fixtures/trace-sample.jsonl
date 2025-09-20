@@ -1,0 +1,8 @@
+{"prim_id":"tf:resource/write-object@1","effect":"Storage.Write","tag":{"resource":"inventory","object":"orders-2024"}}
+{"prim_id":"tf:resource/write-object@1","effect":"Storage.Write","tag":{"resource":"inventory","object":"returns-2024"}}
+{"prim_id":"tf:resource/publish-event@1","effect":"Network.Out","tag":{"topic":"Orders.Created","payload":{"count":12}}}
+{"prim_id":"tf:resource/publish-event@2","effect":"Network.Out","tag":{"topic":"payments","payload":{"count":3}}}
+{"prim_id":"tf:service/compute@1","effect":"Pure","tag":{"step":"normalize"}}
+{"prim_id":"tf:service/log@1","effect":"Observability.Log","tag":"emitting metrics"}
+{"prim_id":"tf:resource/publish-event@3","effect":"Network.Out","tag":{"topic":"ORDERS-archived","status":"ok"}}
+{"prim_id":"tf:service/compute@2","effect":"Pure","tag":{"steps":["plan","order"]}}

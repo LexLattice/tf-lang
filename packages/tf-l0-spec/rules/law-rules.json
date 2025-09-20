@@ -43,35 +43,6 @@
     },
     {
       "id": "law:emitmetric-commutes-with-pure",
-      "kind": "commutative",
-      "applies_to": [
-        "tf:observability/emit-metric@1",
-        "Pure"
-      ],
-      "rewrite": "EmitMetric ∘ Pure == Pure ∘ EmitMetric",
-      "preconditions": []
-    },
-    {
-      "id": "law:canonicalizer-hash-idempotent",
-      "kind": "idempotent",
-      "applies_to": [
-        "tf:information/hash@1"
-      ],
-      "rewrite": "Hash(Hash(x)) => Hash(x)",
-      "preconditions": []
-    },
-    {
-      "id": "law:canonicalizer-serialize-deserialize-inverse",
-      "kind": "inverse",
-      "applies_to": [
-        "tf:information/serialize@1",
-        "tf:information/deserialize@1"
-      ],
-      "rewrite": "Serialize |> Deserialize => identity",
-      "preconditions": []
-    },
-    {
-      "id": "law:canonicalizer-emitmetric-commute-with-pure",
       "kind": "commute-with-pure",
       "applies_to": [
         "tf:observability/emit-metric@1",

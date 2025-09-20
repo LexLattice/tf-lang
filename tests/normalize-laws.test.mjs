@@ -9,14 +9,17 @@ const LAWS = {
   laws: [
     { kind: 'idempotent', applies_to: ['tf:information/hash@1'] },
     { kind: 'inverse', applies_to: ['tf:information/serialize@1', 'tf:information/deserialize@1'] },
-    { kind: 'commute-with-pure', applies_to: ['tf:observability/emit-metric@1'] }
+    { kind: 'commute-with-pure', applies_to: ['tf:observability/emit-metric@1', 'Pure'] }
   ]
 };
 
-function canonHash(src) {
+function canonIR(src) {
   const ir = parse(src);
-  const out = canon(ir, LAWS);
-  return canonicalize(out);
+  return canon(ir, LAWS);
+}
+
+function canonHash(src) {
+  return canonicalize(canonIR(src));
 }
 
 function identityHash() {
@@ -40,4 +43,23 @@ test('emit-metric commutes with Pure neighbor', () => {
   const a = canonHash('emit-metric(key="ok") |> hash');
   const b = canonHash('hash |> emit-metric(key="ok")');
   assert.equal(a, b);
+});
+
+test('region boundary prevents commuting across Region', () => {
+  const out = canonIR('authorize{ emit-metric(key="ok") } |> hash');
+  const seq = out.node === 'Seq' ? out.children : [out];
+  assert.equal(seq.length, 2);
+  const [region, prim] = seq;
+  assert.equal(region.node, 'Region');
+  assert.equal(prim.node, 'Prim');
+  assert.equal(prim.prim, 'hash');
+  const regionKids = region.children ?? [];
+  assert.equal(regionKids.length, 1);
+  assert.equal(regionKids[0].prim, 'emit-metric');
+});
+
+test('normalization is a fixpoint for alternating emit/hash sequence', () => {
+  const once = canonIR('emit-metric(key="ok") |> hash |> emit-metric(key="ok") |> hash');
+  const twice = canon(once, LAWS);
+  assert.equal(canonicalize(once), canonicalize(twice));
 });

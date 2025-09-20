@@ -1,3 +1,5 @@
+import { validateCapabilities } from './capabilities.mjs';
+
 let clockWarned = false;
 
 function nowTs() {
@@ -142,6 +144,15 @@ export async function runIR(ir, runtime, options = {}) {
     ops: ctx.ops,
     effects: Array.from(ctx.effects).sort(),
   };
+}
+
+export async function runWithCaps(ir, runtime, caps, manifest) {
+  const verdict = validateCapabilities(manifest, caps);
+  if (!verdict.ok) {
+    console.error('tf run-ir: capability validation failed', JSON.stringify(verdict));
+    return { ok: false, ops: 0, effects: [] };
+  }
+  return runIR(ir, runtime);
 }
 
 export default runIR;

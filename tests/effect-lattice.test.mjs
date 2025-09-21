@@ -3,8 +3,11 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
   EFFECT_FAMILIES,
+  EFFECT_PRECEDENCE,
   effectOf,
   canCommute,
+  commuteSymmetric,
+  effectRank,
   parSafe
 } from '../packages/tf-l0-check/src/effect-lattice.mjs';
 import { buildLatticeReport } from '../scripts/lattice-report.mjs';
@@ -38,8 +41,8 @@ test('Observability does not commute with Storage.Write', () => {
   assert.equal(canCommute('Observability', 'Storage.Write'), false);
 });
 
-test('Observability does not commute with Network.Out', () => {
-  assert.equal(canCommute('Observability', 'Network.Out'), false);
+test('Observability commutes with Network.Out', () => {
+  assert.equal(canCommute('Observability', 'Network.Out'), true);
 });
 
 // Network.Out commutation cases
@@ -53,6 +56,22 @@ test('Network.Out commutes with Pure', () => {
 
 test('Network.Out does not commute with Storage.Write', () => {
   assert.equal(canCommute('Network.Out', 'Storage.Write'), false);
+});
+
+test('Network.Out does not commute with itself', () => {
+  assert.equal(canCommute('Network.Out', 'Network.Out'), false);
+});
+
+test('commuteSymmetric only succeeds when both directions commute', () => {
+  assert.equal(commuteSymmetric('Observability', 'Network.Out'), true);
+  assert.equal(commuteSymmetric('Network.Out', 'Storage.Write'), false);
+});
+
+test('effectRank respects declared precedence order', () => {
+  const ranks = EFFECT_PRECEDENCE.map(effectRank);
+  for (let i = 1; i < ranks.length; i += 1) {
+    assert.ok(ranks[i - 1] < ranks[i]);
+  }
 });
 
 // Parallel safety checks

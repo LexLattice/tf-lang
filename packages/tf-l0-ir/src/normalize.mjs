@@ -1,8 +1,12 @@
+import { normalizeByCommutation } from './normalize-commute.mjs';
+
 const KNOWN_PURE_PRIMS = new Set(['hash', 'serialize', 'deserialize']);
 
 export function canon(ir, laws = {}) {
   const ctx = buildLawContext(laws);
-  return normalizeNode(ir, ctx);
+  const normalized = normalizeNode(ir, ctx);
+  const catalog = extractCatalog(laws);
+  return normalizeByCommutation(normalized, catalog);
 }
 
 export function normalize(ir, laws = {}) {
@@ -227,4 +231,17 @@ function isPurePrim(node, ctx) {
   if (!name) return false;
   if (ctx?.pure?.has(name)) return true;
   return KNOWN_PURE_PRIMS.has(name);
+}
+
+function extractCatalog(lawsSpec) {
+  if (
+    lawsSpec &&
+    typeof lawsSpec === 'object' &&
+    !Array.isArray(lawsSpec) &&
+    lawsSpec.catalog &&
+    typeof lawsSpec.catalog === 'object'
+  ) {
+    return lawsSpec.catalog;
+  }
+  return {};
 }

@@ -37,10 +37,9 @@ predecessor inside a sequential composition. The rules are asymmetric because
 commutation is evaluated relative to a previous effect family:
 
 - `Pure` commutes with everything.
-- `Observability` only commutes with `Pure` and other `Observability` nodes.
-- `Network.Out` commutes with `Pure` and `Observability` nodes. The reverse is
-  *not* assumed; an observability action followed by a network write stays in
-  place until we have a proof obligation describing that swap.
+- `Observability` commutes with `Pure`, other `Observability` nodes, and
+  `Network.Out`.
+- `Network.Out` commutes with `Pure` and `Observability` nodes.
 - `Storage.Write` never commutes with another `Storage.Write` without a
   disjointness proof.
 - All other pairs are considered non-commuting for now.
@@ -50,6 +49,15 @@ question “may the second node swap with the previous one?” rather than treat
 the pair symmetrically. This mirrors how the checker annotates sequential
 children—it records whether a future pass could safely bubble the current node
 left across its predecessor.
+
+## Using the lattice in normalization
+
+The canonicalizer now includes a local commutation pass that relies on the
+lattice helpers. Adjacent `Prim` nodes inside a `Seq` are only swapped when
+`commuteSymmetric` proves the pair is safe in both directions and the precedence
+order prefers the new arrangement. The pass stops at region boundaries and never
+looks ahead beyond immediate neighbors, keeping the rewrite strictly local while
+still producing deterministic sequences.
 
 The checker simply annotates `Seq` children with a `commutes_with_prev` boolean
 so that future normalization passes can inspect the lattice decision without

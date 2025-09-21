@@ -1,0 +1,7 @@
+{
+  "footprints_rw": {
+    "writes": [
+      { "uri": "res://kv/allowed/<bucket>/:<key>" }
+    ]
+  }
+}

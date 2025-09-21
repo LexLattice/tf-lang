@@ -1,0 +1,2 @@
+{"prim_id":"tf:resource/write-object@1","args":{"uri":"res://kv/blocked/item","value":"data"}}
+{"prim_id":"tf:observability/emit-metric@1","args":{"name":"ok"}}

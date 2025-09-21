@@ -161,6 +161,8 @@ TF_CAPS='{"effects":["Network.Out","Pure"],"allow_writes_prefixes":[]}' node out
 # Summarize traces
 cat tests/fixtures/trace-sample.jsonl | node packages/tf-l0-tools/trace-summary.mjs --top=3 --pretty
 
+See [docs/l0-proofs.md](docs/l0-proofs.md) for generating SMT/Alloy proofs and downloading the CI artifacts emitted for v0.4 flows.
+
 ### Example App: Order Publish
 ```bash
 node scripts/app-order-publish.mjs

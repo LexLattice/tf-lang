@@ -74,15 +74,31 @@ function createMatcher({ prim, effect, grep }) {
       return false;
     }
     if (lowered) {
-      let tagValue = '';
-      if (record.tag !== undefined) {
-        try {
-          tagValue = typeof record.tag === 'string' ? record.tag : JSON.stringify(record.tag) ?? '';
-        } catch (error) {
-          tagValue = '';
+      const haystacks = [];
+      const collect = (value) => {
+        if (value === undefined || value === null) return;
+        if (typeof value === 'string') {
+          haystacks.push(value);
+          return;
         }
+        try {
+          const serialized = JSON.stringify(value);
+          if (serialized) haystacks.push(serialized);
+        } catch (error) {
+          // ignore serialization errors and fall back to other sources
+        }
+      };
+
+      collect(record.tag);
+      collect(record.args);
+      collect(record.payload);
+
+      if (haystacks.length === 0) {
+        return false;
       }
-      if (!tagValue || !tagValue.toLowerCase().includes(lowered)) {
+
+      const combined = haystacks.join(' ').toLowerCase();
+      if (!combined.includes(lowered)) {
         return false;
       }
     }

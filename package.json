@@ -39,7 +39,7 @@
     "contracts:baseline:capture": "node scripts/baseline-capture.mjs",
     "contracts:check-breaking": "node scripts/check-breaking.mjs",
     "policy:auth": "node packages/tf-compose/bin/tf-policy-auth.mjs",
-    "policy:auth:samples": "pnpm run policy:auth -- check examples/flows/auth_ok.tf; pnpm run policy:auth -- check examples/flows/auth_wrong_scope.tf || true; pnpm run policy:auth -- check examples/flows/auth_missing.tf || true"
+    "policy:auth:samples": "node -e \"(async()=>{const {spawnSync}=require('node:child_process');const runs=[['ok','examples/flows/auth_ok.tf'],['wrong','examples/flows/auth_wrong_scope.tf'],['missing','examples/flows/auth_missing.tf']];for(const [label,file] of runs){const r=spawnSync('node',['packages/tf-compose/bin/tf-policy-auth.mjs','--','check',file],{stdio:'inherit'}); if(r.status!==0) console.error(`[auth smoke] ${label} -> nonzero (expected for wrong/missing)`);} process.exit(0)})();\""
   },
   "devDependencies": {
     "typescript": "5.9.2",

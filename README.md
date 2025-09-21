@@ -148,6 +148,10 @@ This repo skeleton grounds A0 → B4 so builders can flesh out implementations w
 arguing about structure. It includes: IDs & versions, catalog ingest, effects/laws stubs,
 DSL+IR+canonicalizer, checker glue, and TS/Rust codegen skeletons.
 
+- Catalog: [docs/l0-catalog.md](docs/l0-catalog.md)
+- DSL Cheatsheet: [docs/l0-dsl.md](docs/l0-dsl.md)
+- Effects/Lattice: [docs/l0-effects.md](docs/l0-effects.md)
+
 ### Quick Start
 
 ```bash

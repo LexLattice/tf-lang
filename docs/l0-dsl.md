@@ -1,59 +1,154 @@
-# L0 DSL (minimal)
+# L0 DSL Cheatsheet (generated)
 
-**Grammar (subset):**
+## Basics
+
+The DSL composes primitives with the pipeline operator `|>`. A single line such as ``serialize |> hash`` creates a sequential flow.
+Use `seq{ ... }` blocks to spell out multi-line sequences. Steps inside a block are separated with semicolons (`;`).
+`par{ ... }` introduces parallel branches. Each branch is parsed like a standalone flow and must be terminated with a semicolon unless it is the final branch.
+
+## Args & Literals
+
+Arguments follow the form `prim(key=value, ...)`. Strings accept both single and double quotes and support standard escape sequences.
+Numbers accept optional leading minus signs and fractional components. Bare identifiers map to lower-cased primitive IDs or literal booleans (`true`, `false`) and `null`.
+Arrays (`[a, b, c]`) and objects (`{ key: value }`) are supported recursively, so complex payloads can be passed directly in-line.
+
+## Regions
+
+`authorize{ ... }` wraps a sub-flow that requires policy checks. Optional attributes may appear as `authorize(scope="admin"){ ... }` before the block.
+`txn{ ... }` declares a transaction region. It shares the same attribute syntax as `authorize{}` and evaluates its children sequentially.
+
+## Comments
+
+The grammar does not include line or block comments yet. Keep flows self-documenting or maintain commentary alongside the `.tf` files.
+
+## CLI usage
+
+The `tf` helper under `packages/tf-compose/bin/tf.mjs` exposes the main workflows:
+- `tf parse <flow.tf>` → parse and emit the canonical IR JSON.
+- `tf check <flow.tf>` → run the lattice-aware checker and print the verdict JSON.
+- `tf canon <flow.tf>` → normalize the IR using catalog + law data.
+- `tf emit --lang ts|rs <flow.tf>` → write language-specific scaffolding into `out/0.4/codegen-*`.
+
+## Examples
+
+### app_order_publish.tf
+
+```tf
+seq{
+  publish(topic="orders", key="o-1", payload="{}");
+  emit-metric(name="sent")
+}
 ```
-flow  := step ('|>' step)*
-step  := prim | parblock
-prim  := IDENT '(' arglist? ')' | IDENT
-parblock := 'par{' step (';' step)* '}'
 
-arglist := IDENT '=' (NUMBER | STRING | IDENT) (',' IDENT '=' (NUMBER | STRING | IDENT))*
+### auth_missing.tf
 
-Examples:
-  serialize |> hash |> sign-data(key_ref="k1")
-  par{ a(); b(x=1); c() }
+```tf
+sign-data(key="k1")
 ```
 
-## Literals
+### auth_ok.tf
 
-Arguments accept rich literal forms in addition to bare identifiers:
-
-* Numbers with optional leading `-`: `-42`, `3.14`
-* Booleans: `true`, `false`
-* `null`
-* Arrays with trailing commas allowed on input: `[1, "two", true, null, -0.5]`
-* Objects with string or identifier keys: `{name:"alice", retry:{count:2}}`
-
-Nested combinations are supported, e.g.:
-
-```
-write-object(meta={retry:{count:2, windows:[1,2,3]}}, tags=[true,false])
+```tf
+authorize(scope="kms.sign"){ sign-data(key="k1") }
 ```
 
-## Tooling
+### auth_wrong_scope.tf
 
-The CLI includes helpers for working with DSL flows:
+```tf
+authorize(scope="kms.decrypt"){ sign-data(key="k1") }
+```
 
-* `tf fmt flow.tf` reprints the flow using a canonical layout. Add `--write`/`-w` to update the file in-place. The formatter is idempotent and sorts argument keys, object members, and normalizes commas/semicolons.
-* `tf show flow.tf` prints a tree representation of the parsed IR for quick inspection.
+### emit_commute.tf
 
-The formatter quotes object keys that aren’t identifiers (such as keys with spaces or numeric names) and always produces a stable, idempotent layout.
+```tf
+emit-metric(key="ok") |> hash
+```
 
-Parse errors report a `line:col` location with a short caret span to highlight the offending range, making it easier to pinpoint syntax issues.
+### info_roundtrip.tf
 
-The canonicalizer flattens nested `Seq` blocks before applying registered algebraic laws.
-It collapses idempotent primitives, eliminates declared inverse pairs, and swaps commute-with-pure primitives across adjacent pure nodes.
-Normalization never moves steps across `Region{}` or `Par{}` boundaries, so localized effects stay fenced.
-Running the canonicalizer twice yields the same result, keeping canonical hashes deterministic.
+```tf
+serialize |> deserialize
+```
 
-## Authorize dominance check
+### manifest_publish.tf
 
-Use `authorize(scope="kms.sign"){ ... }` to wrap protected operations that require explicit scopes.
+```tf
+publish(topic="orders", key="abc", payload="{}")
+```
 
-CLI helpers:
+### manifest_storage.tf
 
-* `pnpm run policy:auth -- check examples/flows/auth_ok.tf`
-* `pnpm run policy:auth -- check --warn-unused examples/flows/auth_ok.tf`
-* `pnpm run policy:auth -- check --strict-warns examples/flows/auth_ok.tf`
+```tf
+seq{
+  write-object(uri="res://kv/bucket", key="z", value="1");
+  read-object(uri="res://kv/bucket", key="z")
+}
+```
 
-Scope requirements are bundled in `packages/tf-l0-check/rules/authorize-scopes.json`.
+### metrics_publish.tf
+
+```tf
+seq{
+  emit-metric(name="flows.processed", value=2);
+  publish(topic="flows", key="demo", payload="{\"ok\":true}")
+}
+```
+
+### net_publish.tf
+
+```tf
+authorize{ publish(topic="orders", key="abc", payload="{}") }
+```
+
+### obs_pure_EP.tf
+
+```tf
+emit-metric |> hash
+```
+
+### obs_pure_PE.tf
+
+```tf
+hash |> emit-metric
+```
+
+### par_conflict_bad.tf
+
+```tf
+par{ write-object(uri="res://kv/bucket", key="x", value="1"); write-object(uri="res://kv/bucket", key="x", value="2") }
+```
+
+### run_publish.tf
+
+```tf
+authorize{ publish(topic="events", key="event-1", payload="{}") }
+```
+
+### signing.tf
+
+```tf
+serialize |> hash |> authorize{ sign-data(key_ref="k1") }
+```
+
+### txn_fail_missing_key.tf
+
+```tf
+txn{
+  write-object(uri="res://kv/bucket", key="x", value="1")
+}
+```
+
+### txn_ok.tf
+
+```tf
+txn{
+  compare-and-swap(uri="res://kv/bucket", key="x", value="1", ifMatch=0);
+  write-object(uri="res://kv/bucket", key="y", value="2", idempotency_key="abc-123")
+}
+```
+
+### write_outside_txn.tf
+
+```tf
+write-object(uri="res://kv/bucket", key="z", value="3")
+```

@@ -17,6 +17,12 @@ node scripts/proofs-emit-all.mjs
 pnpm run proofs:emit
 ```
 
+For a single-shot rebuild plus directory listing, run:
+
+```bash
+pnpm -w -r build && node scripts/proofs-emit-all.mjs && tree out/0.4/proofs
+```
+
 The outputs land under `out/0.4/proofs/` alongside a deterministic `index.json` manifest.
 
 ## Law obligations
@@ -90,12 +96,8 @@ Use the default scope or supply one (for example, run the CLI with `--scope 6`) 
 
 ## CI artifacts
 
-The **L0 Proof Artifacts** workflow runs on every pull request (and via manual dispatch). It installs the workspace, executes `pnpm run a0`, `pnpm run a1`, builds the packages, and invokes `node scripts/proofs-emit-all.mjs`. The resulting bundle is uploaded as an artifact named `l0-proofs`.
+- **Workflow**: L0 Proof Artifacts
+- **Artifact name**: `l0-proofs`
+- **Files**: Alloy encodings (`*.als`), SMT structural encodings (`*.smt2`), the `laws/` and `props/` folders, and `index.json`
 
-To download the proofs:
-
-1. Open the pull request and expand the **L0 Proof Artifacts** check.
-2. Scroll to the **Artifacts** section and download `l0-proofs.zip`.
-3. Extract the archive to access the Alloy, SMT structural, SMT law, and SMT property files under `out/0.4/proofs/`.
-
-CI does not invoke Alloy or Z3. Run `z3 -smt2 <file>` locally for SMT obligations, or open the `.als` files in Alloy Analyzer if you want solver results.
+Download from the PR checks page by expanding **L0 Proof Artifacts**, opening **Artifacts**, and grabbing `l0-proofs.zip`. CI does not invoke Alloy or Z3; run `z3 -smt2 <file>` locally or open the `.als` models in Alloy Analyzer if solver output is needed.

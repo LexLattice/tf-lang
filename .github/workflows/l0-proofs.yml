@@ -31,7 +31,7 @@ jobs:
       - name: List artifacts
         run: |
           echo "::group::proof files"
-          find out/0.4/proofs -maxdepth 3 -type f -print
+          find out/0.4/proofs -type f -print
           echo "::endgroup::"
 
       - name: Upload proof artifacts

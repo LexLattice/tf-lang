@@ -3,7 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { hashJsonLike } from './hash-jsonl.mjs';
+import { canonicalStringify, hashJsonLike } from './hash-jsonl.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(here, '..');
@@ -16,6 +16,7 @@ const targets = [
   { name: 'frames', file: 'frames.ndjson' },
   { name: 'orders', file: 'orders.ndjson' },
   { name: 'fills', file: 'fills.ndjson' },
+  { name: 'metrics', file: 'metrics.ndjson' },
   { name: 'state', file: 'state.json' },
 ];
 
@@ -39,7 +40,7 @@ async function computeHashes() {
 async function main() {
   await mkdir(reportDir, { recursive: true });
   const report = await computeHashes();
-  await writeFile(reportPath, JSON.stringify(report, null, 2) + '\n');
+  await writeFile(reportPath, canonicalStringify(report) + '\n');
   if (report.equal) {
     console.log('pilot-full-parity: artifacts match');
   } else {

@@ -43,6 +43,7 @@ async function main() {
   await writeFile(join(outDir, 'frames.ndjson'), toNdjson(outputs.frames));
   await writeFile(join(outDir, 'orders.ndjson'), toNdjson(outputs.orders));
   await writeFile(join(outDir, 'fills.ndjson'), toNdjson(outputs.fills));
+  await writeFile(join(outDir, 'metrics.ndjson'), toNdjson(outputs.riskMetrics));
   await writeFile(join(outDir, 'state.json'), toJson(outputs.state));
 
   console.log('t5-build-run: completed artifacts in', outDir);

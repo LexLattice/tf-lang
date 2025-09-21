@@ -10,6 +10,7 @@ import {
   canonFrame,
   assertValidState,
 } from '../../packages/pilot-core/dist/index.js';
+import { canonicalStringify } from '../hash-jsonl.mjs';
 
 export const DEFAULT_INPUT = 'tests/data/ticks-mini.csv';
 export const DEFAULT_SLICE = '0:50:1';
@@ -242,12 +243,12 @@ function decimalToString(decimal) {
 }
 
 export function toNdjson(items) {
-  const lines = (items ?? []).map((item) => JSON.stringify(item));
-  return lines.join('\n') + (lines.length ? '\n' : '');
+  const lines = (items ?? []).map((item) => canonicalStringify(item));
+  return lines.join('\n') + '\n';
 }
 
 export function toJson(value) {
-  return JSON.stringify(value, null, 2) + '\n';
+  return canonicalStringify(value) + '\n';
 }
 
 export function collectPilotOutputs({ frames, momentumOrders, meanReversionOrders, riskMetrics, fills, state }) {

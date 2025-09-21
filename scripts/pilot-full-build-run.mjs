@@ -2,7 +2,7 @@
 import { spawnSync } from 'node:child_process';
 import { mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { copyFileSync } from 'node:fs';
-import { join, dirname, isAbsolute } from 'node:path';
+import { join, dirname, isAbsolute, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { canonicalStringify, hashJsonLike } from './hash-jsonl.mjs';
@@ -14,6 +14,11 @@ const here = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(here, '..');
 const FIXED_TS = process.env.TF_FIXED_TS || '1750000000000';
 const baseEnv = { ...process.env, TF_FIXED_TS: String(FIXED_TS) };
+
+if (process.env.TF_PILOT_FULL !== '1') {
+  console.log('pilot-full-build-run: TF_PILOT_FULL not set, skipping');
+  process.exit(0);
+}
 
 const tfCompose = join(rootDir, 'packages', 'tf-compose', 'bin', 'tf.mjs');
 const tfManifest = join(rootDir, 'packages', 'tf-compose', 'bin', 'tf-manifest.mjs');
@@ -63,7 +68,7 @@ function rewriteManifest(manifestPath) {
     ];
     manifest.footprints = writes;
     manifest.footprints_rw = { reads: [], writes };
-    return writeFile(manifestPath, JSON.stringify(manifest, null, 2) + '\n').then(() => manifest);
+    return writeFile(manifestPath, canonicalStringify(manifest) + '\n').then(() => manifest);
   });
 }
 
@@ -99,6 +104,23 @@ function createDeterministicClock(epochMs = FIXED_TS, stepMs = 1) {
       return value;
     },
   };
+}
+
+function canonicalizeTrace(raw) {
+  const lines = raw.split(/\r?\n/);
+  const canonicalLines = [];
+  for (const rawLine of lines) {
+    const trimmed = rawLine.trim();
+    if (!trimmed) continue;
+    let parsed;
+    try {
+      parsed = JSON.parse(trimmed);
+    } catch (err) {
+      throw new Error('pilot-full-build-run: unable to parse trace line');
+    }
+    canonicalLines.push(canonicalStringify(parsed));
+  }
+  return canonicalLines.join('\n') + '\n';
 }
 
 async function runGeneratedRunner(genDir, capsPath, statusPath, tracePath) {
@@ -147,8 +169,10 @@ async function main() {
   const framesPath = join(outDir, 'frames.ndjson');
   const ordersPath = join(outDir, 'orders.ndjson');
   const fillsPath = join(outDir, 'fills.ndjson');
+  const metricsPath = join(outDir, 'metrics.ndjson');
   const statePath = join(outDir, 'state.json');
   const catalogPath = join(outDir, 'catalog.json');
+  const relPath = (value) => relative(rootDir, value);
 
   await removeIfExists(codegenDir);
   await removeIfExists(statusPath);
@@ -157,6 +181,7 @@ async function main() {
   await removeIfExists(framesPath);
   await removeIfExists(ordersPath);
   await removeIfExists(fillsPath);
+  await removeIfExists(metricsPath);
   await removeIfExists(statePath);
 
   await mkdir(codegenDir, { recursive: true });
@@ -171,42 +196,65 @@ async function main() {
   const manifestHash = sha256OfCanonicalJson(manifest);
 
   sh('node', [tfCompose, 'emit', '--lang', 'ts', flowPath, '--out', codegenDir]);
-  await writeFile(join(codegenDir, 'caps.json'), JSON.stringify({
-    effects: ['Storage.Read', 'Storage.Write', 'Network.Out', 'Observability', 'Pure'],
-    allow_writes_prefixes: ['res://pilot-full/'],
-  }, null, 2) + '\n');
+  await writeFile(
+    join(codegenDir, 'caps.json'),
+    canonicalStringify({
+      effects: ['Storage.Read', 'Storage.Write', 'Network.Out', 'Observability', 'Pure'],
+      allow_writes_prefixes: ['res://pilot-full/'],
+    }) + '\n',
+  );
 
-  await writeFile(catalogPath, await readFile(specCatalogPath, 'utf8'));
+  const catalogRaw = await readFile(specCatalogPath, 'utf8');
+  const catalogJson = JSON.parse(catalogRaw);
+  await writeFile(catalogPath, canonicalStringify(catalogJson) + '\n');
 
   await patchRunFile(join(codegenDir, 'run.mjs'), manifest, manifestHash, irHash);
 
   const mod = await runGeneratedRunner(codegenDir, join(codegenDir, 'caps.json'), statusPath, tracePath);
   const runtime = mod?.RUNTIME;
   const outputs = extractPilotOutputs(runtime) ?? {};
-
-  if (outputs.frames) {
-    await writeFile(framesPath, toNdjson(outputs.frames));
-  }
-  if (outputs.orders) {
-    await writeFile(ordersPath, toNdjson(outputs.orders));
-  }
-  if (outputs.fills) {
-    await writeFile(fillsPath, toNdjson(outputs.fills));
-  }
-  if (outputs.state) {
-    await writeFile(statePath, toJson(outputs.state));
-  }
+  await writeFile(framesPath, toNdjson(outputs.frames ?? []));
+  await writeFile(ordersPath, toNdjson(outputs.orders ?? []));
+  await writeFile(fillsPath, toNdjson(outputs.fills ?? []));
+  await writeFile(metricsPath, toNdjson(outputs.riskMetrics ?? []));
+  await writeFile(statePath, toJson(outputs.state ?? null));
 
   const traceRaw = await readFile(tracePath, 'utf8');
   if (!traceRaw.trim()) {
     throw new Error('pilot-full-build-run: empty trace output');
   }
+  const canonicalTrace = canonicalizeTrace(traceRaw);
+  await writeFile(tracePath, canonicalTrace);
+
   const status = JSON.parse(await readFile(statusPath, 'utf8'));
-  status.manifest_path = manifestPath;
-  await writeFile(statusPath, JSON.stringify(status, null, 2) + '\n');
+  status.manifest_path = relPath(manifestPath);
+
+  const framesDigest = await hashJsonLike(framesPath);
+  const ordersDigest = await hashJsonLike(ordersPath);
+  const fillsDigest = await hashJsonLike(fillsPath);
+  const metricsDigest = await hashJsonLike(metricsPath);
+  const ledgerDigest = await hashJsonLike(statePath);
+  const irDigest = await hashJsonLike(irPath);
+  const catalogDigest = await hashJsonLike(catalogPath);
+
+  status.artifacts = {
+    frames: { path: relPath(framesPath), sha256: framesDigest },
+    orders: { path: relPath(ordersPath), sha256: ordersDigest },
+    fills: { path: relPath(fillsPath), sha256: fillsDigest },
+    metrics: { path: relPath(metricsPath), sha256: metricsDigest },
+    ledger: { path: relPath(statePath), sha256: ledgerDigest },
+  };
+  status.provenance = {
+    ...(status.provenance ?? {}),
+    ir_hash: irDigest,
+    catalog_hash: catalogDigest,
+  };
+
+  const canonicalStatus = canonicalStringify(status);
+  await writeFile(statusPath, canonicalStatus + '\n');
 
   const summaryProc = spawnSync('node', [traceSummary], {
-    input: traceRaw,
+    input: canonicalTrace,
     encoding: 'utf8',
     env: baseEnv,
   });
@@ -217,21 +265,28 @@ async function main() {
   const canonicalSummary = canonicalStringify(summaryJson);
   await writeFile(summaryPath, canonicalSummary + '\n');
 
+  const statusDigest = await hashJsonLike(statusPath);
+  const traceDigest = await hashJsonLike(tracePath);
+  const summaryDigest = await hashJsonLike(summaryPath);
+  const canonDigest = await hashJsonLike(canonPath);
+  const manifestDigest = await hashJsonLike(manifestPath);
+
   const digests = {
-    status: await hashJsonLike(statusPath),
-    trace: await hashJsonLike(tracePath),
-    summary: await hashJsonLike(summaryPath),
-    frames: await hashJsonLike(framesPath),
-    orders: await hashJsonLike(ordersPath),
-    fills: await hashJsonLike(fillsPath),
-    state: await hashJsonLike(statePath),
-    ir: await hashJsonLike(irPath),
-    canon: await hashJsonLike(canonPath),
-    manifest: await hashJsonLike(manifestPath),
-    catalog: await hashJsonLike(catalogPath),
+    status: statusDigest,
+    trace: traceDigest,
+    summary: summaryDigest,
+    frames: framesDigest,
+    orders: ordersDigest,
+    fills: fillsDigest,
+    metrics: metricsDigest,
+    state: ledgerDigest,
+    ir: irDigest,
+    canon: canonDigest,
+    manifest: manifestDigest,
+    catalog: catalogDigest,
   };
 
-  await writeFile(join(outDir, 'digests.json'), JSON.stringify(digests, null, 2) + '\n');
+  await writeFile(join(outDir, 'digests.json'), canonicalStringify(digests) + '\n');
 
   copyFileSync(statusPath, join(codegenDir, 'status.json'));
 

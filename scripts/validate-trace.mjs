@@ -1,68 +1,48 @@
 #!/usr/bin/env node
-import { createInterface } from 'node:readline';
-import { stdin } from 'node:process';
-import { readFile } from 'node:fs/promises';
-import Ajv from 'ajv/dist/2020.js';
+// scripts/validate-trace.mjs
+import fs from 'node:fs';
+import { readFileSync } from 'node:fs';
+import readline from 'node:readline';
+import path from 'node:path';
+import url from 'node:url';
+import Ajv2020 from 'ajv/dist/2020.js';
 
-const schema = JSON.parse(await readFile(new URL('../schemas/trace.v0.4.schema.json', import.meta.url), 'utf8'));
-const ajv = new Ajv({ strict: true, allErrors: true });
+const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
+const schemaPath = path.resolve(__dirname, '../schemas/trace.v0.4.schema.json');
+
+const schema = JSON.parse(readFileSync(schemaPath, 'utf8'));
+const ajv = new Ajv2020({ allErrors: true, strict: true });
 const validate = ajv.compile(schema);
 
-const rl = createInterface({ input: stdin, crlfDelay: Infinity });
+const rl = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
 
-let total = 0;
-let invalid = 0;
-const examples = [];
-let lineNumber = 0;
+let lineNo = 0;
+let ok = true;
 
-function formatError(err) {
-  if (!err) return 'invalid record';
-  if (err.keyword === 'required' && err.params?.missingProperty) {
-    return `${err.params.missingProperty} is required`;
-  }
-  if (err.keyword === 'type' && err.params?.type) {
-    const path = err.instancePath ? `${err.instancePath} ` : '';
-    return `${path}must be ${err.params.type}`.trim();
-  }
-  if (err.instancePath) {
-    return `${err.instancePath} ${err.message}`.trim();
-  }
-  return err.message || 'invalid record';
-}
+const errors = [];
 
-for await (const rawLine of rl) {
-  lineNumber += 1;
-  if (rawLine.trim() === '') {
-    continue;
-  }
-  total += 1;
-  let parsed;
+for await (const line of rl) {
+  lineNo++;
+  const trimmed = line.trim();
+  if (!trimmed) continue; // allow blank lines
+  let obj;
   try {
-    parsed = JSON.parse(rawLine);
-  } catch (err) {
-    invalid += 1;
-    if (examples.length < 3) {
-      examples.push({ line: lineNumber, error: `JSON parse error: ${err.message}` });
-    }
+    obj = JSON.parse(trimmed);
+  } catch (e) {
+    ok = false;
+    errors.push({ line: lineNo, error: `invalid JSON: ${e.message}` });
     continue;
   }
-  const ok = validate(parsed);
-  if (!ok) {
-    invalid += 1;
-    if (examples.length < 3 && Array.isArray(validate.errors) && validate.errors.length > 0) {
-      const err = validate.errors[0];
-      examples.push({ line: lineNumber, error: formatError(err) });
-    } else if (examples.length < 3) {
-      examples.push({ line: lineNumber, error: 'invalid record' });
-    }
+  const valid = validate(obj);
+  if (!valid) {
+    ok = false;
+    errors.push({ line: lineNo, error: ajv.errorsText(validate.errors, { separator: '; ' }) });
   }
 }
 
-const summary = invalid === 0
-  ? { ok: true, total, invalid: 0 }
-  : { ok: false, total, invalid, examples };
-
-process.stdout.write(`${JSON.stringify(summary)}\n`);
-if (invalid > 0) {
-  process.exitCode = 1;
+if (!ok) {
+  console.error(JSON.stringify({ ok, errors }, null, 2));
+  process.exit(1);
+} else {
+  console.log(JSON.stringify({ ok: true, lines: lineNo }));
 }

@@ -20,22 +20,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Node (reads toolchain/.node-version)
-      - uses: actions/setup-node@v4
+      # Unified Node+pnpm setup used elsewhere in this repo
+      - uses: ./.github/actions/setup-pnpm
         with:
-          node-version-file: 'toolchain/.node-version'
-          cache: 'pnpm'
-          cache-dependency-path: |
-            pnpm-lock.yaml
-            **/pnpm-lock.yaml
-
-      # >>> This is the missing piece in CI <<<
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.16.1
-
-      - name: Install
-        run: pnpm -w -r install --frozen-lockfile
+          node-version: '20'
+          install: 'true'
+          frozen: 'true'
 
       - name: A0
         run: pnpm run a0

@@ -5,3 +5,7 @@
 {"prim_id":"tf:service/generate-report@1","effect":"Pure","tag":{"report":"daily-summary"},"payload":{"duration_ms":210}}
 {"prim_id":"tf:service/log-metric@1","effect":"Observability","tag":{"metric":"orders_processed","value":42},"payload":{}}
 {"prim_id":"tf:service/calculate-tax@1","effect":"Pure","tag":"tax:ORDERS:calc","payload":{"region":"EU"}}
+
+{"ts": 1758319451311, "region": "/acct", "prim_id": "tf:observability/emit-metric@1", "effect": "Observability", "args": {"name":"orders.published","value":1}}
+{"ts": 1758319451314, "region": "/acct/0", "prim_id": "tf:network/publish@1", "effect": "Network.Out", "args": {"topic":"orders","key":"ORD-1","payload":"{\"id\":\"1\"}"}}
+{"ts": 1758319451316, "region": "/acct/1", "prim_id": "tf:pure/identity@1", "effect": "Pure", "args": {}}

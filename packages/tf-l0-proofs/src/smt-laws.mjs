@@ -1,6 +1,9 @@
 const SORTS = {
   Val: { arity: 0 },
   Bytes: { arity: 0 },
+  URI: { arity: 0 },
+  Key: { arity: 0 },
+  IdKey: { arity: 0 }
 };
 
 const FUNCTIONS = {
@@ -8,35 +11,54 @@ const FUNCTIONS = {
   S: { domain: ['Val'], codomain: 'Bytes' },
   D: { domain: ['Bytes'], codomain: 'Val' },
   E: { domain: ['Val'], codomain: 'Val' },
+  W: { domain: ['URI', 'Key', 'IdKey', 'Val'], codomain: 'Val' }
 };
 
 const LAW_DEFINITIONS = {
+  'commute:emit-metric-with-pure': {
+    sorts: ['Val'],
+    functions: ['E', 'H'],
+    axioms: ['(assert (forall ((x Val)) (= (E (H x)) (H (E x)))))']
+  },
   'idempotent:hash': {
     sorts: ['Val'],
     functions: ['H'],
-    axioms: ['(assert (forall ((x Val)) (= (H (H x)) (H x))))'],
+    axioms: ['(assert (forall ((x Val)) (= (H (H x)) (H x))))']
+  },
+  'idempotent:write-by-key': {
+    sorts: ['URI', 'Key', 'IdKey', 'Val'],
+    functions: ['W'],
+    axioms: [
+      '(declare-const x Val)',
+      '(declare-const u URI)',
+      '(declare-const k Key)',
+      '(declare-const ik IdKey)',
+      '(declare-const v Val)',
+      '(define-fun once ((x Val) (u URI) (k Key) (ik IdKey) (v Val)) Val (W u k ik v))',
+      '(define-fun twice ((x Val) (u URI) (k Key) (ik IdKey) (v Val)) Val (W u k ik v))',
+      '(assert (not (= (twice x u k ik v) (once x u k ik v))))'
+    ]
   },
   'inverse:serialize-deserialize': {
     sorts: ['Val', 'Bytes'],
     functions: ['S', 'D'],
     axioms: [
       '(assert (forall ((v Val)) (= (D (S v)) v)))',
-      '(assert (forall ((b Bytes)) (= (S (D b)) b)))',
-    ],
-  },
-  'commute:emit-metric-with-pure': {
-    sorts: ['Val'],
-    functions: ['E', 'H'],
-    axioms: ['(assert (forall ((x Val)) (= (E (H x)) (H (E x)))))'],
-  },
+      '(assert (forall ((b Bytes)) (= (S (D b)) b)))'
+    ]
+  }
 };
 
 const OPERATION_DEFINITIONS = {
   hash: { symbol: 'H', domain: 'Val', codomain: 'Val' },
   serialize: { symbol: 'S', domain: 'Val', codomain: 'Bytes' },
   deserialize: { symbol: 'D', domain: 'Bytes', codomain: 'Val' },
-  'emit-metric': { symbol: 'E', domain: 'Val', codomain: 'Val' },
+  'emit-metric': { symbol: 'E', domain: 'Val', codomain: 'Val' }
 };
+
+export function listLawNames() {
+  return Object.keys(LAW_DEFINITIONS).sort();
+}
 
 export function emitLaw(law, opts = {}) {
   const definition = LAW_DEFINITIONS[law];
@@ -174,7 +196,7 @@ function analyzeFlow(flow) {
         expr = `(${symbol} ${expr})`;
       }
       return expr;
-    },
+    }
   };
 }
 

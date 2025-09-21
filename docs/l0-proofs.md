@@ -36,6 +36,20 @@ node scripts/emit-smt-laws.mjs --equiv examples/flows/info_roundtrip.tf examples
   -o out/0.4/proofs/laws/roundtrip_equiv.smt2
 ```
 
+For the full deterministic suite (idempotent hash, round-trip serialization, write idempotent-by-key, and commute), run:
+
+```bash
+node scripts/emit-smt-laws-suite.mjs -o out/0.4/proofs/laws
+```
+
+The suite covers pragmatic laws used by the checker and normalizer:
+
+- Hash idempotency (`H ∘ H = H`).
+- Serialize/deserialize round-trips in both directions.
+- Write idempotency by key (duplicate keyed writes collapse).
+- Metric emission commutes with pure hashing.
+
+
 The generated files assert the relevant axioms, compare symbolic outputs, and end with `(check-sat)`. CI does not invoke an SMT solver—these files are produced for human review and audit trails alongside our Alloy exports.
 
 Current obligations are structural over uninterpreted functions and deliberately ignore primitive arguments. They justify algebraic rewrites (idempotency, inverse, commutation) rather than semantic equality of parameterized calls. We plan to model arguments later—likely by indexing symbols—but that work is outside D2’s scope.
@@ -93,6 +107,18 @@ Open the generated `.als` files in [Alloy Analyzer](https://alloytools.org/). Th
 - `run { all p: Par | NoConflict[p] }` checks that no conflict occurs.
 
 Use the default scope or supply one (for example, run the CLI with `--scope 6`) if you want Alloy to consider more nodes.
+
+### Authorize dominance models
+
+Emit dedicated models for authorize scope coverage with the helper script:
+
+```bash
+node scripts/emit-alloy-auth.mjs examples/flows/auth_missing.tf -o out/0.4/proofs/auth/missing.als
+node scripts/emit-alloy-auth.mjs examples/flows/auth_ok.tf      -o out/0.4/proofs/auth/ok.als
+```
+
+These encodings focus on the `MissingAuth` predicate, which signals protected prims that appear outside a matching `Authorize{scope}` block or use the wrong scope. `Dominates` and `Covered` predicate definitions surface the dominance relationship and scope matching so the Alloy Analyzer can produce counterexamples (SAT) or prove coverage (UNSAT).
+
 
 ## CI artifacts
 

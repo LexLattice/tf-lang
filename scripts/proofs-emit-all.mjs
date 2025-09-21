@@ -55,6 +55,11 @@ emit(
   ['--law', 'idempotent:hash']
 );
 emit(
+  'laws/write_idempotent_by_key.smt2',
+  join(scriptsDir, 'emit-smt-laws.mjs'),
+  ['--law', 'idempotent:write-by-key']
+);
+emit(
   'laws/inverse_roundtrip.smt2',
   join(scriptsDir, 'emit-smt-laws.mjs'),
   ['--law', 'inverse:serialize-deserialize']

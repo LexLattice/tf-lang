@@ -14,22 +14,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup pnpm + Node
+        uses: ./.github/actions/setup-pnpm
         with:
-          node-version: 20
-          cache: pnpm
+          node-version: '20'
+          install: 'true'
+          frozen: 'true'
           cache-dependency-path: |
             pnpm-lock.yaml
             **/pnpm-lock.yaml
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.16.1
-
-      - name: Install dependencies
-        run: pnpm -w -r install --frozen-lockfile
 
       - name: Prepare catalogs (A0/A1)
         run: |

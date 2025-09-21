@@ -161,6 +161,16 @@ TF_CAPS='{"effects":["Network.Out","Pure"],"allow_writes_prefixes":[]}' node out
 # Summarize traces
 cat tests/fixtures/trace-sample.jsonl | node packages/tf-l0-tools/trace-summary.mjs --top=3 --pretty
 
+### Example App: Order Publish
+
+Capability-gated runner writes `/tmp/caps.order.json` with `{"effects":["Network.Out","Observability","Pure"],"allow_writes_prefixes":[]}`.
+It emits TypeScript from `examples/flows/app_order_publish.tf`, runs with the in-memory runtime, and records status + trace artifacts.
+```bash
+node scripts/app-order-publish.mjs
+cat out/0.4/apps/order_publish/summary.json | jq .
+```
+Inspect the pretty summary to confirm publish counts and Network.Out coverage enforced by the manifest.
+
 # Generate capability manifest
 node packages/tf-compose/bin/tf-manifest.mjs examples/flows/manifest_publish.tf
 node packages/tf-compose/bin/tf-manifest.mjs examples/flows/manifest_storage.tf -o out/0.4/manifests/storage.json

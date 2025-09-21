@@ -1,0 +1,54 @@
+name: L0 proof artifacts
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+jobs:
+  emit:
+    name: Emit L0 proofs
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            **/pnpm-lock.yaml
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.16.1
+
+      - name: Install dependencies
+        run: pnpm -w -r install --frozen-lockfile
+
+      - name: Prepare catalogs (A0/A1)
+        run: |
+          pnpm run a0
+          pnpm run a1
+
+      - name: Emit SMT encodings
+        run: |
+          node scripts/emit-smt.mjs examples/flows/storage_conflict.tf -o out/0.4/proofs/storage_conflict.smt2
+          node scripts/emit-smt.mjs examples/flows/storage_ok.tf -o out/0.4/proofs/storage_ok.smt2
+
+      - name: Emit Alloy models
+        run: |
+          node scripts/emit-alloy.mjs examples/flows/storage_conflict.tf -o out/0.4/proofs/storage_conflict.als
+          node scripts/emit-alloy.mjs examples/flows/storage_ok.tf -o out/0.4/proofs/storage_ok.als
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: l0-proofs
+          path: out/0.4/proofs/**
+          if-no-files-found: error

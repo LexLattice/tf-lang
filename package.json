@@ -25,6 +25,8 @@
     "tf": "node packages/tf-compose/bin/tf.mjs",
     "codegen:rs:signing": "node scripts/generate-rs.mjs out/0.4/ir/signing.ir.json -o out/0.4/codegen-rs/signing",
     "trace:filter": "node packages/tf-l0-tools/trace-filter.mjs",
+    "traces:validate": "node scripts/validate-trace.mjs",
+    "traces:sample": "node packages/tf-l0-tools/trace-summary.mjs --top=5 --pretty < tests/fixtures/trace-sample.jsonl",
     "validate:ids": "node scripts/validate-ids.mjs",
     "validate:catalog": "node scripts/validate-catalog.mjs",
     "lint:catalog": "node scripts/lint-catalog.mjs",

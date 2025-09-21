@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meta-ontology.local/schemas/trace.v0.4.schema.json",
+  "title": "T3 Trace Event",
+  "description": "Trace event emitted by the TF runtime (one JSON object per line).",
+  "type": "object",
+  "required": ["ts", "prim_id", "args", "region", "effect"],
+  "properties": {
+    "ts": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Monotonic timestamp in milliseconds since epoch."
+    },
+    "prim_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Canonical primitive identifier or known alias."
+    },
+    "args": {
+      "type": "object",
+      "description": "Arguments passed to the primitive invocation."
+    },
+    "region": {
+      "type": "string",
+      "description": "Region path for the primitive (e.g., '/acct') or empty when unspecified."
+    },
+    "effect": {
+      "type": "string",
+      "description": "Effect name inferred for the primitive invocation."
+    }
+  },
+  "additionalProperties": true
+}

@@ -165,6 +165,13 @@ TF_CAPS='{"effects":["Network.Out","Pure"],"allow_writes_prefixes":[]}' node out
 # Summarize traces
 cat tests/fixtures/trace-sample.jsonl | node packages/tf-l0-tools/trace-summary.mjs --top=3 --pretty
 
+### Trace files (T3)
+- Runners always print JSON trace lines to stdout; setting `TF_TRACE_PATH=out/0.4/traces/<name>.jsonl` is an optional mirror.
+- Per run: `TF_TRACE_PATH=out/0.4/traces/publish.jsonl node out/0.4/codegen-ts/run_publish/run.mjs --caps caps.json`.
+- Multi-run append: reuse the same `TF_TRACE_PATH` for later invocations (even in one process) and each call appends more JSON.
+- Records follow `schemas/trace.v0.4.schema.json`, so existing tooling keeps working.
+- Validate: `cat file.jsonl | node scripts/validate-trace.mjs`.
+
 See [docs/l0-proofs.md](docs/l0-proofs.md) for generating SMT/Alloy proofs and downloading the CI artifacts emitted for v0.4 flows.
 
 ### Example App: Order Publish

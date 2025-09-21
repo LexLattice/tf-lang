@@ -1,4 +1,62 @@
+import { createWriteStream, mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { validateCapabilities } from './capabilities.mjs';
+
+function createTraceWriter(tracePath) {
+  if (!tracePath) {
+    return null;
+  }
+
+  try {
+    mkdirSync(dirname(tracePath), { recursive: true });
+  } catch (err) {
+    console.warn('tf run-ir: unable to prepare trace directory', err);
+  }
+
+  let stream;
+  try {
+    stream = createWriteStream(tracePath, { flags: 'a' });
+  } catch (err) {
+    console.warn('tf run-ir: unable to open trace file, falling back to stdout only', err);
+    return null;
+  }
+
+  let warned = false;
+  let writable = true;
+
+  const handleError = (err) => {
+    if (!warned) {
+      warned = true;
+      console.warn('tf run-ir: trace writer disabled after error', err);
+    }
+    writable = false;
+  };
+
+  stream.once('error', handleError);
+
+  return {
+    write(line) {
+      if (!writable || !stream || stream.destroyed || stream.writableEnded) {
+        return;
+      }
+      try {
+        stream.write(line);
+      } catch (err) {
+        handleError(err);
+      }
+    },
+    async close() {
+      if (!stream || stream.destroyed || stream.writableEnded) {
+        return;
+      }
+      await new Promise((resolve) => {
+        const done = () => resolve();
+        stream.once('error', done);
+        stream.end(() => resolve());
+      });
+    },
+  };
+}
 
 let clockWarned = false;
 
@@ -92,10 +150,23 @@ async function execNode(node, runtime, ctx, input) {
       ctx.ops += 1;
       const result = await adapter(args, runtime?.state ?? {});
       const effect = effectFor(runtime, node.prim) ?? effectFor(runtime, primId);
+      const region = typeof node.meta?.region === 'string' ? node.meta.region : '';
+      let effectTag = '';
+      if (typeof effect === 'string') {
+        effectTag = effect;
+      } else if (typeof node.meta?.effect === 'string') {
+        effectTag = node.meta.effect;
+      } else if (Array.isArray(node.meta?.effects)) {
+        const first = node.meta.effects.find((entry) => typeof entry === 'string');
+        if (first) effectTag = first;
+      }
       if (effect) recordEffects(ctx.effects, effect);
       if (node.meta?.effect) recordEffects(ctx.effects, node.meta.effect);
       if (node.meta?.effects) recordEffects(ctx.effects, node.meta.effects);
-      console.log(JSON.stringify({ prim_id: primId, args, ts }));
+      const emit = ctx.emit;
+      if (typeof emit === 'function') {
+        emit({ ts, prim_id: primId, args, region, effect: effectTag });
+      }
       const ok = normalizeOk(result?.ok);
       return { value: result, ok };
     }
@@ -137,14 +208,36 @@ async function execNode(node, runtime, ctx, input) {
 }
 
 export async function runIR(ir, runtime, options = {}) {
-  const ctx = { effects: new Set(), ops: 0 };
-  const { value, ok } = await execNode(ir, runtime, ctx, options.input);
-  return {
-    ok: normalizeOk(ok),
-    result: value,
-    ops: ctx.ops,
-    effects: Array.from(ctx.effects).sort(),
+  const writer = createTraceWriter(process.env.TF_TRACE_PATH);
+  const emit = (rec) => {
+    const entry = {
+      ts: rec.ts,
+      prim_id: rec.prim_id,
+      args: rec.args,
+      region: rec.region,
+      effect: rec.effect,
+    };
+    const line = JSON.stringify(entry);
+    console.log(line);
+    if (writer) {
+      writer.write(`${line}\n`);
+    }
   };
+
+  const ctx = { effects: new Set(), ops: 0, emit };
+  try {
+    const { value, ok } = await execNode(ir, runtime, ctx, options.input);
+    return {
+      ok: normalizeOk(ok),
+      result: value,
+      ops: ctx.ops,
+      effects: Array.from(ctx.effects).sort(),
+    };
+  } finally {
+    if (writer) {
+      await writer.close();
+    }
+  }
 }
 
 export async function runWithCaps(ir, runtime, caps, manifest) {

@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { strict as assert } from 'node:assert';
 
-test('pilot_min flow runs and summarizes deterministically', () => {
+test('pilot_min flow runs and summarizes deterministically', { concurrency: false }, () => {
   const run = () => spawnSync('node', ['scripts/pilot-min.mjs'], { stdio: 'inherit' });
 
   const first = run();

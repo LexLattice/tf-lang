@@ -16,6 +16,7 @@
     "test:workspace": "pnpm run --recursive test",
     "test:l0": "node --test tests/*.test.mjs",
     "test": "pnpm run test:workspace && pnpm run test:l0",
+    "pilot:build-run": "node scripts/pilot-build-run.mjs",
     "a0": "node packages/tf-l0-spec/scripts/build-ids.mjs && node packages/tf-l0-spec/scripts/finalize-a0.mjs",
     "a1": "node packages/tf-l0-spec/scripts/build-catalog.mjs && node packages/tf-l0-spec/scripts/derive-effects.mjs && node packages/tf-l0-spec/scripts/build-laws.mjs && node packages/tf-l0-spec/scripts/finalize-a1.mjs",
     "a1:summary": "node scripts/effects-summary.mjs",

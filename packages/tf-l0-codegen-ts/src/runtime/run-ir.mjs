@@ -2,6 +2,34 @@ import { createWriteStream, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { validateCapabilities } from './capabilities.mjs';
 
+function sanitizeProvenance(value) {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const sanitized = {};
+  if (typeof value.ir_hash === 'string' && value.ir_hash) {
+    sanitized.ir_hash = value.ir_hash;
+  }
+  if (typeof value.manifest_hash === 'string' && value.manifest_hash) {
+    sanitized.manifest_hash = value.manifest_hash;
+  }
+  if (typeof value.catalog_hash === 'string' && value.catalog_hash) {
+    sanitized.catalog_hash = value.catalog_hash;
+  }
+  if (typeof value.caps_source === 'string' && value.caps_source) {
+    sanitized.caps_source = value.caps_source;
+  }
+  if (Array.isArray(value.caps_effects)) {
+    const filtered = value.caps_effects.filter((entry) => typeof entry === 'string');
+    const unique = Array.from(new Set(filtered));
+    unique.sort();
+    sanitized.caps_effects = unique;
+  } else if ('caps_effects' in value) {
+    sanitized.caps_effects = [];
+  }
+  return Object.keys(sanitized).length > 0 ? sanitized : null;
+}
+
 function createTraceWriter(tracePath) {
   if (!tracePath) {
     return null;
@@ -209,6 +237,10 @@ async function execNode(node, runtime, ctx, input) {
 
 export async function runIR(ir, runtime, options = {}) {
   const writer = createTraceWriter(process.env.TF_TRACE_PATH);
+  const provenance = sanitizeProvenance(options.provenance);
+  const shouldEmitMeta =
+    process.env.TF_PROVENANCE === '1' && provenance &&
+    (provenance.ir_hash || provenance.manifest_hash || provenance.catalog_hash);
   const emit = (rec) => {
     const entry = {
       ts: rec.ts,
@@ -217,6 +249,15 @@ export async function runIR(ir, runtime, options = {}) {
       region: rec.region,
       effect: rec.effect,
     };
+    if (shouldEmitMeta) {
+      const meta = {};
+      if (provenance.ir_hash) meta.ir_hash = provenance.ir_hash;
+      if (provenance.manifest_hash) meta.manifest_hash = provenance.manifest_hash;
+      if (provenance.catalog_hash) meta.catalog_hash = provenance.catalog_hash;
+      if (Object.keys(meta).length > 0) {
+        entry.meta = meta;
+      }
+    }
     const line = JSON.stringify(entry);
     console.log(line);
     if (writer) {
@@ -227,12 +268,16 @@ export async function runIR(ir, runtime, options = {}) {
   const ctx = { effects: new Set(), ops: 0, emit };
   try {
     const { value, ok } = await execNode(ir, runtime, ctx, options.input);
-    return {
+    const summary = {
       ok: normalizeOk(ok),
       result: value,
       ops: ctx.ops,
       effects: Array.from(ctx.effects).sort(),
     };
+    if (provenance) {
+      summary.provenance = provenance;
+    }
+    return summary;
   } finally {
     if (writer) {
       await writer.close();

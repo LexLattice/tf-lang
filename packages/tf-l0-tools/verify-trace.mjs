@@ -165,7 +165,20 @@ function isStorageWrite(primCanonical, primName, catalogMaps) {
   return /^(write-object|delete-object|compare-and-swap)$/.test(target);
 }
 
-export async function verifyTrace({ irPath, tracePath, manifestPath, catalogPath }) {
+function normalizeHash(value) {
+  return typeof value === 'string' && value ? value : null;
+}
+
+export async function verifyTrace({
+  irPath,
+  tracePath,
+  manifestPath,
+  catalogPath,
+  statusPath,
+  irHash,
+  manifestHash,
+  catalogHash,
+}) {
   if (!irPath) {
     throw new Error('Missing --ir path');
   }
@@ -173,16 +186,18 @@ export async function verifyTrace({ irPath, tracePath, manifestPath, catalogPath
     throw new Error('Missing --trace path');
   }
 
-  const [irSource, traceSource, manifestSource, catalogSource] = await Promise.all([
+  const [irSource, traceSource, manifestSource, catalogSource, statusSource] = await Promise.all([
     readFile(irPath, 'utf8'),
     readFile(tracePath, 'utf8'),
     manifestPath ? readFile(manifestPath, 'utf8') : Promise.resolve(null),
     catalogPath ? readFile(catalogPath, 'utf8') : Promise.resolve(null),
+    statusPath ? readFile(statusPath, 'utf8') : Promise.resolve(null),
   ]);
 
   const ir = JSON.parse(irSource);
   const manifest = manifestSource ? JSON.parse(manifestSource) : null;
   const catalog = catalogSource ? JSON.parse(catalogSource) : null;
+  const status = statusSource ? JSON.parse(statusSource) : null;
   const catalogMaps = buildCatalogMaps(catalog);
   const allowed = collectAllowedPrims(ir, catalogMaps.byName);
   const allowedNames = Array.from(allowed.names);
@@ -198,6 +213,65 @@ export async function verifyTrace({ irPath, tracePath, manifestPath, catalogPath
   const issuesSet = new Set();
   let unknownCount = 0;
   let deniedCount = 0;
+  let provenanceMismatchCount = 0;
+
+  const statusProvenance =
+    status && typeof status.provenance === 'object' && !Array.isArray(status.provenance)
+      ? status.provenance
+      : null;
+
+  let expectedIrHash = normalizeHash(irHash);
+  let expectedManifestHash = normalizeHash(manifestHash);
+  let expectedCatalogHash = normalizeHash(catalogHash);
+
+  if (statusPath && !statusProvenance) {
+    issuesSet.add('status missing provenance');
+  }
+
+  if (statusProvenance) {
+    const statusIr = normalizeHash(statusProvenance.ir_hash);
+    const statusManifest = normalizeHash(statusProvenance.manifest_hash);
+    const statusCatalog = normalizeHash(statusProvenance.catalog_hash);
+
+    if (expectedIrHash) {
+      if (!statusIr) {
+        issuesSet.add('status missing provenance field: ir_hash');
+        provenanceMismatchCount += 1;
+      } else if (statusIr !== expectedIrHash) {
+        issuesSet.add('status provenance mismatch: ir_hash');
+        provenanceMismatchCount += 1;
+      }
+    } else if (statusIr) {
+      expectedIrHash = statusIr;
+    }
+
+    if (expectedManifestHash) {
+      if (!statusManifest) {
+        issuesSet.add('status missing provenance field: manifest_hash');
+        provenanceMismatchCount += 1;
+      } else if (statusManifest !== expectedManifestHash) {
+        issuesSet.add('status provenance mismatch: manifest_hash');
+        provenanceMismatchCount += 1;
+      }
+    } else if (statusManifest) {
+      expectedManifestHash = statusManifest;
+    }
+
+    if (expectedCatalogHash) {
+      if (!statusCatalog) {
+        issuesSet.add('status missing provenance field: catalog_hash');
+        provenanceMismatchCount += 1;
+      } else if (statusCatalog !== expectedCatalogHash) {
+        issuesSet.add('status provenance mismatch: catalog_hash');
+        provenanceMismatchCount += 1;
+      }
+    } else if (statusCatalog) {
+      expectedCatalogHash = statusCatalog;
+    }
+  }
+
+  const metaCheckEnabled = Boolean(expectedIrHash || expectedManifestHash || expectedCatalogHash);
+
   let records = 0;
 
   const lines = traceSource.split(/\r?\n/);
@@ -212,6 +286,38 @@ export async function verifyTrace({ irPath, tracePath, manifestPath, catalogPath
       continue;
     }
     records += 1;
+
+    if (metaCheckEnabled) {
+      const meta = parsed?.meta;
+      const hasMeta = meta && typeof meta === 'object' && !Array.isArray(meta);
+      if (!hasMeta) {
+        issuesSet.add('trace missing provenance meta');
+        provenanceMismatchCount += 1;
+      } else {
+        if (expectedIrHash) {
+          const value = normalizeHash(meta.ir_hash);
+          if (value !== expectedIrHash) {
+            issuesSet.add('provenance mismatch: ir_hash');
+            provenanceMismatchCount += 1;
+          }
+        }
+        if (expectedManifestHash) {
+          const value = normalizeHash(meta.manifest_hash);
+          if (value !== expectedManifestHash) {
+            issuesSet.add('provenance mismatch: manifest_hash');
+            provenanceMismatchCount += 1;
+          }
+        }
+        if (expectedCatalogHash) {
+          const value = normalizeHash(meta.catalog_hash);
+          if (value !== expectedCatalogHash) {
+            issuesSet.add('provenance mismatch: catalog_hash');
+            provenanceMismatchCount += 1;
+          }
+        }
+      }
+    }
+
     const primValue = parsed?.prim_id;
     const canonical = canonicalizePrimId(primValue);
     let known = false;
@@ -266,6 +372,7 @@ export async function verifyTrace({ irPath, tracePath, manifestPath, catalogPath
       records,
       unknown_prims: unknownCount,
       denied_writes: deniedCount,
+      provenance_mismatches: provenanceMismatchCount,
     },
   };
 

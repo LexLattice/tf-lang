@@ -67,6 +67,7 @@ test('passes for known prims without manifest', async () => {
     records: 2,
     unknown_prims: 0,
     denied_writes: 0,
+    provenance_mismatches: 0,
   });
 });
 
@@ -85,6 +86,7 @@ test('passes for known prims with catalog mapping', async () => {
     records: 2,
     unknown_prims: 0,
     denied_writes: 0,
+    provenance_mismatches: 0,
   });
 });
 
@@ -101,6 +103,7 @@ test('allows writes when manifest patterns match', async () => {
   assert.equal(result.ok, true);
   assert.deepEqual(result.issues, []);
   assert.equal(result.counts.denied_writes, 0);
+  assert.equal(result.counts.provenance_mismatches, 0);
 });
 
 test('reports unknown prims', async () => {
@@ -111,6 +114,7 @@ test('reports unknown prims', async () => {
   assert.equal(result.ok, false);
   assert.ok(result.issues.includes('unknown prim: tf:resource/unknown@1'));
   assert.equal(result.counts.unknown_prims, 1);
+  assert.equal(result.counts.provenance_mismatches, 0);
 });
 
 test('requires canonical match when provided', async () => {
@@ -127,6 +131,7 @@ test('requires canonical match when provided', async () => {
     'unknown prim: tf:resource/write-object@99',
   ]);
   assert.equal(result.counts.unknown_prims, 2);
+  assert.equal(result.counts.provenance_mismatches, 0);
 });
 
 test('canonical mismatch results are deterministic across trace orderings', async () => {
@@ -148,6 +153,7 @@ test('denies writes outside manifest prefixes', async () => {
   assert.equal(result.ok, false);
   assert.ok(result.issues.includes('write denied: res://kv/mybucket/blocked/item'));
   assert.equal(result.counts.denied_writes, 1);
+  assert.equal(result.counts.provenance_mismatches, 0);
 });
 
 test('allows bare names when canonical is absent', async () => {

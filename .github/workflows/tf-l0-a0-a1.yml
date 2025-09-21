@@ -71,6 +71,7 @@ jobs:
         run: pnpm run digest:out
 
       - name: Upload artifacts
+        if: ${{ !env.ACT }}
         uses: actions/upload-artifact@v4
         with:
           name: tf-l0-out

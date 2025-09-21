@@ -1,0 +1,2 @@
+# Copy to .github/.vars (non-secret repo vars).
+NODE_ENV=ci

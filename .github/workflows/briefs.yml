@@ -6,9 +6,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+      - name: Install Python deps
+        run: sudo apt-get update && sudo apt-get install -y python3-yaml
       - run: python3 .codex/scripts/lint-briefs.py
       - run: python3 .codex/scripts/build-index.py
       - name: Upload INDEX.md
+        if: ${{ !env.ACT }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: codex-task-index

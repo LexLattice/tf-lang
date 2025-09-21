@@ -39,6 +39,7 @@ jobs:
         run: pnpm -C packages/tf-lang-l0-ts vectors
 
       - name: Upload TS report
+        if: ${{ !env.ACT }}
         uses: actions/upload-artifact@v4
         with:
           name: ts-report
@@ -54,7 +55,7 @@ jobs:
         run: cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml --tests -- --nocapture
 
       - name: Upload RS report
-        if: always()
+        if: ${{ always() && !env.ACT }}
         uses: actions/upload-artifact@v4
         with:
           name: rs-report

@@ -1,0 +1,6 @@
+{
+  "inputs": {
+    "NAME": "local",
+    "SOME_VALUE": "42"
+  }
+}

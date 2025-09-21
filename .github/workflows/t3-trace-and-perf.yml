@@ -34,6 +34,7 @@ jobs:
         run: "head -n 3 out/t3/trace/ts.jsonl | jq -c . >/dev/null"
 
       - uses: actions/upload-artifact@v4
+        if: ${{ !env.ACT }}
         with:
           name: t3-trace-artifacts
           path: out/t3/trace
@@ -120,6 +121,7 @@ jobs:
           PY
 
       - uses: actions/upload-artifact@v4
+        if: ${{ !env.ACT }}
         with:
           name: t3-perf-artifacts
           path: out/t3/perf

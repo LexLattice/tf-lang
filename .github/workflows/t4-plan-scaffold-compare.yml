@@ -28,7 +28,8 @@ jobs:
         run: sha256sum out/t4/plan/plan.json out/t4/plan/plan.ndjson > /tmp/t4-hash-2
       - name: Check determinism (hash compare)
         run: diff -u /tmp/t4-hash-1 /tmp/t4-hash-2
-      - uses: actions/upload-artifact@v4
+      - if: ${{ !env.ACT }}
+        uses: actions/upload-artifact@v4
         with:
           name: t4-plan
           path: out/t4/plan
@@ -47,13 +48,15 @@ jobs:
       - name: Prepare scaffold directory
         run: mkdir -p out/t4/scaffold
       - name: Download plan
+        if: ${{ !env.ACT }}
         uses: actions/download-artifact@v4
         with:
           name: t4-plan
           path: out/t4/plan
       - name: Scaffold dry-run
         run: node packages/tf-plan-scaffold/dist/cli.js scaffold --plan out/t4/plan/plan.ndjson --graph out/t4/plan/plan.json --top 3 --template dual-stack --out out/t4/scaffold/index.json
-      - uses: actions/upload-artifact@v4
+      - if: ${{ !env.ACT }}
+        uses: actions/upload-artifact@v4
         with:
           name: t4-scaffold
           path: out/t4/scaffold/index.json
@@ -74,18 +77,21 @@ jobs:
       - name: Prepare compare directory
         run: mkdir -p out/t4/compare
       - name: Download plan
+        if: ${{ !env.ACT }}
         uses: actions/download-artifact@v4
         with:
           name: t4-plan
           path: out/t4/plan
       - name: Download scaffold
+        if: ${{ !env.ACT }}
         uses: actions/download-artifact@v4
         with:
           name: t4-scaffold
           path: out/t4/scaffold
       - name: Compare branches
         run: node packages/tf-plan-compare/dist/cli.js compare --plan out/t4/plan/plan.ndjson --inputs out/t4/scaffold/index.json --out out/t4/compare
-      - uses: actions/upload-artifact@v4
+      - if: ${{ !env.ACT }}
+        uses: actions/upload-artifact@v4
         with:
           name: t4-compare
           path: |

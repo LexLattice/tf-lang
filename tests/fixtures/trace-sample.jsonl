@@ -1,11 +1,11 @@
-{"prim_id":"tf:resource/write-object@1","effect":"Storage.Write","tag":{"bucket":"orders","key":"order-123.json"},"payload":{"size":1024}}
-{"prim_id":"tf:resource/write-object@1","effect":"Storage.Write","tag":{"bucket":"orders","key":"order-124.json"},"payload":{"size":2048}}
-{"prim_id":"tf:integration/publish-topic@1","effect":"Network.Out","tag":{"topic":"orders","event":"OrderCreated"},"payload":{"order_id":"ord_901"}}
-{"prim_id":"tf:integration/publish-topic@1","effect":"Network.Out","tag":{"topic":"shipments","event":"ShipmentReady"},"payload":{"shipment_id":"ship_432"}}
-{"prim_id":"tf:service/generate-report@1","effect":"Pure","tag":{"report":"daily-summary"},"payload":{"duration_ms":210}}
-{"prim_id":"tf:service/log-metric@1","effect":"Observability","tag":{"metric":"orders_processed","value":42},"payload":{}}
-{"prim_id":"tf:service/calculate-tax@1","effect":"Pure","tag":"tax:ORDERS:calc","payload":{"region":"EU"}}
+{"ts": 1758319451300, "region": "/store/orders", "prim_id": "tf:resource/write-object@1", "effect": "Storage.Write", "args": {"uri": "res://kv/orders/order-123.json", "value": "..."}, "payload": {"size": 1024}}
+{"ts": 1758319451301, "region": "/store/orders", "prim_id": "tf:resource/write-object@1", "effect": "Storage.Write", "args": {"uri": "res://kv/orders/order-124.json", "value": "..."}, "payload": {"size": 2048}}
+{"ts": 1758319451305, "region": "/bus/orders", "prim_id": "tf:integration/publish-topic@1", "effect": "Network.Out", "args": {"topic": "orders", "event": "OrderCreated"}, "payload": {"order_id": "ord_901"}}
+{"ts": 1758319451306, "region": "/bus/shipments", "prim_id": "tf:integration/publish-topic@1", "effect": "Network.Out", "args": {"topic": "shipments", "event": "ShipmentReady"}, "payload": {"shipment_id": "ship_432"}}
+{"ts": 1758319451307, "region": "/svc/reporting", "prim_id": "tf:service/generate-report@1", "effect": "Pure", "args": {"report": "daily-summary"}, "payload": {"duration_ms": 210}}
+{"ts": 1758319451308, "region": "/obs/metrics", "prim_id": "tf:service/log-metric@1", "effect": "Observability", "args": {"metric": "orders_processed", "value": 42}, "payload": {}}
+{"ts": 1758319451309, "region": "/svc/tax", "prim_id": "tf:service/calculate-tax@1", "effect": "Pure", "args": {"region": "EU"}, "payload": {}}
 
-{"ts": 1758319451311, "region": "/acct", "prim_id": "tf:observability/emit-metric@1", "effect": "Observability", "args": {"name":"orders.published","value":1}}
-{"ts": 1758319451314, "region": "/acct/0", "prim_id": "tf:network/publish@1", "effect": "Network.Out", "args": {"topic":"orders","key":"ORD-1","payload":"{\"id\":\"1\"}"}}
+{"ts": 1758319451311, "region": "/acct", "prim_id": "tf:observability/emit-metric@1", "effect": "Observability", "args": {"name": "orders.published", "value": 1}}
+{"ts": 1758319451314, "region": "/acct/0", "prim_id": "tf:network/publish@1", "effect": "Network.Out", "args": {"topic": "orders", "key": "ORD-1", "payload": "{\"id\":\"1\"}"}}
 {"ts": 1758319451316, "region": "/acct/1", "prim_id": "tf:pure/identity@1", "effect": "Pure", "args": {}}

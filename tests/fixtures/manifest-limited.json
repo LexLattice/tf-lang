@@ -1,0 +1,11 @@
+{
+  "footprints_rw": {
+    "reads": [],
+    "writes": [
+      {
+        "uri": "res://kv/<bucket>/allowed/:<key>",
+        "mode": "write"
+      }
+    ]
+  }
+}

@@ -1,0 +1,30 @@
+name: l0-audit
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: L0 audit sweep
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-pnpm
+        with:
+          node-version: '20'
+          install: 'true'
+          frozen: 'true'
+      - run: pnpm run a0
+      - run: pnpm run a1
+      - run: pnpm -w -r build
+      - run: node scripts/audit/run.mjs
+      - name: Upload audit report
+        if: ${{ !env.ACT }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: l0-audit-report
+          path: out/0.4/audit/report.json

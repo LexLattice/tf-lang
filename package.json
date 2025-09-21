@@ -5,6 +5,7 @@
   "packageManager": "pnpm@10.16.1",
   "scripts": {
     "build": "pnpm run --recursive build",
+    "audit": "node scripts/audit/run.mjs",
     "preinstall": "corepack enable pnpm",
     "check:fixtures": "tsx .codex/scripts/check-fixtures-json.ts",
     "t5:build": "pnpm -w -r build",

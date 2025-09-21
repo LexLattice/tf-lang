@@ -1,0 +1,39 @@
+name: L0 Audit
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: L0 Audit
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-pnpm
+        with:
+          node-version: '20'
+          install: 'true'
+          frozen: 'true'
+
+      - name: Build
+        run: pnpm -w -r build
+
+      - name: Run Audit
+        run: pnpm run audit
+
+      - name: Print Summary
+        if: always()
+        run: |
+          echo "Audit Report Summary:"
+          jq .summary out/0.4/audit/report.json
+
+      - name: Upload Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: l0-audit-report
+          path: out/0.4/audit/report.json

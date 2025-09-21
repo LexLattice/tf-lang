@@ -19,7 +19,10 @@ const LAW_DEFINITIONS = {
   'inverse:serialize-deserialize': {
     sorts: ['Val', 'Bytes'],
     functions: ['S', 'D'],
-    axioms: ['(assert (forall ((v Val)) (= (D (S v)) v)))'],
+    axioms: [
+      '(assert (forall ((v Val)) (= (D (S v)) v)))',
+      '(assert (forall ((b Bytes)) (= (S (D b)) b)))',
+    ],
   },
   'commute:emit-metric-with-pure': {
     sorts: ['Val'],

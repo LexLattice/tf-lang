@@ -20,6 +20,8 @@
     "a1": "node packages/tf-l0-spec/scripts/build-catalog.mjs && node packages/tf-l0-spec/scripts/derive-effects.mjs && node packages/tf-l0-spec/scripts/build-laws.mjs && node packages/tf-l0-spec/scripts/finalize-a1.mjs",
     "a1:summary": "node scripts/effects-summary.mjs",
     "a1:all": "pnpm run a1 && pnpm run a1:summary",
+    "proofs:laws:axioms": "node scripts/emit-smt-laws.mjs --law idempotent:hash -o out/0.4/proofs/laws/idempotent_hash.smt2 && node scripts/emit-smt-laws.mjs --law inverse:serialize-deserialize -o out/0.4/proofs/laws/inverse_roundtrip.smt2 && node scripts/emit-smt-laws.mjs --law commute:emit-metric-with-pure -o out/0.4/proofs/laws/emit_commute.smt2",
+    "proofs:laws:equiv": "node scripts/emit-smt-laws.mjs --equiv examples/flows/info_roundtrip.tf examples/flows/info_roundtrip.tf --laws idempotent:hash,inverse:serialize-deserialize -o out/0.4/proofs/laws/roundtrip_equiv.smt2",
     "tf": "node packages/tf-compose/bin/tf.mjs",
     "trace:filter": "node packages/tf-l0-tools/trace-filter.mjs",
     "validate:ids": "node scripts/validate-ids.mjs",

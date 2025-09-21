@@ -48,11 +48,7 @@ async function main(argv) {
     process.exit(2);
   }
 
-  const [leftPath, rightPath] = flowPaths.map((entry) => resolve(entry));
-  const [left, right] = await Promise.all([
-    loadFlow(leftPath),
-    loadFlow(rightPath),
-  ]);
+  const [left, right] = await Promise.all(flowPaths.map((entry) => loadFlow(entry)));
 
   const laws = parseLawList(values.laws);
   const smt = emitFlowEquivalence(left, right, laws);
@@ -71,9 +67,17 @@ function usage(message) {
   );
 }
 
-async function loadFlow(srcPath) {
-  const raw = await readFile(srcPath, 'utf8');
-  return parseFlow(raw);
+async function loadFlow(source) {
+  const resolved = resolve(source);
+  try {
+    const raw = await readFile(resolved, 'utf8');
+    return parseFlow(raw);
+  } catch (error) {
+    if (error && error.code === 'ENOENT') {
+      return parseFlow(source);
+    }
+    throw error;
+  }
 }
 
 function parseFlow(source) {

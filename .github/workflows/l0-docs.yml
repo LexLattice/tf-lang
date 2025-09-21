@@ -1,0 +1,37 @@
+name: L0 Docs (regen check)
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-pnpm
+        with:
+          node-version: '20'
+          install: 'true'
+          frozen: 'true'
+
+      - name: Build (for lattice import)
+        run: |
+          pnpm run a0
+          pnpm run a1
+          pnpm -w -r build
+
+      - name: Regenerate docs
+        run: |
+          node scripts/docgen/catalog.mjs
+          node scripts/docgen/dsl.mjs
+          node scripts/docgen/effects.mjs
+
+      - name: Fail if changed
+        run: |
+          if [[ -n "$(git status --porcelain docs/*.md)" ]]; then
+            echo "Docs out of date. Run docgen scripts and commit." >&2
+            git diff -- docs
+            exit 1
+          fi

@@ -180,6 +180,11 @@ TF_CAPS='{"effects":["Network.Out","Pure"],"allow_writes_prefixes":[]}' node out
 # Summarize traces
 cat tests/fixtures/trace-sample.jsonl | node packages/tf-l0-tools/trace-summary.mjs --top=3 --pretty
 
+### Generated docs
+- Catalog: [docs/l0-catalog.md](docs/l0-catalog.md)
+- DSL Cheatsheet: [docs/l0-dsl.md](docs/l0-dsl.md)
+- Effects/Lattice: [docs/l0-effects.md](docs/l0-effects.md)
+
 ### Trace files (T3)
 - Runners always print JSON trace lines to stdout; setting `TF_TRACE_PATH=out/0.4/traces/<name>.jsonl` is an optional mirror.
 - Per run: `TF_TRACE_PATH=out/0.4/traces/publish.jsonl node out/0.4/codegen-ts/run_publish/run.mjs --caps caps.json`.

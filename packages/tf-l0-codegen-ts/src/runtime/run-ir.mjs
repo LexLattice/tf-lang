@@ -2,45 +2,60 @@ import { createWriteStream, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { validateCapabilities } from './capabilities.mjs';
 
-const tracePath = process.env.TF_TRACE_PATH;
-let traceOut = null;
-if (tracePath) {
+function createTraceWriter(tracePath) {
+  if (!tracePath) {
+    return null;
+  }
+
   try {
     mkdirSync(dirname(tracePath), { recursive: true });
-    traceOut = createWriteStream(tracePath, { flags: 'a' });
+  } catch (err) {
+    console.warn('tf run-ir: unable to prepare trace directory', err);
+  }
+
+  let stream;
+  try {
+    stream = createWriteStream(tracePath, { flags: 'a' });
   } catch (err) {
     console.warn('tf run-ir: unable to open trace file, falling back to stdout only', err);
-    traceOut = null;
+    return null;
   }
-}
 
-function emitTrace(rec) {
-  const line = JSON.stringify(rec);
-  if (traceOut && !traceOut.writableEnded) {
-    traceOut.write(line + '\n');
-  }
-  console.log(line);
-}
+  let warned = false;
+  let writable = true;
 
-async function closeTrace() {
-  if (!traceOut || traceOut.writableEnded) {
-    return;
-  }
-  const stream = traceOut;
-  await new Promise((resolve, reject) => {
-    const onError = (err) => {
-      stream.off('error', onError);
-      reject(err);
-    };
-    stream.on('error', onError);
-    stream.end(() => {
-      stream.off('error', onError);
-      resolve();
-    });
-  });
-  if (traceOut === stream) {
-    traceOut = null;
-  }
+  const handleError = (err) => {
+    if (!warned) {
+      warned = true;
+      console.warn('tf run-ir: trace writer disabled after error', err);
+    }
+    writable = false;
+  };
+
+  stream.once('error', handleError);
+
+  return {
+    write(line) {
+      if (!writable || !stream || stream.destroyed || stream.writableEnded) {
+        return;
+      }
+      try {
+        stream.write(line);
+      } catch (err) {
+        handleError(err);
+      }
+    },
+    async close() {
+      if (!stream || stream.destroyed || stream.writableEnded) {
+        return;
+      }
+      await new Promise((resolve) => {
+        const done = () => resolve();
+        stream.once('error', done);
+        stream.end(() => resolve());
+      });
+    },
+  };
 }
 
 let clockWarned = false;
@@ -148,7 +163,10 @@ async function execNode(node, runtime, ctx, input) {
       if (effect) recordEffects(ctx.effects, effect);
       if (node.meta?.effect) recordEffects(ctx.effects, node.meta.effect);
       if (node.meta?.effects) recordEffects(ctx.effects, node.meta.effects);
-      emitTrace({ ts, prim_id: primId, args, region, effect: effectTag });
+      const emit = ctx.emit;
+      if (typeof emit === 'function') {
+        emit({ ts, prim_id: primId, args, region, effect: effectTag });
+      }
       const ok = normalizeOk(result?.ok);
       return { value: result, ok };
     }
@@ -190,20 +208,35 @@ async function execNode(node, runtime, ctx, input) {
 }
 
 export async function runIR(ir, runtime, options = {}) {
-  const ctx = { effects: new Set(), ops: 0 };
+  const writer = createTraceWriter(process.env.TF_TRACE_PATH);
+  const emit = (rec) => {
+    const entry = {
+      ts: rec.ts,
+      prim_id: rec.prim_id,
+      args: rec.args,
+      region: rec.region,
+      effect: rec.effect,
+    };
+    const line = JSON.stringify(entry);
+    console.log(line);
+    if (writer) {
+      writer.write(`${line}\n`);
+    }
+  };
+
+  const ctx = { effects: new Set(), ops: 0, emit };
   try {
     const { value, ok } = await execNode(ir, runtime, ctx, options.input);
-    const summary = {
+    return {
       ok: normalizeOk(ok),
       result: value,
       ops: ctx.ops,
       effects: Array.from(ctx.effects).sort(),
     };
-    await closeTrace();
-    return summary;
-  } catch (err) {
-    await closeTrace();
-    throw err;
+  } finally {
+    if (writer) {
+      await writer.close();
+    }
   }
 }
 

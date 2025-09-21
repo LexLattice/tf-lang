@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(__dirname, '..');
@@ -13,6 +13,9 @@ const validatorCli = join(repoRoot, 'scripts', 'validate-trace.mjs');
 const publishOutDir = join(repoRoot, 'out', '0.4', 'codegen-ts', 'run_publish');
 const tracesDir = join(repoRoot, 'out', '0.4', 'traces');
 const tracePath = join(tracesDir, 'publish.jsonl');
+const runIrSourceUrl = pathToFileURL(
+  join(repoRoot, 'packages', 'tf-l0-codegen-ts', 'src', 'runtime', 'run-ir.mjs'),
+).href;
 
 function runNode(script, args = [], { cwd = repoRoot, env = {}, input } = {}) {
   return new Promise((resolve, reject) => {
@@ -77,12 +80,57 @@ test('trace writer emits JSONL and validator flags issues', async () => {
   const traceLines = traceRaw.split('\n').filter((line) => line.trim() !== '');
   assert.ok(traceLines.length >= 1, 'expected at least one trace line written');
 
-  const validateOk = await runNode(validatorCli, [], { input: traceRaw });
+  const beforeMultiCount = traceLines.length;
+  const multiRunScript = `import { runIR } from '${runIrSourceUrl}';
+const runtime = {
+  ping: async () => ({ ok: true }),
+  effects: { ping: 'Pure' },
+};
+const ir = { node: 'Seq', children: [{ node: 'Prim', prim: 'ping', args: {} }] };
+await runIR(ir, runtime);
+await runIR(ir, runtime);
+`;
+  const multiScriptPath = join(tempDir, 'multi-run.mjs');
+  await fs.writeFile(multiScriptPath, multiRunScript, 'utf8');
+  const multiResult = await runNode(multiScriptPath, [], {
+    env: { TF_TRACE_PATH: tracePath },
+  });
+  assert.equal(multiResult.code, 0, multiResult.stderr);
+  const afterMultiRaw = await fs.readFile(tracePath, 'utf8');
+  const afterMultiLines = afterMultiRaw.split('\n').filter((line) => line.trim() !== '');
+  assert.ok(
+    afterMultiLines.length >= beforeMultiCount + 2,
+    `expected at least two new trace lines after multi-run append (before=${beforeMultiCount}, after=${afterMultiLines.length})`,
+  );
+
+  const finalTraceRaw = afterMultiRaw;
+  const finalTraceLines = afterMultiLines;
+
+  const validateOk = await runNode(validatorCli, [], { input: finalTraceRaw });
   assert.equal(validateOk.code, 0, validateOk.stderr);
   const okSummary = JSON.parse(validateOk.stdout.trim());
   assert.equal(okSummary.ok, true, 'expected validator ok summary');
   assert.equal(okSummary.invalid, 0);
-  assert.equal(okSummary.total, traceLines.length);
+  assert.equal(okSummary.total, finalTraceLines.length);
+
+  const unwritableEnv = { TF_TRACE_PATH: '/root/nope/publish.jsonl' };
+  const unwritableResult = await runNode(join(publishOutDir, 'run.mjs'), ['--caps', capsPath], {
+    env: unwritableEnv,
+  });
+  assert.equal(unwritableResult.code, 0, unwritableResult.stderr);
+  const stdoutLines = unwritableResult.stdout
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line !== '');
+  const traceLineOnStdout = stdoutLines.find((line) => {
+    try {
+      const parsed = JSON.parse(line);
+      return parsed && typeof parsed.prim_id === 'string';
+    } catch {
+      return false;
+    }
+  });
+  assert.ok(traceLineOnStdout, 'expected a trace JSON object on stdout when file is unwritable');
 
   const badLine = JSON.stringify({ ts: 0, args: {} }) + '\n';
   const validateBad = await runNode(validatorCli, [], { input: badLine });

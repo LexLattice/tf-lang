@@ -162,10 +162,11 @@ TF_CAPS='{"effects":["Network.Out","Pure"],"allow_writes_prefixes":[]}' node out
 cat tests/fixtures/trace-sample.jsonl | node packages/tf-l0-tools/trace-summary.mjs --top=3 --pretty
 
 ### Trace files (T3)
-- Set `TF_TRACE_PATH=out/0.4/traces/<name>.jsonl` to mirror stdout into a JSONL file.
-- Records follow `schemas/trace.v0.4.schema.json` and keep the same console log format.
-- Validate traces: `cat file.jsonl | node scripts/validate-trace.mjs`.
-- Streams stay readable because the runner always logs the JSON to stdout.
+- Runners always print JSON trace lines to stdout; setting `TF_TRACE_PATH=out/0.4/traces/<name>.jsonl` is an optional mirror.
+- Per run: `TF_TRACE_PATH=out/0.4/traces/publish.jsonl node out/0.4/codegen-ts/run_publish/run.mjs --caps caps.json`.
+- Multi-run append: reuse the same `TF_TRACE_PATH` for later invocations (even in one process) and each call appends more JSON.
+- Records follow `schemas/trace.v0.4.schema.json`, so existing tooling keeps working.
+- Validate: `cat file.jsonl | node scripts/validate-trace.mjs`.
 
 ### Example App: Order Publish
 ```bash

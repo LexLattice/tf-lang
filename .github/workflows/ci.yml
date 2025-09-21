@@ -111,6 +111,18 @@ jobs:
             oracle-core/results.json
             oracle-core/results.md
 
+  traces:
+    name: trace validator
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-pnpm
+        with:
+          node-version: '20'
+          install: 'true'
+          frozen: 'true'
+      - run: ./scripts/validate-trace.mjs < tests/fixtures/trace-sample.jsonl
+
   container-image:
     name: Container image
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository_owner == 'LexLattice'

@@ -22,6 +22,8 @@
     "a1:all": "pnpm run a1 && pnpm run a1:summary",
     "tf": "node packages/tf-compose/bin/tf.mjs",
     "trace:filter": "node packages/tf-l0-tools/trace-filter.mjs",
+    "traces:validate": "node scripts/validate-trace.mjs",
+    "traces:sample": "node packages/tf-l0-tools/trace-summary.mjs --top=5 --pretty < tests/fixtures/trace-sample.jsonl",
     "validate:ids": "node scripts/validate-ids.mjs",
     "validate:catalog": "node scripts/validate-catalog.mjs",
     "lint:catalog": "node scripts/lint-catalog.mjs",

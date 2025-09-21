@@ -1,0 +1,13 @@
+{
+  "node": "Seq",
+  "children": [
+    {
+      "node": "Prim",
+      "prim": "tf:resource/write-object@1"
+    },
+    {
+      "node": "Prim",
+      "prim": "tf:observability/emit-metric@1"
+    }
+  ]
+}

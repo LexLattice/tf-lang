@@ -1,0 +1,10 @@
+{
+  "required_effects": ["Storage.Write"],
+  "footprints_rw": {
+    "reads": [],
+    "writes": [
+      { "uri": "res://kv/allowed/<bucket>/:<key>" }
+    ]
+  },
+  "qos": {}
+}

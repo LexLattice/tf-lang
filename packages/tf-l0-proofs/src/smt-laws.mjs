@@ -1,6 +1,9 @@
 const SORTS = {
-  Val: { arity: 0 },
   Bytes: { arity: 0 },
+  IdKey: { arity: 0 },
+  Key: { arity: 0 },
+  URI: { arity: 0 },
+  Val: { arity: 0 },
 };
 
 const FUNCTIONS = {
@@ -8,6 +11,7 @@ const FUNCTIONS = {
   S: { domain: ['Val'], codomain: 'Bytes' },
   D: { domain: ['Bytes'], codomain: 'Val' },
   E: { domain: ['Val'], codomain: 'Val' },
+  W: { domain: ['URI', 'Key', 'IdKey', 'Val'], codomain: 'Val' },
 };
 
 const LAW_DEFINITIONS = {
@@ -28,6 +32,23 @@ const LAW_DEFINITIONS = {
     sorts: ['Val'],
     functions: ['E', 'H'],
     axioms: ['(assert (forall ((x Val)) (= (E (H x)) (H (E x)))))'],
+  },
+  'idempotent:write-by-key': {
+    sorts: ['Val', 'URI', 'Key', 'IdKey'],
+    functions: ['W'],
+    axioms: [
+      '(declare-const x Val)',
+      '(declare-const u URI)',
+      '(declare-const k Key)',
+      '(declare-const ik IdKey)',
+      '(declare-const v Val)',
+      ';; same-key writes collapse under repetition',
+      ';; once: pipeline write(u,k,ik,v)',
+      '(define-fun once ((input Val) (uri URI) (key Key) (id IdKey) (val Val)) Val (W uri key id val))',
+      ';; twice: repeat write(u,k,ik,v)',
+      '(define-fun twice ((input Val) (uri URI) (key Key) (id IdKey) (val Val)) Val (W uri key id val))',
+      '(assert (not (= (twice x u k ik v) (once x u k ik v))))',
+    ],
   },
 };
 

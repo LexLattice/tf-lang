@@ -34,13 +34,35 @@ node scripts/emit-smt-laws.mjs --law idempotent:hash -o out/0.4/proofs/laws/idem
 node scripts/emit-smt-laws.mjs --equiv examples/flows/info_roundtrip.tf examples/flows/info_roundtrip.tf \
   --laws idempotent:hash,inverse:serialize-deserialize \
   -o out/0.4/proofs/laws/roundtrip_equiv.smt2
+node scripts/emit-smt-laws-suite.mjs -o out/0.4/proofs/laws
 ```
+
+The suite helper emits the canonical set of obligations, including:
+
+- **Hash idempotency** – repeated hashing collapses to a single call.
+- **Emit metric commutation** – pure transforms commute with metric emission.
+- **Write idempotency by key** – writing the same `(URI, Key, IdKey)` twice equals a single write.
+- **Serialize/deserialize round-trips** – `serialize ∘ deserialize` and `deserialize ∘ serialize` act as identities over `Val` and `Bytes`.
 
 The generated files assert the relevant axioms, compare symbolic outputs, and end with `(check-sat)`. CI does not invoke an SMT solver—these files are produced for human review and audit trails alongside our Alloy exports.
 
 Current obligations are structural over uninterpreted functions and deliberately ignore primitive arguments. They justify algebraic rewrites (idempotency, inverse, commutation) rather than semantic equality of parameterized calls. We plan to model arguments later—likely by indexing symbols—but that work is outside D2’s scope.
 
 See also the [SMT emitter](../scripts/emit-smt.mjs) and [Alloy exporter](../scripts/emit-alloy.mjs) for the broader proof pipeline.
+
+## Authorize dominance Alloy model
+
+The `Authorize` checker now ships a structural Alloy encoding that highlights missing or mismatched scope coverage. Generate the
+model with:
+
+```bash
+node scripts/emit-alloy-auth.mjs examples/flows/auth_missing.tf -o out/0.4/proofs/auth/missing.als
+node scripts/emit-alloy-auth.mjs examples/flows/auth_ok.tf      -o out/0.4/proofs/auth/ok.als
+```
+
+The exporter maps `authorize(scope="...") { ... }` regions to Alloy `Region` nodes annotated with scopes, while protected
+primitives pull their required scopes from `packages/tf-l0-check/rules/authorize-scopes.json`. The resulting module defines
+`MissingAuth` and `Covered` predicates plus paired `run` commands to surface counterexamples.
 
 # L0 Proof Artifacts
 

@@ -1,0 +1,9 @@
+{
+  "name": "@tf-lang/tf-l0-types",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/types.mjs"
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "tf:information/hash@1": {
+    "input": {"refined": ["string", "digest_sha256"]},
+    "output": {"refined": ["string", "digest_sha256"]}
+  },
+  "tf:observability/emit-metric@1": {
+    "input": {"unit": true},
+    "output": {"unit": true}
+  },
+  "tf:network/publish@1": {
+    "input": {
+      "object": {
+        "required": {
+          "topic": {"string": true},
+          "key": {"string": true},
+          "payload": {"string": true}
+        }
+      }
+    },
+    "output": {"unit": true}
+  },
+  "tf:resource/write-object@1": {
+    "input": {
+      "object": {
+        "required": {
+          "uri": {"refined": ["string", "uri"]},
+          "key": {"string": true},
+          "value": {"string": true}
+        },
+        "optional": {
+          "idempotency_key": {"refined": ["string", "idempotency_key"]}
+        }
+      }
+    },
+    "output": {
+      "object": {
+        "required": {
+          "status": {"string": true}
+        }
+      }
+    }
+  },
+  "tf:resource/compare-and-swap@1": {
+    "input": {
+      "object": {
+        "required": {
+          "uri": {"refined": ["string", "uri"]},
+          "key": {"string": true},
+          "expect": {"string": true},
+          "update": {"string": true}
+        }
+      }
+    },
+    "output": {"bool": true}
+  }
+}

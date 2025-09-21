@@ -47,6 +47,10 @@ For deterministic local runs, use the in-memory factory published at
 compare-and-swap semantics, publish/metric aggregation, and HMAC-SHA256 crypto helpers.
 All adapters are pure Node.js implementations and require no external services.
 
+**Safety:** Generated runners *fail fast* if a required adapter method is missing
+(e.g., `writeObject`, `publish`, `emitMetric`, `sign`, `verify`, `hash`). Supply
+adapters explicitly or use the bundled `runtime/adapters/inmem.mjs` for deterministic local runs.
+
 ## Determinism & Proofs (T3)
 
 * Turn proofs on only when tracing:

@@ -166,6 +166,9 @@ async function execNode(node, runtime, ctx, input) {
 
 export async function runIR(ir, runtime, options = {}) {
   const activeRuntime = runtime ?? createInmemRuntime();
+  if (activeRuntime?.state && typeof activeRuntime.state === 'object') {
+    activeRuntime.state.caps = options?.caps ?? null;
+  }
   const tracePath = process.env.TF_TRACE_PATH;
   let traceStream = null;
   let traceWritable = false;
@@ -262,7 +265,7 @@ export async function runWithCaps(ir, runtime, caps, manifest) {
     console.error('tf run-ir: capability validation failed', JSON.stringify(verdict));
     return { ok: false, ops: 0, effects: [], result: undefined };
   }
-  return runIR(ir, runtime);
+  return runIR(ir, runtime, { caps });
 }
 
 export default runIR;

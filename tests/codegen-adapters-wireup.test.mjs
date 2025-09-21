@@ -26,7 +26,7 @@ const FLOWS = [
   {
     name: 'metrics_publish',
     flow: path.join(repoRoot, 'examples', 'flows', 'metrics_publish.tf'),
-    expectedEffects: ['Network.Out', 'Observability.EmitMetric'],
+    expectedEffects: ['Network.Out', 'Observability'],
   },
 ];
 

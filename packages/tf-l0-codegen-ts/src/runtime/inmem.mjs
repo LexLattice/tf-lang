@@ -1,5 +1,23 @@
 import { createHash } from 'node:crypto';
+import { assertAllowed } from './capabilities.mjs';
 import { createInmemAdapters } from '../adapters/inmem.mjs';
+
+function must(name, fn) {
+  if (typeof fn !== 'function') {
+    throw new Error(`adapter missing: ${name}`);
+  }
+  return fn;
+}
+
+function toBytes(value) {
+  if (value instanceof Uint8Array) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    return Buffer.from(value);
+  }
+  return Buffer.from(String(value ?? ''));
+}
 
 function canonicalize(value) {
   if (value === null || typeof value !== 'object') {
@@ -31,10 +49,7 @@ const PRIMITIVES = [
       const topic = typeof args.topic === 'string' ? args.topic : String(args.topic ?? '');
       const key = typeof args.key === 'string' ? args.key : String(args.key ?? '');
       const payload = typeof args.payload === 'string' ? args.payload : JSON.stringify(args.payload ?? '');
-      if (typeof adapters.publish !== 'function') {
-        throw new Error('Adapter missing publish implementation');
-      }
-      await adapters.publish(topic, key, payload);
+      await must('publish', adapters.publish)(topic, key, payload);
       if (state.topics) {
         if (!state.topics.has(topic)) {
           state.topics.set(topic, []);
@@ -47,13 +62,13 @@ const PRIMITIVES = [
   {
     id: 'tf:observability/emit-metric@1',
     aliases: ['emit-metric'],
-    effect: 'Observability.EmitMetric',
+    effect: 'Observability',
     async invoke(adapters, args = {}, state) {
-      if (typeof adapters.emitMetric !== 'function') {
-        throw new Error('Adapter missing emitMetric implementation');
-      }
       const value = Object.prototype.hasOwnProperty.call(args, 'value') ? args.value : undefined;
-      await adapters.emitMetric(String(args.name ?? ''), typeof value === 'number' ? value : undefined);
+      await must('emitMetric', adapters.emitMetric)(
+        String(args.name ?? ''),
+        typeof value === 'number' ? value : undefined,
+      );
       if (state.metricsLog) {
         state.metricsLog.push({ name: String(args.name ?? ''), value: typeof value === 'number' ? value : undefined });
       }
@@ -65,14 +80,16 @@ const PRIMITIVES = [
     aliases: ['write-object'],
     effect: 'Storage.Write',
     async invoke(adapters, args = {}) {
-      if (typeof adapters.writeObject !== 'function') {
-        throw new Error('Adapter missing writeObject implementation');
-      }
       const uri = String(args.uri ?? '');
       const key = String(args.key ?? '');
       const value = typeof args.value === 'string' ? args.value : JSON.stringify(args.value ?? '');
       const idempotencyKey = args.idempotency_key ?? args.idempotencyKey;
-      await adapters.writeObject(uri, key, value, typeof idempotencyKey === 'string' ? idempotencyKey : undefined);
+      await must('writeObject', adapters.writeObject)(
+        uri,
+        key,
+        value,
+        typeof idempotencyKey === 'string' ? idempotencyKey : undefined,
+      );
       return { ok: true };
     },
   },
@@ -122,13 +139,10 @@ const PRIMITIVES = [
     aliases: ['sign-data'],
     effect: 'Crypto',
     async invoke(adapters, args = {}) {
-      if (typeof adapters.sign !== 'function') {
-        throw new Error('Adapter missing sign implementation');
-      }
       const keyId = String(args.key ?? args.key_ref ?? args.keyId ?? '');
       const payload = Object.prototype.hasOwnProperty.call(args, 'payload') ? args.payload : args.value;
-      const data = payload instanceof Uint8Array ? payload : Buffer.from(String(payload ?? ''));
-      const sig = await adapters.sign(keyId, data);
+      const data = toBytes(payload);
+      const sig = await must('sign', adapters.sign)(keyId, data);
       return { ok: true, signature: sig };
     },
   },
@@ -137,32 +151,31 @@ const PRIMITIVES = [
     aliases: ['verify-signature'],
     effect: 'Crypto',
     async invoke(adapters, args = {}) {
-      if (typeof adapters.verify !== 'function') {
-        return { ok: false };
-      }
       const keyId = String(args.key ?? args.key_ref ?? args.keyId ?? '');
       const payload = Object.prototype.hasOwnProperty.call(args, 'payload') ? args.payload : args.value;
       const signature = Object.prototype.hasOwnProperty.call(args, 'signature') ? args.signature : args.sig;
-      const data = payload instanceof Uint8Array ? payload : Buffer.from(String(payload ?? ''));
-      const sig = signature instanceof Uint8Array ? signature : Buffer.from(String(signature ?? ''), 'base64');
-      const ok = await adapters.verify(keyId, data, sig);
-      return { ok };
+      const data = toBytes(payload);
+      const sig = signature instanceof Uint8Array
+        ? signature
+        : Buffer.from(String(signature ?? ''), 'base64');
+      const ok = await must('verify', adapters.verify)(keyId, data, sig);
+      if (!ok) {
+        throw new Error('signature verification failed');
+      }
+      return { ok: true };
     },
   },
   {
     id: 'tf:information/hash@1',
     aliases: ['hash'],
-    effect: 'Information.Hash',
+    effect: 'Crypto',
     async invoke(adapters, args = {}) {
       const target = Object.prototype.hasOwnProperty.call(args, 'value') ? args.value : args;
       const serialized = stableStringify(target);
-      let digest = createHash('sha256').update(serialized).digest('hex');
-      if (typeof adapters.hash === 'function') {
-        const adapterDigest = await adapters.hash(Buffer.from(serialized));
-        if (typeof adapterDigest === 'string' && adapterDigest.length > 0) {
-          digest = adapterDigest;
-        }
-      }
+      const adapterDigest = await must('hash', adapters.hash)(Buffer.from(serialized));
+      const digest = typeof adapterDigest === 'string' && adapterDigest.length > 0
+        ? adapterDigest
+        : createHash('sha256').update(serialized).digest('hex');
       return { ok: true, hash: digest.startsWith('sha256:') ? digest : `sha256:${digest}` };
     },
   },
@@ -175,10 +188,18 @@ function buildRuntimeFromAdapters(adapters) {
     adapters,
     metricsLog: [],
     topics: new Map(),
+    caps: null,
   };
 
+  const wrap = (effectFamily, fn) =>
+    async (args = {}, ctx) => {
+      const context = ctx ?? state;
+      assertAllowed(effectFamily, args, context?.caps);
+      return fn(args, context);
+    };
+
   for (const entry of PRIMITIVES) {
-    const handler = async (args = {}) => entry.invoke(adapters, args, state);
+    const handler = wrap(entry.effect, async (args = {}, ctx = state) => entry.invoke(adapters, args, ctx ?? state));
     registry.set(entry.id, { canonical: entry.id, effect: entry.effect, handler });
     adaptersTable[entry.id] = handler;
     for (const alias of entry.aliases ?? []) {

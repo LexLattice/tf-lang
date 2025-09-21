@@ -7,6 +7,48 @@ function uniqueSorted(values) {
   return Array.from(new Set(values)).sort();
 }
 
+function baseEffectName(effect) {
+  if (typeof effect !== 'string') return '';
+  const idx = effect.indexOf('.');
+  return idx === -1 ? effect : effect.slice(0, idx);
+}
+
+function hasEffect(effects, effectFamily) {
+  if (effects.size === 0) return true;
+  if (effects.has(effectFamily)) return true;
+  const base = baseEffectName(effectFamily);
+  if (base && effects.has(base)) {
+    return true;
+  }
+  return false;
+}
+
+export function assertAllowed(effectFamily, args = {}, provided = null) {
+  if (!provided || typeof provided !== 'object') {
+    return;
+  }
+  const allowedEffects = new Set(toStringArray(provided.effects));
+  if (!hasEffect(allowedEffects, effectFamily)) {
+    throw new Error(`capability denied: ${effectFamily}`);
+  }
+  if (effectFamily === 'Storage.Write') {
+    const uri = typeof args?.uri === 'string' ? args.uri : '';
+    if (uri.length === 0) {
+      return;
+    }
+    const prefixes = toStringArray(provided.allow_writes_prefixes);
+    if (prefixes.length === 0) {
+      throw new Error(`capability denied: Storage.Write ${uri}`);
+    }
+    for (const prefix of prefixes) {
+      if (uri.startsWith(prefix)) {
+        return;
+      }
+    }
+    throw new Error(`capability denied: Storage.Write ${uri}`);
+  }
+}
+
 export function validateCapabilities(manifest = {}, provided = {}) {
   const requiredEffects = toStringArray(manifest?.required_effects);
   const providedEffects = new Set(toStringArray(provided?.effects));

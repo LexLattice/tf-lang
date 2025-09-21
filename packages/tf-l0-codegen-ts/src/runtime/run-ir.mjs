@@ -1,6 +1,7 @@
 import { createWriteStream, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { validateCapabilities } from './capabilities.mjs';
+import { createInmemRuntime } from './inmem.mjs';
 
 let clockWarned = false;
 
@@ -164,6 +165,10 @@ async function execNode(node, runtime, ctx, input) {
 }
 
 export async function runIR(ir, runtime, options = {}) {
+  const activeRuntime = runtime ?? createInmemRuntime();
+  if (activeRuntime?.state && typeof activeRuntime.state === 'object') {
+    activeRuntime.state.caps = options?.caps ?? null;
+  }
   const tracePath = process.env.TF_TRACE_PATH;
   let traceStream = null;
   let traceWritable = false;
@@ -230,7 +235,7 @@ export async function runIR(ir, runtime, options = {}) {
 
   const ctx = { effects: new Set(), ops: 0, emit };
   try {
-    const { value, ok } = await execNode(ir, runtime, ctx, options.input);
+    const { value, ok } = await execNode(ir, activeRuntime, ctx, options.input);
     return {
       ok: normalizeOk(ok),
       result: value,
@@ -260,7 +265,7 @@ export async function runWithCaps(ir, runtime, caps, manifest) {
     console.error('tf run-ir: capability validation failed', JSON.stringify(verdict));
     return { ok: false, ops: 0, effects: [], result: undefined };
   }
-  return runIR(ir, runtime);
+  return runIR(ir, runtime, { caps });
 }
 
 export default runIR;

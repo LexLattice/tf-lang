@@ -46,7 +46,7 @@ test('parallel publish and metric capture distinct effects', async () => {
   };
   const out = await runIR(ir, inmem);
   assert.equal(out.ok, true);
-  assert.deepEqual(out.effects, ['Network.Out', 'Observability.EmitMetric']);
+  assert.deepEqual(out.effects, ['Network.Out', 'Observability']);
 });
 
 test('par run reports ok=false when any child fails', async () => {

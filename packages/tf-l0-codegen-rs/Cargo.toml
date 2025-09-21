@@ -1,0 +1,15 @@
+[package]
+name = "tf-l0-codegen-rs"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "tf-l0-codegen-rs"
+path = "src/bin/main.rs"
+
+[dependencies]
+anyhow = "1"
+serde_json = "1"

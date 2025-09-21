@@ -36,3 +36,22 @@ cat out/0.4/pilot-l0/summary.json
 ```
 
 The run produces IR, canonical form, manifest, generated TypeScript, capability manifest, execution status, trace, and a summarized view. Capability gating requires the following effects: `Network.Out`, `Storage.Write`, `Observability`, and `Pure`, with writes permitted under the `res://ledger/` prefix.
+
+## Parity harness
+
+The deterministic pilot build pipeline lives in `scripts/pilot-build-run.mjs`. It parses `examples/flows/pilot_min.tf`, emits the canonical artifacts, generates the TypeScript runner, executes it under a fixed clock, and records digests for the IR, canon, manifest, status, trace, and summary. Each run refreshes `out/0.4/pilot-l0/golden/` with the generated baseline.
+
+`scripts/pilot-handwritten.mjs` replays the same flow by directly invoking the in-memory adapters, while `scripts/pilot-parity.mjs` compares the generated and manual artifacts via canonical SHA-256 hashes. Run the full suite with:
+
+```sh
+pnpm run pilot:all
+cat out/0.4/parity/report.json
+```
+
+Both runners share a fixed millisecond clock configured through `TF_FIXED_TS` (default `1750000000000`). To force a reproducible end-to-end run:
+
+```sh
+TF_FIXED_TS=1750000000000 pnpm run pilot:all && cat out/0.4/parity/report.json
+```
+
+The parity harness exits non-zero if any artifact digests differ and is covered by `tests/pilot-parity.test.mjs`, which reruns the harness to ensure byte-for-byte determinism.

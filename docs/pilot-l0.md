@@ -55,3 +55,7 @@ TF_FIXED_TS=1750000000000 pnpm run pilot:all && cat out/0.4/parity/report.json
 ```
 
 The parity harness exits non-zero if any artifact digests differ and is covered by `tests/pilot-parity.test.mjs`, which reruns the harness to ensure byte-for-byte determinism.
+
+### Runtime verify (schema + meta + composition)
+- Local: `node scripts/runtime-verify.mjs --flow pilot --out out/0.4/verify/pilot/report.json`
+- CI: workflow **“L0 Runtime Verify”** runs the same steps and uploads `l0-runtime-verify` artifacts.

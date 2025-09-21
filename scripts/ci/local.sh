@@ -63,8 +63,21 @@ install_act() {
       fi
       ;;
     Linux)
-      if cmd_exists apt-get; then
-        curl -fsSL https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
+      if cmd_exists act; then
+        echo "act already installed."
+      elif cmd_exists apt-get; then
+        if [[ "${YES:-}" == "1" ]]; then
+          curl -fsSL https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
+        else
+          echo "About to run the official 'act' installer with sudo."
+          read -r -p "Continue? (y/N) " REPLY
+          if [[ "$REPLY" =~ ^[Yy]$ ]]; then
+            curl -fsSL https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
+          else
+            echo "Installation cancelled." >&2
+            exit 1
+          fi
+        fi
       else
         echo "On Linux, install via your package manager or the installer above."
         exit 1

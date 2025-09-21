@@ -22,6 +22,8 @@ bash scripts/ci/local.sh job build
 bash scripts/ci/local.sh pr --watch
 ```
 
+If `act` fails with "action not found" on first run, remove `--action-offline-mode` from `.actrc` or run once online to populate the local cache.
+
 ## Secrets & Vars
 
 * Copy `.github/.secrets.example` → `.github/.secrets`, fill in values.

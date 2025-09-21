@@ -1,5 +1,11 @@
 import { unionEffects } from './lattice.mjs';
 import { conflict } from './footprints.mjs';
+import {
+  effectOf,
+  canCommute,
+  parSafe,
+  primaryFamily
+} from './effect-lattice.mjs';
 
 function mergeQos(base = {}, next = {}) {
   const result = { ...base };
@@ -19,11 +25,11 @@ function mergeQos(base = {}, next = {}) {
  * - If a primitive has no footprints in catalog, infer minimal reads/writes from args.
  *   This keeps tests green before A2 (footprints) or autofix are applied.
  */
-export function checkIR(ir, catalog) {
-  return walk(ir, catalog);
+export function checkIR(ir, catalog, options = {}) {
+  return walk(ir, catalog, options);
 }
 
-function walk(node, catalog) {
+function walk(node, catalog, options) {
   if (!node || typeof node !== 'object') {
     return okVerdict();
   }
@@ -42,28 +48,44 @@ function walk(node, catalog) {
 
   if (node.node === 'Seq') {
     let acc = okVerdict();
+    let prevFamily = null;
     for (const c of node.children || []) {
-      const v = walk(c, catalog);
+      const v = walk(c, catalog, options);
       acc.ok = acc.ok && v.ok;
       acc.effects = unionEffects(acc.effects, v.effects);
       acc.reads = [...acc.reads, ...(v.reads || [])];
       acc.writes = [...acc.writes, ...(v.writes || [])];
       acc.reasons.push(...(v.reasons || []));
       acc.qos = mergeQos(acc.qos, v.qos);
+
+       const currentFamily = nodeFamily(c, v, catalog);
+       if (typeof c === 'object' && c) {
+         c.commutes_with_prev = prevFamily ? canCommute(prevFamily, currentFamily) : false;
+       }
+       prevFamily = currentFamily || null;
     }
     return acc;
   }
 
   if (node.node === 'Par') {
-    const vs = (node.children || []).map(c => walk(c, catalog));
+    const vs = (node.children || []).map(c => walk(c, catalog, options));
     let ok = vs.every(v => v.ok);
     let qos = {};
+    let conflictDetected = false;
 
     // pairwise conflict check on writes (same resource URI => conflict)
     for (let i = 0; i < vs.length; i++) {
       for (let j = i + 1; j < vs.length; j++) {
-        if (conflict(vs[i].writes, vs[j].writes)) {
+        const famA = nodeFamily(node.children?.[i], vs[i], catalog);
+        const famB = nodeFamily(node.children?.[j], vs[j], catalog);
+        if (!parSafe(famA, famB, {
+          conflict,
+          disjoint: options?.disjoint,
+          writesA: vs[i].writes,
+          writesB: vs[j].writes
+        })) {
           ok = false;
+          conflictDetected = conflictDetected || (famA === 'Storage.Write' && famB === 'Storage.Write');
         }
       }
     }
@@ -78,7 +100,9 @@ function walk(node, catalog) {
       reads: vs.flatMap(v => v.reads || []),
       writes: vs.flatMap(v => v.writes || []),
       qos,
-      reasons: ok ? [] : ['Par conflict: overlapping writes detected']
+      reasons: ok
+        ? []
+        : [conflictDetected ? 'Par conflict: overlapping writes detected' : 'Par effect pair deemed unsafe']
     };
   }
 
@@ -86,7 +110,7 @@ function walk(node, catalog) {
   if (Array.isArray(node.children)) {
     let acc = okVerdict();
     for (const c of node.children) {
-      const v = walk(c, catalog);
+      const v = walk(c, catalog, options);
       acc.ok = acc.ok && v.ok;
       acc.effects = unionEffects(acc.effects, v.effects);
       acc.reads = [...acc.reads, ...(v.reads || [])];
@@ -175,4 +199,15 @@ function inferFromArgs(name, args) {
   }
 
   return res;
+}
+
+function nodeFamily(node, verdict, catalog) {
+  if (!node || typeof node !== 'object') {
+    return null;
+  }
+  if (node.node === 'Prim') {
+    const primId = node.id || node.prim;
+    return effectOf(primId, catalog);
+  }
+  return primaryFamily(verdict?.effects || []);
 }

@@ -1,21 +1,16 @@
-name: L0 proof artifacts
+name: L0 Proof Artifacts
 
 on:
-  workflow_dispatch:
   pull_request:
+  workflow_dispatch:
 
 jobs:
   emit:
-    name: Emit L0 proofs
     runs-on: ubuntu-latest
-    continue-on-error: true
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup pnpm + Node
-        uses: ./.github/actions/setup-pnpm
+      - uses: ./.github/actions/setup-pnpm
         with:
           node-version: '20'
           install: 'true'
@@ -24,25 +19,24 @@ jobs:
             pnpm-lock.yaml
             **/pnpm-lock.yaml
 
-      - name: Prepare catalogs (A0/A1)
+      - name: A0/A1 + build
         run: |
           pnpm run a0
           pnpm run a1
+          pnpm -w -r build
 
-      - name: Emit SMT encodings
+      - name: Emit proof artifacts
+        run: node scripts/proofs-emit-all.mjs
+
+      - name: List artifacts
         run: |
-          node scripts/emit-smt.mjs examples/flows/storage_conflict.tf -o out/0.4/proofs/storage_conflict.smt2
-          node scripts/emit-smt.mjs examples/flows/storage_ok.tf -o out/0.4/proofs/storage_ok.smt2
+          echo "::group::proof files"
+          find out/0.4/proofs -type f -print
+          echo "::endgroup::"
 
-      - name: Emit Alloy models
-        run: |
-          node scripts/emit-alloy.mjs examples/flows/storage_conflict.tf -o out/0.4/proofs/storage_conflict.als
-          node scripts/emit-alloy.mjs examples/flows/storage_ok.tf -o out/0.4/proofs/storage_ok.als
-
-      - name: Upload artifacts
+      - name: Upload proof artifacts
         if: ${{ !env.ACT }}
         uses: actions/upload-artifact@v4
         with:
           name: l0-proofs
           path: out/0.4/proofs/**
-          if-no-files-found: error

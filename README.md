@@ -131,6 +131,9 @@ out/ (artifacts)/
 * Streaming scale (1M–10M frames) and perf suite.
 * Plugin SDK + config schema.
 * Release pipeline (packages, SBOMs, checksums).
+* Catalog: [docs/l0-catalog.md](docs/l0-catalog.md)
+* DSL Cheatsheet: [docs/l0-dsl.md](docs/l0-dsl.md)
+* Effects/Lattice: [docs/l0-effects.md](docs/l0-effects.md)
 
 ## Contributing
 

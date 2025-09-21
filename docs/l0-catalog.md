@@ -1,23 +1,73 @@
-# L0 Catalog (A1 skeleton)
-- `spec/ids.json` — IDs
-- `spec/catalog.json` — normalized catalog with placeholders
-- `spec/effects.json` — derived effect tags
-- `spec/laws.json` — law registry (sample rules)
+# L0 Catalog (generated)
+Primitives: 14
+Effects: Pure, Observability, Network.Out, Storage.Read, Storage.Write, Crypto, Policy, Infra, Time, UI
 
-### Seed Overlay
-Until the legacy YAML catalogs are fully curated, the A1 pipeline unions any
-`spec/seed/*.json` overlay into the generated catalog. The seed entries carry
-minimal `effects`, `reads`/`writes`, and `qos` data so the checker, flows, and
-conflict detection stay runnable while curation continues.
+### tf:information/deserialize@1
+| Effects | Input | Output | Laws |
+| --- | --- | --- | --- |
+| Pure | — | — | `law:serialize-deserialize-eq-id` |
 
-### Effect derivation rules
-Deterministic name-based rules fill in missing effect tags and network QoS only when the catalog lacks curated data.
-Seed overlays remain authoritative for existing effects or qos values.
-Hashing primitives classify as Pure; Crypto is reserved for secret-bearing operations (sign/verify/encrypt/decrypt).
+### tf:information/hash@1
+| Effects | Input | Output | Laws |
+| --- | --- | --- | --- |
+| Pure | — | — | `law:hash-idempotent` |
 
-### Manifest compatibility
-For v0.4 manifests we emit both the legacy `effects`/`footprints` fields and the new
-`required_effects`/`footprints_rw`/`qos` structure for downstream compatibility. The
-two shapes are mutually exclusive, but the schema and CLI validator accept either so
-consumers can migrate on their own schedule. Use
-`node scripts/validate-manifest.mjs <path>` to confirm conformance.
+### tf:information/serialize@1
+| Effects | Input | Output | Laws |
+| --- | --- | --- | --- |
+| Pure | — | — | `law:serialize-deserialize-eq-id` |
+
+### tf:network/acknowledge@1
+| Effects | Input | Output | Laws |
+| --- | --- | --- | --- |
+| Network.Out | — | — | — |
+
+### tf:network/publish@1
+| Effects | Input | Output | Laws |
+| --- | --- | --- | --- |
+| Network.Out | — | — | — |
+
+### tf:network/request@1
+| Effects | Input | Output | Laws |
+| --- | --- | --- | --- |
+| Network.Out | — | — | — |
+
+### tf:network/subscribe@1
+| Effects | Input | Output | Laws |
+| --- | --- | --- | --- |
+| Network.In | — | — | — |
+
+### tf:observability/emit-metric@1
+| Effects | Input | Output | Laws |
+| --- | --- | --- | --- |
+| Observability | — | — | `law:emitmetric-commutes-with-pure` |
+
+### tf:resource/compare-and-swap@1
+| Effects | Input | Output | Laws |
+| --- | --- | --- | --- |
+| Storage.Write | — | `mode="write", notes="seed", uri="res://kv/<bucket>/:<key>"` | — |
+
+### tf:resource/delete-object@1
+| Effects | Input | Output | Laws |
+| --- | --- | --- | --- |
+| Storage.Write | — | `mode="write", notes="seed", uri="res://kv/<bucket>/:<key>"` | — |
+
+### tf:resource/read-object@1
+| Effects | Input | Output | Laws |
+| --- | --- | --- | --- |
+| Storage.Read | `mode="read", notes="seed", uri="res://kv/<bucket>/:<key>"` | — | — |
+
+### tf:resource/write-object@1
+| Effects | Input | Output | Laws |
+| --- | --- | --- | --- |
+| Storage.Write | — | `mode="write", notes="seed", uri="res://kv/<bucket>/:<key>"` | — |
+
+### tf:security/sign-data@1
+| Effects | Input | Output | Laws |
+| --- | --- | --- | --- |
+| Crypto | — | — | — |
+
+### tf:security/verify-signature@1
+| Effects | Input | Output | Laws |
+| --- | --- | --- | --- |
+| Crypto | — | — | — |

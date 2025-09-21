@@ -14,6 +14,19 @@ export const CANONICAL_EFFECT_FAMILIES = Object.freeze([
   'UI'
 ]);
 
+export const EFFECT_PRECEDENCE = [
+  'Pure',
+  'Observability',
+  'Network.Out',
+  'Storage.Read',
+  'Storage.Write',
+  'Crypto',
+  'Policy',
+  'Infra',
+  'Time',
+  'UI'
+];
+
 const FAMILY_ALIASES = Object.freeze({
   'Time.Read': 'Time',
   'Time.Wait': 'Time',
@@ -104,7 +117,7 @@ export function canCommute(prevFamily, nextFamily) {
   }
 
   if (prev === 'Observability') {
-    return next === 'Observability';
+    return next === 'Observability' || next === 'Network.Out';
   }
 
   if (prev === 'Network.Out') {
@@ -112,6 +125,16 @@ export function canCommute(prevFamily, nextFamily) {
   }
 
   return false;
+}
+
+export function effectRank(family) {
+  const normalized = normalizeFamily(family);
+  const idx = EFFECT_PRECEDENCE.indexOf(normalized);
+  return idx === -1 ? Number.MAX_SAFE_INTEGER : idx;
+}
+
+export function commuteSymmetric(familyA, familyB) {
+  return canCommute(familyA, familyB) && canCommute(familyB, familyA);
 }
 
 export function parSafe(famA, famB, ctx = {}) {

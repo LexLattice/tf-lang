@@ -172,7 +172,7 @@ npm run tf -- check examples/flows/signing.tf -o out/0.4/flows/signing.verdict.j
 npm run tf -- canon examples/flows/signing.tf -o out/0.4/ir/signing.canon.json
 
 # Generate Rust scaffold for the flow
-node scripts/generate-rs.mjs out/0.4/ir/signing.ir.json -o out/0.4/codegen-rs/signing
+node scripts/generate-rs-run.mjs out/0.4/ir/signing.ir.json -o out/0.4/codegen-rs/signing
 # (optional) LOCAL_RUST=1 cargo build -Z unstable-options --manifest-path out/0.4/codegen-rs/signing/Cargo.toml
 
 # Generate TS skeleton for the flow

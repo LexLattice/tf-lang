@@ -1,5 +1,11 @@
 import { unionEffects } from './lattice.mjs';
 import { conflict } from './footprints.mjs';
+import {
+  effectOf,
+  canCommute,
+  parSafe,
+  primaryFamily
+} from './effect-lattice.mjs';
 
 function mergeQos(base = {}, next = {}) {
   const result = { ...base };
@@ -42,6 +48,7 @@ function walk(node, catalog) {
 
   if (node.node === 'Seq') {
     let acc = okVerdict();
+    let prevFamily = null;
     for (const c of node.children || []) {
       const v = walk(c, catalog);
       acc.ok = acc.ok && v.ok;
@@ -50,6 +57,12 @@ function walk(node, catalog) {
       acc.writes = [...acc.writes, ...(v.writes || [])];
       acc.reasons.push(...(v.reasons || []));
       acc.qos = mergeQos(acc.qos, v.qos);
+
+       const currentFamily = nodeFamily(c, v, catalog);
+       if (typeof c === 'object' && c) {
+         c.commutes_with_prev = prevFamily ? canCommute(prevFamily, currentFamily) : false;
+       }
+       prevFamily = currentFamily || null;
     }
     return acc;
   }
@@ -58,12 +71,20 @@ function walk(node, catalog) {
     const vs = (node.children || []).map(c => walk(c, catalog));
     let ok = vs.every(v => v.ok);
     let qos = {};
+    let conflictDetected = false;
 
     // pairwise conflict check on writes (same resource URI => conflict)
     for (let i = 0; i < vs.length; i++) {
       for (let j = i + 1; j < vs.length; j++) {
-        if (conflict(vs[i].writes, vs[j].writes)) {
+        const famA = nodeFamily(node.children?.[i], vs[i], catalog);
+        const famB = nodeFamily(node.children?.[j], vs[j], catalog);
+        if (!parSafe(famA, famB, {
+          conflict,
+          writesA: vs[i].writes,
+          writesB: vs[j].writes
+        })) {
           ok = false;
+          conflictDetected = conflictDetected || (famA === 'Storage.Write' && famB === 'Storage.Write');
         }
       }
     }
@@ -78,7 +99,9 @@ function walk(node, catalog) {
       reads: vs.flatMap(v => v.reads || []),
       writes: vs.flatMap(v => v.writes || []),
       qos,
-      reasons: ok ? [] : ['Par conflict: overlapping writes detected']
+      reasons: ok
+        ? []
+        : [conflictDetected ? 'Par conflict: overlapping writes detected' : 'Par effect pair deemed unsafe']
     };
   }
 
@@ -175,4 +198,15 @@ function inferFromArgs(name, args) {
   }
 
   return res;
+}
+
+function nodeFamily(node, verdict, catalog) {
+  if (!node || typeof node !== 'object') {
+    return null;
+  }
+  if (node.node === 'Prim') {
+    const primId = node.id || node.prim;
+    return effectOf(primId, catalog);
+  }
+  return primaryFamily(verdict?.effects || []);
 }

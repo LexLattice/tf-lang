@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
-import { mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdir, writeFile, rm, readFile } from 'node:fs/promises';
 import { join, dirname, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import inmem from '../packages/tf-l0-codegen-ts/src/runtime/inmem.mjs';
@@ -48,6 +48,30 @@ async function main() {
   try {
     inmem.reset?.();
 
+    let provenance = null;
+    const emitMeta = process.env.TF_PROVENANCE === '1';
+    let traceMeta = null;
+    try {
+      const generatedStatusRaw = await readFile(join(outDir, 'status.json'), 'utf8');
+      const parsedStatus = JSON.parse(generatedStatusRaw);
+      if (parsedStatus && typeof parsedStatus.provenance === 'object' && !Array.isArray(parsedStatus.provenance)) {
+        provenance = parsedStatus.provenance;
+        if (emitMeta) {
+          const { ir_hash, manifest_hash, catalog_hash } = provenance;
+          if (typeof ir_hash === 'string' || typeof manifest_hash === 'string' || typeof catalog_hash === 'string') {
+            traceMeta = {};
+            if (typeof ir_hash === 'string') traceMeta.ir_hash = ir_hash;
+            if (typeof manifest_hash === 'string') traceMeta.manifest_hash = manifest_hash;
+            if (typeof catalog_hash === 'string') traceMeta.catalog_hash = catalog_hash;
+          }
+        }
+      }
+    } catch (err) {
+      if (err?.code && err.code !== 'ENOENT') {
+        console.warn('pilot-handwritten: unable to read generated status provenance', err);
+      }
+    }
+
     const operations = [
       { prim: 'tf:observability/emit-metric@1', args: { name: 'pilot.replay.start' } },
       {
@@ -83,6 +107,9 @@ async function main() {
         region: '',
         effect: typeof effect === 'string' ? effect : '',
       };
+      if (traceMeta) {
+        record.meta = traceMeta;
+      }
       traceLines.push(JSON.stringify(record));
       await adapter(args, inmem.state ?? {});
       offset += 1n;
@@ -107,6 +134,9 @@ async function main() {
       effects: Array.from(effects).sort(),
       manifest_path: manifestPath,
     };
+    if (provenance) {
+      status.provenance = provenance;
+    }
     await writeFile(statusPath, JSON.stringify(status, null, 2) + '\n');
   } finally {
     if (prevStatus === undefined) delete process.env.TF_STATUS_PATH;

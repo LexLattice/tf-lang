@@ -8,6 +8,8 @@ import { manifestFromVerdict } from '../../tf-l0-check/src/manifest.mjs';
 
 const moduleDir = dirname(fileURLToPath(import.meta.url));
 const runtimeSrc = join(moduleDir, '..', 'src', 'runtime');
+const adapterTypesSrc = join(moduleDir, '..', 'src', 'adapters', 'types.ts');
+const adapterInmemSrc = join(moduleDir, '..', 'src', 'adapters', 'inmem.mjs');
 const catalogPath = join(moduleDir, '..', '..', 'tf-l0-spec', 'spec', 'catalog.json');
 
 let catalogPromise = null;
@@ -38,8 +40,7 @@ export async function generate(ir, { outDir }) {
     'utf8',
   );
 
-  const adapters = genAdapters(ir);
-  await writeFile(join(outDir, 'src', 'adapters.ts'), adapters, 'utf8');
+  await copyFile(adapterTypesSrc, join(outDir, 'src', 'adapters.ts'));
 
   const pipeline = genPipeline(ir);
   await writeFile(join(outDir, 'src', 'pipeline.ts'), pipeline, 'utf8');
@@ -59,22 +60,6 @@ function prims(ir, out = new Set()) {
   if (ir.node === 'Prim') out.add(ir.prim);
   for (const child of ir.children || []) prims(child, out);
   return out;
-}
-
-function genAdapters(ir) {
-  const names = Array.from(prims(ir));
-  const methods = names.map((name) => `  ${to(name)}(input: any): Promise<any>`).join('\n');
-  const stubs = names.map((name) => stub(name)).join('\n\n');
-  return `export interface Adapters {\n${methods}\n}\n\n${stubs}\n`;
-
-  function to(name) {
-    return `prim_${name.replace(/[^a-z0-9]/g, '_')}`;
-  }
-
-  function stub(name) {
-    const method = to(name);
-    return `export async function ${method}(input:any):Promise<any>{ throw new Error('Not wired: ${method}'); }`;
-  }
 }
 
 function genPipeline(ir) {
@@ -125,9 +110,11 @@ function hashCode(s) {
 async function emitRuntime(ir, outDir, manifest, catalog) {
   const runtimeOut = join(outDir, 'runtime');
   await mkdir(runtimeOut, { recursive: true });
+  await mkdir(join(outDir, 'adapters'), { recursive: true });
   await copyFile(join(runtimeSrc, 'inmem.mjs'), join(runtimeOut, 'inmem.mjs'));
   await copyFile(join(runtimeSrc, 'run-ir.mjs'), join(runtimeOut, 'run-ir.mjs'));
   await copyFile(join(runtimeSrc, 'capabilities.mjs'), join(runtimeOut, 'capabilities.mjs'));
+  await copyFile(adapterInmemSrc, join(outDir, 'adapters', 'inmem.mjs'));
 
   const canonicalIrLiteral = canonicalize(ir);
   const canonicalIr = JSON.parse(canonicalIrLiteral);

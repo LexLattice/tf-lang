@@ -1,0 +1,1 @@
+{"effects":["Crypto","Network.Out","Observability","Pure","Storage.Read","Storage.Write"],"allow_writes_prefixes":["res://"]}

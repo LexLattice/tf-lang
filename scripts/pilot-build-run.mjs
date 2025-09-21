@@ -5,7 +5,7 @@ import { mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { copyFileSync } from 'node:fs';
 import { join, dirname, isAbsolute } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { canonicalStringify, hashJsonLike } from './hash-jsonl.mjs';
+import { canonicalStringify, hashCanonical, hashJsonLike } from './hash-jsonl.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(here, '..');
@@ -63,6 +63,55 @@ async function rewriteManifest(path) {
   return manifest;
 }
 
+function canonicalizeJson(value) {
+  if (typeof value === 'bigint') {
+    return { $bigint: value.toString(10) };
+  }
+  if (Array.isArray(value)) {
+    return value.map((entry) => canonicalizeJson(entry));
+  }
+  if (value && typeof value === 'object') {
+    const result = {};
+    for (const key of Object.keys(value).sort()) {
+      const val = canonicalizeJson(value[key]);
+      if (val !== undefined) {
+        result[key] = val;
+      }
+    }
+    return result;
+  }
+  return value;
+}
+
+async function writeIrFromRun(runPath, irPath, canonPath) {
+  let source;
+  try {
+    source = await readFile(runPath, 'utf8');
+  } catch (err) {
+    console.warn('pilot-build-run: unable to read generated run.mjs for IR extraction', err);
+    return;
+  }
+  const match = source.match(/const ir = (\{[\s\S]*?\n\});/);
+  if (!match) {
+    console.warn('pilot-build-run: unable to locate ir literal in run.mjs');
+    return;
+  }
+  let irObject;
+  try {
+    // eslint-disable-next-line no-new-func
+    irObject = Function(`return (${match[1]});`)();
+  } catch (err) {
+    console.warn('pilot-build-run: unable to evaluate ir literal', err);
+    return;
+  }
+  const canonicalIr = canonicalizeJson(irObject);
+  const canonicalJson = JSON.stringify(canonicalIr) + '\n';
+  await writeFile(irPath, canonicalJson);
+  if (canonPath) {
+    await writeFile(canonPath, canonicalJson);
+  }
+}
+
 async function patchRunManifest(runPath, manifest) {
   const source = await readFile(runPath, 'utf8');
   const marker = 'const MANIFEST = ';
@@ -75,7 +124,18 @@ async function patchRunManifest(runPath, manifest) {
   const prefix = source.slice(0, start);
   const suffix = remainder.slice(end + 2);
   const next = `${prefix}${JSON.stringify(manifest)};\n${suffix}`;
-  await writeFile(runPath, next);
+  const manifestHash = hashCanonical(canonicalStringify(manifest));
+  let updated = next;
+  const hashMarker = "const MANIFEST_HASH = '";
+  const hashIdx = updated.indexOf(hashMarker);
+  if (hashIdx !== -1) {
+    const hashStart = hashIdx + hashMarker.length;
+    const after = updated.indexOf("'", hashStart);
+    if (after !== -1) {
+      updated = `${updated.slice(0, hashStart)}${manifestHash}${updated.slice(after)}`;
+    }
+  }
+  await writeFile(runPath, updated);
 }
 
 function createDeterministicClock(epochMs = FIXED_TS, stepMs = 1) {
@@ -149,6 +209,7 @@ async function main() {
   await mkdir(genDir, { recursive: true });
   sh('node', [tfCompose, 'emit', '--lang', 'ts', flowPath, '--out', genDir]);
   await patchRunManifest(join(genDir, 'run.mjs'), manifest);
+  await writeIrFromRun(join(genDir, 'run.mjs'), irPath, canonPath);
 
   const caps = {
     effects: ['Network.Out', 'Storage.Write', 'Observability', 'Pure'],

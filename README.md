@@ -157,6 +157,10 @@ node scripts/generate-rs.mjs out/0.4/ir/signing.ir.json -o out/0.4/codegen-rs/si
 # Generate TS skeleton for the flow
 npm run tf -- emit --lang ts examples/flows/signing.tf --out out/0.4/codegen-ts/signing
 
+### Generated pipeline adapters
+
+Generated TypeScript bundles include a shared `src/adapters.ts` definition that re-exports the runtime adapter surface. The runtime layer wires deterministic in-memory implementations for network publish, storage writes/CAS, crypto sign/verify/hash, and observability metrics. Each `run.mjs` bootstraps these adapters automatically and enforces capability manifests via `--caps` or `TF_CAPS`, so flows can be executed in tests without external services.
+
 # Run generated code with capability enforcement (+ env fallback)
 # caps.json: {"effects":["Storage.Write","Pure","Observability"],"allow_writes_prefixes":["res://kv/"]}
 npm run tf -- emit --lang ts examples/flows/run_storage_ok.tf --out out/0.4/codegen-ts/run_storage_ok

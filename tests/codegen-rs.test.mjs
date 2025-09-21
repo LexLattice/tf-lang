@@ -17,6 +17,15 @@ function runGenerator() {
 }
 
 test('rust codegen emits deterministic scaffold', () => {
+  if (!fs.existsSync(IR_PATH)) {
+    fs.mkdirSync(path.dirname(IR_PATH), { recursive: true });
+    const parse = spawnSync('node', ['packages/tf-compose/bin/tf.mjs', 'parse', 'examples/flows/signing.tf', '-o', IR_PATH], {
+      cwd: ROOT,
+      stdio: 'inherit',
+    });
+    assert.equal(parse.status, 0, 'signing parse should succeed');
+  }
+
   assert.ok(fs.existsSync(IR_PATH), 'expected signing IR fixture');
 
   fs.rmSync(OUT_DIR, { recursive: true, force: true });

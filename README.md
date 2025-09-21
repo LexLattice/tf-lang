@@ -150,6 +150,10 @@ npm run tf -- parse examples/flows/signing.tf -o out/0.4/ir/signing.ir.json
 npm run tf -- check examples/flows/signing.tf -o out/0.4/flows/signing.verdict.json
 npm run tf -- canon examples/flows/signing.tf -o out/0.4/ir/signing.canon.json
 
+# Generate Rust scaffold for the flow
+node scripts/generate-rs.mjs out/0.4/ir/signing.ir.json -o out/0.4/codegen-rs/signing
+# (optional) LOCAL_RUST=1 cargo build -Z unstable-options --manifest-path out/0.4/codegen-rs/signing/Cargo.toml
+
 # Generate TS skeleton for the flow
 npm run tf -- emit --lang ts examples/flows/signing.tf --out out/0.4/codegen-ts/signing
 
@@ -160,6 +164,8 @@ node out/0.4/codegen-ts/run_storage_ok/run.mjs --caps caps.json
 TF_CAPS='{"effects":["Network.Out","Pure"],"allow_writes_prefixes":[]}' node out/0.4/codegen-ts/run_publish/run.mjs
 # Summarize traces
 cat tests/fixtures/trace-sample.jsonl | node packages/tf-l0-tools/trace-summary.mjs --top=3 --pretty
+
+See [docs/l0-proofs.md](docs/l0-proofs.md) for generating SMT/Alloy proofs and downloading the CI artifacts emitted for v0.4 flows.
 
 ### Example App: Order Publish
 ```bash

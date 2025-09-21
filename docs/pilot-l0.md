@@ -56,6 +56,16 @@ TF_FIXED_TS=1750000000000 pnpm run pilot:all && cat out/0.4/parity/report.json
 
 The parity harness exits non-zero if any artifact digests differ and is covered by `tests/pilot-parity.test.mjs`, which reruns the harness to ensure byte-for-byte determinism.
 
+## Full pilot parity
+
+Run the full replay → strategy → risk → exec → ledger parity check between the generated L0 flow and the legacy T5 toolchain with:
+
+```sh
+pnpm -w -r build && TF_PILOT_FULL=1 node scripts/t5-build-run.mjs && TF_PILOT_FULL=1 node scripts/pilot-full-build-run.mjs && node scripts/pilot-full-parity.mjs && cat out/0.4/parity/full/report.json
+```
+
+The combined command builds the workspace, captures the T5 artifacts under `out/t5-full/`, regenerates and executes `examples/flows/pilot_full.tf` into `out/0.4/pilot-full/`, and emits a deterministic parity report at `out/0.4/parity/full/report.json`.
+
 ### Runtime verify (schema + meta + composition)
 - Local: `node scripts/runtime-verify.mjs --flow pilot --out out/0.4/verify/pilot/report.json --catalog out/0.4/pilot-l0/catalog.json --catalog-hash $(jq -r '.provenance.catalog_hash' out/0.4/pilot-l0/status.json)`
   - Add `--print-inputs` to echo the resolved artifact paths + hashes.

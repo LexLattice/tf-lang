@@ -1,5 +1,5 @@
 const INDENT = '  ';
-const IDENT_KEY_RE = /^[A-Za-z_][A-Za-z0-9_.-]*$/;
+const IDENT_KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 export function formatDSL(ir) {
   const lines = formatNode(ir, 0);
@@ -47,7 +47,9 @@ function formatPrim(node) {
   const args = node.args && typeof node.args === 'object' ? node.args : {};
   const keys = Object.keys(args);
   if (keys.length === 0) return name;
-  const parts = keys.sort().map((key) => `${key}=${formatLiteral(args[key])}`);
+  const parts = keys
+    .sort((a, b) => a.localeCompare(b))
+    .map((key) => `${key}=${formatLiteral(args[key])}`);
   return `${name}(${parts.join(', ')})`;
 }
 
@@ -155,14 +157,6 @@ function renderTreeLines(node, level) {
   return [`${indent(level)}${String(node.node ?? node)}`];
 }
 
-function formatArgsForShow(obj) {
-  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return '';
-  const keys = Object.keys(obj);
-  if (keys.length === 0) return '';
-  const parts = keys.sort().map((key) => `${key}:${formatLiteral(obj[key])}`);
-  return `{${parts.join(', ')}}`;
-}
-
 function formatLiteral(value) {
   if (value === null) return 'null';
   if (typeof value === 'number') {
@@ -178,14 +172,29 @@ function formatLiteral(value) {
     return `[${value.map((item) => formatLiteral(item)).join(', ')}]`;
   }
   if (value && typeof value === 'object') {
-    const keys = Object.keys(value).sort();
+    const keys = Object.keys(value).sort((a, b) => a.localeCompare(b));
     const parts = keys.map((key) => {
-      const keyText = IDENT_KEY_RE.test(key) ? key : formatLiteral(String(key));
+      const keyText = isIdent(key) ? key : JSON.stringify(key);
       return `${keyText}:${formatLiteral(value[key])}`;
     });
     return `{${parts.join(', ')}}`;
   }
   return `"${escapeString(String(value))}"`;
+}
+
+function isIdent(key) {
+  return IDENT_KEY_RE.test(key);
+}
+
+function formatArgsForShow(obj) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return '';
+  const keys = Object.keys(obj).sort((a, b) => a.localeCompare(b));
+  if (keys.length === 0) return '';
+  const parts = keys.map((key) => {
+    const keyText = isIdent(key) ? key : JSON.stringify(key);
+    return `${keyText}:${formatLiteral(obj[key])}`;
+  });
+  return `{${parts.join(', ')}}`;
 }
 
 function escapeString(value) {

@@ -414,7 +414,7 @@ function parseArray(tokens) {
 
 function parseObject(tokens) {
   take(tokens, 'LBRACE');
-  const obj = {};
+  const obj = Object.create(null);
   if (maybe(tokens, 'RBRACE')) return obj;
   while (true) {
     const keyTok = peek(tokens);
@@ -423,8 +423,10 @@ function parseObject(tokens) {
       key = take(tokens, 'STRING').v;
     } else if (keyTok.t === 'IDENT') {
       key = take(tokens, 'IDENT').v;
+    } else if (keyTok.t === 'NUMBER') {
+      key = String(take(tokens, 'NUMBER').v);
     } else {
-      throw syntaxError(tokens, keyTok, 'Expected string or identifier key');
+      throw syntaxError(tokens, keyTok, 'Expected string, identifier, or number key');
     }
     take(tokens, 'COLON');
     obj[key] = parseValue(tokens);

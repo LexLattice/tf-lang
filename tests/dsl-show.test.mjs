@@ -12,6 +12,6 @@ test('show renders tree structure', () => {
   assert.equal(lines[0], 'Seq');
   const primLines = lines.filter((line) => line.trimStart().startsWith('Prim:'));
   assert.equal(primLines.length, 2);
-  assert.match(primLines[0], /Prim: write-object .*key:"a"/);
-  assert.match(primLines[1], /Prim: write-object .*key:"b"/);
+  assert.equal(primLines[0].trim(), 'Prim: write-object {key:"a", uri:"res://kv/x"}');
+  assert.equal(primLines[1].trim(), 'Prim: write-object {key:"b", uri:"res://kv/x"}');
 });

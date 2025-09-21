@@ -1,5 +1,6 @@
 import { unionEffects } from './lattice.mjs';
 import { conflict } from './footprints.mjs';
+import { canCommute } from './effect-lattice.mjs';
 
 function mergeQos(base = {}, next = {}) {
   const result = { ...base };
@@ -42,14 +43,25 @@ function walk(node, catalog) {
 
   if (node.node === 'Seq') {
     let acc = okVerdict();
+    let prevEffects = [];
     for (const c of node.children || []) {
       const v = walk(c, catalog);
+      if (c && typeof c === 'object') {
+        if (prevEffects.length > 0 && Array.isArray(v.effects) && v.effects.length > 0) {
+          c.commutes_with_prev = prevEffects.every(prev =>
+            v.effects.every(curr => canCommute(prev, curr))
+          );
+        } else {
+          c.commutes_with_prev = false;
+        }
+      }
       acc.ok = acc.ok && v.ok;
       acc.effects = unionEffects(acc.effects, v.effects);
       acc.reads = [...acc.reads, ...(v.reads || [])];
       acc.writes = [...acc.writes, ...(v.writes || [])];
       acc.reasons.push(...(v.reasons || []));
       acc.qos = mergeQos(acc.qos, v.qos);
+      prevEffects = Array.isArray(v.effects) ? [...v.effects] : [];
     }
     return acc;
   }

@@ -41,6 +41,10 @@
     "graph:signing": "node scripts/graph-ir.mjs out/0.4/ir/signing.ir.json out/0.4/graphs/signing.dot",
     "contracts:baseline:capture": "node scripts/baseline-capture.mjs",
     "contracts:check-breaking": "node scripts/check-breaking.mjs",
+    "pilot:build-run": "node scripts/pilot-build-run.mjs",
+    "pilot:manual": "node scripts/pilot-handwritten.mjs",
+    "pilot:parity": "node scripts/pilot-parity.mjs",
+    "pilot:all": "pnpm run pilot:build-run && pnpm run pilot:manual && pnpm run pilot:parity",
     "policy:auth": "node packages/tf-compose/bin/tf-policy-auth.mjs",
     "policy:auth:samples": "node -e \"(async()=>{const {spawnSync}=require('node:child_process');const runs=[['ok','examples/flows/auth_ok.tf'],['wrong','examples/flows/auth_wrong_scope.tf'],['missing','examples/flows/auth_missing.tf']];for(const [label,file] of runs){const r=spawnSync('node',['packages/tf-compose/bin/tf-policy-auth.mjs','--','check',file],{stdio:'inherit'}); if(r.status!==0) console.error(`[auth smoke] ${label} -> nonzero (expected for wrong/missing)`);} process.exit(0)})();\""
   },

@@ -39,6 +39,7 @@ async function main() {
 
   const crateName = deriveCrateName(ir, resolvedOutDir, irPath);
   await runGenerator(ir, resolvedOutDir, crateName);
+  console.log(`wrote ${resolvedOutDir} (crate ${crateName})`);
 }
 
 function deriveCrateName(ir, outDir, irPath) {

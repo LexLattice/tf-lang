@@ -6,12 +6,14 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { spawn } from 'node:child_process';
 
-import { sha256OfCanonicalJson } from '../packages/tf-l0-tools/lib/digest.mjs';
+import { canonicalJson } from '../packages/utils/dist/index.js';
+import { sha256OfCanonicalJson, sha256OfJsonl } from '../packages/tf-l0-tools/lib/digest.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(here, '..');
 const validateTraceScript = join(rootDir, 'scripts', 'validate-trace.mjs');
 const verifyTraceScript = join(rootDir, 'packages', 'tf-compose', 'bin', 'tf-verify-trace.mjs');
+
 function resolvePilotOutDir() {
   const override = process.env.PILOT_OUT_DIR;
   if (override && override.trim()) {
@@ -20,8 +22,36 @@ function resolvePilotOutDir() {
   return join(rootDir, 'out', '0.4', 'pilot-l0');
 }
 
-const pilotOutDir = resolvePilotOutDir();
-const pilotCatalogPath = join(rootDir, 'packages', 'tf-l0-spec', 'spec', 'catalog.json');
+function resolveSigningOutDir() {
+  const override = process.env.SIGNING_OUT_DIR;
+  if (override && override.trim()) {
+    return isAbsolute(override) ? override : join(rootDir, override);
+  }
+  return join(rootDir, 'out', '0.4', 'signing-l0');
+}
+
+const flowResolvers = {
+  pilot: () => {
+    const dir = resolvePilotOutDir();
+    return {
+      ir: join(dir, 'pilot_min.ir.json'),
+      manifest: join(dir, 'pilot_min.manifest.json'),
+      status: join(dir, 'status.json'),
+      trace: join(dir, 'trace.jsonl'),
+      catalog: join(dir, 'catalog.json'),
+    };
+  },
+  signing: () => {
+    const dir = resolveSigningOutDir();
+    return {
+      ir: join(dir, 'signing.ir.json'),
+      manifest: join(dir, 'signing.manifest.json'),
+      status: join(dir, 'status.json'),
+      trace: join(dir, 'trace.jsonl'),
+      catalog: join(dir, 'catalog.json'),
+    };
+  },
+};
 
 function normalizePath(pathValue) {
   const rel = relative(rootDir, pathValue);
@@ -31,23 +61,30 @@ function normalizePath(pathValue) {
   return rel.split(/\\+/).join('/');
 }
 
-async function readJson(pathValue) {
-  const raw = await fs.readFile(pathValue, 'utf8');
-  return JSON.parse(raw);
+function isShaLiteral(value) {
+  return typeof value === 'string' && /^sha256:[0-9a-f]{64}$/i.test(value.trim());
 }
 
-async function hashJson(pathValue) {
-  const raw = await fs.readFile(pathValue, 'utf8');
-  const parsed = JSON.parse(raw);
-  return sha256OfCanonicalJson(parsed);
-}
-
-function parseHashOption(value) {
-  if (!value) return { hash: null, path: null };
-  if (value.startsWith('sha256:')) {
-    return { hash: value, path: null };
-  }
-  return { hash: null, path: resolve(value) };
+function printHelp() {
+  const lines = [
+    'Usage: node scripts/runtime-verify.mjs [--flow <pilot|signing>] [--options]',
+    '',
+    'Options:',
+    '  --out <file>             Path to write the verification report (required).',
+    '  --flow <name>            Known flows: pilot (default), signing.',
+    '  --ir <file>              Override IR artifact path.',
+    '  --manifest <file>        Override manifest path.',
+    '  --status <file>          Override status path.',
+    '  --trace <file>           Override trace path.',
+    '  --catalog <file>         Override catalog path.',
+    '  --catalog-hash <sha>     Expected catalog hash (defaults to provenance).',
+    '  --print-inputs           Echo resolved inputs before verification.',
+    '  --help                   Show this help message.',
+    '',
+    'Without explicit paths the CLI resolves flow artifacts from the repository.',
+    'Manual mode requires --ir, --manifest, --status, --trace, and --catalog.',
+  ];
+  process.stdout.write(`${lines.join('\n')}\n`);
 }
 
 function runNode(scriptPath, args, { input } = {}) {
@@ -85,20 +122,49 @@ function runNode(scriptPath, args, { input } = {}) {
   });
 }
 
+async function hashJsonFile(pathValue) {
+  const raw = await fs.readFile(pathValue, 'utf8');
+  const parsed = JSON.parse(raw);
+  return sha256OfCanonicalJson(parsed);
+}
+
+async function ensureFile(pathValue, label) {
+  try {
+    await fs.access(pathValue);
+  } catch (err) {
+    process.stderr.write(`missing ${label}: ${pathValue}\n`);
+    process.exitCode = 2;
+    throw err;
+  }
+}
+
+async function writeReport(outPath, report) {
+  await mkdir(dirname(outPath), { recursive: true });
+  await fs.writeFile(outPath, canonicalJson(report));
+}
+
 async function main(argv) {
   const { values, positionals } = parseArgs({
     args: argv.slice(2),
     options: {
+      help: { type: 'boolean' },
       flow: { type: 'string' },
       ir: { type: 'string' },
       manifest: { type: 'string' },
       status: { type: 'string' },
       trace: { type: 'string' },
       catalog: { type: 'string' },
+      'catalog-hash': { type: 'string' },
       out: { type: 'string' },
+      'print-inputs': { type: 'boolean' },
     },
     allowPositionals: true,
   });
+
+  if (values.help) {
+    printHelp();
+    return;
+  }
 
   if (positionals.length > 0) {
     process.stderr.write(`unexpected positional argument: ${positionals[0]}\n`);
@@ -112,106 +178,140 @@ async function main(argv) {
     process.exitCode = 2;
     return;
   }
+  const outPath = resolve(outFlag);
 
-  const flow = values.flow;
-  let resolved = null;
-  const catalogOption = parseHashOption(typeof values.catalog === 'string' ? values.catalog : '');
+  const explicitPathsProvided = ['ir', 'manifest', 'status', 'trace', 'catalog'].some(
+    (key) => typeof values[key] === 'string',
+  );
 
+  let flow = values.flow;
+  if (!flow && !explicitPathsProvided) {
+    flow = 'pilot';
+  }
   if (flow) {
-    if (flow !== 'pilot') {
+    flow = flow.toLowerCase();
+    if (!Object.prototype.hasOwnProperty.call(flowResolvers, flow)) {
       process.stderr.write(`unsupported flow: ${flow}\n`);
       process.exitCode = 2;
       return;
     }
-    resolved = {
-      ir: join(pilotOutDir, 'pilot_min.ir.json'),
-      manifest: join(pilotOutDir, 'pilot_min.manifest.json'),
-      status: join(pilotOutDir, 'status.json'),
-      trace: join(pilotOutDir, 'trace.jsonl'),
-      catalogPath: catalogOption.path || pilotCatalogPath,
-    };
+  }
+
+  let resolvedPaths = null;
+  if (flow) {
+    resolvedPaths = flowResolvers[flow]();
   } else {
-    const ir = values.ir;
-    const manifest = values.manifest;
-    const status = values.status;
-    const trace = values.trace;
-    if (!ir || !manifest || !status || !trace) {
-      process.stderr.write('--ir, --manifest, --status, and --trace are required without --flow\n');
+    const requiredFlags = ['ir', 'manifest', 'status', 'trace', 'catalog'];
+    for (const flag of requiredFlags) {
+      if (!values[flag]) {
+        process.stderr.write('manual mode requires --ir, --manifest, --status, --trace, and --catalog\n');
+        process.exitCode = 2;
+        return;
+      }
+    }
+    resolvedPaths = {
+      ir: resolve(values.ir),
+      manifest: resolve(values.manifest),
+      status: resolve(values.status),
+      trace: resolve(values.trace),
+      catalog: resolve(values.catalog),
+    };
+  }
+
+  const overrides = {};
+  for (const key of ['ir', 'manifest', 'status', 'trace', 'catalog']) {
+    const value = values[key];
+    if (typeof value === 'string') {
+      if (key === 'catalog' && isShaLiteral(value)) {
+        process.stderr.write('--catalog requires a file path when verification is enabled\n');
+        process.exitCode = 2;
+        return;
+      }
+      overrides[key] = resolve(value);
+    }
+  }
+  resolvedPaths = { ...resolvedPaths, ...overrides };
+
+  for (const [label, pathValue] of Object.entries(resolvedPaths)) {
+    try {
+      await ensureFile(pathValue, label);
+    } catch (err) {
+      return;
+    }
+  }
+
+  const statusRaw = await fs.readFile(resolvedPaths.status, 'utf8');
+  const statusJson = JSON.parse(statusRaw);
+  const provenance =
+    statusJson && typeof statusJson.provenance === 'object' && !Array.isArray(statusJson.provenance)
+      ? statusJson.provenance
+      : {};
+
+  const irHash = await hashJsonFile(resolvedPaths.ir);
+  const manifestHash = await hashJsonFile(resolvedPaths.manifest);
+  const statusHash = await hashJsonFile(resolvedPaths.status);
+  const traceHash = await sha256OfJsonl(resolvedPaths.trace);
+  const catalogHash = await hashJsonFile(resolvedPaths.catalog);
+
+  let expectedCatalogHash = null;
+  if (typeof values['catalog-hash'] === 'string' && values['catalog-hash'].trim()) {
+    const trimmed = values['catalog-hash'].trim();
+    if (!isShaLiteral(trimmed)) {
+      process.stderr.write('--catalog-hash must be a sha256:<hex> literal\n');
       process.exitCode = 2;
       return;
     }
-    resolved = {
-      ir: resolve(ir),
-      manifest: resolve(manifest),
-      status: resolve(status),
-      trace: resolve(trace),
-      catalogPath: catalogOption.path,
-    };
+    expectedCatalogHash = trimmed;
+  }
+  if (!expectedCatalogHash && typeof provenance.catalog_hash === 'string') {
+    expectedCatalogHash = provenance.catalog_hash;
+  }
+  if (!expectedCatalogHash) {
+    expectedCatalogHash = catalogHash;
   }
 
-  const outPath = resolve(outFlag);
+  const normalizedPaths = Object.fromEntries(
+    Object.entries(resolvedPaths).map(([key, value]) => [key, normalizePath(value)]),
+  );
 
-  const paths = {
-    ir: resolved.ir,
-    manifest: resolved.manifest,
-    status: resolved.status,
-    trace: resolved.trace,
+  const inputs = {
+    ir: { path: normalizedPaths.ir, sha256: irHash },
+    manifest: { path: normalizedPaths.manifest, sha256: manifestHash },
+    status: { path: normalizedPaths.status, sha256: statusHash },
+    trace: { path: normalizedPaths.trace, sha256: traceHash },
+    catalog: { path: normalizedPaths.catalog, sha256: catalogHash },
   };
-
-  const status = await readJson(paths.status);
-  const provenance = status && typeof status.provenance === 'object' && !Array.isArray(status.provenance)
-    ? status.provenance
-    : {};
-
-  const irHash = await hashJson(paths.ir);
-  const manifestHash = await hashJson(paths.manifest);
-
-  let catalogHash = catalogOption.hash || null;
-  let catalogSourcePath = resolved.catalogPath || null;
-
-  if (!catalogHash && catalogSourcePath) {
-    catalogHash = await hashJson(catalogSourcePath);
+  if (expectedCatalogHash) {
+    inputs.catalog.expected = expectedCatalogHash;
   }
 
-  if (!catalogHash && typeof provenance.catalog_hash === 'string') {
-    catalogHash = provenance.catalog_hash;
+  if (values['print-inputs']) {
+    for (const [key, info] of Object.entries(inputs)) {
+      const lineParts = [`${key}: ${info.path}`];
+      if (info.sha256) {
+        lineParts.push(`sha=${info.sha256}`);
+      }
+      if (key === 'catalog' && expectedCatalogHash) {
+        lineParts.push(`expected=${expectedCatalogHash}`);
+      }
+      process.stdout.write(`${lineParts.join(' ')}\n`);
+    }
   }
-
-  if (!catalogHash) {
-    process.stderr.write('unable to determine catalog hash (provide --catalog or provenance)\n');
-    process.exitCode = 2;
-    return;
-  }
-
-  if (typeof provenance.catalog_hash === 'string' && catalogHash !== provenance.catalog_hash) {
-    process.stderr.write('warning: catalog hash mismatch between status and provided value\n');
-  }
-
-  const traceInput = await fs.readFile(paths.trace, 'utf8');
 
   const report = {
     ok: false,
+    flow: flow || 'manual',
     steps: { validate: false, verify: false },
-    paths: Object.fromEntries(
-      Object.entries(paths).map(([key, value]) => [key, normalizePath(value)]),
-    ),
-    hashes: {
-      ir: irHash,
-      manifest: manifestHash,
-      catalog: catalogHash,
-    },
+    inputs,
+    paths: normalizedPaths,
   };
 
-  const validateArgs = [
-    '--require-meta',
-    '--ir',
-    irHash,
-    '--manifest',
-    manifestHash,
-    '--catalog',
-    catalogHash,
-  ];
+  const validateArgs = ['--require-meta', '--ir', irHash, '--manifest', manifestHash];
+  if (expectedCatalogHash) {
+    validateArgs.push('--catalog', expectedCatalogHash);
+  }
 
+  const traceInput = await fs.readFile(resolvedPaths.trace, 'utf8');
   const validateResult = await runNode(validateTraceScript, validateArgs, { input: traceInput });
 
   let validateSummary = null;
@@ -234,21 +334,24 @@ async function main(argv) {
     } else {
       report.issues = ['validate_failed'];
     }
-    await mkdir(dirname(outPath), { recursive: true });
-    await fs.writeFile(outPath, JSON.stringify(report) + '\n');
-    process.exitCode = 1;
+    await writeReport(outPath, report);
+    process.exitCode = 3;
     return;
   }
 
   const verifyArgs = [
     '--ir',
-    paths.ir,
+    resolvedPaths.ir,
     '--manifest',
-    paths.manifest,
+    resolvedPaths.manifest,
     '--status',
-    paths.status,
+    resolvedPaths.status,
     '--trace',
-    paths.trace,
+    resolvedPaths.trace,
+    '--catalog',
+    resolvedPaths.catalog,
+    '--catalog-hash',
+    expectedCatalogHash,
   ];
 
   const verifyResult = await runNode(verifyTraceScript, verifyArgs);
@@ -274,17 +377,17 @@ async function main(argv) {
     } else {
       report.issues = ['verify_failed'];
     }
+    await writeReport(outPath, report);
+    process.exitCode = 3;
+    return;
   }
 
-  await mkdir(dirname(outPath), { recursive: true });
-  await fs.writeFile(outPath, JSON.stringify(report) + '\n');
-
-  if (!report.ok) {
-    process.exitCode = 1;
-  }
+  await writeReport(outPath, report);
 }
 
 main(process.argv).catch((err) => {
   process.stderr.write(`${err?.stack || err?.message || err}\n`);
-  process.exitCode = 1;
+  if (!process.exitCode) {
+    process.exitCode = 1;
+  }
 });

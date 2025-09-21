@@ -1,44 +1,15 @@
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
-import { readFileSync, mkdirSync, openSync, closeSync, unlinkSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { promises as fsp } from 'node:fs';
-import { setTimeout as delay } from 'node:timers/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const pilotOutDir = 'out/0.4/pilot-l0/runtime-verify';
-const pilotLockPath = `${pilotOutDir}/.test-lock`;
-const lockMaxAttempts = 200;
-const lockDelayMs = 50;
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const verifyOutPath = path.join(repoRoot, 'out/0.4/verify/test/report.json');
 
-async function acquirePilotLock() {
-  mkdirSync(pilotOutDir, { recursive: true });
-  for (let attempt = 0; attempt < lockMaxAttempts; attempt += 1) {
-    try {
-      const fd = openSync(pilotLockPath, 'wx');
-      closeSync(fd);
-      return () => {
-        try {
-          unlinkSync(pilotLockPath);
-        } catch (err) {
-          if (err?.code !== 'ENOENT') throw err;
-        }
-      };
-    } catch (err) {
-      if (err?.code !== 'EEXIST') throw err;
-    }
-    await delay(lockDelayMs);
-  }
-  throw new Error('unable to acquire pilot lock');
-}
-
-function mutateHash(hash) {
-  if (typeof hash !== 'string' || hash.length === 0) return 'sha256:deadbeef';
-  const last = hash.slice(-1);
-  const replacement = last === '0' ? '1' : last === '1' ? '2' : '0';
-  return hash.slice(0, -1) + replacement;
-}
-
-function withPilotEnv(extra = {}) {
+function withPilotEnv(pilotOutDir, extra = {}) {
   return {
     ...process.env,
     TF_PROVENANCE: '1',
@@ -48,62 +19,107 @@ function withPilotEnv(extra = {}) {
   };
 }
 
-function runPilotBuild() {
+function runPilotBuild(pilotOutDir) {
   return spawnSync(process.execPath, ['scripts/pilot-build-run.mjs'], {
-    env: withPilotEnv(),
+    cwd: repoRoot,
+    env: withPilotEnv(pilotOutDir),
     stdio: 'pipe',
     encoding: 'utf8',
   });
 }
 
-function runRuntimeVerify(args = []) {
+function runRuntimeVerify(pilotOutDir, args = []) {
   return spawnSync(process.execPath, ['scripts/runtime-verify.mjs', ...args], {
-    env: withPilotEnv(),
+    cwd: repoRoot,
+    env: withPilotEnv(pilotOutDir),
     stdio: 'pipe',
     encoding: 'utf8',
   });
 }
 
-const reportPath = 'out/0.4/verify/test/report.json';
-const statusPath = `${pilotOutDir}/status.json`;
+async function makePilotOutDir() {
+  const base = path.join(repoRoot, 'out/0.4/pilot-l0');
+  await fsp.mkdir(base, { recursive: true });
+  return fsp.mkdtemp(path.join(base, 'verify-'));
+}
 
-test('runtime verify CLI validates and verifies pilot flow', { concurrency: false }, async () => {
-  const releaseLock = await acquirePilotLock();
+function mutateBufferByte(buffer) {
+  const mutated = Buffer.from(buffer);
+  for (let index = 0; index < mutated.length; index += 1) {
+    const code = mutated[index];
+    const isAlpha = (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
+    const isDigit = code >= 48 && code <= 57;
+    if (isAlpha || isDigit) {
+      mutated[index] = isDigit ? ((code - 48 + 1) % 10) + 48 : code === 122 ? 121 : code + 1;
+      return mutated;
+    }
+  }
+  if (mutated.length === 0) {
+    return Buffer.from('{"corrupted":true}\n');
+  }
+  mutated[0] = mutated[0] === 0x7b ? 0x5b : mutated[0] ^ 0x01;
+  return mutated;
+}
+
+test('runtime verify CLI produces deterministic reports and detects catalog tampering', async () => {
+  const pilotOutDir = await makePilotOutDir();
   try {
-    const build = runPilotBuild();
+    const build = runPilotBuild(pilotOutDir);
     assert.equal(build.status, 0, build.stderr);
 
-    const first = runRuntimeVerify(['--flow', 'pilot', '--out', reportPath]);
+    const catalogPath = path.join(pilotOutDir, 'catalog.json');
+    assert.ok(existsSync(catalogPath), 'expected catalog.json after pilot build');
+
+    const first = runRuntimeVerify(pilotOutDir, [
+      '--flow',
+      'pilot',
+      '--out',
+      verifyOutPath,
+      '--print-inputs',
+    ]);
     assert.equal(first.status, 0, first.stderr);
-    const reportRaw1 = readFileSync(reportPath, 'utf8');
+    const reportRaw1 = readFileSync(verifyOutPath, 'utf8');
     const report1 = JSON.parse(reportRaw1);
     assert.equal(report1.ok, true);
     assert.equal(report1.steps.validate, true);
     assert.equal(report1.steps.verify, true);
+    assert.ok(report1.inputs);
+    assert.equal(report1.inputs.catalog.path.endsWith('catalog.json'), true);
+    assert.equal(typeof report1.inputs.catalog.sha256, 'string');
+    assert.equal(typeof report1.inputs.catalog.expected, 'string');
 
-    const second = runRuntimeVerify(['--flow', 'pilot', '--out', reportPath]);
+    const status = JSON.parse(await fsp.readFile(path.join(pilotOutDir, 'status.json'), 'utf8'));
+    assert.equal(report1.inputs.catalog.expected, status.provenance.catalog_hash);
+
+    const second = runRuntimeVerify(pilotOutDir, ['--flow', 'pilot', '--out', verifyOutPath]);
     assert.equal(second.status, 0, second.stderr);
-    const reportRaw2 = readFileSync(reportPath, 'utf8');
+    const reportRaw2 = readFileSync(verifyOutPath, 'utf8');
     assert.equal(reportRaw2, reportRaw1);
 
-    const originalStatusRaw = await fsp.readFile(statusPath, 'utf8');
-    const status = JSON.parse(originalStatusRaw);
-    status.provenance.manifest_hash = mutateHash(status.provenance.manifest_hash);
-    await fsp.writeFile(statusPath, JSON.stringify(status, null, 2) + '\n');
+    const originalCatalog = await fsp.readFile(catalogPath);
     try {
-      const failed = runRuntimeVerify(['--flow', 'pilot', '--out', reportPath]);
-      assert.notEqual(failed.status, 0);
-      const failedRaw = readFileSync(reportPath, 'utf8');
-      const failedReport = JSON.parse(failedRaw);
+      const corrupted = mutateBufferByte(originalCatalog);
+      await fsp.writeFile(catalogPath, corrupted);
+
+      const failed = runRuntimeVerify(pilotOutDir, ['--flow', 'pilot', '--out', verifyOutPath]);
+      assert.equal(failed.status, 3);
+      const failedReport = JSON.parse(readFileSync(verifyOutPath, 'utf8'));
       assert.equal(failedReport.ok, false);
       assert.equal(failedReport.steps.validate, true);
       assert.equal(failedReport.steps.verify, false);
       assert.ok(Array.isArray(failedReport.issues));
-      assert.ok(failedReport.issues.some((issue) => typeof issue === 'string' && issue.includes('manifest_hash')));
+      assert.ok(
+        failedReport.issues.some((issue) => {
+          if (typeof issue === 'string') return issue.includes('catalog');
+          if (issue && typeof issue === 'object') return JSON.stringify(issue).includes('catalog');
+          return false;
+        }),
+        'expected catalog-related issue',
+      );
     } finally {
-      await fsp.writeFile(statusPath, originalStatusRaw);
+      await fsp.writeFile(catalogPath, originalCatalog);
     }
   } finally {
-    releaseLock();
+    await fsp.rm(pilotOutDir, { recursive: true, force: true });
   }
 });

@@ -51,6 +51,20 @@ test('Network.Out settles after Observability when commuting', () => {
   assert.deepEqual(reordered, expected);
 });
 
+test('Triple bubble sorts by precedence then lexicographically', () => {
+  const input = seq([
+    prim('tf:network/publish@1'),
+    prim('tf:observability/emit-metric@1'),
+    prim('tf:pure/identity@1')
+  ]);
+  const expected = seq([
+    prim('tf:pure/identity@1'),
+    prim('tf:observability/emit-metric@1'),
+    prim('tf:network/publish@1')
+  ]);
+  assert.deepEqual(normalize(input), expected);
+});
+
 test('Storage.Write remains a barrier for reordering', () => {
   const input = seq([
     prim('tf:storage/write-object@1'),
@@ -77,7 +91,6 @@ test('Region boundary prevents commuting across', () => {
 
 test('Normalization is stable under repeated application', () => {
   const input = seq([
-    prim('tf:network/publish@1'),
     prim('tf:observability/emit-metric@1'),
     prim('tf:pure/identity@1')
   ]);
@@ -85,4 +98,17 @@ test('Normalization is stable under repeated application', () => {
   const twice = normalize(once);
   assert.deepEqual(once, twice);
   assert.equal(JSON.stringify(once), JSON.stringify(twice));
+});
+
+test('Identical prims tie-break on canonical args', () => {
+  const input = seq([
+    { node: 'Prim', prim: 'tf:pure/echo@1', args: { value: 'b' } },
+    { node: 'Prim', prim: 'tf:pure/echo@1', args: { value: 'a' } }
+  ]);
+  const output = normalize(input);
+  const expected = seq([
+    { node: 'Prim', prim: 'tf:pure/echo@1', args: { value: 'a' } },
+    { node: 'Prim', prim: 'tf:pure/echo@1', args: { value: 'b' } }
+  ]);
+  assert.deepEqual(output, expected);
 });

@@ -1,4 +1,5 @@
 import { effectOf, effectRank, commuteSymmetric } from '../../tf-l0-check/src/effect-lattice.mjs';
+import { canonicalize } from './hash.mjs';
 
 export function normalizeByCommutation(ir, catalog) {
   return visit(ir, catalog ?? {});
@@ -86,11 +87,7 @@ function reorderSequentialChildren(children, catalog) {
       if (!commuteSymmetric(famA, famB)) {
         continue;
       }
-      const rankA = effectRank(famA);
-      const rankB = effectRank(famB);
-      const primA = typeof a.prim === 'string' ? a.prim : '';
-      const primB = typeof b.prim === 'string' ? b.prim : '';
-      if (rankB < rankA || (rankB === rankA && primB < primA)) {
+      if (shouldSwapSequentialPair(a, b, famA, famB)) {
         nodes[i] = b;
         nodes[i + 1] = a;
         passSwapped = true;
@@ -104,4 +101,28 @@ function reorderSequentialChildren(children, catalog) {
 
 function isPrim(node) {
   return node && typeof node === 'object' && node.node === 'Prim' && typeof node.prim === 'string';
+}
+
+function shouldSwapSequentialPair(nodeA, nodeB, famA, famB) {
+  const rankA = effectRank(famA);
+  const rankB = effectRank(famB);
+  if (rankB < rankA) {
+    return true;
+  }
+  if (rankB > rankA) {
+    return false;
+  }
+
+  const primA = typeof nodeA.prim === 'string' ? nodeA.prim : '';
+  const primB = typeof nodeB.prim === 'string' ? nodeB.prim : '';
+  if (primB < primA) {
+    return true;
+  }
+  if (primB > primA) {
+    return false;
+  }
+
+  const argsKeyA = canonicalize(nodeA.args ?? null);
+  const argsKeyB = canonicalize(nodeB.args ?? null);
+  return argsKeyB < argsKeyA;
 }

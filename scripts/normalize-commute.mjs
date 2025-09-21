@@ -4,6 +4,7 @@ import path from 'node:path';
 
 import { normalize } from '../packages/tf-l0-ir/src/normalize.mjs';
 import { parseDSL } from '../packages/tf-compose/src/parser.mjs';
+import { canonicalize } from '../packages/tf-l0-ir/src/hash.mjs';
 
 function usage() {
   console.error('Usage: node scripts/normalize-commute.mjs <flow.tf|flow.ir.json> -o <output.ir.json>');
@@ -49,7 +50,7 @@ async function main() {
   const { input, output } = parseArgs(process.argv.slice(2));
   const ir = await loadIR(input);
   const normalized = normalize(ir);
-  const serialized = JSON.stringify(normalized, null, 2) + '\n';
+  const serialized = canonicalize(normalized) + '\n';
   await mkdir(path.dirname(output), { recursive: true });
   await writeFile(output, serialized, 'utf8');
 }

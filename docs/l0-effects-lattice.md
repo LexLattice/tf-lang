@@ -60,9 +60,10 @@ The L0 canonicalizer now performs a local "bubble sort" guided by the lattice.
 Two adjacent primitives swap only when the lattice proves that the effects
 commute in both directions. When a swap is allowed, the pass uses a stable
 precedence (`Pure`, `Observability`, `Network.Out`, …) and the primitive ID as a
-tie-breaker so repeated normalizations are deterministic. Region boundaries are
-treated as barriers, and non-primitive nodes are left untouched, which keeps the
-pass purely local.
+tie-breaker so repeated normalizations are deterministic. Normalization uses a
+local (adjacent) swap based on symmetric commutation and a fixed effect
+precedence. We do not reorder across region boundaries. Non-primitive nodes are
+left untouched, which keeps the pass purely local.
 
 ## Parallel safety
 

@@ -16,31 +16,40 @@ The generated files assert the relevant axioms, compare symbolic outputs, and en
 Current obligations are structural over uninterpreted functions and deliberately ignore primitive arguments. They justify algebraic rewrites (idempotency, inverse, commutation) rather than semantic equality of parameterized calls. We plan to model arguments later—likely by indexing symbols—but that work is outside D2’s scope.
 
 See also the [SMT emitter](../scripts/emit-smt.mjs) and [Alloy exporter](../scripts/emit-alloy.mjs) for the broader proof pipeline.
+[`scripts/proofs-emit-all.mjs`](../scripts/proofs-emit-all.mjs) orchestrates the
+full bundle we publish in CI.
 
 # L0 Proof Artifacts
 
-The L0 proofs focus on detecting storage write conflicts across parallel branches. Two emitters cover the default encodings:
+The L0 proofs focus on deterministic encodings for a representative set of
+flows and algebraic laws. We currently emit four categories:
 
-- **D1 (SMT / Z3)** – generates `.smt2` programs that assert the absence of duplicate write URIs. We rely on [`scripts/emit-smt.mjs`](../scripts/emit-smt.mjs) to translate a flow into the solver input.
-- **D3 (Alloy)** – produces `.als` models with explicit `Prim`, `Par`, and `Seq` structures plus predicates for write conflicts. [`scripts/emit-alloy.mjs`](../scripts/emit-alloy.mjs) handles the translation.
+- **Alloy structural models** – `.als` modules for the storage conflict flows.
+- **SMT structural constraints** – `.smt2` encodings of the same flows.
+- **SMT laws** – idempotent hash, serialize/deserialize inverse, and
+  `emit-metric-with-pure` commutation axioms.
+- **SMT properties** – a parallel safety obligation plus an observational
+  equivalence check for pure observer flows.
 
-Both emitters annotate IR nodes with catalog-derived write URIs before generating encodings, so runs require the A0/A1 catalog steps.
+All emitters annotate IR nodes with catalog-derived write URIs before
+generating encodings, so runs require the A0/A1 catalog steps.
 
 ## Generate proofs locally
 
 1. Install Node 20 and pnpm (see [`toolchain/.node-version`](../toolchain/.node-version)) and install dependencies:
    ```bash
-   pnpm -w -r install --frozen-lockfile
+   pnpm install
    pnpm run a0 && pnpm run a1
+   pnpm -w -r build
    ```
-2. Emit SMT and Alloy artifacts for the storage flows:
+2. Emit the full artifact set with the convenience script:
    ```bash
-   node scripts/emit-smt.mjs examples/flows/storage_conflict.tf -o out/0.4/proofs/storage_conflict.smt2
-   node scripts/emit-smt.mjs examples/flows/storage_ok.tf -o out/0.4/proofs/storage_ok.smt2
-   node scripts/emit-alloy.mjs examples/flows/storage_conflict.tf -o out/0.4/proofs/storage_conflict.als
-   node scripts/emit-alloy.mjs examples/flows/storage_ok.tf -o out/0.4/proofs/storage_ok.als
+   node scripts/proofs-emit-all.mjs
    ```
-   The scripts create `out/0.4/proofs/` if it does not already exist.
+   The command mirrors the CI bundle and writes `out/0.4/proofs/index.json` for
+   easy inspection. You can also run `pnpm run proofs:emit`.
+3. (Optional) Emit individual files directly using the commands in the section
+   above if you only need a specific encoding.
 
 ## Check SMT proofs with Z3 (optional)
 
@@ -69,12 +78,17 @@ Use the default scope or supply one (for example, run the CLI with `--scope 6`) 
 
 ## CI artifacts
 
-The **L0 proof artifacts** workflow runs on every pull request (and via manual dispatch). It installs the workspace, executes `pnpm run a0`/`pnpm run a1`, emits the four proof files listed above, and uploads them as an artifact bundle named `l0-proofs`.
+The **L0 Proof Artifacts** workflow runs on every pull request (and via manual
+dispatch). It installs the workspace, executes `pnpm run a0`/`pnpm run a1`,
+builds the packages, and invokes the bundle script to upload an artifact named
+`l0-proofs`.
 
 To download the proofs:
 
-1. Open the pull request and expand the **L0 proof artifacts** check.
-2. Scroll to the **Artifacts** section and download `l0-proofs.zip`.
-3. Extract the archive to access the `.smt2` and `.als` files under `out/0.4/proofs/`.
+1. Open the pull request and navigate to **Actions → L0 Proof Artifacts**.
+2. Select the latest run for your branch and download the `l0-proofs` artifact.
+3. Extract the archive to access the `.als`, `.smt2`, and `index.json` files
+   under `out/0.4/proofs/`.
 
-These artifacts provide a deterministic snapshot of the conflict analysis for the key storage flows without running solvers in CI.
+These artifacts provide a deterministic snapshot of the conflict analysis,
+algebraic laws, and sample property checks without running solvers in CI.

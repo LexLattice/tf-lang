@@ -1,1 +1,1 @@
-{"prim_id":"tf:resource/write-object@1","args":{"uri":"res://kv/blocked/item"}}
+{"prim_id":"tf:resource/write-object@1","args":{"uri":"res://kv/mybucket/blocked/item"}}

@@ -9,6 +9,13 @@ const manifestPath = fileURLToPath(new URL('./fixtures/manifest-limited.json', i
 const okTracePath = fileURLToPath(new URL('./fixtures/trace-ok.jsonl', import.meta.url));
 const deniedTracePath = fileURLToPath(new URL('./fixtures/trace-denied.jsonl', import.meta.url));
 const unknownTracePath = fileURLToPath(new URL('./fixtures/trace-unknown.jsonl', import.meta.url));
+const bareIrPath = fileURLToPath(new URL('./fixtures/verify-ir-bare.json', import.meta.url));
+const bareTracePath = fileURLToPath(new URL('./fixtures/trace-bare.jsonl', import.meta.url));
+const canonicalTracePath = fileURLToPath(new URL('./fixtures/trace-canonical-write.jsonl', import.meta.url));
+const canonicalMismatchTracePath = fileURLToPath(new URL('./fixtures/trace-canonical-mismatch.jsonl', import.meta.url));
+const canonicalMismatchReorderedTracePath = fileURLToPath(
+  new URL('./fixtures/trace-canonical-mismatch-reordered.jsonl', import.meta.url),
+);
 const catalogPath = fileURLToPath(new URL('../packages/tf-l0-spec/spec/catalog.json', import.meta.url));
 
 function canonicalJson(value) {
@@ -81,6 +88,21 @@ test('passes for known prims with catalog mapping', async () => {
   });
 });
 
+test('allows writes when manifest patterns match', async () => {
+  const { code, stdout, stderr } = await runCli([
+    '--ir', irPath,
+    '--trace', okTracePath,
+    '--manifest', manifestPath,
+    '--catalog', catalogPath,
+  ]);
+  assert.equal(code, 0, stderr);
+  const result = JSON.parse(stdout.trim());
+  assert.equal(stdout.trim(), canonicalJson(result));
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.issues, []);
+  assert.equal(result.counts.denied_writes, 0);
+});
+
 test('reports unknown prims', async () => {
   const { code, stdout } = await runCli(['--ir', irPath, '--trace', unknownTracePath]);
   assert.equal(code, 1);
@@ -89,6 +111,28 @@ test('reports unknown prims', async () => {
   assert.equal(result.ok, false);
   assert.ok(result.issues.includes('unknown prim: tf:resource/unknown@1'));
   assert.equal(result.counts.unknown_prims, 1);
+});
+
+test('requires canonical match when provided', async () => {
+  const { code, stdout } = await runCli([
+    '--ir', irPath,
+    '--trace', canonicalMismatchTracePath,
+  ]);
+  assert.equal(code, 1);
+  const result = JSON.parse(stdout.trim());
+  assert.equal(stdout.trim(), canonicalJson(result));
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.issues, [
+    'unknown prim: tf:evil/write-object@1',
+    'unknown prim: tf:resource/write-object@99',
+  ]);
+  assert.equal(result.counts.unknown_prims, 2);
+});
+
+test('canonical mismatch results are deterministic across trace orderings', async () => {
+  const first = await runCli(['--ir', irPath, '--trace', canonicalMismatchTracePath]);
+  const second = await runCli(['--ir', irPath, '--trace', canonicalMismatchReorderedTracePath]);
+  assert.equal(first.stdout.trim(), second.stdout.trim());
 });
 
 test('denies writes outside manifest prefixes', async () => {
@@ -102,6 +146,43 @@ test('denies writes outside manifest prefixes', async () => {
   const result = JSON.parse(stdout.trim());
   assert.equal(stdout.trim(), canonicalJson(result));
   assert.equal(result.ok, false);
-  assert.ok(result.issues.includes('write denied: res://kv/blocked/item'));
+  assert.ok(result.issues.includes('write denied: res://kv/mybucket/blocked/item'));
   assert.equal(result.counts.denied_writes, 1);
+});
+
+test('allows bare names when canonical is absent', async () => {
+  const { code, stdout, stderr } = await runCli([
+    '--ir', bareIrPath,
+    '--trace', bareTracePath,
+  ]);
+  assert.equal(code, 0, stderr);
+  const result = JSON.parse(stdout.trim());
+  assert.equal(stdout.trim(), canonicalJson(result));
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.issues, []);
+});
+
+test('canonical trace is unknown without catalog when IR only lists bare name', async () => {
+  const { code, stdout } = await runCli([
+    '--ir', bareIrPath,
+    '--trace', canonicalTracePath,
+  ]);
+  assert.equal(code, 1);
+  const result = JSON.parse(stdout.trim());
+  assert.equal(stdout.trim(), canonicalJson(result));
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.issues, ['unknown prim: tf:resource/write-object@1']);
+});
+
+test('catalog provides canonical mapping for bare IR prims', async () => {
+  const { code, stdout, stderr } = await runCli([
+    '--ir', bareIrPath,
+    '--trace', canonicalTracePath,
+    '--catalog', catalogPath,
+  ]);
+  assert.equal(code, 0, stderr);
+  const result = JSON.parse(stdout.trim());
+  assert.equal(stdout.trim(), canonicalJson(result));
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.issues, []);
 });

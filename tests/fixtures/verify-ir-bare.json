@@ -1,0 +1,6 @@
+{
+  "node": "Seq",
+  "children": [
+    { "node": "Prim", "prim": "write-object" }
+  ]
+}

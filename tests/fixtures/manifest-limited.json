@@ -3,7 +3,7 @@
     "reads": [],
     "writes": [
       {
-        "uri": "res://kv/allowed/<bucket>/:<key>",
+        "uri": "res://kv/<bucket>/allowed/:<key>",
         "mode": "write"
       }
     ]

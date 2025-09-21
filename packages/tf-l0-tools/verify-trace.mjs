@@ -66,44 +66,68 @@ function collectAllowedPrims(ir, catalogNameMap) {
       }
     }
 
-    if (Array.isArray(node.children)) {
-      for (const child of node.children) {
-        stack.push(child);
-      }
+    for (const key of Object.keys(node)) {
+      if (key === 'prim' || key === 'prim_id' || key === 'id') continue;
+      stack.push(node[key]);
     }
   }
 
   return { names, fullIds };
 }
 
-function deriveAllowedWritePrefixes(manifest) {
+function escapeRegexLiteral(text) {
+  return text.replace(/[-/\^$*+?.()|[\]{}]/g, '\$&');
+}
+
+function compileManifestPattern(pattern) {
+  if (typeof pattern !== 'string' || pattern.length === 0) return null;
+  let regex = '^';
+  for (let index = 0; index < pattern.length; ) {
+    const char = pattern[index];
+    if (char === ':' && pattern[index + 1] === '<') {
+      const end = pattern.indexOf('>', index + 2);
+      if (end === -1) {
+        regex += escapeRegexLiteral(pattern.slice(index));
+        break;
+      }
+      regex += '.*';
+      index = end + 1;
+      continue;
+    }
+    if (char === '<') {
+      const end = pattern.indexOf('>', index + 1);
+      if (end === -1) {
+        regex += escapeRegexLiteral(pattern.slice(index));
+        break;
+      }
+      regex += '[^/]+';
+      index = end + 1;
+      continue;
+    }
+    regex += escapeRegexLiteral(char);
+    index += 1;
+  }
+  regex += '$';
+  try {
+    return new RegExp(regex);
+  } catch (err) {
+    return null;
+  }
+}
+
+function compileManifestPatterns(manifest) {
   const writes = Array.isArray(manifest?.footprints_rw?.writes)
     ? manifest.footprints_rw.writes
     : [];
-  const prefixes = [];
+  const patterns = [];
   for (const entry of writes) {
     if (!entry || typeof entry.uri !== 'string') continue;
-    const uri = entry.uri;
-    let cutoff = uri.length;
-    const placeholderIndex = uri.indexOf('<');
-    if (placeholderIndex !== -1 && placeholderIndex < cutoff) {
-      cutoff = placeholderIndex;
+    const compiled = compileManifestPattern(entry.uri);
+    if (compiled) {
+      patterns.push(compiled);
     }
-    let colonIndex = uri.indexOf(':');
-    while (colonIndex !== -1) {
-      const next = uri[colonIndex + 1];
-      if (next === '<') {
-        if (colonIndex < cutoff) {
-          cutoff = colonIndex;
-        }
-        break;
-      }
-      colonIndex = uri.indexOf(':', colonIndex + 1);
-    }
-    prefixes.push(uri.slice(0, cutoff));
   }
-  prefixes.sort();
-  return prefixes;
+  return patterns;
 }
 
 function buildCatalogMaps(catalog) {
@@ -169,7 +193,7 @@ export async function verifyTrace({ irPath, tracePath, manifestPath, catalogPath
   const allowedNameSet = new Set(allowedNames);
   const allowedFullSet = new Set(allowedFull);
 
-  const allowedWritePrefixes = manifest ? deriveAllowedWritePrefixes(manifest) : [];
+  const allowedWritePatterns = manifest ? compileManifestPatterns(manifest) : [];
 
   const issuesSet = new Set();
   let unknownCount = 0;
@@ -190,19 +214,25 @@ export async function verifyTrace({ irPath, tracePath, manifestPath, catalogPath
     records += 1;
     const primValue = parsed?.prim_id;
     const canonical = canonicalizePrimId(primValue);
-    const primName = canonical
-      ? extractNameFromCanonical(canonical)
-      : typeof primValue === 'string'
-        ? primValue
-        : '';
-    const normalizedName = normalizeName(primName);
-    const known = (canonical && allowedFullSet.has(canonical)) || (normalizedName && allowedNameSet.has(normalizedName));
+    let known = false;
+    if (canonical) {
+      known = allowedFullSet.has(canonical);
+    } else {
+      const primName = typeof primValue === 'string' ? primValue : '';
+      const normalizedName = normalizeName(primName);
+      known = Boolean(normalizedName && allowedNameSet.has(normalizedName));
+    }
     if (!known) {
       issuesSet.add(`unknown prim: ${primValue}`);
       unknownCount += 1;
       continue;
     }
 
+    const primName = canonical
+      ? extractNameFromCanonical(canonical)
+      : typeof primValue === 'string'
+        ? primValue
+        : '';
     const isWrite = isStorageWrite(canonical, primName, catalogMaps);
     if (isWrite && manifest) {
       const uri = parsed?.args?.uri;
@@ -212,14 +242,14 @@ export async function verifyTrace({ irPath, tracePath, manifestPath, catalogPath
         deniedCount += 1;
         continue;
       }
-      let allowedPrefix = false;
-      for (const prefix of allowedWritePrefixes) {
-        if (uriString.startsWith(prefix)) {
-          allowedPrefix = true;
+      let allowedUri = false;
+      for (const pattern of allowedWritePatterns) {
+        if (pattern.test(uriString)) {
+          allowedUri = true;
           break;
         }
       }
-      if (!allowedPrefix) {
+      if (!allowedUri) {
         issuesSet.add(`write denied: ${uriString}`);
         deniedCount += 1;
       }

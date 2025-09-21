@@ -34,9 +34,17 @@ node scripts/emit-smt-laws.mjs --law idempotent:hash -o out/0.4/proofs/laws/idem
 node scripts/emit-smt-laws.mjs --equiv examples/flows/info_roundtrip.tf examples/flows/info_roundtrip.tf \
   --laws idempotent:hash,inverse:serialize-deserialize \
   -o out/0.4/proofs/laws/roundtrip_equiv.smt2
+node scripts/emit-smt-laws-suite.mjs -o out/0.4/proofs/laws
 ```
 
 The generated files assert the relevant axioms, compare symbolic outputs, and end with `(check-sat)`. CI does not invoke an SMT solver—these files are produced for human review and audit trails alongside our Alloy exports.
+
+Current obligations cover:
+
+- **Hash idempotency** (`idempotent_hash.smt2`).
+- **Serialize/deserialize roundtrip** with both directions of the inverse plus an identity equivalence (`inverse_roundtrip.smt2`).
+- **Write idempotency by key** ensuring duplicate keyed writes collapse (`write_idempotent_by_key.smt2`).
+- **Emit metric commute** with pure operations (`emit_commute.smt2`).
 
 Current obligations are structural over uninterpreted functions and deliberately ignore primitive arguments. They justify algebraic rewrites (idempotency, inverse, commutation) rather than semantic equality of parameterized calls. We plan to model arguments later—likely by indexing symbols—but that work is outside D2’s scope.
 
@@ -93,6 +101,17 @@ Open the generated `.als` files in [Alloy Analyzer](https://alloytools.org/). Th
 - `run { all p: Par | NoConflict[p] }` checks that no conflict occurs.
 
 Use the default scope or supply one (for example, run the CLI with `--scope 6`) if you want Alloy to consider more nodes.
+
+## Authorize dominance Alloy model
+
+`scripts/emit-alloy-auth.mjs` emits a lightweight Alloy encoding that focuses on authorize-region dominance over protected primitives. It relies on the catalog and `authorize-scopes.json` to annotate required scopes and produces a counterexample whenever a protected primitive is outside a matching `authorize{}` scope or bound to the wrong scope label.
+
+```bash
+node scripts/emit-alloy-auth.mjs examples/flows/auth_missing.tf -o out/0.4/proofs/auth/missing.als
+node scripts/emit-alloy-auth.mjs examples/flows/auth_ok.tf      -o out/0.4/proofs/auth/ok.als
+```
+
+Each `.als` file declares `Region`, `Prim`, and `Scope` atoms, defines `Covered`/`MissingAuth` predicates, and ends with `run { MissingAuth }` / `run { not MissingAuth }` commands to expose counterexamples and the satisfied model.
 
 ## CI artifacts
 

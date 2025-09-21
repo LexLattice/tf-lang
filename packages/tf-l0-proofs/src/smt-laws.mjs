@@ -1,6 +1,9 @@
 const SORTS = {
   Val: { arity: 0 },
   Bytes: { arity: 0 },
+  URI: { arity: 0 },
+  Key: { arity: 0 },
+  IdKey: { arity: 0 },
 };
 
 const FUNCTIONS = {
@@ -8,6 +11,7 @@ const FUNCTIONS = {
   S: { domain: ['Val'], codomain: 'Bytes' },
   D: { domain: ['Bytes'], codomain: 'Val' },
   E: { domain: ['Val'], codomain: 'Val' },
+  W: { domain: ['URI', 'Key', 'IdKey', 'Val'], codomain: 'Val' },
 };
 
 const LAW_DEFINITIONS = {
@@ -24,6 +28,20 @@ const LAW_DEFINITIONS = {
       '(assert (forall ((b Bytes)) (= (S (D b)) b)))',
     ],
   },
+  'idempotent:write-by-key': {
+    sorts: ['Val', 'URI', 'Key', 'IdKey'],
+    functions: ['W'],
+    axioms: [
+      '(declare-const x Val)',
+      '(declare-const u URI)',
+      '(declare-const k Key)',
+      '(declare-const ik IdKey)',
+      '(declare-const v Val)',
+      '(define-fun once ((x Val) (u URI) (k Key) (ik IdKey) (v Val)) Val (W u k ik v))',
+      '(define-fun twice ((x Val) (u URI) (k Key) (ik IdKey) (v Val)) Val (W u k ik v))',
+      '(assert (not (= (twice x u k ik v) (once x u k ik v))))',
+    ],
+  },
   'commute:emit-metric-with-pure': {
     sorts: ['Val'],
     functions: ['E', 'H'],
@@ -36,6 +54,7 @@ const OPERATION_DEFINITIONS = {
   serialize: { symbol: 'S', domain: 'Val', codomain: 'Bytes' },
   deserialize: { symbol: 'D', domain: 'Bytes', codomain: 'Val' },
   'emit-metric': { symbol: 'E', domain: 'Val', codomain: 'Val' },
+  id: { domain: 'Val', codomain: 'Val', identity: true },
 };
 
 export function emitLaw(law, opts = {}) {
@@ -150,6 +169,11 @@ function analyzeFlow(flow) {
       throw new Error(
         `Operation ${opName} expects ${op.domain} but received ${currentSort}`
       );
+    }
+    if (op.identity === true) {
+      sorts.add(op.codomain);
+      currentSort = op.codomain;
+      continue;
     }
     functions.add(op.symbol);
     sorts.add(op.codomain);

@@ -16,8 +16,23 @@ function runGenerator() {
   });
 }
 
+function ensureIrFixture() {
+  if (fs.existsSync(IR_PATH)) {
+    return;
+  }
+  fs.mkdirSync(path.dirname(IR_PATH), { recursive: true });
+  const parse = spawnSync('node', [
+    'packages/tf-compose/bin/tf.mjs',
+    'parse',
+    'examples/flows/signing.tf',
+    '-o',
+    IR_PATH
+  ], { cwd: ROOT, stdio: 'inherit' });
+  assert.equal(parse.status, 0, 'expected signing IR fixture');
+}
+
 test('rust codegen emits deterministic scaffold', () => {
-  assert.ok(fs.existsSync(IR_PATH), 'expected signing IR fixture');
+  ensureIrFixture();
 
   fs.rmSync(OUT_DIR, { recursive: true, force: true });
 

@@ -37,10 +37,9 @@ predecessor inside a sequential composition. The rules are asymmetric because
 commutation is evaluated relative to a previous effect family:
 
 - `Pure` commutes with everything.
-- `Observability` only commutes with `Pure` and other `Observability` nodes.
-- `Network.Out` commutes with `Pure` and `Observability` nodes. The reverse is
-  *not* assumed; an observability action followed by a network write stays in
-  place until we have a proof obligation describing that swap.
+- `Observability` commutes with `Pure`, other `Observability` nodes, and
+  `Network.Out`.
+- `Network.Out` commutes with `Pure` and `Observability` nodes.
 - `Storage.Write` never commutes with another `Storage.Write` without a
   disjointness proof.
 - All other pairs are considered non-commuting for now.
@@ -49,7 +48,8 @@ The helper is intentionally directional: `canCommute(prev, next)` answers the
 question “may the second node swap with the previous one?” rather than treating
 the pair symmetrically. This mirrors how the checker annotates sequential
 children—it records whether a future pass could safely bubble the current node
-left across its predecessor.
+left across its predecessor. Canonicalization combines the directional answers
+with a symmetric guard so that we only reorder pairs that commute both ways.
 
 The checker simply annotates `Seq` children with a `commutes_with_prev` boolean
 so that future normalization passes can inspect the lattice decision without
@@ -78,3 +78,11 @@ Upcoming sprints will reuse these helpers inside the canonicalizer. By carrying
 `commutes_with_prev` annotations, we can gate normalization rewrites on the
 proven lattice rules and extend the table only when corresponding laws are
 formalized.
+
+## Using the lattice in normalization
+
+The `tf-l0-ir` normalizer applies a local commutation pass after idempotent and
+inverse rewrites. Adjacent `Prim` nodes that commute in both directions are
+sorted according to `EFFECT_PRECEDENCE`, with the primitive identifier breaking
+ties. Effects that cannot commute—such as `Storage.Write`—block reordering,
+and region boundaries remain intact, so the pass is purely local and safe.

@@ -1,5 +1,5 @@
 pub mod adapters;
-mod runtime;
+mod pipeline;
 
 pub use adapters::InMemoryAdapters;
-pub use runtime::{run_ir, DeterministicClock, TraceRecord, TraceWriter};
+pub use pipeline::{run_ir, DeterministicClock, TraceRecord, TraceWriter};

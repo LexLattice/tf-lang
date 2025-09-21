@@ -24,19 +24,20 @@ async function main() {
 
   const crateName = deriveCrateName(ir, resolvedOut, irPath);
 
-  const [libTemplate, runtimeTemplate, adaptersTemplate, runTemplate] = await Promise.all([
+  const [libTemplate, pipelineTemplate, adaptersTemplate, runTemplate] = await Promise.all([
     readTemplate('src_lib.rs'),
-    readTemplate('src_runtime.rs'),
+    readTemplate('src_pipeline.rs'),
     readTemplate('src_adapters.rs'),
     readTemplate('src_bin_run.rs'),
   ]);
 
-  await writeFile(join(resolvedOut, 'Cargo.toml'), renderCargoToml(crateName), 'utf8');
-  await writeFile(join(resolvedOut, 'src', 'lib.rs'), libTemplate, 'utf8');
-  await writeFile(join(resolvedOut, 'src', 'runtime.rs'), runtimeTemplate, 'utf8');
-  await writeFile(join(resolvedOut, 'src', 'adapters.rs'), adaptersTemplate, 'utf8');
-  await writeFile(join(resolvedOut, 'src', 'bin', 'run.rs'), runTemplate.replace(/__CRATE_NAME__/g, crateName), 'utf8');
-  await writeFile(join(resolvedOut, 'ir.json'), `${JSON.stringify(ir, null, 2)}\n`, 'utf8');
+  await writeFile(join(resolvedOut, 'Cargo.toml'), ensureTrailingNewline(renderCargoToml(crateName)), 'utf8');
+  await writeFile(join(resolvedOut, 'src', 'lib.rs'), ensureTrailingNewline(libTemplate), 'utf8');
+  await writeFile(join(resolvedOut, 'src', 'pipeline.rs'), ensureTrailingNewline(pipelineTemplate), 'utf8');
+  await writeFile(join(resolvedOut, 'src', 'adapters.rs'), ensureTrailingNewline(adaptersTemplate), 'utf8');
+  const runSource = runTemplate.replace(/__CRATE_NAME__/g, crateName);
+  await writeFile(join(resolvedOut, 'src', 'bin', 'run.rs'), ensureTrailingNewline(runSource), 'utf8');
+  await writeFile(join(resolvedOut, 'ir.json'), stringifyCanonicalJson(ir), 'utf8');
 
   console.log(`wrote ${resolvedOut} (crate ${crateName})`);
 
@@ -100,7 +101,43 @@ function sanitizeCrateName(value) {
 }
 
 function renderCargoToml(crateName) {
-  return `[package]\nname = "${crateName}"\nversion = "0.1.0"\nedition = "2021"\nlicense = "MIT OR Apache-2.0"\ndescription = "Generated TF pipeline"\n\n[dependencies]\nanyhow = "1"\nserde = { version = "1", features = ["derive"] }\nserde_json = "1"\nsha2 = "0.10"\nhex = "0.4"\n`;
+  const lines = [
+    '[package]',
+    `name = "${crateName}"`,
+    'version = "0.1.0"',
+    'edition = "2021"',
+    'license = "MIT OR Apache-2.0"',
+    'description = "Generated TF pipeline"',
+    '',
+    '[dependencies]',
+    'anyhow = "1"',
+    'hex = "0.4"',
+    'serde = { version = "1", features = ["derive"] }',
+    'serde_json = "1"',
+    'sha2 = "0.10"',
+  ];
+  return lines.join('\n');
+}
+
+function stringifyCanonicalJson(value) {
+  return `${JSON.stringify(canonicalize(value), null, 2)}\n`;
+}
+
+function canonicalize(value) {
+  if (Array.isArray(value)) {
+    return value.map((entry) => canonicalize(entry));
+  }
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const entries = Object.entries(value)
+      .map(([key, child]) => [key, canonicalize(child)])
+      .sort(([left], [right]) => left.localeCompare(right));
+    return Object.fromEntries(entries);
+  }
+  return value;
+}
+
+function ensureTrailingNewline(content) {
+  return content.endsWith('\n') ? content : `${content}\n`;
 }
 
 async function readTemplate(file) {

@@ -49,27 +49,30 @@ test('rust codegen emits deterministic scaffold', () => {
 
   const cargoPath = path.join(OUT_DIR, 'Cargo.toml');
   const libPath = path.join(OUT_DIR, 'src', 'lib.rs');
-  const runtimePath = path.join(OUT_DIR, 'src', 'runtime.rs');
+  const pipelinePath = path.join(OUT_DIR, 'src', 'pipeline.rs');
   const adaptersPath = path.join(OUT_DIR, 'src', 'adapters.rs');
   const runPath = path.join(OUT_DIR, 'src', 'bin', 'run.rs');
   const irCopyPath = path.join(OUT_DIR, 'ir.json');
 
-  for (const file of [cargoPath, libPath, runtimePath, adaptersPath, runPath, irCopyPath]) {
+  for (const file of [cargoPath, libPath, pipelinePath, adaptersPath, runPath, irCopyPath]) {
     assert.ok(fs.existsSync(file), `expected ${path.relative(ROOT, file)} to exist`);
   }
 
   const first = {
     cargo: fs.readFileSync(cargoPath, 'utf8'),
     lib: fs.readFileSync(libPath, 'utf8'),
-    runtime: fs.readFileSync(runtimePath, 'utf8'),
+    pipeline: fs.readFileSync(pipelinePath, 'utf8'),
     adapters: fs.readFileSync(adaptersPath, 'utf8'),
     run: fs.readFileSync(runPath, 'utf8'),
     ir: fs.readFileSync(irCopyPath, 'utf8'),
   };
 
   assert.ok(first.lib.includes('pub mod adapters'), 'lib.rs should expose adapters module');
-  assert.ok(first.runtime.includes('pub fn run_ir'), 'runtime.rs should expose run_ir');
+  assert.ok(first.pipeline.includes('pub fn run_ir'), 'pipeline.rs should expose run_ir');
   assert.ok(first.run.includes('DEFAULT_IR'), 'run binary should embed default IR');
+  for (const [name, content] of Object.entries(first)) {
+    assert.ok(content.endsWith('\n'), `${name} should end with a trailing newline`);
+  }
 
   const secondRun = runGenerator({ LOCAL_RUST: '0' });
   assert.equal(secondRun.status, 0, 'second generate should also exit 0');
@@ -77,7 +80,7 @@ test('rust codegen emits deterministic scaffold', () => {
   const second = {
     cargo: fs.readFileSync(cargoPath, 'utf8'),
     lib: fs.readFileSync(libPath, 'utf8'),
-    runtime: fs.readFileSync(runtimePath, 'utf8'),
+    pipeline: fs.readFileSync(pipelinePath, 'utf8'),
     adapters: fs.readFileSync(adaptersPath, 'utf8'),
     run: fs.readFileSync(runPath, 'utf8'),
     ir: fs.readFileSync(irCopyPath, 'utf8'),
@@ -85,7 +88,7 @@ test('rust codegen emits deterministic scaffold', () => {
 
   assert.equal(first.cargo, second.cargo, 'Cargo.toml must be byte-identical');
   assert.equal(first.lib, second.lib, 'lib.rs must be byte-identical');
-  assert.equal(first.runtime, second.runtime, 'runtime.rs must be byte-identical');
+  assert.equal(first.pipeline, second.pipeline, 'pipeline.rs must be byte-identical');
   assert.equal(first.adapters, second.adapters, 'adapters.rs must be byte-identical');
   assert.equal(first.run, second.run, 'run.rs must be byte-identical');
   assert.equal(first.ir, second.ir, 'ir.json must be byte-identical');

@@ -1,12 +1,10 @@
 use anyhow::{Context, Result};
+use serde::ser::Serialize;
 use serde_json::Value;
-use std::{
-    fs,
-    path::Path,
-};
+use std::{fs, path::Path};
 
 const TEMPLATE_LIB_RS: &str = include_str!("../templates/src_lib.rs");
-const TEMPLATE_RUNTIME_RS: &str = include_str!("../templates/src_runtime.rs");
+const TEMPLATE_PIPELINE_RS: &str = include_str!("../templates/src_pipeline.rs");
 const TEMPLATE_ADAPTERS_RS: &str = include_str!("../templates/src_adapters.rs");
 const TEMPLATE_RUN_RS: &str = include_str!("../templates/src_bin_run.rs");
 
@@ -19,11 +17,23 @@ pub fn generate_workspace(ir: &Value, out_dir: &Path, package_name: &str) -> Res
     let cargo_toml = render_cargo_toml(package_name);
     fs::write(out_dir.join("Cargo.toml"), cargo_toml).context("writing Cargo.toml")?;
 
-    fs::write(out_dir.join("src/lib.rs"), TEMPLATE_LIB_RS).context("writing src/lib.rs")?;
-    fs::write(out_dir.join("src/runtime.rs"), TEMPLATE_RUNTIME_RS).context("writing src/runtime.rs")?;
-    fs::write(out_dir.join("src/adapters.rs"), TEMPLATE_ADAPTERS_RS).context("writing src/adapters.rs")?;
+    fs::write(
+        out_dir.join("src/lib.rs"),
+        ensure_trailing_newline(TEMPLATE_LIB_RS),
+    )
+    .context("writing src/lib.rs")?;
+    fs::write(
+        out_dir.join("src/pipeline.rs"),
+        ensure_trailing_newline(TEMPLATE_PIPELINE_RS),
+    )
+    .context("writing src/pipeline.rs")?;
+    fs::write(
+        out_dir.join("src/adapters.rs"),
+        ensure_trailing_newline(TEMPLATE_ADAPTERS_RS),
+    )
+    .context("writing src/adapters.rs")?;
 
-    let run_rs = render_run_rs(package_name);
+    let run_rs = ensure_trailing_newline(render_run_rs(package_name));
     fs::write(out_dir.join("src/bin/run.rs"), run_rs).context("writing src/bin/run.rs")?;
 
     let ir_json = render_ir_json(ir)?;
@@ -33,10 +43,20 @@ pub fn generate_workspace(ir: &Value, out_dir: &Path, package_name: &str) -> Res
 }
 
 fn render_cargo_toml(package_name: &str) -> String {
-    format!(
-        "[package]\nname = \"{name}\"\nversion = \"0.1.0\"\nedition = \"2021\"\nlicense = \"MIT OR Apache-2.0\"\ndescription = \"Generated TF pipeline\"\n\n[dependencies]\nanyhow = \"1\"\nserde = {{ version = \"1\", features = [\"derive\"] }}\nserde_json = \"1\"\nsha2 = \"0.10\"\nhex = \"0.4\"\n",
-        name = package_name
-    )
+    let mut content = String::new();
+    content.push_str("[package]\n");
+    content.push_str(&format!("name = \"{package_name}\"\n"));
+    content.push_str("version = \"0.1.0\"\n");
+    content.push_str("edition = \"2021\"\n");
+    content.push_str("license = \"MIT OR Apache-2.0\"\n");
+    content.push_str("description = \"Generated TF pipeline\"\n\n");
+    content.push_str("[dependencies]\n");
+    content.push_str("anyhow = \"1\"\n");
+    content.push_str("hex = \"0.4\"\n");
+    content.push_str("serde = { version = \"1\", features = [\"derive\"] }\n");
+    content.push_str("serde_json = \"1\"\n");
+    content.push_str("sha2 = \"0.10\"\n");
+    ensure_trailing_newline(content)
 }
 
 fn render_run_rs(package_name: &str) -> String {
@@ -44,8 +64,41 @@ fn render_run_rs(package_name: &str) -> String {
 }
 
 fn render_ir_json(ir: &Value) -> Result<String> {
-    let serialized = serde_json::to_string_pretty(ir)?;
-    Ok(format!("{}\n", serialized))
+    let canonical = canonicalize_json(ir);
+    let mut buf = Vec::new();
+    let formatter = serde_json::ser::PrettyFormatter::with_indent(b"  ");
+    let mut serializer = serde_json::Serializer::with_formatter(&mut buf, formatter);
+    canonical.serialize(&mut serializer)?;
+    let mut output = String::from_utf8(buf)?;
+    if !output.ends_with('\n') {
+        output.push('\n');
+    }
+    Ok(output)
+}
+
+fn canonicalize_json(value: &Value) -> Value {
+    match value {
+        Value::Object(map) => {
+            let mut keys: Vec<_> = map.keys().cloned().collect();
+            keys.sort();
+            let mut sorted = serde_json::Map::with_capacity(map.len());
+            for key in keys {
+                let child = map.get(&key).expect("key exists");
+                sorted.insert(key, canonicalize_json(child));
+            }
+            Value::Object(sorted)
+        }
+        Value::Array(items) => Value::Array(items.iter().map(canonicalize_json).collect()),
+        _ => value.clone(),
+    }
+}
+
+fn ensure_trailing_newline<S: Into<String>>(input: S) -> String {
+    let mut content = input.into();
+    if !content.ends_with('\n') {
+        content.push('\n');
+    }
+    content
 }
 
 #[cfg(test)]
@@ -65,7 +118,7 @@ mod tests {
         let cargo = fs::read_to_string(out_dir.join("Cargo.toml")).unwrap();
         assert!(cargo.contains("serde_json"));
         assert!(out_dir.join("src/lib.rs").exists());
-        assert!(out_dir.join("src/runtime.rs").exists());
+        assert!(out_dir.join("src/pipeline.rs").exists());
         assert!(out_dir.join("src/adapters.rs").exists());
         assert!(out_dir.join("src/bin/run.rs").exists());
         assert!(out_dir.join("ir.json").exists());

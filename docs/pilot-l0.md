@@ -56,6 +56,22 @@ TF_FIXED_TS=1750000000000 pnpm run pilot:all && cat out/0.4/parity/report.json
 
 The parity harness exits non-zero if any artifact digests differ and is covered by `tests/pilot-parity.test.mjs`, which reruns the harness to ensure byte-for-byte determinism.
 
+## Full pilot parity
+
+`examples/flows/pilot_full.tf` mirrors the 0.3 replay → dual-strategy (momentum + mean-reversion) → risk → exec → ledger pipeline. The deterministic runner lives in `scripts/pilot-full-build-run.mjs`, which parses the DSL, emits IR/canon/manifest, generates TypeScript, patches the runtime to use the pilot adapters, executes under a fixed clock, and records the resulting frames, orders, fills, metrics, and ledger state under `out/0.4/pilot-full/` together with summaries and digests.
+
+Run the full parity harness against the original T5 stack with:
+
+```sh
+pnpm -w -r build
+TF_PILOT_FULL=1 node scripts/t5-build-run.mjs
+TF_PILOT_FULL=1 node scripts/pilot-full-build-run.mjs
+node scripts/pilot-full-parity.mjs
+cat out/0.4/parity/full/report.json | jq .
+```
+
+`scripts/t5-build-run.mjs` produces the T5 reference artifacts in `out/t5-full/`, and `scripts/pilot-full-parity.mjs` compares frame/order/fill/state digests, emitting `equal:true` when the two stacks match. The optional `TF_PILOT_FULL=1` gate on the build scripts keeps the workflow opt-in for heavier runs. The harness is validated by `tests/pilot-full-parity.test.mjs`, which reruns the parity script to confirm byte-for-byte determinism.
+
 ### Runtime verify (schema + meta + composition)
 - Local: `node scripts/runtime-verify.mjs --flow pilot --out out/0.4/verify/pilot/report.json --catalog out/0.4/pilot-l0/catalog.json --catalog-hash $(jq -r '.provenance.catalog_hash' out/0.4/pilot-l0/status.json)`
   - Add `--print-inputs` to echo the resolved artifact paths + hashes.

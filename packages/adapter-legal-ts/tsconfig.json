@@ -8,7 +8,11 @@
     "outDir": "dist",
     "rootDir": "src",
     "skipLibCheck": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "claims-core-ts": ["../claims-core-ts/dist/index.d.ts"]
+    }
   },
   "include": [
     "src"

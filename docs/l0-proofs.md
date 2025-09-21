@@ -40,6 +40,21 @@ The generated files assert the relevant axioms, compare symbolic outputs, and en
 
 Current obligations are structural over uninterpreted functions and deliberately ignore primitive arguments. They justify algebraic rewrites (idempotency, inverse, commutation) rather than semantic equality of parameterized calls. We plan to model arguments later—likely by indexing symbols—but that work is outside D2’s scope.
 
+Use the commands below to regenerate every law obligation and a quick authorize counterexample model in one pass:
+
+```bash
+node scripts/emit-smt-laws-suite.mjs -o out/0.4/proofs/laws
+node scripts/emit-alloy-auth.mjs examples/flows/auth_missing.tf -o out/0.4/proofs/auth/missing.als
+```
+
+The suite now includes:
+
+- **Idempotent hash** – `(assert (= (H (H x)) (H x)))`
+- **Serialize/Deserialize inverse** – both `(D (S v)) = v` and `(S (D b)) = b`
+- **Emit/Hash commute** – `(E (H x)) = (H (E x))`
+- **Idempotent write by key** – nested `W(u, k, ik, (W(u, k, ik, v)))` compositions collapse to a single write for identical arguments
+- **Serialize/Deserialize equivalence check** – compares `serialize |> deserialize` against the identity flow using the inverse axioms
+
 See also the [SMT emitter](../scripts/emit-smt.mjs) and [Alloy exporter](../scripts/emit-alloy.mjs) for the broader proof pipeline.
 
 # L0 Proof Artifacts
@@ -93,6 +108,17 @@ Open the generated `.als` files in [Alloy Analyzer](https://alloytools.org/). Th
 - `run { all p: Par | NoConflict[p] }` checks that no conflict occurs.
 
 Use the default scope or supply one (for example, run the CLI with `--scope 6`) if you want Alloy to consider more nodes.
+
+### Authorize dominance models
+
+The authorize checker is now mirrored by a focused Alloy encoding. Use the dedicated CLI to emit counterexample-driven models:
+
+```bash
+node scripts/emit-alloy-auth.mjs examples/flows/auth_missing.tf -o out/0.4/proofs/auth/missing.als
+node scripts/emit-alloy-auth.mjs examples/flows/auth_ok.tf      -o out/0.4/proofs/auth/ok.als
+```
+
+Each model enumerates `Region` nodes with attached authorize scopes and `Prim` nodes that require authorization (based on `authorize-scopes.json`). The `MissingAuth` predicate fires when a protected primitive is not dominated by a matching `Authorize{scope}` region, while `run { not MissingAuth }` checks that every protected primitive is covered.
 
 ## CI artifacts
 

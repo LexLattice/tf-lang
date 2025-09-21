@@ -1,0 +1,71 @@
+{
+  "tf:information/hash@1": {
+    "input": { "any": true },
+    "output": { "refined": ["string", "digest_sha256"] }
+  },
+  "tf:data/serialize@1": {
+    "input": { "any": true },
+    "output": { "bytes": true }
+  },
+  "tf:data/deserialize@1": {
+    "input": { "bytes": true },
+    "output": { "any": true }
+  },
+  "tf:network/publish@1": {
+    "input": {
+      "object": {
+        "shape": [
+          { "key": "key", "type": { "string": true } },
+          { "key": "payload", "type": { "string": true } },
+          { "key": "topic", "type": { "string": true } }
+        ]
+      }
+    },
+    "output": { "unit": true }
+  },
+  "tf:observability/emit-metric@1": {
+    "input": { "unit": true },
+    "output": { "unit": true }
+  },
+  "tf:resource/write-object@1": {
+    "input": {
+      "object": {
+        "shape": [
+          { "key": "idempotency_key", "optional": true, "type": { "refined": ["string", "idempotency_key"] } },
+          { "key": "key", "type": { "string": true } },
+          { "key": "uri", "type": { "refined": ["string", "uri"] } },
+          { "key": "value", "type": { "string": true } }
+        ]
+      }
+    },
+    "output": {
+      "object": {
+        "shape": [
+          { "key": "etag", "type": { "refined": ["string", "digest_sha256"] } },
+          { "key": "key", "type": { "string": true } },
+          { "key": "uri", "type": { "refined": ["string", "uri"] } }
+        ]
+      }
+    }
+  },
+  "tf:resource/compare-and-swap@1": {
+    "input": {
+      "object": {
+        "shape": [
+          { "key": "expected", "type": { "option": { "string": true } } },
+          { "key": "key", "type": { "string": true } },
+          { "key": "uri", "type": { "refined": ["string", "uri"] } },
+          { "key": "value", "type": { "option": { "string": true } } }
+        ]
+      }
+    },
+    "output": {
+      "object": {
+        "shape": [
+          { "key": "key", "type": { "string": true } },
+          { "key": "uri", "type": { "refined": ["string", "uri"] } }
+        ]
+      }
+    }
+  }
+}

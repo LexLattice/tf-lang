@@ -1,0 +1,12 @@
+{
+  "name": "@tf-lang/tf-l0-types",
+  "private": true,
+  "type": "module",
+  "main": "src/types.mjs",
+  "exports": {
+    ".": "./src/types.mjs"
+  },
+  "scripts": {
+    "build": "node -e \"process.exit(0)\""
+  }
+}

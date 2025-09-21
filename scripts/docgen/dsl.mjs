@@ -1,15 +1,16 @@
 #!/usr/bin/env node
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+
+import { getFixtureSeed, resolveRepoRoot, writeDoc } from './utils.mjs';
+
+const SCRIPT_NAME = 'scripts/docgen/dsl.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-function resolveRepoRoot(root) {
-  if (root) return root;
-  return path.resolve(__dirname, '..', '..');
-}
+getFixtureSeed();
 
 function detectFeatures(source) {
   return {
@@ -113,8 +114,9 @@ async function loadCliCommands(cliSource) {
 async function loadShortExamples(root) {
   const flowsDir = path.join(root, 'examples', 'flows');
   const entries = await readdir(flowsDir);
+  const sortedEntries = entries.slice().sort((a, b) => a.localeCompare(b));
   const selected = [];
-  for (const entry of entries) {
+  for (const entry of sortedEntries) {
     if (!entry.endsWith('.tf')) continue;
     const filePath = path.join(flowsDir, entry);
     const raw = await readFile(filePath, 'utf8');
@@ -173,7 +175,7 @@ function renderExamples(lines, examples) {
 }
 
 export async function generateDSLDoc(options = {}) {
-  const repoRoot = resolveRepoRoot(options.root);
+  const repoRoot = resolveRepoRoot(__dirname, options.root);
   const parserPath = path.join(repoRoot, 'packages', 'tf-compose', 'src', 'parser.mjs');
   const cliPath = path.join(repoRoot, 'packages', 'tf-compose', 'bin', 'tf.mjs');
   const outPath = path.join(repoRoot, 'docs', 'l0-dsl.md');
@@ -198,9 +200,7 @@ export async function generateDSLDoc(options = {}) {
   renderCliTable(lines, commands);
   renderExamples(lines, examples);
 
-  const output = lines.join('\n').replace(/\s+$/u, '').concat('\n');
-  await mkdir(path.dirname(outPath), { recursive: true });
-  await writeFile(outPath, output, 'utf8');
+  await writeDoc(outPath, SCRIPT_NAME, lines);
   return outPath;
 }
 

@@ -1,7 +1,9 @@
 #!/usr/bin/env node
-import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+
+import { canonicalData, getFixtureSeed, resolveRepoRoot, writeDoc } from './utils.mjs';
 
 const EFFECT_ORDER = [
   'Pure',
@@ -16,13 +18,12 @@ const EFFECT_ORDER = [
   'UI'
 ];
 
+const SCRIPT_NAME = 'scripts/docgen/catalog.mjs';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-function resolveRepoRoot(root) {
-  if (root) return root;
-  return path.resolve(__dirname, '..', '..');
-}
+getFixtureSeed();
 
 async function readJsonMaybe(filePath) {
   try {
@@ -31,7 +32,7 @@ async function readJsonMaybe(filePath) {
     return null;
   }
   const raw = await readFile(filePath, 'utf8');
-  return JSON.parse(raw);
+  return canonicalData(JSON.parse(raw));
 }
 
 function uniqueSorted(list = []) {
@@ -59,11 +60,14 @@ function normalizeFootprints(entries) {
     return [];
   }
   return entries
-    .map(entry => ({
-      mode: typeof entry?.mode === 'string' ? entry.mode : null,
-      uri: typeof entry?.uri === 'string' ? entry.uri : null,
-      notes: typeof entry?.notes === 'string' ? entry.notes : null
-    }))
+    .map(entry => {
+      const normalized = entry && typeof entry === 'object' ? canonicalData(entry) : {};
+      return {
+        mode: typeof normalized?.mode === 'string' ? normalized.mode : null,
+        uri: typeof normalized?.uri === 'string' ? normalized.uri : null,
+        notes: typeof normalized?.notes === 'string' ? normalized.notes : null
+      };
+    })
     .map(entry => ({
       mode: entry.mode || 'unspecified',
       uri: entry.uri || '—',
@@ -120,19 +124,22 @@ function collectLawMap(lawsJson) {
 }
 
 export async function generateCatalogDoc(options = {}) {
-  const repoRoot = resolveRepoRoot(options.root);
+  const repoRoot = resolveRepoRoot(__dirname, options.root);
   const catalogPath = path.join(repoRoot, 'packages', 'tf-l0-spec', 'spec', 'catalog.json');
   const lawsPath = path.join(repoRoot, 'packages', 'tf-l0-spec', 'spec', 'laws.json');
   const outPath = path.join(repoRoot, 'docs', 'l0-catalog.md');
 
-  const catalog = JSON.parse(await readFile(catalogPath, 'utf8'));
+  const rawCatalog = JSON.parse(await readFile(catalogPath, 'utf8'));
+  const catalog = canonicalData(rawCatalog);
   const lawsJson = await readJsonMaybe(lawsPath);
   const lawMap = collectLawMap(lawsJson);
 
   const primitives = Array.isArray(catalog?.primitives) ? catalog.primitives.slice() : [];
   primitives.sort((a, b) => {
-    const aId = typeof a?.id === 'string' ? a.id : '';
-    const bId = typeof b?.id === 'string' ? b.id : '';
+    const canonA = canonicalData(a);
+    const canonB = canonicalData(b);
+    const aId = typeof canonA?.id === 'string' ? canonA.id : '';
+    const bId = typeof canonB?.id === 'string' ? canonB.id : '';
     return aId.localeCompare(bId);
   });
 
@@ -148,10 +155,11 @@ export async function generateCatalogDoc(options = {}) {
   }
 
   for (const prim of primitives) {
-    const primId = typeof prim?.id === 'string' ? prim.id : '(unknown)';
-    const effects = uniqueSorted(prim?.effects);
-    const reads = Array.isArray(prim?.reads) ? prim.reads : [];
-    const writes = Array.isArray(prim?.writes) ? prim.writes : [];
+    const canonicalPrim = canonicalData(prim);
+    const primId = typeof canonicalPrim?.id === 'string' ? canonicalPrim.id : '(unknown)';
+    const effects = uniqueSorted(Array.isArray(canonicalPrim?.effects) ? canonicalPrim.effects : []);
+    const reads = Array.isArray(canonicalPrim?.reads) ? canonicalPrim.reads : [];
+    const writes = Array.isArray(canonicalPrim?.writes) ? canonicalPrim.writes : [];
     const laws = lawMap.get(primId) || [];
 
     lines.push(`### ${primId}`);
@@ -165,9 +173,7 @@ export async function generateCatalogDoc(options = {}) {
     lines.push('');
   }
 
-  const output = lines.join('\n').replace(/\s+$/u, '').concat('\n');
-  await mkdir(path.dirname(outPath), { recursive: true });
-  await writeFile(outPath, output, 'utf8');
+  await writeDoc(outPath, SCRIPT_NAME, lines);
   return outPath;
 }
 

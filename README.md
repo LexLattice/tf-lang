@@ -36,6 +36,12 @@ Policy check:
 `node packages/tf-compose/bin/tf-policy.mjs check examples/flows/txn_ok.tf`
 Use `--forbid-outside` to reject writes outside transactions, and `--catalog <path>` to supply a catalog; otherwise the CLI falls back to name-based detection with a warning.
 
+## L0 Reference
+
+- [Catalog](docs/l0-catalog.md#l0-catalog-generated)
+- [DSL Cheatsheet](docs/l0-dsl.md#l0-dsl-cheatsheet-generated)
+- [Effects & Lattice](docs/l0-effects.md#l0-effects-lattice-generated)
+
 ## Generated pipeline adapters
 
 TypeScript emissions now include a minimal adapter surface under `runtime/adapters/types.ts`.
@@ -147,11 +153,6 @@ out/ (artifacts)/
 This repo skeleton grounds A0 → B4 so builders can flesh out implementations without
 arguing about structure. It includes: IDs & versions, catalog ingest, effects/laws stubs,
 DSL+IR+canonicalizer, checker glue, and TS/Rust codegen skeletons.
-
-Links:
-- [Catalog: docs/l0-catalog.md](docs/l0-catalog.md)
-- [DSL Cheatsheet: docs/l0-dsl.md](docs/l0-dsl.md)
-- [Effects/Lattice: docs/l0-effects.md](docs/l0-effects.md)
 
 ### Quick Start
 

@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -9,14 +8,14 @@ import {
   canCommute,
   parSafe
 } from '../../packages/tf-l0-check/src/effect-lattice.mjs';
+import { getFixtureSeed, resolveRepoRoot, writeDoc } from './utils.mjs';
+
+const SCRIPT_NAME = 'scripts/docgen/effects.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-function resolveRepoRoot(root) {
-  if (root) return root;
-  return path.resolve(__dirname, '..', '..');
-}
+getFixtureSeed();
 
 function boolCell(value) {
   return value ? '✅' : '❌';
@@ -41,7 +40,7 @@ function renderMatrix(title, families, compute) {
 }
 
 export async function generateEffectsDoc(options = {}) {
-  const repoRoot = resolveRepoRoot(options.root);
+  const repoRoot = resolveRepoRoot(__dirname, options.root);
   const outPath = path.join(repoRoot, 'docs', 'l0-effects.md');
   const families = CANONICAL_EFFECT_FAMILIES.slice();
   const precedence = EFFECT_PRECEDENCE.slice();
@@ -63,12 +62,14 @@ export async function generateEffectsDoc(options = {}) {
   lines.push('');
   lines.push('The normalize pass orders effects using the following precedence:');
   lines.push('');
-  lines.push(precedence.map((family, index) => `${index + 1}. ${family}`).join('\n'));
+  let index = 1;
+  for (const family of precedence) {
+    lines.push(`${index}. ${family}`);
+    index += 1;
+  }
   lines.push('');
 
-  const output = lines.join('\n').replace(/\s+$/u, '').concat('\n');
-  await mkdir(path.dirname(outPath), { recursive: true });
-  await writeFile(outPath, output, 'utf8');
+  await writeDoc(outPath, SCRIPT_NAME, lines);
   return outPath;
 }
 

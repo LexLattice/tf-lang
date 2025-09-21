@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transformers.dev/schemas/trace.v0.4.schema.json",
+  "title": "Transformers Trace v0.4 Record",
+  "type": "object",
+  "required": [
+    "ts",
+    "prim_id",
+    "args",
+    "region",
+    "effect"
+  ],
+  "properties": {
+    "ts": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "prim_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "args": {
+      "type": "object"
+    },
+    "region": {
+      "type": "string"
+    },
+    "effect": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

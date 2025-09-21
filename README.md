@@ -161,6 +161,12 @@ TF_CAPS='{"effects":["Network.Out","Pure"],"allow_writes_prefixes":[]}' node out
 # Summarize traces
 cat tests/fixtures/trace-sample.jsonl | node packages/tf-l0-tools/trace-summary.mjs --top=3 --pretty
 
+### Trace files (T3)
+- Set `TF_TRACE_PATH=...` when running generated runners to capture JSONL traces.
+- Records emit `ts`, `prim_id`, `args`, `region`, and `effect` keys in stable order.
+- Validate captures with `cat trace.jsonl | node scripts/validate-trace.mjs`.
+- Schema lives at `schemas/trace.v0.4.schema.json` (JSON Schema Draft 2020-12).
+
 ### Example App: Order Publish
 ```bash
 node scripts/app-order-publish.mjs

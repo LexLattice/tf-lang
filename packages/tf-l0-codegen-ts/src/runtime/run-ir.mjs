@@ -1,4 +1,17 @@
+import { createWriteStream } from 'node:fs';
 import { validateCapabilities } from './capabilities.mjs';
+
+const tracePath = process.env.TF_TRACE_PATH;
+const traceOut = tracePath ? createWriteStream(tracePath, { flags: 'a' }) : null;
+let traceClosed = false;
+
+function emitTrace(record) {
+  const serialized = JSON.stringify(record);
+  if (traceOut && !traceClosed) {
+    traceOut.write(`${serialized}\n`);
+  }
+  console.log(serialized);
+}
 
 let clockWarned = false;
 
@@ -26,6 +39,46 @@ function nowTs() {
 function toArray(value) {
   if (!value) return [];
   return Array.isArray(value) ? value : [value];
+}
+
+function normalizeString(value) {
+  if (typeof value === 'string') return value;
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+    return String(value);
+  }
+  return '';
+}
+
+function firstIterableString(value) {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const result = firstIterableString(entry);
+      if (result) return result;
+    }
+    return '';
+  }
+  if (typeof value?.[Symbol.iterator] === 'function') {
+    for (const entry of value) {
+      const result = firstIterableString(entry);
+      if (result) return result;
+    }
+    return '';
+  }
+  if (typeof value === 'number' || typeof value === 'bigint' || typeof value === 'boolean') {
+    return String(value);
+  }
+  return '';
+}
+
+function pickEffectTag(...candidates) {
+  for (const candidate of candidates) {
+    const tag = firstIterableString(candidate);
+    if (tag) return tag;
+  }
+  return '';
 }
 
 function resolveAdapter(runtime, prim) {
@@ -95,7 +148,10 @@ async function execNode(node, runtime, ctx, input) {
       if (effect) recordEffects(ctx.effects, effect);
       if (node.meta?.effect) recordEffects(ctx.effects, node.meta.effect);
       if (node.meta?.effects) recordEffects(ctx.effects, node.meta.effects);
-      console.log(JSON.stringify({ prim_id: primId, args, ts }));
+      const region = normalizeString(node.meta?.region);
+      const effectTag = pickEffectTag(effect, node.meta?.effect, node.meta?.effects);
+      const record = { ts, prim_id: primId, args, region, effect: normalizeString(effectTag) };
+      emitTrace(record);
       const ok = normalizeOk(result?.ok);
       return { value: result, ok };
     }
@@ -138,13 +194,20 @@ async function execNode(node, runtime, ctx, input) {
 
 export async function runIR(ir, runtime, options = {}) {
   const ctx = { effects: new Set(), ops: 0 };
-  const { value, ok } = await execNode(ir, runtime, ctx, options.input);
-  return {
-    ok: normalizeOk(ok),
-    result: value,
-    ops: ctx.ops,
-    effects: Array.from(ctx.effects).sort(),
-  };
+  try {
+    const { value, ok } = await execNode(ir, runtime, ctx, options.input);
+    return {
+      ok: normalizeOk(ok),
+      result: value,
+      ops: ctx.ops,
+      effects: Array.from(ctx.effects).sort(),
+    };
+  } finally {
+    if (traceOut && !traceClosed) {
+      traceClosed = true;
+      await new Promise((resolve) => traceOut.end(resolve));
+    }
+  }
 }
 
 export async function runWithCaps(ir, runtime, caps, manifest) {

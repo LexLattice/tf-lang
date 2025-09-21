@@ -67,6 +67,8 @@ test('passes for known prims without manifest', async () => {
     records: 2,
     unknown_prims: 0,
     denied_writes: 0,
+    meta_mismatches: 0,
+    provenance_mismatches: 0,
   });
 });
 
@@ -85,6 +87,8 @@ test('passes for known prims with catalog mapping', async () => {
     records: 2,
     unknown_prims: 0,
     denied_writes: 0,
+    meta_mismatches: 0,
+    provenance_mismatches: 0,
   });
 });
 
@@ -101,6 +105,8 @@ test('allows writes when manifest patterns match', async () => {
   assert.equal(result.ok, true);
   assert.deepEqual(result.issues, []);
   assert.equal(result.counts.denied_writes, 0);
+  assert.equal(result.counts.meta_mismatches, 0);
+  assert.equal(result.counts.provenance_mismatches, 0);
 });
 
 test('reports unknown prims', async () => {
@@ -162,16 +168,16 @@ test('allows bare names when canonical is absent', async () => {
   assert.deepEqual(result.issues, []);
 });
 
-test('canonical trace is unknown without catalog when IR only lists bare name', async () => {
-  const { code, stdout } = await runCli([
+test('canonical trace resolves to bare IR name without catalog', async () => {
+  const { code, stdout, stderr } = await runCli([
     '--ir', bareIrPath,
     '--trace', canonicalTracePath,
   ]);
-  assert.equal(code, 1);
+  assert.equal(code, 0, stderr);
   const result = JSON.parse(stdout.trim());
   assert.equal(stdout.trim(), canonicalJson(result));
-  assert.equal(result.ok, false);
-  assert.deepEqual(result.issues, ['unknown prim: tf:resource/write-object@1']);
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.issues, []);
 });
 
 test('catalog provides canonical mapping for bare IR prims', async () => {

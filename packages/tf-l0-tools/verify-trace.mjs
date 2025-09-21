@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 
 function canonicalJson(value) {
   if (Array.isArray(value)) {
@@ -9,6 +10,12 @@ function canonicalJson(value) {
     return '{' + keys.map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',') + '}';
   }
   return JSON.stringify(value);
+}
+
+function hashCanonicalText(text) {
+  const hash = createHash('sha256');
+  hash.update(text);
+  return `sha256:${hash.digest('hex')}`;
 }
 
 function normalizeName(name) {
@@ -165,7 +172,16 @@ function isStorageWrite(primCanonical, primName, catalogMaps) {
   return /^(write-object|delete-object|compare-and-swap)$/.test(target);
 }
 
-export async function verifyTrace({ irPath, tracePath, manifestPath, catalogPath }) {
+export async function verifyTrace({
+  irPath,
+  tracePath,
+  manifestPath,
+  catalogPath,
+  statusPath,
+  irHash: overrideIrHash,
+  manifestHash: overrideManifestHash,
+  catalogHash: overrideCatalogHash,
+}) {
   if (!irPath) {
     throw new Error('Missing --ir path');
   }
@@ -173,16 +189,23 @@ export async function verifyTrace({ irPath, tracePath, manifestPath, catalogPath
     throw new Error('Missing --trace path');
   }
 
-  const [irSource, traceSource, manifestSource, catalogSource] = await Promise.all([
+  const defaultCatalogUrl = new URL('../tf-l0-spec/spec/catalog.json', import.meta.url);
+  const catalogPromise = catalogPath
+    ? readFile(catalogPath, 'utf8')
+    : readFile(defaultCatalogUrl, 'utf8').catch(() => null);
+
+  const [irSource, traceSource, manifestSource, catalogSource, statusSource] = await Promise.all([
     readFile(irPath, 'utf8'),
     readFile(tracePath, 'utf8'),
     manifestPath ? readFile(manifestPath, 'utf8') : Promise.resolve(null),
-    catalogPath ? readFile(catalogPath, 'utf8') : Promise.resolve(null),
+    catalogPromise,
+    statusPath ? readFile(statusPath, 'utf8') : Promise.resolve(null),
   ]);
 
   const ir = JSON.parse(irSource);
   const manifest = manifestSource ? JSON.parse(manifestSource) : null;
   const catalog = catalogSource ? JSON.parse(catalogSource) : null;
+  const status = statusSource ? JSON.parse(statusSource) : null;
   const catalogMaps = buildCatalogMaps(catalog);
   const allowed = collectAllowedPrims(ir, catalogMaps.byName);
   const allowedNames = Array.from(allowed.names);
@@ -200,6 +223,44 @@ export async function verifyTrace({ irPath, tracePath, manifestPath, catalogPath
   let deniedCount = 0;
   let records = 0;
 
+  const statusProvenance =
+    status && status.provenance && typeof status.provenance === 'object' ? status.provenance : null;
+
+  const expectedIrHash = overrideIrHash || statusProvenance?.ir_hash || null;
+  const expectedManifestHash = overrideManifestHash || statusProvenance?.manifest_hash || null;
+  const expectedCatalogHash = overrideCatalogHash || statusProvenance?.catalog_hash || null;
+
+  const canonicalIrText = canonicalJson(ir);
+  const actualIrHash = canonicalIrText ? hashCanonicalText(canonicalIrText) : null;
+  const canonicalManifestText = manifest ? canonicalJson(manifest) : null;
+  const actualManifestHash = canonicalManifestText ? hashCanonicalText(canonicalManifestText) : null;
+  const canonicalCatalogText = catalog ? canonicalJson(catalog) : null;
+  const actualCatalogHash = canonicalCatalogText ? hashCanonicalText(canonicalCatalogText) : null;
+
+  let metaMismatchCount = 0;
+  let provenanceMismatchCount = 0;
+
+  if (statusPath && !statusProvenance) {
+    issuesSet.add('status missing provenance');
+  }
+
+  const checkIrFile = Boolean(overrideIrHash);
+  const checkManifestFile = Boolean(overrideManifestHash);
+  const checkCatalogFile = Boolean(overrideCatalogHash);
+
+  if (checkIrFile && expectedIrHash && actualIrHash && expectedIrHash !== actualIrHash) {
+    issuesSet.add('ir hash mismatch');
+    provenanceMismatchCount += 1;
+  }
+  if (checkManifestFile && expectedManifestHash && actualManifestHash && expectedManifestHash !== actualManifestHash) {
+    issuesSet.add('manifest hash mismatch');
+    provenanceMismatchCount += 1;
+  }
+  if (checkCatalogFile && expectedCatalogHash && actualCatalogHash && expectedCatalogHash !== actualCatalogHash) {
+    issuesSet.add('catalog hash mismatch');
+    provenanceMismatchCount += 1;
+  }
+
   const lines = traceSource.split(/\r?\n/);
   for (const raw of lines) {
     const line = raw.trim();
@@ -212,6 +273,23 @@ export async function verifyTrace({ irPath, tracePath, manifestPath, catalogPath
       continue;
     }
     records += 1;
+
+    const meta = parsed?.meta;
+    if (meta && typeof meta === 'object') {
+      if (expectedIrHash && meta.ir_hash !== expectedIrHash) {
+        issuesSet.add('trace meta ir_hash mismatch');
+        metaMismatchCount += 1;
+      }
+      if (expectedManifestHash && meta.manifest_hash !== expectedManifestHash) {
+        issuesSet.add('trace meta manifest_hash mismatch');
+        metaMismatchCount += 1;
+      }
+      if (expectedCatalogHash && meta.catalog_hash !== expectedCatalogHash) {
+        issuesSet.add('trace meta catalog_hash mismatch');
+        metaMismatchCount += 1;
+      }
+    }
+
     const primValue = parsed?.prim_id;
     const canonical = canonicalizePrimId(primValue);
     let known = false;
@@ -266,6 +344,8 @@ export async function verifyTrace({ irPath, tracePath, manifestPath, catalogPath
       records,
       unknown_prims: unknownCount,
       denied_writes: deniedCount,
+      meta_mismatches: metaMismatchCount,
+      provenance_mismatches: provenanceMismatchCount,
     },
   };
 

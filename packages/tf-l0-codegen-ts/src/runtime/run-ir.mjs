@@ -208,7 +208,16 @@ async function execNode(node, runtime, ctx, input) {
 }
 
 export async function runIR(ir, runtime, options = {}) {
+  const { input, provenance } = options ?? {};
   const writer = createTraceWriter(process.env.TF_TRACE_PATH);
+  const traceMeta =
+    process.env.TF_PROVENANCE === '1' && provenance
+      ? {
+          ir_hash: provenance.ir_hash,
+          manifest_hash: provenance.manifest_hash,
+          catalog_hash: provenance.catalog_hash,
+        }
+      : null;
   const emit = (rec) => {
     const entry = {
       ts: rec.ts,
@@ -217,6 +226,9 @@ export async function runIR(ir, runtime, options = {}) {
       region: rec.region,
       effect: rec.effect,
     };
+    if (traceMeta) {
+      entry.meta = traceMeta;
+    }
     const line = JSON.stringify(entry);
     console.log(line);
     if (writer) {
@@ -226,13 +238,21 @@ export async function runIR(ir, runtime, options = {}) {
 
   const ctx = { effects: new Set(), ops: 0, emit };
   try {
-    const { value, ok } = await execNode(ir, runtime, ctx, options.input);
-    return {
+    const { value, ok } = await execNode(ir, runtime, ctx, input);
+    const result = {
       ok: normalizeOk(ok),
       result: value,
       ops: ctx.ops,
       effects: Array.from(ctx.effects).sort(),
     };
+    if (provenance) {
+      result.provenance = {
+        ir_hash: provenance.ir_hash,
+        manifest_hash: provenance.manifest_hash,
+        catalog_hash: provenance.catalog_hash,
+      };
+    }
+    return result;
   } finally {
     if (writer) {
       await writer.close();

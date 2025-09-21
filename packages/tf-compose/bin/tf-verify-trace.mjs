@@ -4,7 +4,8 @@ import { parseArgs } from 'node:util';
 
 import { verifyTrace } from '../../tf-l0-tools/verify-trace.mjs';
 
-const usage = 'Usage: node packages/tf-compose/bin/tf-verify-trace.mjs --ir <file.ir.json> --trace <file.jsonl> [--manifest <manifest.json>] [--catalog <catalog.json>]';
+const usage =
+  'Usage: node packages/tf-compose/bin/tf-verify-trace.mjs --ir <file.ir.json> --trace <file.jsonl> [--manifest <manifest.json>] [--catalog <catalog.json>] [--status <status.json>] [--ir-hash <sha>] [--manifest-hash <sha>] [--catalog-hash <sha>]';
 
 async function main(argv) {
   const { values, positionals } = parseArgs({
@@ -14,6 +15,10 @@ async function main(argv) {
       trace: { type: 'string' },
       manifest: { type: 'string' },
       catalog: { type: 'string' },
+      status: { type: 'string' },
+      'ir-hash': { type: 'string' },
+      'manifest-hash': { type: 'string' },
+      'catalog-hash': { type: 'string' },
     },
     allowPositionals: true,
   });
@@ -37,6 +42,10 @@ async function main(argv) {
     tracePath: values.trace,
     manifestPath: values.manifest,
     catalogPath: values.catalog,
+    statusPath: values.status,
+    irHash: values['ir-hash'],
+    manifestHash: values['manifest-hash'],
+    catalogHash: values['catalog-hash'],
   });
 
   process.stdout.write(canonical + '\n');

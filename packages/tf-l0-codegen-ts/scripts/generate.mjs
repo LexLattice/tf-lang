@@ -1,6 +1,7 @@
 import { writeFile, mkdir, copyFile, readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 import { canonicalize } from '../../tf-l0-ir/src/hash.mjs';
 import { checkIR } from '../../tf-l0-check/src/check.mjs';
 import { manifestFromVerdict } from '../../tf-l0-check/src/manifest.mjs';
@@ -17,6 +18,12 @@ async function loadCatalog() {
       .catch(() => ({ primitives: [] }));
   }
   return catalogPromise;
+}
+
+function hashCanonicalString(text) {
+  const hash = createHash('sha256');
+  hash.update(text);
+  return `sha256:${hash.digest('hex')}`;
 }
 
 export async function generate(ir, { outDir }) {
@@ -50,7 +57,7 @@ export async function generate(ir, { outDir }) {
   const catalog = await loadCatalog();
   const verdict = checkIR(ir, catalog);
   const manifest = manifestFromVerdict(verdict);
-  await emitRuntime(ir, outDir, manifest);
+  await emitRuntime(ir, outDir, manifest, catalog);
 }
 
 function prims(ir, out = new Set()) {
@@ -121,16 +128,27 @@ function hashCode(s) {
   return Math.abs(h);
 }
 
-async function emitRuntime(ir, outDir, manifest) {
+async function emitRuntime(ir, outDir, manifest, catalog) {
   const runtimeOut = join(outDir, 'runtime');
   await mkdir(runtimeOut, { recursive: true });
   await copyFile(join(runtimeSrc, 'inmem.mjs'), join(runtimeOut, 'inmem.mjs'));
   await copyFile(join(runtimeSrc, 'run-ir.mjs'), join(runtimeOut, 'run-ir.mjs'));
   await copyFile(join(runtimeSrc, 'capabilities.mjs'), join(runtimeOut, 'capabilities.mjs'));
 
-  const canonicalIr = JSON.parse(canonicalize(ir));
+  const canonicalIrJson = canonicalize(ir);
+  const canonicalIr = JSON.parse(canonicalIrJson);
   const irLiteral = JSON.stringify(canonicalIr, null, 2);
   const manifestLiteral = canonicalize(manifest);
+  const catalogLiteral = canonicalize(catalog);
+  const provenanceLiteral = JSON.stringify(
+    {
+      ir_hash: hashCanonicalString(canonicalIrJson),
+      manifest_hash: hashCanonicalString(manifestLiteral),
+      catalog_hash: hashCanonicalString(catalogLiteral),
+    },
+    null,
+    2,
+  );
 
   const runScript = `import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -142,6 +160,7 @@ import inmem from './runtime/inmem.mjs';
 
 const MANIFEST = ${manifestLiteral};
 const ir = ${irLiteral};
+const PROVENANCE = ${provenanceLiteral};
 
 function canonicalJson(value) {
   if (Array.isArray(value)) {
@@ -201,19 +220,38 @@ if (capsPath) {
   exitMessage = 'tf run.mjs: no capabilities provided (use --caps <file> or TF_CAPS env)';
 }
 
-let summary = { ok: false, ops: 0, effects: [] };
+const caps = normalizeCaps(rawCaps);
+const capsEffects = canonicalEffects(caps?.effects);
+const capsSource = capsPath ? 'file' : 'env';
+
+let summary = {
+  ok: false,
+  ops: 0,
+  effects: [],
+  provenance: {
+    ...PROVENANCE,
+    caps_source: capsSource,
+    caps_effects: capsEffects,
+  },
+};
 
 if (!exitMessage) {
-  const caps = normalizeCaps(rawCaps);
   const verdict = validateCapabilities(MANIFEST, caps);
   if (!verdict.ok) {
     exitMessage = 'tf run.mjs: capability check failed ' + canonicalJson(verdict);
   } else {
-    const execution = await runIR(ir, inmem);
+    const execution = await runIR(ir, inmem, { provenance: PROVENANCE });
+    const executionEffects = canonicalEffects(execution?.effects);
+    const normalizedCapsEffects = canonicalEffects(caps.effects);
     summary = {
       ok: execution?.ok !== false,
       ops: Number.isFinite(execution?.ops) ? execution.ops : 0,
-      effects: canonicalEffects(execution?.effects),
+      effects: executionEffects,
+      provenance: {
+        ...PROVENANCE,
+        caps_source: capsSource,
+        caps_effects: normalizedCapsEffects,
+      },
     };
   }
 }

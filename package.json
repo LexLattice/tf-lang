@@ -52,7 +52,9 @@
     "policy:auth": "node packages/tf-compose/bin/tf-policy-auth.mjs",
     "policy:auth:samples": "node -e \"(async()=>{const {spawnSync}=require('node:child_process');const runs=[['ok','examples/flows/auth_ok.tf'],['wrong','examples/flows/auth_wrong_scope.tf'],['missing','examples/flows/auth_missing.tf']];for(const [label,file] of runs){const r=spawnSync('node',['packages/tf-compose/bin/tf-policy-auth.mjs','--','check',file],{stdio:'inherit'}); if(r.status!==0) console.error(`[auth smoke] ${label} -> nonzero (expected for wrong/missing)`);} process.exit(0)})();\"",
     "docs:gen": "node scripts/docgen/catalog.mjs && node scripts/docgen/dsl.mjs && node scripts/docgen/effects.mjs",
-    "docs:check": "node scripts/docgen/check.mjs"
+    "docs:check": "node scripts/docgen/check.mjs",
+    "proofs:coverage": "node scripts/proofs/coverage.mjs && cat out/0.4/proofs/coverage.json | jq .",
+    "proofs:emit-missing": "node scripts/proofs/emit-missing-laws.mjs"
   },
   "devDependencies": {
     "typescript": "5.9.2",

@@ -4,14 +4,13 @@ export function emitParWriteSafety(ir, opts = {}) {
   const catalog = normalizeCatalog(opts.catalog);
   const hasConflict = detectParallelWriteConflict(ir, catalog);
   const lines = [];
+  lines.push('; par write safety');
   lines.push('(declare-sort URI 0)');
   lines.push('(declare-fun InParSameURI () Bool)');
-  if (hasConflict) {
-    lines.push('(assert InParSameURI)');
-  } else {
-    lines.push('(assert true)');
-  }
+  lines.push('; safety axiom: parallel writes to the same URI are illegal');
   lines.push('(assert (not InParSameURI))');
+  lines.push('; IR encoding: does the flow contain parallel same-URI writes?');
+  lines.push(`(assert (= InParSameURI ${hasConflict ? 'true' : 'false'}))`);
   lines.push('(check-sat)');
   return lines.join('\n') + '\n';
 }
@@ -22,77 +21,93 @@ export function emitCommutationEquiv(irSeqEP, irSeqPE, opts = {}) {
   const analysisB = analyzeSequence(irSeqPE, catalog);
 
   const lines = [];
+  lines.push('; observability/pure commutation equivalence');
   lines.push('(declare-sort Val 0)');
   lines.push('(declare-fun E (Val) Val)');
   lines.push('(declare-fun P (Val) Val)');
+  lines.push('; commutation law: Observability commutes with Pure');
   lines.push('(assert (forall ((x Val)) (= (E (P x)) (P (E x)))))');
+  lines.push('; IR encoding: sequence outputs over a shared symbolic input');
   lines.push('(declare-const x Val)');
   lines.push(`(define-fun outA () Val ${applySequence(analysisA.steps, 'x')})`);
   lines.push(`(define-fun outB () Val ${applySequence(analysisB.steps, 'x')})`);
+  lines.push('; goal: assume the outputs differ');
   lines.push('(assert (not (= outA outB)))');
   lines.push('(check-sat)');
   return lines.join('\n') + '\n';
 }
 
 function detectParallelWriteConflict(ir, catalog) {
-  let conflict = false;
-  walk(ir, (node) => {
-    if (conflict) {
-      return;
-    }
+  const stack = [ir];
+  while (stack.length > 0) {
+    const node = stack.pop();
     if (!node || typeof node !== 'object') {
-      return;
+      continue;
     }
     if (node.node === 'Par' && Array.isArray(node.children)) {
-      const branchUris = node.children.map((child) => collectWriteUris(child, catalog));
-      for (let i = 0; i < branchUris.length; i += 1) {
-        const set = new Set(branchUris[i]);
-        if (set.size === 0) {
-          continue;
-        }
-        for (let j = i + 1; j < branchUris.length; j += 1) {
-          for (const uri of branchUris[j]) {
-            if (set.has(uri)) {
-              conflict = true;
-              return;
-            }
-          }
+      const branchUris = node.children.map((child) => collectBranchWriteUris(child, catalog));
+      if (hasOverlap(branchUris)) {
+        return true;
+      }
+    }
+    if (Array.isArray(node.children)) {
+      for (const child of node.children) {
+        stack.push(child);
+      }
+    }
+  }
+  return false;
+}
+
+function collectBranchWriteUris(node, catalog, uris = new Set()) {
+  if (!node || typeof node !== 'object') {
+    return uris;
+  }
+  if (node.node === 'Prim' && isStorageWritePrim(node, catalog)) {
+    const uri = selectUri(node.args);
+    if (uri) {
+      uris.add(uri);
+    }
+  }
+  if (Array.isArray(node.children)) {
+    for (const child of node.children) {
+      collectBranchWriteUris(child, catalog, uris);
+    }
+  }
+  return uris;
+}
+
+function hasOverlap(branchSets) {
+  for (let i = 0; i < branchSets.length; i += 1) {
+    const current = branchSets[i];
+    if (!current || current.size === 0) {
+      continue;
+    }
+    for (let j = i + 1; j < branchSets.length; j += 1) {
+      const other = branchSets[j];
+      if (!other || other.size === 0) {
+        continue;
+      }
+      for (const uri of current) {
+        if (other.has(uri)) {
+          return true;
         }
       }
     }
-  });
-  return conflict;
-}
-
-function collectWriteUris(node, catalog) {
-  const uris = [];
-  walk(node, (current) => {
-    if (!current || typeof current !== 'object') {
-      return;
-    }
-    if (current.node !== 'Prim') {
-      return;
-    }
-    const primId = selectPrimId(current);
-    const family = effectOf(primId, catalog);
-    if (family !== 'Storage.Write') {
-      return;
-    }
-    const uri = selectUri(current.args);
-    if (uri) {
-      uris.push(uri);
-    }
-  });
-  return dedupe(uris);
+  }
+  return false;
 }
 
 function analyzeSequence(ir, catalog) {
-  if (!ir || typeof ir !== 'object') {
-    throw new Error('Expected sequence IR object');
+  if (!ir || typeof ir !== 'object' || ir.node !== 'Seq' || !Array.isArray(ir.children)) {
+    throw new Error(SEQUENCE_VALIDATION_ERROR);
   }
-  const steps = extractSequenceSteps(ir);
-  if (steps.length !== 2) {
-    throw new Error('Expected a two-step sequence');
+  if (ir.children.length !== 2) {
+    throw new Error(SEQUENCE_VALIDATION_ERROR);
+  }
+  const steps = ir.children;
+  if (!steps.every((step) => step && typeof step === 'object' && step.node === 'Prim')) {
+    throw new Error(SEQUENCE_VALIDATION_ERROR);
   }
   const mapped = steps.map((node) => {
     const primId = selectPrimId(node);
@@ -103,8 +118,11 @@ function analyzeSequence(ir, catalog) {
     if (family === 'Pure') {
       return 'P';
     }
-    throw new Error(`Unsupported effect family: ${family}`);
+    throw new Error(SEQUENCE_VALIDATION_ERROR);
   });
+  if (new Set(mapped).size !== 2) {
+    throw new Error(SEQUENCE_VALIDATION_ERROR);
+  }
   return { steps: mapped };
 }
 
@@ -114,16 +132,6 @@ function applySequence(symbols, inputName) {
     expr = `(${symbol} ${expr})`;
   }
   return expr;
-}
-
-function extractSequenceSteps(ir) {
-  if (ir.node === 'Seq' && Array.isArray(ir.children)) {
-    return ir.children;
-  }
-  if (ir.node === 'Prim') {
-    return [ir];
-  }
-  throw new Error('Expected Seq node with children');
 }
 
 function selectUri(args = {}) {
@@ -153,31 +161,25 @@ function selectPrimId(node) {
   return '';
 }
 
-function walk(node, visitor) {
-  if (Array.isArray(node)) {
-    for (const entry of node) {
-      walk(entry, visitor);
-    }
-    return;
+function isStorageWritePrim(node, catalog) {
+  const primId = selectPrimId(node);
+  const family = effectOf(primId, catalog);
+  if (family === 'Storage.Write') {
+    return true;
   }
-  if (!node || typeof node !== 'object') {
-    return;
-  }
-  visitor(node);
-  if (Array.isArray(node.children)) {
-    for (const child of node.children) {
-      walk(child, visitor);
-    }
-  }
-  if (node.args && typeof node.args === 'object') {
-    for (const value of Object.values(node.args)) {
-      walk(value, visitor);
-    }
-  }
+  return isNamedAsStorageWrite(primId);
 }
 
-function dedupe(values) {
-  return Array.from(new Set(values));
+function isNamedAsStorageWrite(primId) {
+  if (typeof primId !== 'string' || primId.length === 0) {
+    return false;
+  }
+  const lower = primId.toLowerCase();
+  return (
+    lower.includes('write-object') ||
+    lower.includes('delete-object') ||
+    lower.includes('compare-and-swap')
+  );
 }
 
 function normalizeCatalog(catalog) {
@@ -189,3 +191,6 @@ function normalizeCatalog(catalog) {
   }
   return catalog;
 }
+
+const SEQUENCE_VALIDATION_ERROR =
+  'error: commute expects two Seq[Prim,Prim] with effects {Observability,Pure}.';

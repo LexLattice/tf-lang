@@ -179,6 +179,11 @@ cat tests/fixtures/trace-sample.jsonl | node packages/tf-l0-tools/trace-summary.
     --manifest $(jq -r .provenance.manifest_hash out/0.4/pilot-l0/status.json) \
     --catalog $(jq -r .provenance.catalog_hash out/0.4/pilot-l0/status.json) \
     < out/0.4/pilot-l0/trace.jsonl
+  node packages/tf-compose/bin/tf-verify-trace.mjs \
+    --ir out/0.4/pilot-l0/pilot_min.ir.json \
+    --manifest out/0.4/pilot-l0/pilot_min.manifest.json \
+    --status out/0.4/pilot-l0/status.json \
+    --trace out/0.4/pilot-l0/trace.jsonl
   ```
 
 See [docs/l0-proofs.md](docs/l0-proofs.md) for generating SMT/Alloy proofs and downloading the CI artifacts emitted for v0.4 flows.

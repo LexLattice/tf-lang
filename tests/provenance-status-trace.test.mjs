@@ -51,7 +51,8 @@ test('pilot run captures provenance and verifies trace', { concurrency: false },
     });
     assert.equal(run.status, 0, run.stderr);
 
-    const status = JSON.parse(readFileSync(statusPath, 'utf8'));
+    const statusRawFirst = readFileSync(statusPath, 'utf8');
+    const status = JSON.parse(statusRawFirst);
     assert.ok(status.provenance, 'expected provenance block in status');
     const provenance = status.provenance;
     assert.equal(typeof provenance.ir_hash, 'string');
@@ -66,6 +67,7 @@ test('pilot run captures provenance and verifies trace', { concurrency: false },
     }
 
     const traceRaw = readFileSync(tracePath, 'utf8');
+    const traceRawFirst = traceRaw;
     const validate = spawnSync(
       process.execPath,
       [
@@ -124,7 +126,18 @@ test('pilot run captures provenance and verifies trace', { concurrency: false },
     assert.notEqual(verifyBad.status, 0);
     const badResult = JSON.parse(verifyBad.stdout.trim());
     assert.equal(badResult.ok, false);
-    assert.ok(badResult.issues.some((issue) => issue.includes('manifest_hash mismatch')));
+    assert.ok(badResult.issues.some((issue) => issue.includes('hash_mismatch:manifest_hash')));
+
+    const rerun = spawnSync(process.execPath, ['scripts/pilot-build-run.mjs'], {
+      env: { ...process.env, TF_PROVENANCE: '1' },
+      stdio: 'pipe',
+      encoding: 'utf8',
+    });
+    assert.equal(rerun.status, 0, rerun.stderr);
+    const statusRawSecond = readFileSync(statusPath, 'utf8');
+    const traceRawSecond = readFileSync(tracePath, 'utf8');
+    assert.equal(statusRawSecond, statusRawFirst, 'status.json should be deterministic');
+    assert.equal(traceRawSecond, traceRawFirst, 'trace.jsonl should be deterministic');
   } finally {
     releaseLock();
   }

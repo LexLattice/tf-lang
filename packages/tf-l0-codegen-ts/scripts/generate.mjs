@@ -1,7 +1,8 @@
 import { writeFile, mkdir, copyFile, readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { canonicalize, hash } from '../../tf-l0-ir/src/hash.mjs';
+import { canonicalize } from '../../tf-l0-ir/src/hash.mjs';
+import { sha256OfCanonicalJson } from '../../tf-l0-tools/lib/digest.mjs';
 import { checkIR } from '../../tf-l0-check/src/check.mjs';
 import { manifestFromVerdict } from '../../tf-l0-check/src/manifest.mjs';
 
@@ -132,9 +133,9 @@ async function emitRuntime(ir, outDir, manifest, catalog) {
   const canonicalIr = JSON.parse(canonicalIrLiteral);
   const irLiteral = JSON.stringify(canonicalIr, null, 2);
   const manifestLiteral = canonicalize(manifest);
-  const irHash = hash(ir);
-  const manifestHash = hash(manifest);
-  const catalogHash = hash(catalog);
+  const irHash = sha256OfCanonicalJson(ir);
+  const manifestHash = sha256OfCanonicalJson(manifest);
+  const catalogHash = sha256OfCanonicalJson(catalog);
 
   const runScript = `import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';

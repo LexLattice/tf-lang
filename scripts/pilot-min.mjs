@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { sha256OfCanonicalJson } from '../packages/tf-l0-tools/lib/digest.mjs';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const outDir = join(__dir, '..', 'out', '0.4', 'pilot-l0');
@@ -47,17 +47,6 @@ function rewriteManifest(path) {
   return manifest;
 }
 
-function canonicalJson(value) {
-  if (Array.isArray(value)) {
-    return '[' + value.map(canonicalJson).join(',') + ']';
-  }
-  if (value && typeof value === 'object') {
-    const keys = Object.keys(value).sort();
-    return '{' + keys.map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',') + '}';
-  }
-  return JSON.stringify(value);
-}
-
 function patchRunManifest(runPath, manifest) {
   let source = readFileSync(runPath, 'utf8');
   const manifestMarker = 'const MANIFEST = ';
@@ -73,9 +62,7 @@ function patchRunManifest(runPath, manifest) {
     }
   }
 
-  const manifestHash = createHash('sha256');
-  manifestHash.update(canonicalJson(manifest));
-  const hashValue = `sha256:${manifestHash.digest('hex')}`;
+  const hashValue = sha256OfCanonicalJson(manifest);
   const hashMarker = "const MANIFEST_HASH = '";
   const hashIdx = source.indexOf(hashMarker);
   if (hashIdx !== -1) {

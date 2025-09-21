@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { sha256OfCanonicalJson } from './lib/digest.mjs';
 
 function canonicalJson(value) {
   if (Array.isArray(value)) {
@@ -12,12 +12,6 @@ function canonicalJson(value) {
     return '{' + keys.map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',') + '}';
   }
   return JSON.stringify(value);
-}
-
-function hashCanonical(value) {
-  const h = createHash('sha256');
-  h.update(canonicalJson(value));
-  return `sha256:${h.digest('hex')}`;
 }
 
 function normalizeName(name) {
@@ -249,7 +243,7 @@ export async function verifyTrace({
     try {
       const fallbackSource = await readFile(defaultPath, 'utf8');
       const fallback = JSON.parse(fallbackSource);
-      const fallbackHash = hashCanonical(fallback);
+      const fallbackHash = sha256OfCanonicalJson(fallback);
       if (fallbackHash === expectedCatalog) {
         catalog = fallback;
         catalogPath = defaultPath;
@@ -257,14 +251,14 @@ export async function verifyTrace({
     } catch {}
   }
 
-  const irHashActual = hashCanonical(ir);
+  const irHashActual = sha256OfCanonicalJson(ir);
   if (expectedIr && irHashActual !== expectedIr) {
     issuesSet.add(`ir_hash mismatch: expected ${expectedIr} actual ${irHashActual}`);
   }
 
   let manifestHashActual = null;
   if (manifest) {
-    manifestHashActual = hashCanonical(manifest);
+      manifestHashActual = sha256OfCanonicalJson(manifest);
   }
   if (expectedManifest) {
     if (manifestHashActual) {
@@ -278,7 +272,7 @@ export async function verifyTrace({
 
   let catalogHashActual = null;
   if (catalog) {
-    catalogHashActual = hashCanonical(catalog);
+    catalogHashActual = sha256OfCanonicalJson(catalog);
   }
   if (expectedCatalog && catalogHashActual) {
     if (catalogHashActual !== expectedCatalog) {
@@ -373,20 +367,20 @@ export async function verifyTrace({
 
     if (enforceMeta) {
       if (!parsed || typeof parsed.meta !== 'object' || Array.isArray(parsed.meta)) {
-        issuesSet.add('trace missing meta');
+        issuesSet.add('missing_meta');
         metaMissingCount += 1;
       } else {
         const meta = parsed.meta;
         if (expectedIr && meta.ir_hash !== expectedIr) {
-          issuesSet.add('trace meta.ir_hash mismatch');
+          issuesSet.add('hash_mismatch:ir_hash');
           metaMismatchCount += 1;
         }
         if (expectedManifest && meta.manifest_hash !== expectedManifest) {
-          issuesSet.add('trace meta.manifest_hash mismatch');
+          issuesSet.add('hash_mismatch:manifest_hash');
           metaMismatchCount += 1;
         }
         if (expectedCatalog && meta.catalog_hash !== expectedCatalog) {
-          issuesSet.add('trace meta.catalog_hash mismatch');
+          issuesSet.add('hash_mismatch:catalog_hash');
           metaMismatchCount += 1;
         }
       }

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createHash } from 'node:crypto';
+import { sha256OfCanonicalJson } from '../packages/tf-l0-tools/lib/digest.mjs';
 
 const cliPath = fileURLToPath(new URL('../packages/tf-compose/bin/tf-verify-trace.mjs', import.meta.url));
 const irPath = fileURLToPath(new URL('./fixtures/verify-ir.json', import.meta.url));
@@ -31,12 +31,6 @@ function canonicalJson(value) {
     return '{' + keys.map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',') + '}';
   }
   return JSON.stringify(value);
-}
-
-function hashCanonical(value) {
-  const h = createHash('sha256');
-  h.update(canonicalJson(value));
-  return `sha256:${h.digest('hex')}`;
 }
 
 async function createTempDir(prefix) {
@@ -70,9 +64,9 @@ async function prepareTraceWithMeta({ mutateManifest, omitMeta } = {}) {
   const catalog = JSON.parse(catalogRaw);
 
   const baseMeta = {
-    ir_hash: hashCanonical(ir),
-    manifest_hash: hashCanonical(manifest),
-    catalog_hash: hashCanonical(catalog),
+    ir_hash: sha256OfCanonicalJson(ir),
+    manifest_hash: sha256OfCanonicalJson(manifest),
+    catalog_hash: sha256OfCanonicalJson(catalog),
   };
 
   const traceLines = traceRaw
@@ -311,7 +305,7 @@ test('trace meta mismatches are reported when provenance provided', async () => 
   const result = JSON.parse(stdout.trim());
   assert.equal(stdout.trim(), canonicalJson(result));
   assert.equal(result.ok, false);
-  assert.ok(result.issues.includes('trace meta.manifest_hash mismatch'));
+  assert.ok(result.issues.includes('hash_mismatch:manifest_hash'));
   assert.deepEqual(result.counts, {
     records,
     unknown_prims: 0,
@@ -334,7 +328,7 @@ test('missing trace meta fails when provenance hashes required', async () => {
   const result = JSON.parse(stdout.trim());
   assert.equal(stdout.trim(), canonicalJson(result));
   assert.equal(result.ok, false);
-  assert.ok(result.issues.includes('trace missing meta'));
+  assert.ok(result.issues.includes('missing_meta'));
   assert.deepEqual(result.counts, {
     records,
     unknown_prims: 0,

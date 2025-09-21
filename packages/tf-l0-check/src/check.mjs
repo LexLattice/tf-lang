@@ -1,5 +1,6 @@
 import { unionEffects } from './lattice.mjs';
 import { conflict } from './footprints.mjs';
+import { canCommute, effectOf } from './effect-lattice.mjs';
 
 function mergeQos(base = {}, next = {}) {
   const result = { ...base };
@@ -42,6 +43,7 @@ function walk(node, catalog) {
 
   if (node.node === 'Seq') {
     let acc = okVerdict();
+    let prevFamily = null;
     for (const c of node.children || []) {
       const v = walk(c, catalog);
       acc.ok = acc.ok && v.ok;
@@ -50,6 +52,16 @@ function walk(node, catalog) {
       acc.writes = [...acc.writes, ...(v.writes || [])];
       acc.reasons.push(...(v.reasons || []));
       acc.qos = mergeQos(acc.qos, v.qos);
+
+      const family = nodeFamily(c, v, catalog);
+      if (c && typeof c === 'object') {
+        if (prevFamily) {
+          c.commutes_with_prev = !!canCommute(prevFamily, family);
+        } else {
+          c.commutes_with_prev = false;
+        }
+      }
+      prevFamily = family;
     }
     return acc;
   }
@@ -102,6 +114,21 @@ function walk(node, catalog) {
 
 function okVerdict() {
   return { ok: true, effects: [], reads: [], writes: [], qos: {}, reasons: [] };
+}
+
+function nodeFamily(node, verdict, catalog) {
+  if (!node || typeof node !== 'object') {
+    return 'Pure';
+  }
+  if (node.node === 'Prim') {
+    return effectOf(node.prim || node.id || '', catalog);
+  }
+  const effects = Array.isArray(verdict?.effects) ? verdict.effects : [];
+  if (effects.length === 0) {
+    return 'Pure';
+  }
+  const meaningful = effects.find(e => e && e !== 'Pure');
+  return meaningful || effects[0] || 'Pure';
 }
 
 /**

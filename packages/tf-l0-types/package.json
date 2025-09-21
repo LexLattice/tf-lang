@@ -1,0 +1,8 @@
+{
+  "name": "@tf-lang/tf-l0-types",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/types.mjs",
+  "module": "src/types.mjs"
+}

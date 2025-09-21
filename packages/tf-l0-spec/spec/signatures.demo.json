@@ -1,0 +1,51 @@
+{
+  "tf:information/hash@1": {
+    "input": {"any": true},
+    "output": {"refined": [{"string": true}, "digest_sha256"]}
+  },
+  "tf:observability/emit-metric@1": {
+    "input": {"unit": true},
+    "output": {"unit": true}
+  },
+  "tf:network/publish@1": {
+    "input": {
+      "object": {
+        "fields": [
+          {"name": "topic", "optional": false, "type": {"string": true}},
+          {"name": "key", "optional": false, "type": {"string": true}},
+          {"name": "payload", "optional": false, "type": {"string": true}}
+        ]
+      }
+    },
+    "output": {"unit": true}
+  },
+  "tf:resource/write-object@1": {
+    "input": {
+      "object": {
+        "fields": [
+          {"name": "uri", "optional": false, "type": {"refined": [{"string": true}, "uri"]}},
+          {"name": "key", "optional": false, "type": {"string": true}},
+          {"name": "value", "optional": false, "type": {"string": true}},
+          {"name": "idempotency_key", "optional": true, "type": {"refined": [{"string": true}, "idempotency_key"]}}
+        ]
+      }
+    },
+    "output": {
+      "object": {
+        "fields": [
+          {"name": "uri", "optional": false, "type": {"refined": [{"string": true}, "uri"]}},
+          {"name": "key", "optional": false, "type": {"string": true}},
+          {"name": "value", "optional": false, "type": {"string": true}}
+        ]
+      }
+    }
+  },
+  "tf:data/serialize@1": {
+    "input": {"any": true},
+    "output": {"bytes": true}
+  },
+  "tf:data/deserialize@1": {
+    "input": {"bytes": true},
+    "output": {"any": true}
+  }
+}

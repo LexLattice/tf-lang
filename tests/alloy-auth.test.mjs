@@ -25,6 +25,7 @@ test('authorize dominance model highlights missing scopes', async () => {
 
   assert.ok(alloy.startsWith('open util/ordering[Node]'), 'model should open util ordering');
   assert.match(alloy, /pred MissingAuth/);
+  assertSectionOrdering(alloy);
   assert.match(alloy, /run \{ MissingAuth \}/);
   assert.match(alloy, /run \{ not MissingAuth \}/);
   assert.match(alloy, /Prim0\.primId = "tf:security\/sign-data@1"/);
@@ -37,6 +38,7 @@ test('covered scopes retain predicates and commands', async () => {
 
   assert.match(alloy, /pred Dominates/);
   assert.match(alloy, /pred Covered/);
+  assertSectionOrdering(alloy);
   assert.match(alloy, /run \{ MissingAuth \}/);
   assert.match(alloy, /run \{ not MissingAuth \}/);
   assert.match(alloy, /Region0\.children =/);
@@ -48,3 +50,20 @@ test('authorize alloy emission is deterministic', async () => {
   const second = emitAuthorizeAlloy(ir, { rules });
   assert.equal(first, second);
 });
+
+test('scope hints propagate to run commands', async () => {
+  const [rules, ir] = await Promise.all([rulesPromise, loadFlow('auth_ok.tf')]);
+  const alloy = emitAuthorizeAlloy(ir, { rules, scope: 7 });
+
+  assert.ok(alloy.includes('run { MissingAuth } for 7'));
+  assert.ok(alloy.includes('run { not MissingAuth } for 7'));
+});
+
+function assertSectionOrdering(text) {
+  const sigIndex = text.indexOf('sig Node {}');
+  const predIndex = text.indexOf('pred Dominates');
+  const runIndex = text.indexOf('run { MissingAuth }');
+  assert.ok(sigIndex >= 0, 'signature section should exist');
+  assert.ok(predIndex > sigIndex, 'predicate section should follow signatures');
+  assert.ok(runIndex > predIndex, 'run commands should follow predicates');
+}

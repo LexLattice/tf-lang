@@ -40,12 +40,19 @@ The generated files assert the relevant axioms, compare symbolic outputs, and en
 
 Current obligations are structural over uninterpreted functions and deliberately ignore primitive arguments. They justify algebraic rewrites (idempotency, inverse, commutation) rather than semantic equality of parameterized calls. We plan to model arguments later—likely by indexing symbols—but that work is outside D2’s scope.
 
-Run `node scripts/emit-smt-laws-suite.mjs -o out/0.4/proofs/laws` to regenerate every law obligation in one pass. The suite now includes:
+Use the commands below to regenerate every law obligation and a quick authorize counterexample model in one pass:
+
+```bash
+node scripts/emit-smt-laws-suite.mjs -o out/0.4/proofs/laws
+node scripts/emit-alloy-auth.mjs examples/flows/auth_missing.tf -o out/0.4/proofs/auth/missing.als
+```
+
+The suite now includes:
 
 - **Idempotent hash** – `(assert (= (H (H x)) (H x)))`
 - **Serialize/Deserialize inverse** – both `(D (S v)) = v` and `(S (D b)) = b`
 - **Emit/Hash commute** – `(E (H x)) = (H (E x))`
-- **Idempotent write by key** – repeated `W(u, k, ik, v)` applications collapse to a single write for identical arguments
+- **Idempotent write by key** – nested `W(u, k, ik, (W(u, k, ik, v)))` compositions collapse to a single write for identical arguments
 - **Serialize/Deserialize equivalence check** – compares `serialize |> deserialize` against the identity flow using the inverse axioms
 
 See also the [SMT emitter](../scripts/emit-smt.mjs) and [Alloy exporter](../scripts/emit-alloy.mjs) for the broader proof pipeline.

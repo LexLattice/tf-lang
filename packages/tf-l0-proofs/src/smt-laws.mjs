@@ -14,7 +14,7 @@ const FUNCTIONS = {
   W: { domain: ['URI', 'Key', 'IdKey', 'Val'], codomain: 'Val' },
 };
 
-const LAW_DEFINITIONS = {
+const LAWS = {
   'idempotent:hash': {
     sorts: ['Val'],
     functions: ['H'],
@@ -32,14 +32,13 @@ const LAW_DEFINITIONS = {
     sorts: ['Val', 'URI', 'Key', 'IdKey'],
     functions: ['W'],
     axioms: [
-      '(declare-const x Val)',
       '(declare-const u URI)',
       '(declare-const k Key)',
       '(declare-const ik IdKey)',
       '(declare-const v Val)',
-      '(define-fun once ((input Val) (u URI) (k Key) (ik IdKey) (v Val)) Val (W u k ik v))',
-      '(define-fun twice ((input Val) (u URI) (k Key) (ik IdKey) (v Val)) Val (W u k ik v))',
-      '(assert (not (= (twice x u k ik v) (once x u k ik v))))',
+      '(define-fun once () Val (W u k ik v))',
+      '(define-fun twice () Val (W u k ik (W u k ik v)))',
+      '(assert (not (= twice once)))',
     ],
   },
   'commute:emit-metric-with-pure': {
@@ -56,8 +55,12 @@ const OPERATION_DEFINITIONS = {
   'emit-metric': { symbol: 'E', domain: 'Val', codomain: 'Val' },
 };
 
+export function listLawNames() {
+  return Object.keys(LAWS).sort();
+}
+
 export function emitLaw(law, opts = {}) {
-  const definition = LAW_DEFINITIONS[law];
+  const definition = LAWS[law];
   if (!definition) {
     throw new Error(`Unknown law: ${law}`);
   }
@@ -74,7 +77,7 @@ export function emitLaw(law, opts = {}) {
 export function emitFlowEquivalence(flowA, flowB, lawSet = []) {
   const laws = normalizeLawList(lawSet);
   const definitionList = laws.map((name) => {
-    const definition = LAW_DEFINITIONS[name];
+    const definition = LAWS[name];
     if (!definition) {
       throw new Error(`Unknown law: ${name}`);
     }
@@ -130,7 +133,7 @@ export function emitFlowEquivalence(flowA, flowB, lawSet = []) {
   body.push(`(declare-const ${inputName} ${a.startSort ?? 'Val'})`);
 
   for (const name of laws) {
-    const definition = LAW_DEFINITIONS[name];
+    const definition = LAWS[name];
     body.push(...definition.axioms);
   }
 

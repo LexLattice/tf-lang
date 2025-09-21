@@ -11,7 +11,8 @@ async function main(argv) {
   const { values, positionals } = parseArgs({
     args: argv.slice(2),
     options: {
-      out: { type: 'string', short: 'o' }
+      out: { type: 'string', short: 'o' },
+      scope: { type: 'string' }
     },
     allowPositionals: true
   });
@@ -23,9 +24,10 @@ async function main(argv) {
 
   const inputPath = resolve(positionals[0]);
   const outPath = resolve(values.out);
+  const scope = values.scope === undefined ? undefined : parseScope(values.scope);
 
   const [ir, rules] = await Promise.all([loadIR(inputPath), loadRules()]);
-  const alloy = emitAuthorizeAlloy(ir, { rules });
+  const alloy = emitAuthorizeAlloy(ir, { rules, scope });
 
   await mkdir(dirname(outPath), { recursive: true });
   await writeFile(outPath, ensureTrailingNewline(alloy), 'utf8');
@@ -54,8 +56,18 @@ function ensureTrailingNewline(text) {
   return text.endsWith('\n') ? text : `${text}\n`;
 }
 
+function parseScope(raw) {
+  const numeric = Number.parseInt(raw, 10);
+  if (!Number.isFinite(numeric) || !Number.isInteger(numeric) || numeric <= 0) {
+    throw new Error('--scope must be a positive integer');
+  }
+  return numeric;
+}
+
 function usage() {
-  process.stderr.write('Usage: node scripts/emit-alloy-auth.mjs <input.tf|input.ir.json> -o <out.als>\n');
+  process.stderr.write(
+    'Usage: node scripts/emit-alloy-auth.mjs <input.tf|input.ir.json> -o <out.als> [--scope <n>]\n'
+  );
 }
 
 main(process.argv).catch((error) => {

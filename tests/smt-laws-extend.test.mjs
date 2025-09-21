@@ -12,7 +12,9 @@ const repoRoot = fileURLToPath(new URL('../', import.meta.url));
 const suiteScript = fileURLToPath(new URL('../scripts/emit-smt-laws-suite.mjs', import.meta.url));
 
 async function runSuite(outDir) {
-  await execFileAsync('node', [suiteScript, '-o', outDir], { cwd: repoRoot });
+  await execFileAsync(process.execPath, [suiteScript, '-o', outDir], {
+    cwd: repoRoot
+  });
 }
 
 test('law suite emits idempotent write obligation and inverse symmetry', async () => {
@@ -20,7 +22,19 @@ test('law suite emits idempotent write obligation and inverse symmetry', async (
   await runSuite(dirA);
 
   const writeLaw = await readFile(join(dirA, 'write_idempotent_by_key.smt2'), 'utf8');
-  assert.match(writeLaw, /\(assert \(not \(= \(twice x u k ik v\) \(once x u k ik v\)\)\)\)/);
+  assert.ok(
+    writeLaw.includes('(define-fun once () Val (W u k ik v))'),
+    'write idempotency defines a zero-arity once'
+  );
+  assert.ok(
+    writeLaw.includes('(define-fun twice () Val (W u k ik (W u k ik v)))'),
+    'write idempotency nests the second write'
+  );
+  assert.match(
+    writeLaw,
+    /\(assert \(not \(= twice once\)\)\)/,
+    'write idempotency asserts disequality between twice and once'
+  );
   assert.ok(writeLaw.trim().endsWith('(check-sat)'), 'write idempotency should end with check-sat');
 
   const inverseLaw = await readFile(join(dirA, 'inverse_roundtrip.smt2'), 'utf8');

@@ -4,6 +4,7 @@ const SCOPE_PREFIX = 'Scope';
 
 export function emitAuthorizeAlloy(ir, options = {}) {
   const rules = normalizeRules(options.rules);
+  const scopeHint = normalizeScopeOption(options.scope);
   const context = {
     scopeByValue: new Map(),
     scopeByName: new Map(),
@@ -15,29 +16,11 @@ export function emitAuthorizeAlloy(ir, options = {}) {
   const root = createRegion(context, []);
   processNode(ir, root, context, rules);
 
-  const lines = [];
-  lines.push('open util/ordering[Node]');
-  lines.push('');
-  lines.push('sig Node {}');
-  lines.push('sig Region extends Node { scopes: set Scope, children: set Node }');
-  lines.push('sig Prim extends Node { primId: one String, scopeNeed: set Scope }');
-  lines.push('sig Scope {}');
-  lines.push('');
-  lines.push('pred Dominates[r: Region, n: Node] { n in r.*children }');
-  lines.push('pred Covered[n: Prim] { some r: Region | Dominates[r, n] and some (r.scopes & n.scopeNeed) }');
-  lines.push('pred MissingAuth { some n: Prim | some n.scopeNeed and not Covered[n] }');
-  lines.push('');
+  const lines = ['open util/ordering[Node]'];
 
-  appendScopeDecls(lines, context);
-  appendRegionDecls(lines, context);
-  appendPrimDecls(lines, context);
-
-  appendScopeFacts(lines, context);
-  appendRegionFacts(lines, context);
-  appendPrimFacts(lines, context);
-
-  lines.push('run { MissingAuth }');
-  lines.push('run { not MissingAuth }');
+  pushSection(lines, buildSignatureSection(context));
+  pushSection(lines, buildPredicateAndFactSection(context));
+  pushSection(lines, buildRunSection(scopeHint));
 
   return lines.join('\n') + '\n';
 }
@@ -107,86 +90,6 @@ function registerChild(region, childName) {
   region.children.add(childName);
 }
 
-function appendScopeDecls(lines, context) {
-  if (context.scopesInOrder.length === 0) {
-    return;
-  }
-  for (const scope of context.scopesInOrder) {
-    lines.push(`one sig ${scope.name} extends Scope {}`);
-    lines.push(`// ${scope.name} => "${scope.value}"`);
-  }
-  lines.push('');
-}
-
-function appendRegionDecls(lines, context) {
-  if (context.regions.length === 0) {
-    return;
-  }
-  for (const region of context.regions) {
-    lines.push(`one sig ${region.name} extends Region {}`);
-  }
-  lines.push('');
-}
-
-function appendPrimDecls(lines, context) {
-  if (context.prims.length === 0) {
-    return;
-  }
-  for (const prim of context.prims) {
-    lines.push(`one sig ${prim.name} extends Prim {}`);
-  }
-  lines.push('');
-}
-
-function appendScopeFacts(lines, context) {
-  if (context.scopesInOrder.length === 0) {
-    return;
-  }
-  lines.push('fact ScopeUniverse {');
-  const names = context.scopesInOrder.map((scope) => scope.name);
-  lines.push(`  Scope = ${names.join(' + ')}`);
-  lines.push('}');
-  lines.push('');
-}
-
-function appendRegionFacts(lines, context) {
-  if (context.regions.length === 0) {
-    return;
-  }
-  lines.push('fact RegionScopes {');
-  for (const region of context.regions) {
-    lines.push(`  ${region.name}.scopes = ${formatSet(region.scopes)}`);
-  }
-  lines.push('}');
-  lines.push('');
-
-  lines.push('fact RegionChildren {');
-  for (const region of context.regions) {
-    lines.push(`  ${region.name}.children = ${formatSet([...region.children].sort())}`);
-  }
-  lines.push('}');
-  lines.push('');
-}
-
-function appendPrimFacts(lines, context) {
-  if (context.prims.length === 0) {
-    return;
-  }
-  lines.push('fact PrimIds {');
-  for (const prim of context.prims) {
-    lines.push(`  ${prim.name}.primId = "${escapeString(prim.primId)}"`);
-  }
-  lines.push('}');
-  lines.push('');
-
-  lines.push('fact PrimScopeNeeds {');
-  for (const prim of context.prims) {
-    lines.push(`  ${prim.name}.scopeNeed = ${formatSet(prim.scopes)}`);
-  }
-  lines.push('}');
-  lines.push('');
-}
-
 function formatSet(values) {
   if (!values || values.length === 0) {
     return 'none';
@@ -196,6 +99,176 @@ function formatSet(values) {
   }
   const sorted = [...values].sort();
   return sorted.join(' + ');
+}
+
+function buildSignatureSection(context) {
+  const lines = [
+    'sig Node {}',
+    'sig Region extends Node { scopes: set Scope, children: set Node }',
+    'sig Prim extends Node { primId: one String, scopeNeed: set Scope }',
+    'sig Scope {}'
+  ];
+
+  const scopeDecls = buildScopeDeclarations(context);
+  if (scopeDecls.length > 0) {
+    lines.push('');
+    lines.push(...scopeDecls);
+  }
+
+  const regionDecls = buildRegionDeclarations(context);
+  if (regionDecls.length > 0) {
+    lines.push('');
+    lines.push(...regionDecls);
+  }
+
+  const primDecls = buildPrimDeclarations(context);
+  if (primDecls.length > 0) {
+    lines.push('');
+    lines.push(...primDecls);
+  }
+
+  return lines;
+}
+
+function buildPredicateAndFactSection(context) {
+  const lines = [
+    'pred Dominates[r: Region, n: Node] { n in r.*children }',
+    'pred Covered[n: Prim] { some r: Region | Dominates[r, n] and some (r.scopes & n.scopeNeed) }',
+    'pred MissingAuth { some n: Prim | some n.scopeNeed and not Covered[n] }'
+  ];
+
+  const factLines = buildFactLines(context);
+  if (factLines.length > 0) {
+    lines.push('');
+    lines.push(...factLines);
+  }
+
+  return lines;
+}
+
+function buildRunSection(scopeHint) {
+  return [
+    formatRunCommand('MissingAuth', scopeHint),
+    formatRunCommand('not MissingAuth', scopeHint)
+  ];
+}
+
+function buildScopeDeclarations(context) {
+  const scopes = [...context.scopesInOrder].sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+  const lines = [];
+  for (const scope of scopes) {
+    lines.push(`one sig ${scope.name} extends Scope {}`);
+    lines.push(`// ${scope.name} => "${scope.value}"`);
+  }
+  return lines;
+}
+
+function buildRegionDeclarations(context) {
+  const regions = [...context.regions].sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+  return regions.map((region) => `one sig ${region.name} extends Region {}`);
+}
+
+function buildPrimDeclarations(context) {
+  const prims = [...context.prims].sort((a, b) => a.name.localeCompare(b.name));
+  return prims.map((prim) => `one sig ${prim.name} extends Prim {}`);
+}
+
+function buildFactLines(context) {
+  const lines = [];
+  const scopes = [...context.scopesInOrder].sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+  if (scopes.length > 0) {
+    lines.push('fact ScopeUniverse {');
+    const names = scopes.map((scope) => scope.name);
+    lines.push(`  Scope = ${names.join(' + ')}`);
+    lines.push('}');
+  }
+
+  const regions = [...context.regions].sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+  if (regions.length > 0) {
+    if (lines.length > 0) {
+      lines.push('');
+    }
+    lines.push('fact RegionScopes {');
+    for (const region of regions) {
+      lines.push(`  ${region.name}.scopes = ${formatSet(region.scopes)}`);
+    }
+    lines.push('}');
+    lines.push('');
+    lines.push('fact RegionChildren {');
+    for (const region of regions) {
+      const children = [...region.children].sort();
+      lines.push(`  ${region.name}.children = ${formatSet(children)}`);
+    }
+    lines.push('}');
+  }
+
+  const prims = [...context.prims].sort((a, b) => a.name.localeCompare(b.name));
+  if (prims.length > 0) {
+    if (lines.length > 0) {
+      lines.push('');
+    }
+    lines.push('fact PrimIds {');
+    for (const prim of prims) {
+      lines.push(`  ${prim.name}.primId = "${escapeString(prim.primId)}"`);
+    }
+    lines.push('}');
+    lines.push('');
+    lines.push('fact PrimScopeNeeds {');
+    for (const prim of prims) {
+      lines.push(`  ${prim.name}.scopeNeed = ${formatSet(prim.scopes)}`);
+    }
+    lines.push('}');
+  }
+
+  return lines;
+}
+
+function formatRunCommand(body, scopeHint) {
+  if (scopeHint == null) {
+    return `run { ${body} }`;
+  }
+  return `run { ${body} } for ${scopeHint}`;
+}
+
+function normalizeScopeOption(value) {
+  if (value == null) {
+    return null;
+  }
+  const numeric = typeof value === 'number' ? value : Number.parseInt(value, 10);
+  if (!Number.isFinite(numeric) || !Number.isInteger(numeric) || numeric <= 0) {
+    throw new Error('scope option must be a positive integer');
+  }
+  return numeric;
+}
+
+function pushSection(target, section) {
+  const lines = trimSection(section);
+  if (lines.length === 0) {
+    return;
+  }
+  if (target.length > 0) {
+    target.push('');
+  }
+  target.push(...lines);
+}
+
+function trimSection(section) {
+  const lines = [...section];
+  while (lines.length > 0 && lines[0] === '') {
+    lines.shift();
+  }
+  while (lines.length > 0 && lines[lines.length - 1] === '') {
+    lines.pop();
+  }
+  return lines;
 }
 
 function mapScopes(scopes, context) {

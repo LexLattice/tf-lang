@@ -4,25 +4,19 @@ import { join, resolve } from 'node:path';
 import process from 'node:process';
 import { parseArgs } from 'node:util';
 
-import { emitLaw, emitFlowEquivalence } from '../packages/tf-l0-proofs/src/smt-laws.mjs';
+import {
+  emitLaw,
+  emitFlowEquivalence,
+  listLawNames
+} from '../packages/tf-l0-proofs/src/smt-laws.mjs';
+const LAW_FILE_ALIASES = {
+  'commute:emit-metric-with-pure': 'emit_commute.smt2',
+  'idempotent:hash': 'idempotent_hash.smt2',
+  'idempotent:write-by-key': 'write_idempotent_by_key.smt2',
+  'inverse:serialize-deserialize': 'inverse_roundtrip.smt2'
+};
 
-const OUTPUTS = [
-  {
-    file: 'idempotent_hash.smt2',
-    generate: () => emitLaw('idempotent:hash')
-  },
-  {
-    file: 'inverse_roundtrip.smt2',
-    generate: () => emitLaw('inverse:serialize-deserialize')
-  },
-  {
-    file: 'emit_commute.smt2',
-    generate: () => emitLaw('commute:emit-metric-with-pure')
-  },
-  {
-    file: 'write_idempotent_by_key.smt2',
-    generate: () => emitLaw('idempotent:write-by-key')
-  },
+const EXTRA_OUTPUTS = [
   {
     file: 'serialize_deserialize_equiv.smt2',
     generate: () =>
@@ -50,7 +44,15 @@ async function main(argv) {
   const targetDir = resolve(values.out);
   await mkdir(targetDir, { recursive: true });
 
-  for (const entry of OUTPUTS) {
+  const outputs = [
+    ...listLawNames().map((name) => ({
+      file: resolveLawFileName(name),
+      generate: () => emitLaw(name)
+    })),
+    ...EXTRA_OUTPUTS
+  ];
+
+  for (const entry of outputs) {
     const outPath = join(targetDir, entry.file);
     const content = entry.generate();
     await writeFile(outPath, ensureTrailingNewline(content), 'utf8');
@@ -60,6 +62,17 @@ async function main(argv) {
 
 function ensureTrailingNewline(text) {
   return text.endsWith('\n') ? text : `${text}\n`;
+}
+
+function resolveLawFileName(name) {
+  if (Object.prototype.hasOwnProperty.call(LAW_FILE_ALIASES, name)) {
+    return LAW_FILE_ALIASES[name];
+  }
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return `${slug || 'law'}.smt2`;
 }
 
 main(process.argv).catch((error) => {

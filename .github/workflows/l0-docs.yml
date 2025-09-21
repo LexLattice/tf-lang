@@ -1,0 +1,43 @@
+name: Docs Sync
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-pnpm
+        with:
+          node-version: '20'
+          install: 'true'
+          frozen: 'true'
+
+      - name: Build (for lattice import)
+        run: |
+          pnpm run a0
+          pnpm run a1
+          pnpm -w -r build
+
+      - name: Generate docs
+        run: pnpm run docs:gen
+
+      - name: Check docs sync
+        run: pnpm run docs:check
+
+      - name: Zip docs artifact
+        if: github.ref == 'refs/heads/main' && env.ACT != 'true'
+        run: zip -r docs.zip docs
+
+      - name: Upload docs artifact
+        if: github.ref == 'refs/heads/main' && env.ACT != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs
+          path: docs.zip

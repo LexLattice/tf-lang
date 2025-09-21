@@ -161,6 +161,12 @@ TF_CAPS='{"effects":["Network.Out","Pure"],"allow_writes_prefixes":[]}' node out
 # Summarize traces
 cat tests/fixtures/trace-sample.jsonl | node packages/tf-l0-tools/trace-summary.mjs --top=3 --pretty
 
+### Trace files (T3)
+- Set `TF_TRACE_PATH=path/to/file.jsonl` before running generated flows to append JSONL trace records.
+- Records still print to stdout, so interactive tooling continues to work.
+- Validate saved traces via `cat file.jsonl | node scripts/validate-trace.mjs`.
+- Schema lives at `schemas/trace.v0.4.schema.json` (Draft 2020-12) for integrations.
+
 ### Example App: Order Publish
 ```bash
 node scripts/app-order-publish.mjs

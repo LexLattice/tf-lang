@@ -164,10 +164,12 @@ cat tests/fixtures/trace-sample.jsonl | node packages/tf-l0-tools/trace-summary.
 ### Example App: Order Publish
 ```bash
 node scripts/app-order-publish.mjs
-cat out/0.4/apps/order_publish/summary.json | jq .
+cat out/0.4/apps/order_publish/summary.json
+# pass --pretty to the script if you want pretty-printed stdout
+# node scripts/app-order-publish.mjs --pretty
 ```
 The script emits `examples/flows/app_order_publish.tf` into `out/0.4/apps/order_publish`.
-It writes `/tmp/caps.order.json` with `{"effects":["Network.Out","Observability","Pure"],"allow_writes_prefixes":[]}`.
+It writes `out/0.4/apps/order_publish/caps.json` with `{"effects":["Network.Out","Observability","Pure"],"allow_writes_prefixes":[]}`.
 The generated runner enforces those capabilities through its embedded manifest before using the in-memory runtime.
 The resulting trace summary reports publish primitives and effects so you can audit the capability-gated execution.
 

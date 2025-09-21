@@ -13,7 +13,12 @@ const runScriptPath = join(outDir, 'run.mjs');
 const statusPath = join(outDir, 'status.json');
 const tracePath = join(outDir, 'trace.jsonl');
 const summaryPath = join(outDir, 'summary.json');
-const capsPath = '/tmp/caps.order.json';
+const capsPath = join(outDir, 'caps.json');
+const disableTraceFile =
+  process.env.APP_ORDER_PUBLISH_DISABLE_TRACE_FILE === '1' ||
+  process.env.APP_ORDER_PUBLISH_DISABLE_TRACE_FILE === 'true';
+
+const shouldPrettyPrint = process.argv.includes('--pretty');
 
 function fail(message, stderr) {
   if (stderr) process.stderr.write(stderr);
@@ -34,8 +39,7 @@ function ensureEmit() {
   ];
   const result = spawnSync(process.execPath, emitArgs, { stdio: 'inherit' });
   if (result.status !== 0) {
-    const code = result.status ?? 1;
-    process.exit(code);
+    fail('emit step failed');
   }
   if (!existsSync(runScriptPath)) {
     fail(`expected runner at ${runScriptPath}`);
@@ -43,6 +47,7 @@ function ensureEmit() {
 }
 
 function writeCaps() {
+  mkdirSync(outDir, { recursive: true });
   const caps = {
     effects: ['Network.Out', 'Observability', 'Pure'],
     allow_writes_prefixes: [],
@@ -76,8 +81,13 @@ function runApp() {
   const env = {
     ...process.env,
     TF_STATUS_PATH: statusPath,
-    TF_TRACE_PATH: tracePath,
   };
+  if (!disableTraceFile) {
+    env.TF_TRACE_PATH = tracePath;
+  } else {
+    delete env.TF_TRACE_PATH;
+  }
+  rmSync(tracePath, { force: true });
   const result = spawnSync(process.execPath, [runScriptPath, '--caps', capsPath], {
     env,
     encoding: 'utf8',
@@ -90,7 +100,7 @@ function runApp() {
     process.stderr.write(result.stderr);
   }
   if (result.status !== 0) {
-    process.exit(result.status ?? 1);
+    fail('run step failed', result.stderr);
   }
   const stdout = result.stdout ?? '';
   return { stdout, effects: extractEffects(stdout) };
@@ -107,15 +117,27 @@ function summarize(traceSource, extraEffects) {
       traceInput += '\n';
     }
   }
-  const summary = spawnSync(process.execPath, [traceSummaryCli, '--pretty'], {
+  const summary = spawnSync(process.execPath, [traceSummaryCli], {
     input: traceInput,
     encoding: 'utf8',
   });
   if (summary.status !== 0) {
-    fail('failed to summarize trace', summary.stderr);
+    fail('summarize step failed', summary.stderr);
   }
   mkdirSync(outDir, { recursive: true });
-  writeFileSync(summaryPath, summary.stdout, 'utf8');
+  let output = summary.stdout ?? '';
+  if (output && !output.endsWith('\n')) {
+    output += '\n';
+  }
+  writeFileSync(summaryPath, output, 'utf8');
+  if (shouldPrettyPrint && output) {
+    try {
+      const parsed = JSON.parse(output);
+      console.log(JSON.stringify(parsed, null, 2));
+    } catch {
+      console.log(output);
+    }
+  }
 }
 
 function main() {

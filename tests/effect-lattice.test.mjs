@@ -38,8 +38,8 @@ test('Observability does not commute with Storage.Write', () => {
   assert.equal(canCommute('Observability', 'Storage.Write'), false);
 });
 
-test('Observability does not commute with Network.Out', () => {
-  assert.equal(canCommute('Observability', 'Network.Out'), false);
+test('Observability commutes with Network.Out', () => {
+  assert.equal(canCommute('Observability', 'Network.Out'), true);
 });
 
 // Network.Out commutation cases

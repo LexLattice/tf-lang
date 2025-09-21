@@ -1,12 +1,15 @@
+import { normalizeByCommutation } from './normalize-commute.mjs';
+
 const KNOWN_PURE_PRIMS = new Set(['hash', 'serialize', 'deserialize']);
 
-export function canon(ir, laws = {}) {
-  const ctx = buildLawContext(laws);
-  return normalizeNode(ir, ctx);
+export function canon(ir, options = {}) {
+  const ctx = buildLawContext(options);
+  const normalized = normalizeNode(ir, ctx);
+  return normalizeByCommutation(normalized, options.catalog);
 }
 
-export function normalize(ir, laws = {}) {
-  return canon(ir, laws);
+export function normalize(ir, options = {}) {
+  return canon(ir, options);
 }
 
 function normalizeNode(ir, ctx) {

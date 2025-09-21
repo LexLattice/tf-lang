@@ -2,6 +2,7 @@ import { writeFile, mkdir, copyFile, readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { canonicalize } from '../../tf-l0-ir/src/hash.mjs';
+import { sha256OfCanonicalJson } from '../../tf-l0-tools/lib/digest.mjs';
 import { checkIR } from '../../tf-l0-check/src/check.mjs';
 import { manifestFromVerdict } from '../../tf-l0-check/src/manifest.mjs';
 
@@ -50,7 +51,7 @@ export async function generate(ir, { outDir }) {
   const catalog = await loadCatalog();
   const verdict = checkIR(ir, catalog);
   const manifest = manifestFromVerdict(verdict);
-  await emitRuntime(ir, outDir, manifest);
+  await emitRuntime(ir, outDir, manifest, catalog);
 }
 
 function prims(ir, out = new Set()) {
@@ -121,16 +122,20 @@ function hashCode(s) {
   return Math.abs(h);
 }
 
-async function emitRuntime(ir, outDir, manifest) {
+async function emitRuntime(ir, outDir, manifest, catalog) {
   const runtimeOut = join(outDir, 'runtime');
   await mkdir(runtimeOut, { recursive: true });
   await copyFile(join(runtimeSrc, 'inmem.mjs'), join(runtimeOut, 'inmem.mjs'));
   await copyFile(join(runtimeSrc, 'run-ir.mjs'), join(runtimeOut, 'run-ir.mjs'));
   await copyFile(join(runtimeSrc, 'capabilities.mjs'), join(runtimeOut, 'capabilities.mjs'));
 
-  const canonicalIr = JSON.parse(canonicalize(ir));
+  const canonicalIrLiteral = canonicalize(ir);
+  const canonicalIr = JSON.parse(canonicalIrLiteral);
   const irLiteral = JSON.stringify(canonicalIr, null, 2);
   const manifestLiteral = canonicalize(manifest);
+  const irHash = sha256OfCanonicalJson(ir);
+  const manifestHash = sha256OfCanonicalJson(manifest);
+  const catalogHash = sha256OfCanonicalJson(catalog);
 
   const runScript = `import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -142,6 +147,9 @@ import inmem from './runtime/inmem.mjs';
 
 const MANIFEST = ${manifestLiteral};
 const ir = ${irLiteral};
+const IR_HASH = '${irHash}';
+const MANIFEST_HASH = '${manifestHash}';
+const CATALOG_HASH = '${catalogHash}';
 
 function canonicalJson(value) {
   if (Array.isArray(value)) {
@@ -201,19 +209,30 @@ if (capsPath) {
   exitMessage = 'tf run.mjs: no capabilities provided (use --caps <file> or TF_CAPS env)';
 }
 
-let summary = { ok: false, ops: 0, effects: [] };
+const capsSource = capsPath ? 'file' : envCapsRaw ? 'env' : 'none';
+const caps = normalizeCaps(rawCaps);
+const provenanceBase = {
+  ir_hash: IR_HASH,
+  manifest_hash: MANIFEST_HASH,
+  catalog_hash: CATALOG_HASH,
+  caps_source: capsSource,
+  caps_effects: canonicalEffects(caps?.effects),
+};
+
+let summary = { ok: false, ops: 0, effects: [], provenance: provenanceBase };
 
 if (!exitMessage) {
-  const caps = normalizeCaps(rawCaps);
   const verdict = validateCapabilities(MANIFEST, caps);
   if (!verdict.ok) {
     exitMessage = 'tf run.mjs: capability check failed ' + canonicalJson(verdict);
   } else {
-    const execution = await runIR(ir, inmem);
+    const traceMeta = { ir_hash: IR_HASH, manifest_hash: MANIFEST_HASH, catalog_hash: CATALOG_HASH };
+    const execution = await runIR(ir, inmem, { traceMeta, provenance: provenanceBase });
     summary = {
       ok: execution?.ok !== false,
       ops: Number.isFinite(execution?.ops) ? execution.ops : 0,
       effects: canonicalEffects(execution?.effects),
+      provenance: provenanceBase,
     };
   }
 }
@@ -238,7 +257,18 @@ async function mergeStatus(targetPath) {
       return;
     }
   }
-  const merged = { ...existing, ...summary };
+  const merged = {
+    ok: summary.ok,
+    ops: summary.ops,
+    effects: summary.effects,
+    provenance: summary.provenance,
+  };
+  for (const key of Object.keys(existing)) {
+    if (key === 'ok' || key === 'ops' || key === 'effects' || key === 'provenance') {
+      continue;
+    }
+    merged[key] = existing[key];
+  }
   await writeFile(targetPath, JSON.stringify(merged, null, 2) + '\\n', 'utf8');
 }
 

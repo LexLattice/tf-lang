@@ -2,62 +2,6 @@ import { createWriteStream, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { validateCapabilities } from './capabilities.mjs';
 
-function createTraceWriter(tracePath) {
-  if (!tracePath) {
-    return null;
-  }
-
-  try {
-    mkdirSync(dirname(tracePath), { recursive: true });
-  } catch (err) {
-    console.warn('tf run-ir: unable to prepare trace directory', err);
-  }
-
-  let stream;
-  try {
-    stream = createWriteStream(tracePath, { flags: 'a' });
-  } catch (err) {
-    console.warn('tf run-ir: unable to open trace file, falling back to stdout only', err);
-    return null;
-  }
-
-  let warned = false;
-  let writable = true;
-
-  const handleError = (err) => {
-    if (!warned) {
-      warned = true;
-      console.warn('tf run-ir: trace writer disabled after error', err);
-    }
-    writable = false;
-  };
-
-  stream.once('error', handleError);
-
-  return {
-    write(line) {
-      if (!writable || !stream || stream.destroyed || stream.writableEnded) {
-        return;
-      }
-      try {
-        stream.write(line);
-      } catch (err) {
-        handleError(err);
-      }
-    },
-    async close() {
-      if (!stream || stream.destroyed || stream.writableEnded) {
-        return;
-      }
-      await new Promise((resolve) => {
-        const done = () => resolve();
-        stream.once('error', done);
-        stream.end(() => resolve());
-      });
-    },
-  };
-}
-
 let clockWarned = false;
 
 function nowTs() {
@@ -79,6 +23,18 @@ function nowTs() {
     }
   }
   return Date.now();
+}
+
+function createDeterministicClock() {
+  let counter = 0n;
+  const base = 1_690_000_000_000_000_000n;
+  return {
+    nowNs() {
+      const value = base + counter * 1_000_000n;
+      counter += 1n;
+      return value;
+    },
+  };
 }
 
 function toArray(value) {
@@ -208,7 +164,44 @@ async function execNode(node, runtime, ctx, input) {
 }
 
 export async function runIR(ir, runtime, options = {}) {
-  const writer = createTraceWriter(process.env.TF_TRACE_PATH);
+  const tracePath = process.env.TF_TRACE_PATH;
+  let traceStream = null;
+  let traceWritable = false;
+  let traceWarned = false;
+  const globalRef = typeof globalThis === 'object' ? globalThis : undefined;
+  const hadClock = Boolean(globalRef && Object.prototype.hasOwnProperty.call(globalRef, '__tf_clock'));
+  const previousClock = hadClock ? globalRef.__tf_clock : undefined;
+  let assignedClock = false;
+
+  if (globalRef && (!previousClock || typeof previousClock?.nowNs !== 'function')) {
+    globalRef.__tf_clock = createDeterministicClock();
+    assignedClock = true;
+  }
+
+  if (tracePath) {
+    try {
+      mkdirSync(dirname(tracePath), { recursive: true });
+    } catch (err) {
+      console.warn('tf run-ir: unable to prepare trace directory', err);
+    }
+    try {
+      traceStream = createWriteStream(tracePath, { flags: 'a' });
+      traceWritable = true;
+      traceStream.once('error', (err) => {
+        if (!traceWarned) {
+          traceWarned = true;
+          console.warn('tf run-ir: trace writer disabled after error', err);
+        }
+        traceWritable = false;
+      });
+    } catch (err) {
+      traceStream = null;
+      console.warn('tf run-ir: unable to open trace file, falling back to stdout only', err);
+    }
+  }
+
+  const includeMeta = process.env.TF_PROVENANCE === '1' && options?.traceMeta;
+  const metaPayload = includeMeta ? { ...options.traceMeta } : null;
   const emit = (rec) => {
     const entry = {
       ts: rec.ts,
@@ -217,10 +210,21 @@ export async function runIR(ir, runtime, options = {}) {
       region: rec.region,
       effect: rec.effect,
     };
+    if (metaPayload) {
+      entry.meta = metaPayload;
+    }
     const line = JSON.stringify(entry);
     console.log(line);
-    if (writer) {
-      writer.write(`${line}\n`);
+    if (traceWritable && traceStream && !traceStream.destroyed && !traceStream.writableEnded) {
+      try {
+        traceStream.write(`${line}\n`);
+      } catch (err) {
+        if (!traceWarned) {
+          traceWarned = true;
+          console.warn('tf run-ir: trace writer disabled after error', err);
+        }
+        traceWritable = false;
+      }
     }
   };
 
@@ -232,10 +236,20 @@ export async function runIR(ir, runtime, options = {}) {
       result: value,
       ops: ctx.ops,
       effects: Array.from(ctx.effects).sort(),
+      provenance: options?.provenance ? { ...options.provenance } : null,
     };
   } finally {
-    if (writer) {
-      await writer.close();
+    if (traceStream && !traceStream.destroyed && !traceStream.writableEnded) {
+      await new Promise((resolve) => {
+        traceStream.end(() => resolve());
+      });
+    }
+    if (assignedClock && globalRef) {
+      if (hadClock) {
+        globalRef.__tf_clock = previousClock;
+      } else {
+        delete globalRef.__tf_clock;
+      }
     }
   }
 }

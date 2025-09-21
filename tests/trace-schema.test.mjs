@@ -110,7 +110,9 @@ await runIR(ir, runtime);
   assert.equal(validateOk.code, 0, validateOk.stderr);
   const okSummary = JSON.parse(validateOk.stdout.trim());
   assert.equal(okSummary.ok, true, 'expected validator ok summary');
-  assert.equal(okSummary.lines, finalTraceLines.length);
+  assert.equal(okSummary.total, finalTraceLines.length);
+  assert.equal(okSummary.invalid, 0);
+  assert.equal(okSummary.meta_checked, false);
 
   const unwritableEnv = { TF_TRACE_PATH: '/root/nope/publish.jsonl' };
   const unwritableResult = await runNode(join(publishOutDir, 'run.mjs'), ['--caps', capsPath], {
@@ -134,9 +136,10 @@ await runIR(ir, runtime);
   const badLine = JSON.stringify({ ts: 0, args: {} }) + '\n';
   const validateBad = await runNode(validatorCli, [], { input: badLine });
   assert.equal(validateBad.code, 1, validateBad.stderr);
-  const badSummary = JSON.parse(validateBad.stderr.trim());
+  const badSummary = JSON.parse(validateBad.stdout.trim());
   assert.equal(badSummary.ok, false, 'expected validator to fail');
-  assert.ok(Array.isArray(badSummary.errors) && badSummary.errors.length >= 1);
-  assert.equal(badSummary.errors[0].line, 1);
-  assert.ok(/prim_id/.test(badSummary.errors[0].error));
+  assert.equal(badSummary.invalid, 1);
+  assert.ok(Array.isArray(badSummary.issues) && badSummary.issues.length >= 1);
+  assert.equal(badSummary.issues[0].line, 1);
+  assert.equal(badSummary.issues[0].issue, 'schema');
 });

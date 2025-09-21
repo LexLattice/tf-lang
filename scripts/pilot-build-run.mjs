@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import './pilot-min.mjs';
 import { spawnSync } from 'node:child_process';
 import { mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { copyFileSync } from 'node:fs';

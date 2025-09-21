@@ -2,6 +2,10 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { promises as fs } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { sha256OfCanonicalJson } from '../packages/tf-l0-tools/lib/digest.mjs';
 
 const cliPath = fileURLToPath(new URL('../packages/tf-compose/bin/tf-verify-trace.mjs', import.meta.url));
 const irPath = fileURLToPath(new URL('./fixtures/verify-ir.json', import.meta.url));
@@ -27,6 +31,84 @@ function canonicalJson(value) {
     return '{' + keys.map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',') + '}';
   }
   return JSON.stringify(value);
+}
+
+async function createTempDir(prefix) {
+  return fs.mkdtemp(join(tmpdir(), prefix));
+}
+
+async function writeTempFile(dir, name, content) {
+  const filePath = join(dir, name);
+  await fs.writeFile(filePath, content);
+  return filePath;
+}
+
+function mutateHash(hash) {
+  if (typeof hash !== 'string' || hash.length === 0) return 'sha256:deadbeef';
+  const last = hash.slice(-1);
+  const replacement = last === '0' ? '1' : last === '1' ? '2' : '0';
+  return hash.slice(0, -1) + replacement;
+}
+
+async function prepareTraceWithMeta({ mutateManifest, omitMeta } = {}) {
+  const dir = await createTempDir('tf-verify-');
+  const [irRaw, manifestRaw, catalogRaw, traceRaw] = await Promise.all([
+    fs.readFile(irPath, 'utf8'),
+    fs.readFile(manifestPath, 'utf8'),
+    fs.readFile(catalogPath, 'utf8'),
+    fs.readFile(okTracePath, 'utf8'),
+  ]);
+
+  const ir = JSON.parse(irRaw);
+  const manifest = JSON.parse(manifestRaw);
+  const catalog = JSON.parse(catalogRaw);
+
+  const baseMeta = {
+    ir_hash: sha256OfCanonicalJson(ir),
+    manifest_hash: sha256OfCanonicalJson(manifest),
+    catalog_hash: sha256OfCanonicalJson(catalog),
+  };
+
+  const traceLines = traceRaw
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map((line) => {
+      const parsed = JSON.parse(line);
+      if (!omitMeta) {
+        const meta = { ...baseMeta };
+        if (typeof mutateManifest === 'function') {
+          meta.manifest_hash = mutateManifest(meta.manifest_hash);
+        }
+        parsed.meta = meta;
+      } else if (parsed && typeof parsed === 'object') {
+        delete parsed.meta;
+      }
+      return JSON.stringify(parsed);
+    });
+
+  const tracePath = await writeTempFile(dir, 'trace.jsonl', traceLines.join('\n') + '\n');
+
+  const status = {
+    ok: true,
+    ops: 2,
+    effects: ['Network.Out', 'Storage.Write'],
+    provenance: {
+      ...baseMeta,
+      caps_source: 'file',
+      caps_effects: ['Network.Out', 'Storage.Write', 'Observability', 'Pure'],
+    },
+  };
+
+  const statusPath = await writeTempFile(dir, 'status.json', JSON.stringify(status));
+
+  return {
+    dir,
+    tracePath,
+    statusPath,
+    records: traceLines.length,
+    baseMeta,
+  };
 }
 
 async function runCli(args) {
@@ -185,4 +267,73 @@ test('catalog provides canonical mapping for bare IR prims', async () => {
   assert.equal(stdout.trim(), canonicalJson(result));
   assert.equal(result.ok, true);
   assert.deepEqual(result.issues, []);
+});
+
+test('status provenance enforces trace meta expectations', async () => {
+  const { tracePath, statusPath, records } = await prepareTraceWithMeta();
+  const { code, stdout, stderr } = await runCli([
+    '--ir', irPath,
+    '--trace', tracePath,
+    '--status', statusPath,
+    '--manifest', manifestPath,
+    '--catalog', catalogPath,
+  ]);
+  assert.equal(code, 0, stderr);
+  const result = JSON.parse(stdout.trim());
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.issues, []);
+  assert.deepEqual(result.counts, {
+    records,
+    unknown_prims: 0,
+    denied_writes: 0,
+    meta_missing: 0,
+    meta_mismatches: 0,
+  });
+  assert.equal(stdout.trim(), canonicalJson(result));
+});
+
+test('trace meta mismatches are reported when provenance provided', async () => {
+  const { tracePath, statusPath, records } = await prepareTraceWithMeta({ mutateManifest: mutateHash });
+  const { code, stdout } = await runCli([
+    '--ir', irPath,
+    '--trace', tracePath,
+    '--status', statusPath,
+    '--manifest', manifestPath,
+    '--catalog', catalogPath,
+  ]);
+  assert.equal(code, 1);
+  const result = JSON.parse(stdout.trim());
+  assert.equal(stdout.trim(), canonicalJson(result));
+  assert.equal(result.ok, false);
+  assert.ok(result.issues.includes('hash_mismatch:manifest_hash'));
+  assert.deepEqual(result.counts, {
+    records,
+    unknown_prims: 0,
+    denied_writes: 0,
+    meta_missing: 0,
+    meta_mismatches: records,
+  });
+});
+
+test('missing trace meta fails when provenance hashes required', async () => {
+  const { tracePath, statusPath, records } = await prepareTraceWithMeta({ omitMeta: true });
+  const { code, stdout } = await runCli([
+    '--ir', irPath,
+    '--trace', tracePath,
+    '--status', statusPath,
+    '--manifest', manifestPath,
+    '--catalog', catalogPath,
+  ]);
+  assert.equal(code, 1);
+  const result = JSON.parse(stdout.trim());
+  assert.equal(stdout.trim(), canonicalJson(result));
+  assert.equal(result.ok, false);
+  assert.ok(result.issues.includes('missing_meta'));
+  assert.deepEqual(result.counts, {
+    records,
+    unknown_prims: 0,
+    denied_writes: 0,
+    meta_missing: records,
+    meta_mismatches: 0,
+  });
 });

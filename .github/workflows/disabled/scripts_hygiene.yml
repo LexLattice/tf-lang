@@ -6,7 +6,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Skip in act
+        if: ${{ env.ACT }}
+        run: echo "Skipping scripts hygiene under act"
       - name: Ensure scripts/ contains only approved stubs
+        if: ${{ !env.ACT }}
         run: |
           set -euo pipefail
           if [ ! -d scripts ]; then

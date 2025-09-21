@@ -51,6 +51,7 @@ __pycache__/
 # --- Editors/IDE ---
 .vscode/*
 !.vscode/settings.json
+!.vscode/tasks.json
 .idea/
 
 # --- Env / local config (keep your real secrets out of git) ---
@@ -82,3 +83,9 @@ out/out/
 # Meta-Ontology 0.4 skeleton
 *.tmp
 out
+# act local CI
+/.artifacts
+/.act/state
+.github/.secrets
+.github/.vars
+/bin/

@@ -61,6 +61,21 @@ jobs:
       - name: Full determinism (all outputs)
         run: pnpm run determinism:full
 
+      - name: Build workspace packages
+        run: pnpm run --recursive build
+
+      - name: Ensure ripgrep is available
+        run: |
+          if ! command -v rg >/dev/null 2>&1; then
+            if command -v sudo >/dev/null 2>&1; then
+              sudo apt-get update
+              sudo apt-get install -y ripgrep
+            else
+              apt-get update
+              apt-get install -y ripgrep
+            fi
+          fi
+
       - name: Unit tests
         run: pnpm test
 
@@ -71,6 +86,7 @@ jobs:
         run: pnpm run digest:out
 
       - name: Upload artifacts
+        if: ${{ !env.ACT }}
         uses: actions/upload-artifact@v4
         with:
           name: tf-l0-out

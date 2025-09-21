@@ -56,6 +56,7 @@ jobs:
           ! git grep -n "new URL(.*import.meta.url).*\\.pathname" -- "packages/**" || \
             (echo "Use fileURLToPath(new URL(...)) then findRepoRoot(...)" && exit 1)
       - uses: actions/upload-artifact@v4
+        if: ${{ !env.ACT }}
         with:
           name: tf-check
           path: |
@@ -78,6 +79,7 @@ jobs:
       - run: pnpm --filter @tf-lang/adapter-execution-ts run fixtures
       - run: diff out/t2/adapter-ts-trace.run1.json out/t2/adapter-ts-trace.json
       - uses: actions/upload-artifact@v4
+        if: ${{ !env.ACT }}
         with:
           name: adapter-ts
           path: out/t2/adapter-ts-trace.json
@@ -110,6 +112,7 @@ jobs:
       - run: pnpm --filter @tf-lang/trace2tags run artifacts
       - run: sha256sum --check out/t2/trace-tags.sha
       - uses: actions/upload-artifact@v4
+        if: ${{ !env.ACT }}
         with:
           name: trace-tags
           path: out/t2/trace-tags.json
@@ -132,6 +135,7 @@ jobs:
       - run: pnpm --filter @tf-lang/coverage-generator run artifacts
       - run: sha256sum --check out/t2/coverage.sha
       - uses: actions/upload-artifact@v4
+        if: ${{ !env.ACT }}
         with:
           name: coverage
           path: |
@@ -160,6 +164,7 @@ jobs:
       - run: pnpm --filter @tf-lang/adapter-execution-ts run parity
       - run: diff out/t2/adapter-parity.run1.json out/t2/adapter-parity.json
       - uses: actions/upload-artifact@v4
+        if: ${{ !env.ACT }}
         with:
           name: adapter-parity
           path: out/t2/adapter-parity.json

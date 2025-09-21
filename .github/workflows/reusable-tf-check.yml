@@ -24,7 +24,7 @@ jobs:
       - name: Run tf-check
         run: pnpm tf-check run --mode=ci
       - name: Upload artifacts
-        if: ${{ inputs.upload }}
+        if: ${{ inputs.upload && !env.ACT }}
         uses: actions/upload-artifact@v4
         with:
           name: tf-check-report

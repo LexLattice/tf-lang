@@ -1,0 +1,30 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "CI: list jobs (act)",
+      "type": "shell",
+      "command": "bash scripts/ci/local.sh list",
+      "problemMatcher": []
+    },
+    {
+      "label": "CI: run PR workflow (act)",
+      "type": "shell",
+      "command": "bash scripts/ci/local.sh pr",
+      "problemMatcher": []
+    },
+    {
+      "label": "CI: run job (act)",
+      "type": "shell",
+      "command": "bash -lc 'bash scripts/ci/local.sh job ${input:jobName}'",
+      "problemMatcher": [],
+      "inputs": [
+        {
+          "id": "jobName",
+          "type": "promptString",
+          "description": "Job name from workflow (use 'CI: list jobs' to discover)."
+        }
+      ]
+    }
+  ]
+}

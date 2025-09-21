@@ -74,6 +74,7 @@ jobs:
       - run: ./scripts/validate-tf-spec
       - run: diff tf-spec/validation-run1.txt tf-spec/validation.txt
       - uses: actions/upload-artifact@v4
+        if: ${{ !env.ACT }}
         with:
           name: tf-spec
           path: tf-spec/validation.txt
@@ -105,6 +106,7 @@ jobs:
       - run: ./scripts/oracle-core-results
       - run: diff oracle-core/results.run1.json oracle-core/results.json
       - uses: actions/upload-artifact@v4
+        if: ${{ !env.ACT }}
         with:
           name: oracle-core
           path: |

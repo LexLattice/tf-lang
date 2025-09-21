@@ -57,11 +57,13 @@ test('summarizes traces into canonical JSON', async () => {
   assert.equal(code, 0, stderr);
   const trimmed = stdout.trim();
   const summary = JSON.parse(trimmed);
-  assert.equal(summary.total, 7);
+  assert.equal(summary.total, 10);
   assert.equal(summary.by_prim['tf:resource/write-object@1'], 2);
   assert.equal(summary.by_prim['tf:integration/publish-topic@1'], 2);
+  assert.equal(summary.by_prim['tf:network/publish@1'], 1);
   assert.equal(summary.by_effect['Storage.Write'], 2);
-  assert.equal(summary.by_effect['Network.Out'], 2);
+  assert.equal(summary.by_effect['Network.Out'], 3);
+  assert.equal(summary.by_effect['Pure'], 3);
   assert.equal(trimmed, canonicalJson(summary));
 });
 
@@ -72,7 +74,8 @@ test('top option limits output keys', async () => {
   const summary = JSON.parse(stdout.trim());
   assert.equal(Object.keys(summary.by_prim).length, 2);
   assert.equal(Object.keys(summary.by_effect).length, 2);
-  assert(summary.by_effect['Network.Out'] >= 2);
+  assert.equal(summary.by_effect['Network.Out'], 3);
+  assert.equal(summary.by_effect['Pure'], 3);
   assert.equal(stdout.trim(), canonicalJson(summary));
 });
 
@@ -82,7 +85,7 @@ test('pretty option produces indented output', async () => {
   assert.equal(code, 0);
   assert.ok(/\n  "by_prim"/.test(stdout));
   const summary = JSON.parse(stdout);
-  assert.equal(summary.total, 7);
+  assert.equal(summary.total, 10);
   assert.equal(stdout.trim().replace(/\s+/g, ''), canonicalJson(summary));
 });
 

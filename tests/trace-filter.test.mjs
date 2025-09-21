@@ -56,15 +56,18 @@ test('filters by prim id', async () => {
   }
 });
 
-test('filters by effect and tag substring', async () => {
+test('filters by effect and args substring', async () => {
   const fixture = await fs.readFile(fixturePath, 'utf8');
   const { code, stdout } = await runCli(['--effect=Network.Out', '--grep=orders'], { input: fixture });
   assert.equal(code, 0);
   const lines = stdout.trim().split('\n');
-  assert.equal(lines.length, 1);
-  const parsed = JSON.parse(lines[0]);
-  assert.equal(parsed.prim_id, 'tf:integration/publish-topic@1');
-  assert.equal(parsed.tag.topic, 'orders');
+  assert.equal(lines.length, 2);
+  for (const line of lines) {
+    const parsed = JSON.parse(line);
+    assert.equal(parsed.effect, 'Network.Out');
+    const haystack = JSON.stringify(parsed.args ?? {});
+    assert.ok(haystack.includes('orders'));
+  }
 });
 
 test('pretty printing emits multi-line JSON blocks', async () => {

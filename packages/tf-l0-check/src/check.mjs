@@ -1,4 +1,5 @@
 import { unionEffects } from './lattice.mjs';
+import { canCommute, effectOf } from './effect-lattice.mjs';
 import { conflict } from './footprints.mjs';
 
 function mergeQos(base = {}, next = {}) {
@@ -42,6 +43,7 @@ function walk(node, catalog) {
 
   if (node.node === 'Seq') {
     let acc = okVerdict();
+    let prevFamily = null;
     for (const c of node.children || []) {
       const v = walk(c, catalog);
       acc.ok = acc.ok && v.ok;
@@ -50,6 +52,11 @@ function walk(node, catalog) {
       acc.writes = [...acc.writes, ...(v.writes || [])];
       acc.reasons.push(...(v.reasons || []));
       acc.qos = mergeQos(acc.qos, v.qos);
+      const fam = resolveEffectFamily(c, v, catalog);
+      if (c && typeof c === 'object') {
+        c.commutes_with_prev = prevFamily ? canCommute(prevFamily, fam) : false;
+      }
+      prevFamily = fam || null;
     }
     return acc;
   }
@@ -137,6 +144,20 @@ function lookupWithInference(node, catalog) {
   }
 
   return base;
+}
+
+function resolveEffectFamily(node, verdict, catalog) {
+  if (!node || typeof node !== 'object') {
+    return null;
+  }
+  if (node.node === 'Prim') {
+    return effectOf(node.prim, catalog) || 'Pure';
+  }
+  const effects = Array.isArray(verdict?.effects) ? verdict.effects : [];
+  if (!effects.length) {
+    return 'Pure';
+  }
+  return effects.find(e => e !== 'Pure') || effects[0] || 'Pure';
 }
 
 /**

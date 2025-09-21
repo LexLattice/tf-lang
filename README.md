@@ -161,6 +161,12 @@ TF_CAPS='{"effects":["Network.Out","Pure"],"allow_writes_prefixes":[]}' node out
 # Summarize traces
 cat tests/fixtures/trace-sample.jsonl | node packages/tf-l0-tools/trace-summary.mjs --top=3 --pretty
 
+### Trace files (T3)
+- Set `TF_TRACE_PATH=...` to append JSONL records while running generated flows.
+- Each entry includes `ts`, `prim_id`, `args`, `region`, and `effect`.
+- Validate with `cat trace.jsonl | node scripts/validate-trace.mjs`.
+- Failures exit non-zero and print a summary of the first invalid lines.
+
 ### Example App: Order Publish
 ```bash
 node scripts/app-order-publish.mjs

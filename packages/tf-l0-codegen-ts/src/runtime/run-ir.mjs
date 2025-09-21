@@ -1,4 +1,27 @@
+import { createWriteStream, mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
+
 import { validateCapabilities } from './capabilities.mjs';
+
+const tracePath = process.env.TF_TRACE_PATH;
+let traceOut = null;
+if (tracePath) {
+  try {
+    mkdirSync(dirname(tracePath), { recursive: true });
+    traceOut = createWriteStream(tracePath, { flags: 'a' });
+  } catch (err) {
+    console.warn('tf run-ir: unable to open trace path', tracePath, err);
+    traceOut = null;
+  }
+}
+let traceClosed = false;
+
+function emitTrace(rec) {
+  if (traceOut) {
+    traceOut.write(`${JSON.stringify(rec)}\n`);
+  }
+  console.log(JSON.stringify(rec));
+}
 
 let clockWarned = false;
 
@@ -95,7 +118,23 @@ async function execNode(node, runtime, ctx, input) {
       if (effect) recordEffects(ctx.effects, effect);
       if (node.meta?.effect) recordEffects(ctx.effects, node.meta.effect);
       if (node.meta?.effects) recordEffects(ctx.effects, node.meta.effects);
-      console.log(JSON.stringify({ prim_id: primId, args, ts }));
+      let effectTag = '';
+      if (typeof effect === 'string') {
+        effectTag = effect;
+      } else if (typeof node.meta?.effect === 'string') {
+        effectTag = node.meta.effect;
+      } else if (Array.isArray(node.meta?.effects) && node.meta.effects.length > 0) {
+        const first = node.meta.effects[0];
+        if (typeof first === 'string') effectTag = first;
+      }
+      const record = {
+        ts,
+        prim_id: primId,
+        args,
+        region: typeof node.meta?.region === 'string' ? node.meta.region : '',
+        effect: effectTag,
+      };
+      emitTrace(record);
       const ok = normalizeOk(result?.ok);
       return { value: result, ok };
     }
@@ -138,7 +177,16 @@ async function execNode(node, runtime, ctx, input) {
 
 export async function runIR(ir, runtime, options = {}) {
   const ctx = { effects: new Set(), ops: 0 };
-  const { value, ok } = await execNode(ir, runtime, ctx, options.input);
+  let outcome;
+  try {
+    outcome = await execNode(ir, runtime, ctx, options.input);
+  } finally {
+    if (traceOut && !traceClosed) {
+      await new Promise((resolve) => traceOut.end(resolve));
+      traceClosed = true;
+    }
+  }
+  const { value, ok } = outcome;
   return {
     ok: normalizeOk(ok),
     result: value,

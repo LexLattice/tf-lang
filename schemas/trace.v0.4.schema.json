@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.tf-lang.com/trace.v0.4.schema.json",
+  "title": "TF Trace v0.4 record",
+  "type": "object",
+  "required": ["ts", "prim_id", "args", "region", "effect"],
+  "properties": {
+    "ts": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "prim_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "args": {
+      "type": "object"
+    },
+    "region": {
+      "type": "string"
+    },
+    "effect": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

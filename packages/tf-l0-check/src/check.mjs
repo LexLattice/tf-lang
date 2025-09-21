@@ -25,11 +25,11 @@ function mergeQos(base = {}, next = {}) {
  * - If a primitive has no footprints in catalog, infer minimal reads/writes from args.
  *   This keeps tests green before A2 (footprints) or autofix are applied.
  */
-export function checkIR(ir, catalog) {
-  return walk(ir, catalog);
+export function checkIR(ir, catalog, options = {}) {
+  return walk(ir, catalog, options);
 }
 
-function walk(node, catalog) {
+function walk(node, catalog, options) {
   if (!node || typeof node !== 'object') {
     return okVerdict();
   }
@@ -50,7 +50,7 @@ function walk(node, catalog) {
     let acc = okVerdict();
     let prevFamily = null;
     for (const c of node.children || []) {
-      const v = walk(c, catalog);
+      const v = walk(c, catalog, options);
       acc.ok = acc.ok && v.ok;
       acc.effects = unionEffects(acc.effects, v.effects);
       acc.reads = [...acc.reads, ...(v.reads || [])];
@@ -68,7 +68,7 @@ function walk(node, catalog) {
   }
 
   if (node.node === 'Par') {
-    const vs = (node.children || []).map(c => walk(c, catalog));
+    const vs = (node.children || []).map(c => walk(c, catalog, options));
     let ok = vs.every(v => v.ok);
     let qos = {};
     let conflictDetected = false;
@@ -80,6 +80,7 @@ function walk(node, catalog) {
         const famB = nodeFamily(node.children?.[j], vs[j], catalog);
         if (!parSafe(famA, famB, {
           conflict,
+          disjoint: options?.disjoint,
           writesA: vs[i].writes,
           writesB: vs[j].writes
         })) {
@@ -109,7 +110,7 @@ function walk(node, catalog) {
   if (Array.isArray(node.children)) {
     let acc = okVerdict();
     for (const c of node.children) {
-      const v = walk(c, catalog);
+      const v = walk(c, catalog, options);
       acc.ok = acc.ok && v.ok;
       acc.effects = unionEffects(acc.effects, v.effects);
       acc.reads = [...acc.reads, ...(v.reads || [])];

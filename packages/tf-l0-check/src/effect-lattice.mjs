@@ -1,6 +1,6 @@
 import { conflict as footprintConflict } from './footprints.mjs';
 
-const RAW_FAMILIES = [
+export const CANONICAL_EFFECT_FAMILIES = Object.freeze([
   'Pure',
   'Observability',
   'Storage.Read',
@@ -11,19 +11,24 @@ const RAW_FAMILIES = [
   'Policy',
   'Infra',
   'Time',
-  'UI',
-  'Time.Read',
-  'Time.Wait',
-  'Randomness.Read'
-];
-
-export const EFFECT_FAMILIES = Object.freeze(Array.from(new Set(RAW_FAMILIES)));
+  'UI'
+]);
 
 const FAMILY_ALIASES = Object.freeze({
   'Time.Read': 'Time',
   'Time.Wait': 'Time',
   'Randomness.Read': 'Infra'
 });
+
+const NORMALIZATION_MAP = new Map(
+  CANONICAL_EFFECT_FAMILIES.map(family => [family.toLowerCase(), family])
+);
+
+for (const [alias, canonical] of Object.entries(FAMILY_ALIASES)) {
+  NORMALIZATION_MAP.set(alias.toLowerCase(), canonical);
+}
+
+export const EFFECT_FAMILIES = CANONICAL_EFFECT_FAMILIES;
 
 const FALLBACK_RULES = [
   { re: /(emit-metric|trace-span|log-event)/i, family: 'Observability' },
@@ -52,11 +57,15 @@ function nameFromId(primId = '') {
 }
 
 export function normalizeFamily(family) {
-  if (!family) {
+  if (typeof family !== 'string') {
     return 'Pure';
   }
-  const mapped = FAMILY_ALIASES[family] || family;
-  if (EFFECT_FAMILIES.includes(mapped)) {
+  const trimmed = family.trim();
+  if (trimmed.length === 0) {
+    return 'Pure';
+  }
+  const mapped = NORMALIZATION_MAP.get(trimmed.toLowerCase());
+  if (mapped) {
     return mapped;
   }
   return 'Pure';
@@ -110,9 +119,15 @@ export function parSafe(famA, famB, ctx = {}) {
   const b = normalizeFamily(famB);
 
   if (a === 'Storage.Write' && b === 'Storage.Write') {
-    if (typeof ctx.disjoint === 'function') {
-      const urisA = extractUris(ctx.writesA);
-      const urisB = extractUris(ctx.writesB);
+    const writesA = Array.isArray(ctx.writesA) ? ctx.writesA : null;
+    const writesB = Array.isArray(ctx.writesB) ? ctx.writesB : null;
+
+    if (typeof ctx.disjoint === 'function' && writesA && writesB) {
+      const urisA = extractUris(writesA);
+      const urisB = extractUris(writesB);
+      if (urisA.length === 0 && urisB.length === 0) {
+        return false;
+      }
       for (const uriA of urisA) {
         for (const uriB of urisB) {
           if (!ctx.disjoint(uriA, uriB)) {
@@ -120,16 +135,15 @@ export function parSafe(famA, famB, ctx = {}) {
           }
         }
       }
-      if (urisA.length || urisB.length) {
-        return true;
-      }
+      return true;
+    }
+
+    if (!writesA || !writesB) {
       return false;
     }
+
     const conflictFn = typeof ctx.conflict === 'function' ? ctx.conflict : footprintConflict;
-    if (Array.isArray(ctx.writesA) && Array.isArray(ctx.writesB)) {
-      return !conflictFn(ctx.writesA, ctx.writesB);
-    }
-    return false;
+    return !conflictFn(writesA, writesB);
   }
 
   return true;

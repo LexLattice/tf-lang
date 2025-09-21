@@ -3,7 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
-  EFFECT_FAMILIES,
+  CANONICAL_EFFECT_FAMILIES,
   canCommute,
   parSafe
 } from '../packages/tf-l0-check/src/effect-lattice.mjs';
@@ -11,10 +11,10 @@ import {
 export function buildLatticeReport() {
   const commute = {};
   const par = {};
-  for (const famA of EFFECT_FAMILIES) {
+  for (const famA of CANONICAL_EFFECT_FAMILIES) {
     commute[famA] = {};
     par[famA] = {};
-    for (const famB of EFFECT_FAMILIES) {
+    for (const famB of CANONICAL_EFFECT_FAMILIES) {
       commute[famA][famB] = canCommute(famA, famB);
       par[famA][famB] = parSafe(famA, famB);
     }

@@ -71,7 +71,12 @@ test('Parallel Storage.Write with overlap is unsafe', () => {
   );
 });
 
-test('Parallel Storage.Write with disjoint URIs is safe', () => {
+test('Parallel Observability and Network.Out is safe', () => {
+  assert.equal(parSafe('Observability', 'Network.Out'), true);
+});
+
+test('Parallel Storage.Write with provided disjoint predicate is safe', () => {
+  const alwaysDisjoint = () => true;
   assert.equal(
     parSafe('Storage.Write', 'Storage.Write', {
       conflict,
@@ -80,10 +85,14 @@ test('Parallel Storage.Write with disjoint URIs is safe', () => {
     }),
     true
   );
-});
-
-test('Parallel Observability and Network.Out is safe', () => {
-  assert.equal(parSafe('Observability', 'Network.Out'), true);
+  assert.equal(
+    parSafe('Storage.Write', 'Storage.Write', {
+      disjoint: alwaysDisjoint,
+      writesA: writeA,
+      writesB: writeB
+    }),
+    true
+  );
 });
 
 // effectOf coverage

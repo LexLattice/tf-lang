@@ -45,6 +45,12 @@ commutation is evaluated relative to a previous effect family:
   disjointness proof.
 - All other pairs are considered non-commuting for now.
 
+The helper is intentionally directional: `canCommute(prev, next)` answers the
+question “may the second node swap with the previous one?” rather than treating
+the pair symmetrically. This mirrors how the checker annotates sequential
+children—it records whether a future pass could safely bubble the current node
+left across its predecessor.
+
 The checker simply annotates `Seq` children with a `commutes_with_prev` boolean
 so that future normalization passes can inspect the lattice decision without
 reordering anything yet.

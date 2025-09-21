@@ -1,0 +1,6 @@
+{
+  "tf:security/sign-data@1": ["kms.sign"],
+  "tf:security/verify-signature@1": [],
+  "tf:security/encrypt@1": ["kms.encrypt"],
+  "tf:security/decrypt@1": ["kms.decrypt"]
+}

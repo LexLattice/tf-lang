@@ -24,6 +24,22 @@ test('pilot_min flow runs and summarizes deterministically', () => {
   assert.ok(summary.total >= 3);
   assert.ok(summary.by_prim['tf:network/publish@1'] >= 1);
   assert.ok(summary.by_prim['tf:resource/write-object@1'] >= 1);
+  if (summary.by_meta) {
+    const metaEntries = Object.entries(summary.by_meta);
+    assert.ok(metaEntries.length > 0, 'expected meta buckets when by_meta present');
+    for (const [, counts] of metaEntries) {
+      assert.ok(counts && typeof counts === 'object', 'expected counts map for meta bucket');
+      const countValues = Object.values(counts);
+      assert.ok(countValues.length > 0, 'expected at least one meta fingerprint count');
+      for (const value of countValues) {
+        assert.equal(
+          value,
+          summary.total,
+          'meta fingerprint count should match total operations',
+        );
+      }
+    }
+  }
 
   const summaryRaw1 = readFileSync(summaryPath, 'utf8');
 

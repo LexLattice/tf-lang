@@ -165,7 +165,16 @@ function isStorageWrite(primCanonical, primName, catalogMaps) {
   return /^(write-object|delete-object|compare-and-swap)$/.test(target);
 }
 
-export async function verifyTrace({ irPath, tracePath, manifestPath, catalogPath }) {
+export async function verifyTrace({
+  irPath,
+  tracePath,
+  manifestPath,
+  catalogPath,
+  statusPath,
+  irHash,
+  manifestHash,
+  catalogHash,
+}) {
   if (!irPath) {
     throw new Error('Missing --ir path');
   }
@@ -173,16 +182,18 @@ export async function verifyTrace({ irPath, tracePath, manifestPath, catalogPath
     throw new Error('Missing --trace path');
   }
 
-  const [irSource, traceSource, manifestSource, catalogSource] = await Promise.all([
+  const [irSource, traceSource, manifestSource, catalogSource, statusSource] = await Promise.all([
     readFile(irPath, 'utf8'),
     readFile(tracePath, 'utf8'),
     manifestPath ? readFile(manifestPath, 'utf8') : Promise.resolve(null),
     catalogPath ? readFile(catalogPath, 'utf8') : Promise.resolve(null),
+    statusPath ? readFile(statusPath, 'utf8') : Promise.resolve(null),
   ]);
 
   const ir = JSON.parse(irSource);
   const manifest = manifestSource ? JSON.parse(manifestSource) : null;
   const catalog = catalogSource ? JSON.parse(catalogSource) : null;
+  const status = statusSource ? JSON.parse(statusSource) : null;
   const catalogMaps = buildCatalogMaps(catalog);
   const allowed = collectAllowedPrims(ir, catalogMaps.byName);
   const allowedNames = Array.from(allowed.names);
@@ -195,9 +206,26 @@ export async function verifyTrace({ irPath, tracePath, manifestPath, catalogPath
 
   const allowedWritePatterns = manifest ? compileManifestPatterns(manifest) : [];
 
+  let expectedIrHash = typeof irHash === 'string' ? irHash : null;
+  let expectedManifestHash = typeof manifestHash === 'string' ? manifestHash : null;
+  let expectedCatalogHash = typeof catalogHash === 'string' ? catalogHash : null;
+  const statusProvenance = status && typeof status.provenance === 'object' ? status.provenance : null;
+  if (!expectedIrHash && typeof statusProvenance?.ir_hash === 'string') {
+    expectedIrHash = statusProvenance.ir_hash;
+  }
+  if (!expectedManifestHash && typeof statusProvenance?.manifest_hash === 'string') {
+    expectedManifestHash = statusProvenance.manifest_hash;
+  }
+  if (!expectedCatalogHash && typeof statusProvenance?.catalog_hash === 'string') {
+    expectedCatalogHash = statusProvenance.catalog_hash;
+  }
+
+  const expectingMeta = Boolean(expectedIrHash || expectedManifestHash || expectedCatalogHash);
+
   const issuesSet = new Set();
   let unknownCount = 0;
   let deniedCount = 0;
+  let provenanceMismatchCount = 0;
   let records = 0;
 
   const lines = traceSource.split(/\r?\n/);
@@ -254,6 +282,44 @@ export async function verifyTrace({ irPath, tracePath, manifestPath, catalogPath
         deniedCount += 1;
       }
     }
+
+    if (expectingMeta) {
+      const meta = parsed?.meta && typeof parsed.meta === 'object' ? parsed.meta : null;
+      let metaIssue = false;
+      if (!meta) {
+        issuesSet.add('meta missing for provenance verification');
+        metaIssue = true;
+      } else {
+        if (expectedIrHash) {
+          const actual = typeof meta.ir_hash === 'string' ? meta.ir_hash : '';
+          if (actual !== expectedIrHash) {
+            issuesSet.add(`meta mismatch: ir_hash expected ${expectedIrHash} got ${actual || '""'}`);
+            metaIssue = true;
+          }
+        }
+        if (expectedManifestHash) {
+          const actual = typeof meta.manifest_hash === 'string' ? meta.manifest_hash : '';
+          if (actual !== expectedManifestHash) {
+            issuesSet.add(
+              `meta mismatch: manifest_hash expected ${expectedManifestHash} got ${actual || '""'}`,
+            );
+            metaIssue = true;
+          }
+        }
+        if (expectedCatalogHash) {
+          const actual = typeof meta.catalog_hash === 'string' ? meta.catalog_hash : '';
+          if (actual !== expectedCatalogHash) {
+            issuesSet.add(
+              `meta mismatch: catalog_hash expected ${expectedCatalogHash} got ${actual || '""'}`,
+            );
+            metaIssue = true;
+          }
+        }
+      }
+      if (metaIssue) {
+        provenanceMismatchCount += 1;
+      }
+    }
   }
 
   const issues = Array.from(issuesSet);
@@ -266,6 +332,7 @@ export async function verifyTrace({ irPath, tracePath, manifestPath, catalogPath
       records,
       unknown_prims: unknownCount,
       denied_writes: deniedCount,
+      provenance_mismatches: provenanceMismatchCount,
     },
   };
 

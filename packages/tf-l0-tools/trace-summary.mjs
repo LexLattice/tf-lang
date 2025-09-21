@@ -65,6 +65,8 @@ const lines = input.split(/\r?\n/);
 
 const primCounts = new Map();
 const effectCounts = new Map();
+const metaIrCounts = new Map();
+const metaManifestCounts = new Map();
 let total = 0;
 let warned = false;
 
@@ -80,6 +82,17 @@ for (const raw of lines) {
     if (parsed && typeof parsed.effect === 'string') {
       increment(effectCounts, parsed.effect);
     }
+    if (parsed && parsed.meta && typeof parsed.meta === 'object') {
+      const irHash = typeof parsed.meta.ir_hash === 'string' ? parsed.meta.ir_hash : null;
+      if (irHash) {
+        increment(metaIrCounts, irHash);
+      }
+      const manifestHash =
+        typeof parsed.meta.manifest_hash === 'string' ? parsed.meta.manifest_hash : null;
+      if (manifestHash) {
+        increment(metaManifestCounts, manifestHash);
+      }
+    }
   } catch (err) {
     if (!warned && !quiet) {
       console.warn('trace-summary: skipping malformed line');
@@ -93,6 +106,17 @@ const summary = {
   by_prim: selectTop(primCounts, topLimit),
   by_effect: selectTop(effectCounts, topLimit),
 };
+
+if (metaIrCounts.size > 0 || metaManifestCounts.size > 0) {
+  const byMeta = {};
+  if (metaIrCounts.size > 0) {
+    byMeta.ir_hash = selectTop(metaIrCounts, topLimit);
+  }
+  if (metaManifestCounts.size > 0) {
+    byMeta.manifest_hash = selectTop(metaManifestCounts, topLimit);
+  }
+  summary.by_meta = byMeta;
+}
 
 const canonical = canonicalJson(summary);
 if (pretty) {

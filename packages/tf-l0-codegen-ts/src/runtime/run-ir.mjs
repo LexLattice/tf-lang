@@ -209,6 +209,11 @@ async function execNode(node, runtime, ctx, input) {
 
 export async function runIR(ir, runtime, options = {}) {
   const writer = createTraceWriter(process.env.TF_TRACE_PATH);
+  const provenance = sanitizeProvenance(options?.provenance);
+  const traceMeta =
+    process.env.TF_PROVENANCE === '1' && provenance
+      ? buildTraceMeta(provenance)
+      : null;
   const emit = (rec) => {
     const entry = {
       ts: rec.ts,
@@ -217,6 +222,9 @@ export async function runIR(ir, runtime, options = {}) {
       region: rec.region,
       effect: rec.effect,
     };
+    if (traceMeta) {
+      entry.meta = traceMeta;
+    }
     const line = JSON.stringify(entry);
     console.log(line);
     if (writer) {
@@ -232,12 +240,48 @@ export async function runIR(ir, runtime, options = {}) {
       result: value,
       ops: ctx.ops,
       effects: Array.from(ctx.effects).sort(),
+      provenance: provenance ?? null,
     };
   } finally {
     if (writer) {
       await writer.close();
     }
   }
+}
+
+function sanitizeProvenance(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const out = {};
+  if (typeof raw.ir_hash === 'string' && raw.ir_hash) {
+    out.ir_hash = raw.ir_hash;
+  }
+  if (typeof raw.manifest_hash === 'string' && raw.manifest_hash) {
+    out.manifest_hash = raw.manifest_hash;
+  }
+  if (typeof raw.catalog_hash === 'string' && raw.catalog_hash) {
+    out.catalog_hash = raw.catalog_hash;
+  }
+  if (typeof raw.caps_source === 'string' && raw.caps_source) {
+    out.caps_source = raw.caps_source;
+  }
+  if (Array.isArray(raw.caps_effects)) {
+    out.caps_effects = raw.caps_effects.filter((entry) => typeof entry === 'string');
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
+function buildTraceMeta(provenance) {
+  const meta = {};
+  if (typeof provenance.ir_hash === 'string') {
+    meta.ir_hash = provenance.ir_hash;
+  }
+  if (typeof provenance.manifest_hash === 'string') {
+    meta.manifest_hash = provenance.manifest_hash;
+  }
+  if (typeof provenance.catalog_hash === 'string') {
+    meta.catalog_hash = provenance.catalog_hash;
+  }
+  return Object.keys(meta).length > 0 ? meta : null;
 }
 
 export async function runWithCaps(ir, runtime, caps, manifest) {

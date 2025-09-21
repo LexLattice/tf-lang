@@ -36,3 +36,14 @@ cat out/0.4/pilot-l0/summary.json
 ```
 
 The run produces IR, canonical form, manifest, generated TypeScript, capability manifest, execution status, trace, and a summarized view. Capability gating requires the following effects: `Network.Out`, `Storage.Write`, `Observability`, and `Pure`, with writes permitted under the `res://ledger/` prefix.
+
+To capture provenance fingerprints in the status and trace, enable the gate and validate the output:
+
+```sh
+TF_PROVENANCE=1 node scripts/pilot-build-run.mjs
+node scripts/validate-trace.mjs --require-meta \
+  --ir "$(jq -r .provenance.ir_hash out/0.4/pilot-l0/status.json)" \
+  --manifest "$(jq -r .provenance.manifest_hash out/0.4/pilot-l0/status.json)" \
+  --catalog "$(jq -r .provenance.catalog_hash out/0.4/pilot-l0/status.json)" \
+  < out/0.4/pilot-l0/trace.jsonl
+```

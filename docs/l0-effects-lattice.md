@@ -37,10 +37,11 @@ predecessor inside a sequential composition. The rules are asymmetric because
 commutation is evaluated relative to a previous effect family:
 
 - `Pure` commutes with everything.
-- `Observability` only commutes with `Pure` and other `Observability` nodes.
-- `Network.Out` commutes with `Pure` and `Observability` nodes. The reverse is
-  *not* assumed; an observability action followed by a network write stays in
-  place until we have a proof obligation describing that swap.
+- `Observability` commutes with other `Observability` nodes and with
+  `Network.Out` actions.
+- `Network.Out` commutes with `Pure` and `Observability` nodes. The helper is
+  still directional, but a symmetric helper checks both directions when a
+  rewrite requires it.
 - `Storage.Write` never commutes with another `Storage.Write` without a
   disjointness proof.
 - All other pairs are considered non-commuting for now.
@@ -49,7 +50,19 @@ The helper is intentionally directional: `canCommute(prev, next)` answers the
 question “may the second node swap with the previous one?” rather than treating
 the pair symmetrically. This mirrors how the checker annotates sequential
 children—it records whether a future pass could safely bubble the current node
-left across its predecessor.
+left across its predecessor. Normalization uses a new `commuteSymmetric` helper
+that combines both directions so rewrites only apply when the swap is justified
+in either order.
+
+## Using the lattice in normalization
+
+A local pass in the canonicalizer now bubbles adjacent primitives inside a `Seq`
+into a deterministic order. The pass consults the lattice for symmetric
+commutation and then applies a stable precedence over effect families (with a
+lexicographic fallback for ties). It recurses through nested `Seq` or `Par`
+nodes but never crosses region boundaries, preserving the existing
+barriers. This keeps normalization deterministic without reordering nodes that
+lack commuting proofs.
 
 The checker simply annotates `Seq` children with a `commutes_with_prev` boolean
 so that future normalization passes can inspect the lattice decision without

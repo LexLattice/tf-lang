@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { resolve } from 'node:path';
+import { resolve, join } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { deriveCrateName, generateRustCrate, loadIr } from './lib/rust-codegen.mjs';
 
 async function main() {
@@ -38,10 +39,20 @@ async function main() {
   const crateName = packageName ?? deriveCrateName(ir, resolvedOutDir, irPath);
   await generateRustCrate(ir, resolvedOutDir, crateName);
   console.log(`wrote ${resolvedOutDir} (crate ${crateName})`);
+
+  if (process.env.LOCAL_RUST === '1') {
+    const manifestPath = join(resolvedOutDir, 'Cargo.toml');
+    const cargoArgs = ['run', '--manifest-path', manifestPath, '--', '--ir', resolve(irPath)];
+    console.log(`running cargo ${cargoArgs.join(' ')}`);
+    const result = spawnSync('cargo', cargoArgs, { stdio: 'inherit', env: process.env });
+    if (result.status !== 0) {
+      throw new Error(`cargo run failed with status ${result.status}`);
+    }
+  }
 }
 
 function printUsage() {
-  console.log('Usage: node scripts/generate-rs.mjs <ir.json> -o <output dir> [--package-name <name>]');
+  console.log('Usage: node scripts/generate-rs-run.mjs <ir.json> -o <output dir> [--package-name <name>]');
 }
 
 main().catch((err) => {

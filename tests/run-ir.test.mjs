@@ -49,6 +49,39 @@ test('parallel publish and metric capture distinct effects', async () => {
   assert.deepEqual(out.effects, ['Network.Out', 'Observability.EmitMetric']);
 });
 
+test('par run reports ok=false when any child fails', async () => {
+  const runtime = {
+    'prim:first': async () => ({ ok: true, value: 1 }),
+    'prim:second': async () => ({ ok: false, value: 2 }),
+  };
+  const ir = {
+    node: 'Par',
+    children: [
+      { node: 'Prim', prim: 'prim:first' },
+      { node: 'Prim', prim: 'prim:second' },
+    ],
+  };
+  const out = await runIR(ir, runtime);
+  assert.equal(out.ok, false);
+  assert.deepEqual(out.effects, []);
+});
+
+test('seq takes ok from last child', async () => {
+  const runtime = {
+    'prim:a': async () => ({ ok: false }),
+    'prim:b': async () => ({ ok: true }),
+  };
+  const ir = {
+    node: 'Seq',
+    children: [
+      { node: 'Prim', prim: 'prim:a' },
+      { node: 'Prim', prim: 'prim:b' },
+    ],
+  };
+  const out = await runIR(ir, runtime);
+  assert.equal(out.ok, true);
+});
+
 test('hashing is deterministic for equivalent objects', async () => {
   inmem.reset();
   const hash = inmem['tf:information/hash@1'];

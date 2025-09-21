@@ -165,6 +165,12 @@ function normalizeCaps(raw) {
   return { effects, allow_writes_prefixes };
 }
 
+function canonicalEffects(list) {
+  if (!Array.isArray(list)) return [];
+  const filtered = list.filter((entry) => typeof entry === 'string');
+  return Array.from(new Set(filtered)).sort();
+}
+
 const parsed = parseArgs({
   args: process.argv.slice(2),
   options: {
@@ -173,38 +179,46 @@ const parsed = parseArgs({
   allowPositionals: true,
 });
 
+const capsPath = parsed.values.caps;
+const envCapsRaw = process.env.TF_CAPS;
+
+let exitMessage = null;
 let rawCaps = null;
 
-if (parsed.values.caps) {
+if (capsPath) {
   try {
-    rawCaps = JSON.parse(await readFile(parsed.values.caps, 'utf8'));
+    rawCaps = JSON.parse(await readFile(capsPath, 'utf8'));
   } catch (err) {
-    console.error('tf run.mjs: unable to read capabilities', err?.message ?? err);
+    exitMessage = 'tf run.mjs: unable to read capabilities ' + (err?.message ?? err);
   }
-} else if (process.env.TF_CAPS) {
+} else if (envCapsRaw) {
   try {
-    rawCaps = JSON.parse(process.env.TF_CAPS);
+    rawCaps = JSON.parse(envCapsRaw);
   } catch (err) {
-    console.error('tf run.mjs: unable to parse TF_CAPS', err?.message ?? err);
+    exitMessage = 'tf run.mjs: unable to parse TF_CAPS ' + (err?.message ?? err);
   }
-}
-
-const caps = normalizeCaps(rawCaps);
-const validation = validateCapabilities(MANIFEST, caps);
-
-let result;
-if (!validation.ok) {
-  console.error('tf run.mjs: capability check failed', JSON.stringify(validation));
-  result = { ok: false, ops: 0, effects: [] };
 } else {
-  result = await runIR(ir, inmem);
+  exitMessage = 'tf run.mjs: no capabilities provided (use --caps <file> or TF_CAPS env)';
 }
 
-const effects = Array.isArray(result?.effects) ? Array.from(new Set(result.effects)) : [];
-effects.sort();
-const summary = { ok: Boolean(result?.ok), ops: result?.ops ?? 0, effects };
+let summary = { ok: false, ops: 0, effects: [] };
 
-console.log(canonicalJson(summary));
+if (!exitMessage) {
+  const caps = normalizeCaps(rawCaps);
+  const verdict = validateCapabilities(MANIFEST, caps);
+  if (!verdict.ok) {
+    exitMessage = 'tf run.mjs: capability check failed ' + canonicalJson(verdict);
+  } else {
+    const execution = await runIR(ir, inmem);
+    summary = {
+      ok: execution?.ok !== false,
+      ops: Number.isFinite(execution?.ops) ? execution.ops : 0,
+      effects: canonicalEffects(execution?.effects),
+    };
+  }
+}
+
+process.stdout.write(canonicalJson(summary) + '\\n');
 
 const here = dirname(fileURLToPath(import.meta.url));
 const statusSelf = join(here, 'status.json');
@@ -214,30 +228,29 @@ async function mergeStatus(targetPath) {
   try {
     await mkdir(dirname(targetPath), { recursive: true });
   } catch {}
-  let merged = summary;
+  let existing = {};
   try {
     const existingRaw = await readFile(targetPath, 'utf8');
-    const existing = JSON.parse(existingRaw);
-    const effectsSet = new Set([
-      ...(Array.isArray(existing?.effects) ? existing.effects : []),
-      ...summary.effects,
-    ]);
-    merged = {
-      ok: Boolean(existing?.ok) && Boolean(summary.ok),
-      ops: (existing?.ops ?? 0) + (summary.ops ?? 0),
-      effects: Array.from(effectsSet).sort(),
-    };
+    existing = JSON.parse(existingRaw);
   } catch (err) {
     if (!err || err.code !== 'ENOENT') {
       console.warn('tf run.mjs: unable to merge status file', err);
       return;
     }
   }
+  const merged = { ...existing, ...summary };
   await writeFile(targetPath, JSON.stringify(merged, null, 2) + '\\n', 'utf8');
 }
 
 if (process.env.TF_STATUS_PATH) {
   await mergeStatus(process.env.TF_STATUS_PATH);
+}
+
+if (exitMessage) {
+  console.error(exitMessage);
+  process.exitCode = 1;
+} else if (!summary.ok) {
+  process.exitCode = 1;
 }
 `;
 

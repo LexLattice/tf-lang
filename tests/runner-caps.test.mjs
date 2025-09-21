@@ -43,10 +43,14 @@ async function runProcess(bin, args, { cwd, env, input } = {}) {
   });
 }
 
-function parseSummary(output) {
-  const lines = output.trim().split(/\r?\n/).filter(Boolean);
-  const last = lines[lines.length - 1] || '{}';
-  return JSON.parse(last);
+function extractSummary(output) {
+  const lines = output.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  for (let i = lines.length - 1; i >= 0; i -= 1) {
+    try {
+      return { summary: JSON.parse(lines[i]), line: lines[i] };
+    } catch {}
+  }
+  throw new Error(`unable to locate JSON summary in output: ${output}`);
 }
 
 async function emitFlow(flowPath) {
@@ -78,18 +82,19 @@ test('runner enforces capability requirements for storage flow', async () => {
 
   const allowed = await runProcess(process.execPath, [runScript, '--caps', capsPath]);
   assert.equal(allowed.code, 0, allowed.stderr);
-  const okSummary = parseSummary(allowed.stdout);
-  assert.equal(okSummary.ok, true);
-  assert.ok(okSummary.effects.includes('Storage.Write'));
+  const { summary: okSummary, line: okLine } = extractSummary(allowed.stdout);
+  assert.equal(okLine, '{"effects":["Storage.Write"],"ok":true,"ops":2}');
+  assert.deepEqual(okSummary.effects, ['Storage.Write']);
 
   const denied = await runProcess(process.execPath, [runScript]);
-  assert.equal(denied.code, 0);
-  const deniedSummary = parseSummary(denied.stdout);
+  assert.equal(denied.code, 1);
+  const { summary: deniedSummary, line: deniedLine } = extractSummary(denied.stdout);
+  assert.equal(deniedLine, '{"effects":[],"ok":false,"ops":0}');
   assert.equal(deniedSummary.ok, false);
-  assert.match(denied.stderr, /(missing_effects|write_denied)/);
+  assert.match(denied.stderr, /no capabilities provided/i);
 });
 
-test('runner permits publish flow with matching caps', async () => {
+test('runner accepts env capabilities and file takes precedence', async () => {
   const { outDir, runScript } = await emitFlow(publishFlow);
   const capsPath = join(outDir, 'caps.json');
   await writeFile(
@@ -101,9 +106,23 @@ test('runner permits publish flow with matching caps', async () => {
     'utf8',
   );
 
-  const result = await runProcess(process.execPath, [runScript, '--caps', capsPath]);
-  assert.equal(result.code, 0, result.stderr);
-  const summary = parseSummary(result.stdout);
-  assert.equal(summary.ok, true);
-  assert.ok(summary.effects.includes('Network.Out'));
+  const envOnly = await runProcess(process.execPath, [runScript], {
+    env: { TF_CAPS: JSON.stringify({ effects: ['Network.Out', 'Pure'], allow_writes_prefixes: [] }) },
+  });
+  assert.equal(envOnly.code, 0, envOnly.stderr);
+  const { summary: envSummary, line: envLine } = extractSummary(envOnly.stdout);
+  assert.equal(envLine, '{"effects":["Network.Out"],"ok":true,"ops":1}');
+  assert.deepEqual(envSummary.effects, ['Network.Out']);
+
+  const fileBeatsEnv = await runProcess(
+    process.execPath,
+    [runScript, '--caps', capsPath],
+    {
+      env: { TF_CAPS: JSON.stringify({ effects: [], allow_writes_prefixes: [] }) },
+    },
+  );
+  assert.equal(fileBeatsEnv.code, 0, fileBeatsEnv.stderr);
+  const { summary: precedenceSummary, line: precedenceLine } = extractSummary(fileBeatsEnv.stdout);
+  assert.equal(precedenceLine, '{"effects":["Network.Out"],"ok":true,"ops":1}');
+  assert.deepEqual(precedenceSummary.effects, ['Network.Out']);
 });

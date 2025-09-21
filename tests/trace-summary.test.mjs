@@ -40,16 +40,29 @@ async function runCli(args, { input } = {}) {
   });
 }
 
+function canonicalJson(value) {
+  if (Array.isArray(value)) {
+    return '[' + value.map(canonicalJson).join(',') + ']';
+  }
+  if (value && typeof value === 'object') {
+    const keys = Object.keys(value).sort();
+    return '{' + keys.map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',') + '}';
+  }
+  return JSON.stringify(value);
+}
+
 test('summarizes traces into canonical JSON', async () => {
   const fixture = await fs.readFile(fixturePath, 'utf8');
   const { code, stdout, stderr } = await runCli([], { input: fixture });
   assert.equal(code, 0, stderr);
-  const summary = JSON.parse(stdout.trim());
+  const trimmed = stdout.trim();
+  const summary = JSON.parse(trimmed);
   assert.equal(summary.total, 7);
   assert.equal(summary.by_prim['tf:resource/write-object@1'], 2);
   assert.equal(summary.by_prim['tf:integration/publish-topic@1'], 2);
   assert.equal(summary.by_effect['Storage.Write'], 2);
   assert.equal(summary.by_effect['Network.Out'], 2);
+  assert.equal(trimmed, canonicalJson(summary));
 });
 
 test('top option limits output keys', async () => {
@@ -60,6 +73,7 @@ test('top option limits output keys', async () => {
   assert.equal(Object.keys(summary.by_prim).length, 2);
   assert.equal(Object.keys(summary.by_effect).length, 2);
   assert(summary.by_effect['Network.Out'] >= 2);
+  assert.equal(stdout.trim(), canonicalJson(summary));
 });
 
 test('pretty option produces indented output', async () => {
@@ -69,6 +83,7 @@ test('pretty option produces indented output', async () => {
   assert.ok(/\n  "by_prim"/.test(stdout));
   const summary = JSON.parse(stdout);
   assert.equal(summary.total, 7);
+  assert.equal(stdout.trim().replace(/\s+/g, ''), canonicalJson(summary));
 });
 
 test('malformed lines warn once unless quiet', async () => {
@@ -84,10 +99,12 @@ test('malformed lines warn once unless quiet', async () => {
   assert.equal(noisy.stderr, 'trace-summary: skipping malformed line\n');
   const noisySummary = JSON.parse(noisy.stdout.trim());
   assert.equal(noisySummary.total, 2);
+  assert.equal(noisy.stdout.trim(), canonicalJson(noisySummary));
 
   const quiet = await runCli(['--quiet'], { input });
   assert.equal(quiet.code, 0, quiet.stderr);
   assert.equal(quiet.stderr, '');
   const quietSummary = JSON.parse(quiet.stdout.trim());
   assert.deepEqual(quietSummary, noisySummary);
+  assert.equal(quiet.stdout.trim(), canonicalJson(quietSummary));
 });

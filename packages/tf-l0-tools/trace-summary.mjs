@@ -94,8 +94,9 @@ const summary = {
   by_effect: selectTop(effectCounts, topLimit),
 };
 
+const canonical = canonicalJson(summary);
 if (pretty) {
-  process.stdout.write(JSON.stringify(summary, null, 2) + '\n');
+  process.stdout.write(JSON.stringify(JSON.parse(canonical), null, 2) + '\n');
 } else {
-  process.stdout.write(canonicalJson(summary) + '\n');
+  process.stdout.write(canonical + '\n');
 }

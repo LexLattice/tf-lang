@@ -72,6 +72,10 @@ function recordEffects(target, value) {
   }
 }
 
+function normalizeOk(value) {
+  return typeof value === 'boolean' ? value : true;
+}
+
 async function execNode(node, runtime, ctx, input) {
   if (!node || typeof node !== 'object') {
     return { value: input, ok: true };
@@ -92,10 +96,7 @@ async function execNode(node, runtime, ctx, input) {
       if (node.meta?.effect) recordEffects(ctx.effects, node.meta.effect);
       if (node.meta?.effects) recordEffects(ctx.effects, node.meta.effects);
       console.log(JSON.stringify({ prim_id: primId, args, ts }));
-      let ok = true;
-      if (result && typeof result === 'object' && 'ok' in result) {
-        ok = Boolean(result.ok);
-      }
+      const ok = normalizeOk(result?.ok);
       return { value: result, ok };
     }
     case 'Region': // fallthrough
@@ -109,14 +110,14 @@ async function execNode(node, runtime, ctx, input) {
       for (const child of children) {
         const result = await execNode(child, runtime, ctx, acc);
         acc = result.value;
-        ok = result.ok;
+        ok = normalizeOk(result.ok);
       }
       return { value: acc, ok };
     }
     case 'Par': {
       const children = node.children ?? [];
       const results = await Promise.all(children.map((child) => execNode(child, runtime, ctx, input)));
-      const ok = results.every((entry) => entry.ok !== false);
+      const ok = results.every((entry) => normalizeOk(entry.ok));
       return { value: results.map((entry) => entry.value), ok };
     }
     default: {
@@ -126,7 +127,7 @@ async function execNode(node, runtime, ctx, input) {
         for (const child of node.children) {
           const result = await execNode(child, runtime, ctx, acc);
           acc = result.value;
-          ok = result.ok;
+          ok = normalizeOk(result.ok);
         }
         return { value: acc, ok };
       }
@@ -139,7 +140,7 @@ export async function runIR(ir, runtime, options = {}) {
   const ctx = { effects: new Set(), ops: 0 };
   const { value, ok } = await execNode(ir, runtime, ctx, options.input);
   return {
-    ok: ok !== false,
+    ok: normalizeOk(ok),
     result: value,
     ops: ctx.ops,
     effects: Array.from(ctx.effects).sort(),
@@ -150,7 +151,7 @@ export async function runWithCaps(ir, runtime, caps, manifest) {
   const verdict = validateCapabilities(manifest, caps);
   if (!verdict.ok) {
     console.error('tf run-ir: capability validation failed', JSON.stringify(verdict));
-    return { ok: false, ops: 0, effects: [] };
+    return { ok: false, ops: 0, effects: [], result: undefined };
   }
   return runIR(ir, runtime);
 }

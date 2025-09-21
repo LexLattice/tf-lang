@@ -8,6 +8,9 @@ import { spawnSync } from 'node:child_process';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const IR_PATH = path.join(ROOT, 'out/0.4/ir/signing.ir.json');
 const OUT_DIR = path.join(ROOT, 'out/0.4/codegen-rs/signing');
+const GENERATE_SCRIPT = path.join(ROOT, 'scripts/generate-rs-run.mjs');
+const PARITY_SCRIPT = path.join(ROOT, 'scripts/cross-parity-ts-rs.mjs');
+const PARITY_REPORT = path.join(ROOT, 'out/0.4/parity/ts-rs/report.json');
 
 function ensureSigningIr() {
   if (fs.existsSync(IR_PATH)) return;
@@ -25,55 +28,89 @@ function ensureSigningIr() {
   assert.ok(fs.existsSync(IR_PATH), 'expected signing IR fixture after generation');
 }
 
-function runGenerator() {
-  return spawnSync(process.execPath, ['scripts/generate-rs.mjs', IR_PATH, '-o', OUT_DIR], {
+function runGenerator(env = {}) {
+  const mergedEnv = { ...process.env, ...env };
+  const result = spawnSync(process.execPath, [GENERATE_SCRIPT, IR_PATH, '-o', OUT_DIR], {
     cwd: ROOT,
     stdio: 'inherit',
+    env: mergedEnv,
   });
+  return result;
 }
 
 test('rust codegen emits deterministic scaffold', () => {
-  // ensure we have the IR fixture available
   ensureSigningIr();
   assert.ok(fs.existsSync(IR_PATH), 'expected signing IR fixture');
 
-  // clean output dir
   fs.rmSync(OUT_DIR, { recursive: true, force: true });
 
-  // first generate
-  const firstRun = runGenerator();
+  const firstRun = runGenerator({ LOCAL_RUST: '0' });
   assert.equal(firstRun.status, 0, 'generator should exit 0 without cargo');
 
   const cargoPath = path.join(OUT_DIR, 'Cargo.toml');
-  const pipelinePath = path.join(OUT_DIR, 'src', 'pipeline.rs');
+  const libPath = path.join(OUT_DIR, 'src', 'lib.rs');
+  const runtimePath = path.join(OUT_DIR, 'src', 'runtime.rs');
+  const adaptersPath = path.join(OUT_DIR, 'src', 'adapters.rs');
+  const runPath = path.join(OUT_DIR, 'src', 'bin', 'run.rs');
+  const irCopyPath = path.join(OUT_DIR, 'ir.json');
 
-  assert.ok(fs.existsSync(cargoPath), 'Cargo.toml should exist');
-  assert.ok(fs.existsSync(pipelinePath), 'pipeline.rs should exist');
+  for (const file of [cargoPath, libPath, runtimePath, adaptersPath, runPath, irCopyPath]) {
+    assert.ok(fs.existsSync(file), `expected ${path.relative(ROOT, file)} to exist`);
+  }
 
   const first = {
     cargo: fs.readFileSync(cargoPath, 'utf8'),
-    pipe: fs.readFileSync(pipelinePath, 'utf8'),
+    lib: fs.readFileSync(libPath, 'utf8'),
+    runtime: fs.readFileSync(runtimePath, 'utf8'),
+    adapters: fs.readFileSync(adaptersPath, 'utf8'),
+    run: fs.readFileSync(runPath, 'utf8'),
+    ir: fs.readFileSync(irCopyPath, 'utf8'),
   };
 
-  // pipeline function and trait bound presence (signing → Crypto)
-  assert.ok(first.pipe.includes('pub fn run_pipeline'), 'pipeline should expose run_pipeline');
-  assert.ok(first.pipe.includes('Crypto'), 'signing flow should require Crypto trait');
+  assert.ok(first.lib.includes('pub mod adapters'), 'lib.rs should expose adapters module');
+  assert.ok(first.runtime.includes('pub fn run_ir'), 'runtime.rs should expose run_ir');
+  assert.ok(first.run.includes('DEFAULT_IR'), 'run binary should embed default IR');
 
-  // second generate (determinism)
-  const secondRun = runGenerator();
+  const secondRun = runGenerator({ LOCAL_RUST: '0' });
   assert.equal(secondRun.status, 0, 'second generate should also exit 0');
 
   const second = {
     cargo: fs.readFileSync(cargoPath, 'utf8'),
-    pipe: fs.readFileSync(pipelinePath, 'utf8'),
+    lib: fs.readFileSync(libPath, 'utf8'),
+    runtime: fs.readFileSync(runtimePath, 'utf8'),
+    adapters: fs.readFileSync(adaptersPath, 'utf8'),
+    run: fs.readFileSync(runPath, 'utf8'),
+    ir: fs.readFileSync(irCopyPath, 'utf8'),
   };
 
   assert.equal(first.cargo, second.cargo, 'Cargo.toml must be byte-identical');
-  assert.equal(first.pipe, second.pipe, 'pipeline.rs must be byte-identical');
+  assert.equal(first.lib, second.lib, 'lib.rs must be byte-identical');
+  assert.equal(first.runtime, second.runtime, 'runtime.rs must be byte-identical');
+  assert.equal(first.adapters, second.adapters, 'adapters.rs must be byte-identical');
+  assert.equal(first.run, second.run, 'run.rs must be byte-identical');
+  assert.equal(first.ir, second.ir, 'ir.json must be byte-identical');
 
-  // optional local cargo build (not required in CI)
-  if (process.env.LOCAL_RUST) {
-    const result = spawnSync('cargo', ['build'], { cwd: OUT_DIR, stdio: 'inherit' });
-    assert.equal(result.status, 0, 'cargo build should succeed locally');
+  if (process.env.LOCAL_RUST === '1') {
+    const cargoRun = runGenerator({ LOCAL_RUST: '1' });
+    assert.equal(cargoRun.status, 0, 'cargo-backed generation should succeed locally');
+    const tracePath = path.join(OUT_DIR, 'out', 'trace.jsonl');
+    assert.ok(fs.existsSync(tracePath), 'expected cargo run to emit trace.jsonl');
   }
+});
+
+test('ts and rust traces align for run_publish when rust is available', async (t) => {
+  if (process.env.LOCAL_RUST !== '1') {
+    t.skip('LOCAL_RUST not set');
+    return;
+  }
+
+  const result = spawnSync(process.execPath, [PARITY_SCRIPT, 'examples/flows/run_publish.tf'], {
+    cwd: ROOT,
+    stdio: 'inherit',
+    env: process.env,
+  });
+  assert.equal(result.status, 0, 'parity script should exit 0');
+  assert.ok(fs.existsSync(PARITY_REPORT), 'expected parity report');
+  const report = JSON.parse(fs.readFileSync(PARITY_REPORT, 'utf8'));
+  assert.equal(report.equal, true, 'expected TS and Rust traces to match');
 });

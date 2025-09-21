@@ -1,5 +1,24 @@
 # L0 Proofs
 
+## Artifact bundle overview
+
+The automated proof bundle ships four deterministic emit categories:
+
+- **Alloy structural** encodings for the storage conflict samples.
+- **SMT structural** encodings for the same flows.
+- **SMT laws** capturing algebraic axioms and a sample equivalence check.
+- **SMT properties** covering a parallel safety proof and a commute equivalence pair.
+
+Run `pnpm -w -r build` once after `pnpm run a0 && pnpm run a1`, then execute either command below to regenerate the full bundle locally:
+
+```bash
+node scripts/proofs-emit-all.mjs
+# or
+pnpm run proofs:emit
+```
+
+The outputs land under `out/0.4/proofs/` alongside a deterministic `index.json` manifest.
+
 ## Law obligations
 
 We encode algebraic laws for core primitives as small SMT-LIB v2 obligations. Use the CLI to emit either standalone axioms or flow equivalence checks:
@@ -34,13 +53,15 @@ Both emitters annotate IR nodes with catalog-derived write URIs before generatin
    pnpm run a0 && pnpm run a1
    ```
 2. Emit SMT and Alloy artifacts for the storage flows:
-   ```bash
-   node scripts/emit-smt.mjs examples/flows/storage_conflict.tf -o out/0.4/proofs/storage_conflict.smt2
-   node scripts/emit-smt.mjs examples/flows/storage_ok.tf -o out/0.4/proofs/storage_ok.smt2
-   node scripts/emit-alloy.mjs examples/flows/storage_conflict.tf -o out/0.4/proofs/storage_conflict.als
-   node scripts/emit-alloy.mjs examples/flows/storage_ok.tf -o out/0.4/proofs/storage_ok.als
-   ```
-   The scripts create `out/0.4/proofs/` if it does not already exist.
+  ```bash
+  node scripts/emit-smt.mjs examples/flows/storage_conflict.tf -o out/0.4/proofs/storage_conflict.smt2
+  node scripts/emit-smt.mjs examples/flows/storage_ok.tf -o out/0.4/proofs/storage_ok.smt2
+  node scripts/emit-alloy.mjs examples/flows/storage_conflict.tf -o out/0.4/proofs/storage_conflict.als
+  node scripts/emit-alloy.mjs examples/flows/storage_ok.tf -o out/0.4/proofs/storage_ok.als
+  ```
+  The scripts create `out/0.4/proofs/` if it does not already exist.
+
+`node scripts/proofs-emit-all.mjs` (or `pnpm run proofs:emit`) wraps the individual commands and also emits the law/property SMT bundles listed above.
 
 ## Check SMT proofs with Z3 (optional)
 
@@ -69,12 +90,12 @@ Use the default scope or supply one (for example, run the CLI with `--scope 6`) 
 
 ## CI artifacts
 
-The **L0 proof artifacts** workflow runs on every pull request (and via manual dispatch). It installs the workspace, executes `pnpm run a0`/`pnpm run a1`, emits the four proof files listed above, and uploads them as an artifact bundle named `l0-proofs`.
+The **L0 Proof Artifacts** workflow runs on every pull request (and via manual dispatch). It installs the workspace, executes `pnpm run a0`, `pnpm run a1`, builds the packages, and invokes `node scripts/proofs-emit-all.mjs`. The resulting bundle is uploaded as an artifact named `l0-proofs`.
 
 To download the proofs:
 
-1. Open the pull request and expand the **L0 proof artifacts** check.
+1. Open the pull request and expand the **L0 Proof Artifacts** check.
 2. Scroll to the **Artifacts** section and download `l0-proofs.zip`.
-3. Extract the archive to access the `.smt2` and `.als` files under `out/0.4/proofs/`.
+3. Extract the archive to access the Alloy, SMT structural, SMT law, and SMT property files under `out/0.4/proofs/`.
 
-These artifacts provide a deterministic snapshot of the conflict analysis for the key storage flows without running solvers in CI.
+CI does not invoke Alloy or Z3. Run `z3 -smt2 <file>` locally for SMT obligations, or open the `.als` files in Alloy Analyzer if you want solver results.

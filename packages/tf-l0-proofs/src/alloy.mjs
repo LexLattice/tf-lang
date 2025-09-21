@@ -3,20 +3,29 @@ const PAR_PREFIX = 'Par';
 const SEQ_PREFIX = 'Seq';
 const WRITES_PREFIX = 'Writes';
 
-export function emitAlloy(ir) {
+export function emitAlloy(ir, options = {}) {
   const context = {
+    nodeCounter: 0,
+    writeCounter: 0,
     prims: [],
     pars: [],
     seqs: [],
     writes: [],
-    counters: new Map(),
     names: new WeakMap()
   };
 
   processNode(ir, context);
 
+  const scope = normalizeScope(options.scope);
+
+  const prims = sortByName(context.prims);
+  const pars = sortByName(context.pars);
+  const seqs = sortByName(context.seqs);
+  const writes = sortWrites(context.writes);
+
   const lines = [];
   lines.push('module tf_lang_l0');
+  lines.push('open util/strings');
   lines.push('');
   lines.push('abstract sig Node {}');
   lines.push('abstract sig Prim extends Node { id: one String }');
@@ -28,10 +37,10 @@ export function emitAlloy(ir) {
   lines.push('one sig URI extends String {}');
   lines.push('sig Writes { node: one Prim, uri: one String }');
   lines.push('');
-  lines.push('// Conflict: two writes to the same URI under the same Par');
+  lines.push('// Conflict: two writes to the same URI anywhere inside the Par\'s branches');
   lines.push('pred Conflicting[p: Par] {');
   lines.push(
-    '  some disj a, b: Writes | a.node in p.children && b.node in p.children && a.uri = b.uri'
+    '  some disj a, b: Writes | a.node in p.*children && b.node in p.*children && a.uri = b.uri'
   );
   lines.push('}');
   lines.push('');
@@ -39,36 +48,38 @@ export function emitAlloy(ir) {
   lines.push('pred NoConflict[p: Par] { not Conflicting[p] }');
   lines.push('');
 
-  appendDeclarations(lines, context);
-  appendFacts(lines, context);
+  appendDeclarations(lines, { prims, pars, seqs, writes });
+  appendFacts(lines, { prims, pars, seqs, writes });
 
-  lines.push('run { some p: Par | Conflicting[p] } for 5');
-  lines.push('run { all p: Par | NoConflict[p] } for 5');
+  const scopeSuffix = scope ? ` for ${scope}` : '';
+  lines.push(`run { some p: Par | Conflicting[p] }${scopeSuffix}`);
+  lines.push(`run { all p: Par | NoConflict[p] }${scopeSuffix}`);
 
   return lines.join('\n') + '\n';
 }
 
 function appendDeclarations(lines, context) {
-  if (context.prims.length > 0) {
-    for (const prim of context.prims) {
+  const { prims, pars, seqs, writes } = context;
+  if (prims.length > 0) {
+    for (const prim of prims) {
       lines.push(`one sig ${prim.name} extends Prim {}`);
     }
     lines.push('');
   }
-  if (context.pars.length > 0) {
-    for (const par of context.pars) {
+  if (pars.length > 0) {
+    for (const par of pars) {
       lines.push(`one sig ${par.name} extends Par {}`);
     }
     lines.push('');
   }
-  if (context.seqs.length > 0) {
-    for (const seq of context.seqs) {
+  if (seqs.length > 0) {
+    for (const seq of seqs) {
       lines.push(`one sig ${seq.name} extends Seq {}`);
     }
     lines.push('');
   }
-  if (context.writes.length > 0) {
-    for (const write of context.writes) {
+  if (writes.length > 0) {
+    for (const write of writes) {
       lines.push(`one sig ${write.name} extends Writes {}`);
     }
     lines.push('');
@@ -76,18 +87,19 @@ function appendDeclarations(lines, context) {
 }
 
 function appendFacts(lines, context) {
-  if (context.prims.length > 0) {
+  const { prims, pars, seqs, writes } = context;
+  if (prims.length > 0) {
     lines.push('fact PrimIds {');
-    for (const prim of context.prims) {
+    for (const prim of prims) {
       lines.push(`  ${prim.name}.id = ${stringLiteral(prim.id)}`);
     }
     lines.push('}');
     lines.push('');
   }
 
-  if (context.pars.length > 0) {
+  if (pars.length > 0) {
     lines.push('fact ParChildren {');
-    for (const par of context.pars) {
+    for (const par of pars) {
       const expr = formatSetExpression(par.children);
       lines.push(`  ${par.name}.children = ${expr}`);
     }
@@ -95,9 +107,9 @@ function appendFacts(lines, context) {
     lines.push('');
   }
 
-  if (context.seqs.length > 0) {
+  if (seqs.length > 0) {
     lines.push('fact SeqChildren {');
-    for (const seq of context.seqs) {
+    for (const seq of seqs) {
       const expr = formatSeqExpression(seq.children);
       lines.push(`  ${seq.name}.children = ${expr}`);
     }
@@ -105,9 +117,9 @@ function appendFacts(lines, context) {
     lines.push('');
   }
 
-  if (context.writes.length > 0) {
+  if (writes.length > 0) {
     lines.push('fact WriteLinks {');
-    for (const write of context.writes) {
+    for (const write of writes) {
       lines.push(`  ${write.name}.node = ${write.node}`);
       lines.push(`  ${write.name}.uri = ${stringLiteral(write.uri)}`);
     }
@@ -123,15 +135,15 @@ function formatSetExpression(children) {
   if (children.length === 1) {
     return children[0];
   }
-  return children.join(' + ');
+  const sorted = [...children].sort();
+  return sorted.join(' + ');
 }
 
 function formatSeqExpression(children) {
   if (!children || children.length === 0) {
     return 'none';
   }
-  const pairs = children.map((child, index) => `${index} -> ${child}`);
-  return pairs.join(' + ');
+  return children.map((child, index) => `${index} -> ${child}`).join(' + ');
 }
 
 function processNode(node, context) {
@@ -141,28 +153,32 @@ function processNode(node, context) {
   if (context.names.has(node)) {
     return context.names.get(node);
   }
-  const type = typeof node.node === 'string' ? node.node : '';
-  if (type === 'Prim') {
+
+  const kind = typeof node.node === 'string' ? node.node : inferNodeKind(node);
+  if (kind === 'Prim') {
     return registerPrim(node, context);
   }
-  if (type === 'Par') {
+  if (kind === 'Par') {
     return registerPar(node, context);
   }
-  if (type === 'Seq' || Array.isArray(node.children)) {
+  if (kind === 'Seq') {
     return registerSeq(node, context);
+  }
+  if (Array.isArray(node.children)) {
+    for (const child of node.children) {
+      processNode(child, context);
+    }
   }
   return null;
 }
 
 function registerPrim(node, context) {
-  const index = nextIndex(context, PRIM_PREFIX);
-  const name = `${PRIM_PREFIX}${index}`;
+  const ordinal = context.nodeCounter++;
+  const name = `${PRIM_PREFIX}${ordinal}`;
   const primName = typeof node.prim === 'string' ? node.prim : null;
-  const id = typeof node.id === 'string' && node.id.length > 0
-    ? node.id
-    : primName
-    ? `${primName}#${index}`
-    : name;
+  const explicitId = typeof node.id === 'string' && node.id.length > 0 ? node.id : null;
+  const id = explicitId ?? (primName ? `${primName}#${ordinal}` : name);
+
   const entry = { type: 'Prim', name, id };
   context.prims.push(entry);
   context.names.set(node, entry);
@@ -171,12 +187,13 @@ function registerPrim(node, context) {
   for (const uri of uris) {
     registerWrite(entry.name, uri, context);
   }
+
   return entry;
 }
 
 function registerPar(node, context) {
-  const index = nextIndex(context, PAR_PREFIX);
-  const name = `${PAR_PREFIX}${index}`;
+  const ordinal = context.nodeCounter++;
+  const name = `${PAR_PREFIX}${ordinal}`;
   const children = [];
   for (const child of node.children || []) {
     const result = processNode(child, context);
@@ -191,8 +208,8 @@ function registerPar(node, context) {
 }
 
 function registerSeq(node, context) {
-  const index = nextIndex(context, SEQ_PREFIX);
-  const name = `${SEQ_PREFIX}${index}`;
+  const ordinal = context.nodeCounter++;
+  const name = `${SEQ_PREFIX}${ordinal}`;
   const children = [];
   for (const child of node.children || []) {
     const result = processNode(child, context);
@@ -207,15 +224,9 @@ function registerSeq(node, context) {
 }
 
 function registerWrite(nodeName, uri, context) {
-  const index = nextIndex(context, WRITES_PREFIX);
+  const index = context.writeCounter++;
   const name = `${WRITES_PREFIX}${index}`;
   context.writes.push({ name, node: nodeName, uri });
-}
-
-function nextIndex(context, prefix) {
-  const current = context.counters.get(prefix) ?? 0;
-  context.counters.set(prefix, current + 1);
-  return current;
 }
 
 function collectWriteUris(node) {
@@ -291,4 +302,46 @@ function stringLiteral(value) {
   const s = typeof value === 'string' ? value : '';
   const escaped = s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   return `"${escaped}"`;
+}
+
+function sortByName(entries) {
+  return [...entries].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function sortWrites(entries) {
+  return [...entries].sort((a, b) => {
+    const nodeCmp = a.node.localeCompare(b.node);
+    if (nodeCmp !== 0) {
+      return nodeCmp;
+    }
+    const uriCmp = a.uri.localeCompare(b.uri);
+    if (uriCmp !== 0) {
+      return uriCmp;
+    }
+    return a.name.localeCompare(b.name);
+  });
+}
+
+function inferNodeKind(node) {
+  if (Array.isArray(node?.children)) {
+    return 'Seq';
+  }
+  return null;
+}
+
+function normalizeScope(scope) {
+  if (typeof scope === 'string' && scope.trim().length > 0) {
+    const parsed = Number.parseInt(scope, 10);
+    if (Number.isFinite(parsed)) {
+      scope = parsed;
+    }
+  }
+  if (typeof scope !== 'number') {
+    return null;
+  }
+  if (!Number.isFinite(scope)) {
+    return null;
+  }
+  const integer = Math.trunc(scope);
+  return integer > 0 ? integer : null;
 }

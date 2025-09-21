@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
-import { basename, dirname, extname, resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import process from 'node:process';
 import { parseArgs } from 'node:util';
 
@@ -10,22 +10,24 @@ import { emitAlloy } from '../packages/tf-l0-proofs/src/alloy.mjs';
 async function main(argv) {
   const { values, positionals } = parseArgs({
     args: argv.slice(2),
-    options: { out: { type: 'string', short: 'o' } },
+    options: {
+      out: { type: 'string', short: 'o' },
+      scope: { type: 'string' }
+    },
     allowPositionals: true
   });
 
-  if (positionals.length !== 1) {
+  if (positionals.length !== 1 || typeof values.out !== 'string') {
     usage();
-    process.exit(1);
+    process.exit(2);
   }
 
   const inputPath = positionals[0];
-  const outputArg = values.out ?? defaultOut(inputPath);
-  const srcPath = resolve(inputPath);
-  const outPath = resolve(outputArg);
+  const outPath = resolve(values.out);
+  const scope = parseScope(values.scope);
 
-  const ir = await loadIR(srcPath);
-  const alloy = emitAlloy(ir);
+  const ir = await loadIR(resolve(inputPath));
+  const alloy = emitAlloy(ir, scope === null ? {} : { scope });
 
   await mkdir(dirname(outPath), { recursive: true });
   await writeFile(outPath, alloy, 'utf8');
@@ -34,19 +36,20 @@ async function main(argv) {
 
 function usage() {
   process.stderr.write(
-    'Usage: node scripts/emit-alloy.mjs <input.ir.json|input.tf> [-o out/0.4/proofs/<name>.als]\n'
+    'Usage: node scripts/emit-alloy.mjs <input.ir.json|input.tf> -o <out.als> [--scope N]\n'
   );
 }
 
-function defaultOut(inputPath) {
-  const base = basename(inputPath);
-  if (base.endsWith('.ir.json')) {
-    const stem = base.slice(0, -'.ir.json'.length);
-    return `out/0.4/proofs/${stem}.als`;
+function parseScope(raw) {
+  if (raw === undefined) {
+    return null;
   }
-  const ext = extname(base);
-  const stem = ext ? base.slice(0, -ext.length) : base;
-  return `out/0.4/proofs/${stem}.als`;
+  const value = Number.parseInt(raw, 10);
+  if (!Number.isFinite(value) || value <= 0) {
+    process.stderr.write('scope must be a positive integer\n');
+    process.exit(1);
+  }
+  return value;
 }
 
 async function loadIR(srcPath) {

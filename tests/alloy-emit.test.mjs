@@ -13,18 +13,42 @@ function makePrim(uri, overrides = {}) {
   };
 }
 
-test('conflict model emits writes with identical uri', () => {
+function makeSeq(children) {
+  return { node: 'Seq', children };
+}
+
+function extractRunLines(alloy) {
+  return alloy
+    .split('\n')
+    .filter((line) => line.startsWith('run {'))
+    .map((line) => line.trim());
+}
+
+test('conflict model emits nested writes with identical uri', () => {
   const ir = {
     node: 'Par',
-    children: [makePrim('res://kv/x'), makePrim('res://kv/x')]
+    children: [
+      makeSeq([makePrim('res://kv/x')]),
+      makeSeq([makePrim('res://kv/x')])
+    ]
   };
 
   const alloy = emitAlloy(ir);
-  assert.match(alloy, /one sig Par0 extends Par/, 'should declare a Par atom');
+  assert.match(alloy, /open util\/strings/, 'should open util/strings module');
+  assert.match(
+    alloy,
+    /a\.node in p\.\*children && b\.node in p\.\*children/,
+    'should use transitive closure for conflict detection'
+  );
+
   const uriMatches = alloy.match(/Writes\d+\.uri = "res:\/\/kv\/x"/g) || [];
   assert.equal(uriMatches.length, 2, 'expected two writes targeting the same URI');
-  assert.ok(alloy.includes('run { some p: Par | Conflicting[p] } for 5'));
-  assert.ok(alloy.includes('run { all p: Par | NoConflict[p] } for 5'));
+
+  const runLines = extractRunLines(alloy);
+  assert.equal(runLines.length, 2, 'expected two run commands');
+  for (const line of runLines) {
+    assert.ok(!/ for \d+$/.test(line), 'run commands should omit scope when not provided');
+  }
 });
 
 test('non-conflict model omits duplicate uri writes', () => {
@@ -38,6 +62,20 @@ test('non-conflict model omits duplicate uri writes', () => {
   const uris = uriMatches.map((match) => match[1]);
   const unique = new Set(uris);
   assert.equal(unique.size, uris.length, 'writes should not reuse the same URI');
+});
+
+test('scope option appends bound to run commands', () => {
+  const ir = {
+    node: 'Par',
+    children: [makePrim('res://kv/a'), makePrim('res://kv/b')]
+  };
+
+  const alloy = emitAlloy(ir, { scope: 12 });
+  const runLines = extractRunLines(alloy);
+  assert.equal(runLines.length, 2, 'expected two run commands');
+  for (const line of runLines) {
+    assert.ok(line.endsWith(' for 12'), 'run command should include the provided scope');
+  }
 });
 
 test('emission is deterministic', () => {

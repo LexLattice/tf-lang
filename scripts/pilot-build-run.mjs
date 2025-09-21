@@ -6,6 +6,7 @@ import { copyFileSync } from 'node:fs';
 import { join, dirname, isAbsolute } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { canonicalStringify, hashJsonLike } from './hash-jsonl.mjs';
+import { sha256OfCanonicalJson } from '../packages/tf-l0-tools/lib/digest.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(here, '..');
@@ -63,19 +64,21 @@ async function rewriteManifest(path) {
   return manifest;
 }
 
-async function patchRunManifest(runPath, manifest) {
-  const source = await readFile(runPath, 'utf8');
-  const marker = 'const MANIFEST = ';
-  const idx = source.indexOf(marker);
-  if (idx === -1) return;
-  const start = idx + marker.length;
-  const remainder = source.slice(start);
-  const end = remainder.indexOf(';\n');
-  if (end === -1) return;
-  const prefix = source.slice(0, start);
-  const suffix = remainder.slice(end + 2);
-  const next = `${prefix}${JSON.stringify(manifest)};\n${suffix}`;
-  await writeFile(runPath, next);
+async function patchRunFile(runPath, manifest, manifestHash, irHash) {
+  let source = await readFile(runPath, 'utf8');
+  if (manifest) {
+    const manifestPattern = /const MANIFEST = [^;]*?;\n/;
+    source = source.replace(manifestPattern, `const MANIFEST = ${JSON.stringify(manifest)};\n`);
+  }
+  if (typeof manifestHash === 'string') {
+    const manifestHashPattern = /const MANIFEST_HASH = '[^']*';/;
+    source = source.replace(manifestHashPattern, `const MANIFEST_HASH = '${manifestHash}';`);
+  }
+  if (typeof irHash === 'string') {
+    const irHashPattern = /const IR_HASH = '[^']*';/;
+    source = source.replace(irHashPattern, `const IR_HASH = '${irHash}';`);
+  }
+  await writeFile(runPath, source);
 }
 
 function createDeterministicClock(epochMs = FIXED_TS, stepMs = 1) {
@@ -148,7 +151,10 @@ async function main() {
   const genDir = join(outDir, 'codegen-ts', 'pilot_min');
   await mkdir(genDir, { recursive: true });
   sh('node', [tfCompose, 'emit', '--lang', 'ts', flowPath, '--out', genDir]);
-  await patchRunManifest(join(genDir, 'run.mjs'), manifest);
+  const irRaw = await readFile(irPath, 'utf8');
+  const irHash = sha256OfCanonicalJson(JSON.parse(irRaw));
+  const manifestHash = await hashJsonLike(manifestPath);
+  await patchRunFile(join(genDir, 'run.mjs'), manifest, manifestHash, irHash);
 
   const caps = {
     effects: ['Network.Out', 'Storage.Write', 'Observability', 'Pure'],

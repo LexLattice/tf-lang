@@ -1,6 +1,7 @@
 import { createWriteStream, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { validateCapabilities } from './capabilities.mjs';
+import { createInmemRuntime } from './inmem.mjs';
 
 let clockWarned = false;
 
@@ -164,6 +165,7 @@ async function execNode(node, runtime, ctx, input) {
 }
 
 export async function runIR(ir, runtime, options = {}) {
+  const activeRuntime = runtime ?? createInmemRuntime();
   const tracePath = process.env.TF_TRACE_PATH;
   let traceStream = null;
   let traceWritable = false;
@@ -230,7 +232,7 @@ export async function runIR(ir, runtime, options = {}) {
 
   const ctx = { effects: new Set(), ops: 0, emit };
   try {
-    const { value, ok } = await execNode(ir, runtime, ctx, options.input);
+    const { value, ok } = await execNode(ir, activeRuntime, ctx, options.input);
     return {
       ok: normalizeOk(ok),
       result: value,

@@ -36,6 +36,17 @@ Policy check:
 `node packages/tf-compose/bin/tf-policy.mjs check examples/flows/txn_ok.tf`
 Use `--forbid-outside` to reject writes outside transactions, and `--catalog <path>` to supply a catalog; otherwise the CLI falls back to name-based detection with a warning.
 
+## Generated pipeline adapters
+
+TypeScript emissions now include a minimal adapter surface under `runtime/adapters/types.ts`.
+The generated `src/adapters.ts` file re-exports this surface and augments it with strongly
+typed entry points for every primitive that appears in the flow.
+
+For deterministic local runs, use the in-memory factory published at
+`runtime/adapters/inmem.mjs`. It implements storage writes with idempotency keys,
+compare-and-swap semantics, publish/metric aggregation, and HMAC-SHA256 crypto helpers.
+All adapters are pure Node.js implementations and require no external services.
+
 ## Determinism & Proofs (T3)
 
 * Turn proofs on only when tracing:

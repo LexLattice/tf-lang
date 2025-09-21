@@ -8,6 +8,7 @@ import { manifestFromVerdict } from '../../tf-l0-check/src/manifest.mjs';
 
 const moduleDir = dirname(fileURLToPath(import.meta.url));
 const runtimeSrc = join(moduleDir, '..', 'src', 'runtime');
+const adaptersSrc = join(moduleDir, '..', 'src', 'adapters');
 const catalogPath = join(moduleDir, '..', '..', 'tf-l0-spec', 'spec', 'catalog.json');
 
 let catalogPromise = null;
@@ -65,7 +66,7 @@ function genAdapters(ir) {
   const names = Array.from(prims(ir));
   const methods = names.map((name) => `  ${to(name)}(input: any): Promise<any>`).join('\n');
   const stubs = names.map((name) => stub(name)).join('\n\n');
-  return `export interface Adapters {\n${methods}\n}\n\n${stubs}\n`;
+  return `import type { Adapters as AdapterSurface } from '../runtime/adapters/types';\n\nexport interface GeneratedAdapters extends AdapterSurface {\n${methods}\n}\n\nexport type Adapters = GeneratedAdapters;\n\n${stubs}\n`;
 
   function to(name) {
     return `prim_${name.replace(/[^a-z0-9]/g, '_')}`;
@@ -128,6 +129,12 @@ async function emitRuntime(ir, outDir, manifest, catalog) {
   await copyFile(join(runtimeSrc, 'inmem.mjs'), join(runtimeOut, 'inmem.mjs'));
   await copyFile(join(runtimeSrc, 'run-ir.mjs'), join(runtimeOut, 'run-ir.mjs'));
   await copyFile(join(runtimeSrc, 'capabilities.mjs'), join(runtimeOut, 'capabilities.mjs'));
+  const runtimeAdaptersOut = join(runtimeOut, 'adapters');
+  await mkdir(runtimeAdaptersOut, { recursive: true });
+  await copyFile(join(adaptersSrc, 'types.ts'), join(runtimeAdaptersOut, 'types.ts'));
+  const adaptersOut = join(outDir, 'adapters');
+  await mkdir(adaptersOut, { recursive: true });
+  await copyFile(join(adaptersSrc, 'inmem.mjs'), join(adaptersOut, 'inmem.mjs'));
 
   const canonicalIrLiteral = canonicalize(ir);
   const canonicalIr = JSON.parse(canonicalIrLiteral);

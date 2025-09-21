@@ -209,6 +209,8 @@ async function execNode(node, runtime, ctx, input) {
 
 export async function runIR(ir, runtime, options = {}) {
   const writer = createTraceWriter(process.env.TF_TRACE_PATH);
+  const includeMeta = process.env.TF_PROVENANCE === '1' && options?.traceMeta;
+  const metaPayload = includeMeta ? { ...options.traceMeta } : null;
   const emit = (rec) => {
     const entry = {
       ts: rec.ts,
@@ -217,6 +219,9 @@ export async function runIR(ir, runtime, options = {}) {
       region: rec.region,
       effect: rec.effect,
     };
+    if (metaPayload) {
+      entry.meta = metaPayload;
+    }
     const line = JSON.stringify(entry);
     console.log(line);
     if (writer) {
@@ -232,6 +237,7 @@ export async function runIR(ir, runtime, options = {}) {
       result: value,
       ops: ctx.ops,
       effects: Array.from(ctx.effects).sort(),
+      provenance: options?.provenance ? { ...options.provenance } : null,
     };
   } finally {
     if (writer) {

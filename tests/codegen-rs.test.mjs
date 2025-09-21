@@ -9,14 +9,30 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const IR_PATH = path.join(ROOT, 'out/0.4/ir/signing.ir.json');
 const OUT_DIR = path.join(ROOT, 'out/0.4/codegen-rs/signing');
 
+function ensureSigningIr() {
+  if (fs.existsSync(IR_PATH)) {
+    return;
+  }
+  const result = spawnSync(process.execPath, [
+    'packages/tf-compose/bin/tf.mjs',
+    'parse',
+    'examples/flows/signing.tf',
+    '-o',
+    IR_PATH,
+  ], { cwd: ROOT, stdio: 'inherit' });
+  assert.equal(result.status, 0, 'failed to generate signing IR fixture');
+  assert.ok(fs.existsSync(IR_PATH), 'expected signing IR fixture after generation');
+}
+
 function runGenerator() {
-  return spawnSync('node', ['scripts/generate-rs.mjs', IR_PATH, '-o', OUT_DIR], {
+  return spawnSync(process.execPath, ['scripts/generate-rs.mjs', IR_PATH, '-o', OUT_DIR], {
     cwd: ROOT,
     stdio: 'inherit',
   });
 }
 
 test('rust codegen emits deterministic scaffold', () => {
+  ensureSigningIr();
   assert.ok(fs.existsSync(IR_PATH), 'expected signing IR fixture');
 
   fs.rmSync(OUT_DIR, { recursive: true, force: true });

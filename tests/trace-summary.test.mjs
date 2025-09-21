@@ -111,3 +111,25 @@ test('malformed lines warn once unless quiet', async () => {
   assert.deepEqual(quietSummary, noisySummary);
   assert.equal(quiet.stdout.trim(), canonicalJson(quietSummary));
 });
+
+test('meta hashes are tallied when present', async () => {
+  const inputLines = [
+    JSON.stringify({ prim_id: 'one', effect: 'Pure', meta: { ir_hash: 'sha256:aaa', manifest_hash: 'sha256:bbb' } }),
+    JSON.stringify({ prim_id: 'two', effect: 'Pure', meta: { ir_hash: 'sha256:aaa', manifest_hash: 'sha256:ccc' } }),
+    JSON.stringify({ prim_id: 'three', effect: 'Pure', meta: { ir_hash: 'sha256:ddd' } }),
+  ];
+  const input = inputLines.join('\n') + '\n';
+  const { code, stdout } = await runCli([], { input });
+  assert.equal(code, 0);
+  const summary = JSON.parse(stdout.trim());
+  assert.ok(summary.by_meta);
+  assert.deepEqual(summary.by_meta.ir_hash, {
+    'sha256:aaa': 2,
+    'sha256:ddd': 1,
+  });
+  assert.deepEqual(summary.by_meta.manifest_hash, {
+    'sha256:bbb': 1,
+    'sha256:ccc': 1,
+  });
+  assert.equal(stdout.trim(), canonicalJson(summary));
+});

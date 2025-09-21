@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const outDir = join(__dir, '..', 'out', '0.4', 'pilot-l0');
@@ -46,19 +47,63 @@ function rewriteManifest(path) {
   return manifest;
 }
 
+function canonicalJson(value) {
+  if (Array.isArray(value)) {
+    return '[' + value.map(canonicalJson).join(',') + ']';
+  }
+  if (value && typeof value === 'object') {
+    const keys = Object.keys(value).sort();
+    return '{' + keys.map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',') + '}';
+  }
+  return JSON.stringify(value);
+}
+
 function patchRunManifest(runPath, manifest) {
-  const source = readFileSync(runPath, 'utf8');
-  const marker = 'const MANIFEST = ';
-  const idx = source.indexOf(marker);
-  if (idx === -1) return;
-  const start = idx + marker.length;
-  const remainder = source.slice(start);
+  let source = readFileSync(runPath, 'utf8');
+  const manifestMarker = 'const MANIFEST = ';
+  const manifestIdx = source.indexOf(manifestMarker);
+  if (manifestIdx !== -1) {
+    const start = manifestIdx + manifestMarker.length;
+    const remainder = source.slice(start);
+    const end = remainder.indexOf(';\n');
+    if (end !== -1) {
+      const prefix = source.slice(0, start);
+      const suffix = remainder.slice(end + 2);
+      source = `${prefix}${JSON.stringify(manifest)};\n${suffix}`;
+    }
+  }
+
+  const manifestHash = createHash('sha256');
+  manifestHash.update(canonicalJson(manifest));
+  const hashValue = `sha256:${manifestHash.digest('hex')}`;
+  const hashMarker = "const MANIFEST_HASH = '";
+  const hashIdx = source.indexOf(hashMarker);
+  if (hashIdx !== -1) {
+    const hashStart = hashIdx + hashMarker.length;
+    const hashEnd = source.indexOf("';", hashStart);
+    if (hashEnd !== -1) {
+      source = `${source.slice(0, hashStart)}${hashValue}${source.slice(hashEnd)}`;
+    }
+  }
+
+  writeFileSync(runPath, source);
+  return source;
+}
+
+function syncIrFile(runSource, irPath) {
+  const marker = 'const ir = ';
+  const start = runSource.indexOf(marker);
+  if (start === -1) return;
+  const remainder = runSource.slice(start + marker.length);
   const end = remainder.indexOf(';\n');
   if (end === -1) return;
-  const prefix = source.slice(0, start);
-  const suffix = remainder.slice(end + 2);
-  const next = `${prefix}${JSON.stringify(manifest)};\n${suffix}`;
-  writeFileSync(runPath, next);
+  const irText = remainder.slice(0, end);
+  try {
+    const ir = JSON.parse(irText);
+    writeFileSync(irPath, `${JSON.stringify(ir, null, 2)}\n`);
+  } catch (err) {
+    console.warn('unable to parse runtime IR for sync', err);
+  }
 }
 
 sh('node', ['packages/tf-compose/bin/tf.mjs', 'parse', 'examples/flows/pilot_min.tf', '-o', irPath]);
@@ -70,7 +115,9 @@ const manifest = rewriteManifest(manPath);
 const genDir = join(outDir, 'codegen-ts', 'pilot_min');
 mkdirSync(genDir, { recursive: true });
 sh('node', ['packages/tf-compose/bin/tf.mjs', 'emit', '--lang', 'ts', 'examples/flows/pilot_min.tf', '--out', genDir]);
-patchRunManifest(join(genDir, 'run.mjs'), manifest);
+const runPath = join(genDir, 'run.mjs');
+const runSource = patchRunManifest(runPath, manifest);
+syncIrFile(runSource, irPath);
 
 const caps = {
   effects: ['Network.Out', 'Storage.Write', 'Observability', 'Pure'],

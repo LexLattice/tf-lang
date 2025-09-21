@@ -83,13 +83,20 @@ test('runner enforces capability requirements for storage flow', async () => {
   const allowed = await runProcess(process.execPath, [runScript, '--caps', capsPath]);
   assert.equal(allowed.code, 0, allowed.stderr);
   const { summary: okSummary, line: okLine } = extractSummary(allowed.stdout);
-  assert.equal(okLine, '{"effects":["Storage.Write"],"ok":true,"ops":2}');
+  const okParsed = JSON.parse(okLine);
+  assert.equal(okParsed.ok, true);
+  assert.equal(okParsed.ops, 2);
+  assert.deepEqual(okParsed.effects, ['Storage.Write']);
+  assert.ok(okParsed.provenance);
+  assert.ok(okParsed.provenance.caps_effects.includes('Storage.Write'));
   assert.deepEqual(okSummary.effects, ['Storage.Write']);
 
   const denied = await runProcess(process.execPath, [runScript]);
   assert.equal(denied.code, 1);
   const { summary: deniedSummary, line: deniedLine } = extractSummary(denied.stdout);
-  assert.equal(deniedLine, '{"effects":[],"ok":false,"ops":0}');
+  const deniedParsed = JSON.parse(deniedLine);
+  assert.equal(deniedParsed.ok, false);
+  assert.deepEqual(deniedParsed.effects, []);
   assert.equal(deniedSummary.ok, false);
   assert.match(denied.stderr, /no capabilities provided/i);
 });
@@ -111,7 +118,10 @@ test('runner accepts env capabilities and file takes precedence', async () => {
   });
   assert.equal(envOnly.code, 0, envOnly.stderr);
   const { summary: envSummary, line: envLine } = extractSummary(envOnly.stdout);
-  assert.equal(envLine, '{"effects":["Network.Out"],"ok":true,"ops":1}');
+  const envParsed = JSON.parse(envLine);
+  assert.equal(envParsed.ok, true);
+  assert.deepEqual(envParsed.effects, ['Network.Out']);
+  assert.equal(envParsed.provenance.caps_source, 'env');
   assert.deepEqual(envSummary.effects, ['Network.Out']);
 
   const fileBeatsEnv = await runProcess(
@@ -123,6 +133,9 @@ test('runner accepts env capabilities and file takes precedence', async () => {
   );
   assert.equal(fileBeatsEnv.code, 0, fileBeatsEnv.stderr);
   const { summary: precedenceSummary, line: precedenceLine } = extractSummary(fileBeatsEnv.stdout);
-  assert.equal(precedenceLine, '{"effects":["Network.Out"],"ok":true,"ops":1}');
+  const precedenceParsed = JSON.parse(precedenceLine);
+  assert.equal(precedenceParsed.ok, true);
+  assert.deepEqual(precedenceParsed.effects, ['Network.Out']);
+  assert.equal(precedenceParsed.provenance.caps_source, 'file');
   assert.deepEqual(precedenceSummary.effects, ['Network.Out']);
 });

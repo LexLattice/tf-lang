@@ -27,6 +27,15 @@
     "effect": {
       "type": "string",
       "description": "Effect name inferred for the primitive invocation."
+    },
+    "meta": {
+      "type": "object",
+      "properties": {
+        "ir_hash": { "type": "string" },
+        "manifest_hash": { "type": "string" },
+        "catalog_hash": { "type": "string" }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": true

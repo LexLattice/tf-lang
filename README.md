@@ -171,6 +171,15 @@ cat tests/fixtures/trace-sample.jsonl | node packages/tf-l0-tools/trace-summary.
 - Multi-run append: reuse the same `TF_TRACE_PATH` for later invocations (even in one process) and each call appends more JSON.
 - Records follow `schemas/trace.v0.4.schema.json`, so existing tooling keeps working.
 - Validate: `cat file.jsonl | node scripts/validate-trace.mjs`.
+- Provenance check:
+  ```bash
+  TF_PROVENANCE=1 node scripts/pilot-build-run.mjs
+  node scripts/validate-trace.mjs --require-meta \
+    --ir $(jq -r .provenance.ir_hash out/0.4/pilot-l0/status.json) \
+    --manifest $(jq -r .provenance.manifest_hash out/0.4/pilot-l0/status.json) \
+    --catalog $(jq -r .provenance.catalog_hash out/0.4/pilot-l0/status.json) \
+    < out/0.4/pilot-l0/trace.jsonl
+  ```
 
 See [docs/l0-proofs.md](docs/l0-proofs.md) for generating SMT/Alloy proofs and downloading the CI artifacts emitted for v0.4 flows.
 

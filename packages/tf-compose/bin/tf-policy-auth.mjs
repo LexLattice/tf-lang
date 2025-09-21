@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { canonicalize } from '../../tf-l0-ir/src/hash.mjs';
+import { normalize } from '../../tf-l0-ir/src/normalize.mjs';
 
 const usage = 'Usage: node packages/tf-compose/bin/tf-policy-auth.mjs check <flow.tf> [--catalog <path>] [--rules <path>] [--warn-unused] [--strict-warns]';
 
@@ -17,8 +18,13 @@ class CLIError extends Error {
 }
 
 async function main(argv) {
+  const cliArgs = argv.slice(2);
+  if (cliArgs[0] === '--') {
+    cliArgs.shift();
+  }
+
   const { values, positionals } = parseArgs({
-    args: argv.slice(2),
+    args: cliArgs,
     options: {
       catalog: { type: 'string' },
       rules: { type: 'string' },
@@ -61,7 +67,8 @@ async function main(argv) {
     throw new CLIError(`Failed to read flow at ${flowPath}: ${reason}`, 1);
   }
 
-  const ir = parseDSL(flowSource);
+  const parsed = parseDSL(flowSource);
+  const ir = normalize(parsed);
 
   const scriptDir = path.dirname(fileURLToPath(import.meta.url));
   const [catalogPath, rulesPath] = await Promise.all([
@@ -71,6 +78,7 @@ async function main(argv) {
 
   const catalog = await readJsonFile(catalogPath, { primitivesFallback: true });
   const rules = await readJsonFile(rulesPath);
+  validateAuthorizeRules(rules, rulesPath);
 
   const verdict = checkAuthorize(ir, catalog, rules, {
     warnUnused,
@@ -130,6 +138,28 @@ async function readJsonFile(filePath, options = {}) {
   }
 }
 
+function validateAuthorizeRules(rules, sourcePath) {
+  if (!rules || typeof rules !== 'object' || Array.isArray(rules)) {
+    throw new CLIError(`Invalid authorize rules file at ${sourcePath}: expected object mapping id -> string[]`, 1);
+  }
+
+  for (const [key, value] of Object.entries(rules)) {
+    if (typeof key !== 'string' || key.length === 0) {
+      throw new CLIError(`Invalid authorize rule key in ${sourcePath}`, 1);
+    }
+
+    if (!Array.isArray(value)) {
+      throw new CLIError(`Invalid authorize scopes for ${key} in ${sourcePath}: expected array`, 1);
+    }
+
+    for (const scope of value) {
+      if (typeof scope !== 'string') {
+        throw new CLIError(`Invalid authorize scope entry for ${key} in ${sourcePath}: expected string`, 1);
+      }
+    }
+  }
+}
+
 async function findRepoRoot(startDir) {
   let current = startDir;
   while (true) {
@@ -165,6 +195,8 @@ main(process.argv).catch((err) => {
   const exitCode = err instanceof CLIError ? err.exitCode : 1;
   const message = err && typeof err.message === 'string' ? err.message : String(err);
   console.error(message);
-  console.error(usage);
+  if (exitCode === 2) {
+    console.error(usage);
+  }
   process.exit(exitCode);
 });

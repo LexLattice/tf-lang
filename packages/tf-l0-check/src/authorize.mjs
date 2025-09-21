@@ -230,8 +230,16 @@ function extractScopes(node) {
   const scopes = [];
 
   const addScope = (value) => {
-    if (typeof value === 'string' && value.length > 0) {
-      scopes.push(value);
+    if (typeof value !== 'string' || value.length === 0) {
+      return;
+    }
+
+    const segments = value.split(',');
+    for (const raw of segments) {
+      const scope = raw.trim();
+      if (scope.length > 0) {
+        scopes.push(scope);
+      }
     }
   };
 

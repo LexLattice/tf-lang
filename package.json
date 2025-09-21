@@ -32,7 +32,9 @@
     "digest:out": "node scripts/write-digests.mjs",
     "graph:signing": "node scripts/graph-ir.mjs out/0.4/ir/signing.ir.json out/0.4/graphs/signing.dot",
     "contracts:baseline:capture": "node scripts/baseline-capture.mjs",
-    "contracts:check-breaking": "node scripts/check-breaking.mjs"
+    "contracts:check-breaking": "node scripts/check-breaking.mjs",
+    "policy:auth": "node packages/tf-compose/bin/tf-policy-auth.mjs",
+    "policy:auth:samples": "pnpm run policy:auth -- check examples/flows/auth_ok.tf; pnpm run policy:auth -- check examples/flows/auth_wrong_scope.tf || true; pnpm run policy:auth -- check examples/flows/auth_missing.tf || true"
   },
   "devDependencies": {
     "typescript": "5.9.2",

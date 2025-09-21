@@ -45,3 +45,15 @@ The canonicalizer flattens nested `Seq` blocks before applying registered algebr
 It collapses idempotent primitives, eliminates declared inverse pairs, and swaps commute-with-pure primitives across adjacent pure nodes.
 Normalization never moves steps across `Region{}` or `Par{}` boundaries, so localized effects stay fenced.
 Running the canonicalizer twice yields the same result, keeping canonical hashes deterministic.
+
+## Authorize dominance check
+
+Use `authorize(scope="kms.sign"){ ... }` to wrap protected operations that require explicit scopes.
+
+CLI helpers:
+
+* `pnpm run policy:auth -- check examples/flows/auth_ok.tf`
+* `pnpm run policy:auth -- check --warn-unused examples/flows/auth_ok.tf`
+* `pnpm run policy:auth -- check --strict-warns examples/flows/auth_ok.tf`
+
+Scope requirements are bundled in `packages/tf-l0-check/rules/authorize-scopes.json`.

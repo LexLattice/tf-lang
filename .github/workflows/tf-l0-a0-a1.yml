@@ -64,6 +64,10 @@ jobs:
           pnpm run tf -- canon examples/flows/signing.tf -o out/0.4/ir/signing.canon.json
           pnpm run tf -- check examples/flows/signing.tf -o out/0.4/flows/signing.verdict.json
 
+      - name: Authorize policy smoke
+        run: pnpm run policy:auth:samples
+        continue-on-error: true
+
       - name: Full determinism (all outputs)
         run: pnpm run determinism:full
 

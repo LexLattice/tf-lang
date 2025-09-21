@@ -1,0 +1,4 @@
+{
+  "effects": ["Network.Out", "Storage.Write", "Observability", "Pure"],
+  "allow_writes_prefixes": ["res://ledger/"]
+}

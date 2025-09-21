@@ -48,4 +48,10 @@ pnpm run pilot:all
 cat out/0.4/parity/report.json
 ```
 
+Both runners share a fixed millisecond clock configured through `TF_FIXED_TS` (default `1750000000000`). To force a reproducible end-to-end run:
+
+```sh
+TF_FIXED_TS=1750000000000 pnpm run pilot:all && cat out/0.4/parity/report.json
+```
+
 The parity harness exits non-zero if any artifact digests differ and is covered by `tests/pilot-parity.test.mjs`, which reruns the harness to ensure byte-for-byte determinism.

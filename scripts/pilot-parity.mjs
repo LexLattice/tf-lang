@@ -6,6 +6,7 @@ import { hashJsonLike } from './hash-jsonl.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(here, '..');
+const FIXED_TS = process.env.TF_FIXED_TS || '1750000000000';
 
 function resolveOutDir() {
   const override = process.env.PILOT_OUT_DIR;
@@ -47,6 +48,10 @@ async function main() {
     diff: [],
     generated: {},
     manual: {},
+    meta: {
+      ts_fixed: String(FIXED_TS),
+      files: [],
+    },
   };
 
   for (const artifact of artifacts) {
@@ -54,6 +59,7 @@ async function main() {
     const manualHash = await hashJsonLike(artifact.manual);
     report.generated[artifact.name] = generatedHash;
     report.manual[artifact.name] = manualHash;
+    report.meta.files.push(artifact.generated, artifact.manual);
     if (generatedHash !== manualHash) {
       report.equal = false;
       report.diff.push({

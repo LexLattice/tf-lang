@@ -8,6 +8,8 @@ import { canonicalStringify } from './hash-jsonl.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(here, '..');
+const FIXED_TS = process.env.TF_FIXED_TS || '1750000000000';
+const baseEnv = { ...process.env, TF_FIXED_TS: String(FIXED_TS) };
 
 function resolveOutDir() {
   const override = process.env.PILOT_OUT_DIR;
@@ -25,18 +27,6 @@ const tracePath = join(manualDir, 'trace.jsonl');
 const summaryPath = join(manualDir, 'summary.json');
 const traceSummary = join(rootDir, 'packages', 'tf-l0-tools', 'trace-summary.mjs');
 
-function createDeterministicClock(startMs = 1_690_000_000_000, stepMs = 1) {
-  let current = BigInt(startMs) * 1_000_000n;
-  const step = BigInt(stepMs) * 1_000_000n;
-  return {
-    nowNs() {
-      const value = current;
-      current += step;
-      return value;
-    },
-  };
-}
-
 async function removeIfExists(path) {
   await rm(path, { recursive: true, force: true });
 }
@@ -49,11 +39,11 @@ async function main() {
 
   const prevStatus = process.env.TF_STATUS_PATH;
   const prevTrace = process.env.TF_TRACE_PATH;
-  const prevClock = globalThis.__tf_clock;
+  const prevFixedTs = process.env.TF_FIXED_TS;
 
   process.env.TF_STATUS_PATH = statusPath;
   process.env.TF_TRACE_PATH = tracePath;
-  globalThis.__tf_clock = createDeterministicClock();
+  process.env.TF_FIXED_TS = String(FIXED_TS);
 
   try {
     inmem.reset?.();
@@ -72,6 +62,9 @@ async function main() {
     const effects = new Set();
     const traceLines = [];
 
+    const baseTs = BigInt(process.env.TF_FIXED_TS || FIXED_TS);
+    let offset = 0n;
+
     for (const { prim, args } of operations) {
       const adapter = typeof inmem.getAdapter === 'function' ? inmem.getAdapter(prim) : inmem[prim];
       if (typeof adapter !== 'function') {
@@ -82,8 +75,7 @@ async function main() {
       if (typeof effect === 'string' && effect) {
         effects.add(effect);
       }
-      const clock = globalThis.__tf_clock;
-      const ts = clock && typeof clock.nowNs === 'function' ? Number(clock.nowNs() / 1_000_000n) : Date.now();
+      const ts = Number(baseTs + offset);
       const record = {
         ts,
         prim_id: canonicalPrim,
@@ -93,6 +85,7 @@ async function main() {
       };
       traceLines.push(JSON.stringify(record));
       await adapter(args, inmem.state ?? {});
+      offset += 1n;
     }
 
     await writeFile(tracePath, traceLines.join('\n') + '\n');
@@ -100,6 +93,7 @@ async function main() {
     const summaryProc = spawnSync('node', [traceSummary], {
       input: traceLines.join('\n') + '\n',
       encoding: 'utf8',
+      env: baseEnv,
     });
     if (summaryProc.status !== 0) {
       throw new Error('pilot-handwritten: trace-summary failed');
@@ -119,8 +113,8 @@ async function main() {
     else process.env.TF_STATUS_PATH = prevStatus;
     if (prevTrace === undefined) delete process.env.TF_TRACE_PATH;
     else process.env.TF_TRACE_PATH = prevTrace;
-    if (prevClock === undefined) delete globalThis.__tf_clock;
-    else globalThis.__tf_clock = prevClock;
+    if (prevFixedTs === undefined) delete process.env.TF_FIXED_TS;
+    else process.env.TF_FIXED_TS = prevFixedTs;
   }
 
   console.log('pilot-handwritten: completed manual artifacts in', manualDir);

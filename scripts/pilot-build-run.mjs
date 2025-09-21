@@ -8,6 +8,8 @@ import { canonicalStringify, hashJsonLike } from './hash-jsonl.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(here, '..');
+const FIXED_TS = process.env.TF_FIXED_TS || '1750000000000';
+const baseEnv = { ...process.env, TF_FIXED_TS: String(FIXED_TS) };
 
 function resolveOutDir() {
   const override = process.env.PILOT_OUT_DIR;
@@ -26,7 +28,8 @@ const flowPath = join(rootDir, 'examples', 'flows', 'pilot_min.tf');
 const ledgerUri = 'res://ledger/pilot';
 
 function sh(cmd, args, options = {}) {
-  const result = spawnSync(cmd, args, { stdio: 'inherit', ...options });
+  const env = options.env ? { ...baseEnv, ...options.env } : baseEnv;
+  const result = spawnSync(cmd, args, { stdio: 'inherit', ...options, env });
   if (result.status !== 0) {
     process.exit(result.status ?? 1);
   }
@@ -74,8 +77,9 @@ async function patchRunManifest(runPath, manifest) {
   await writeFile(runPath, next);
 }
 
-function createDeterministicClock(startMs = 1_690_000_000_000, stepMs = 1) {
-  let current = BigInt(startMs) * 1_000_000n;
+function createDeterministicClock(epochMs = FIXED_TS, stepMs = 1) {
+  const origin = BigInt(epochMs);
+  let current = origin * 1_000_000n;
   const step = BigInt(stepMs) * 1_000_000n;
   return {
     nowNs() {
@@ -89,12 +93,14 @@ function createDeterministicClock(startMs = 1_690_000_000_000, stepMs = 1) {
 async function runGeneratedRunner(genDir, capsPath, statusPath, tracePath) {
   const prevStatus = process.env.TF_STATUS_PATH;
   const prevTrace = process.env.TF_TRACE_PATH;
+  const prevFixedTs = process.env.TF_FIXED_TS;
   const prevArgv = process.argv;
   const prevClock = globalThis.__tf_clock;
 
   process.env.TF_STATUS_PATH = statusPath;
   process.env.TF_TRACE_PATH = tracePath;
-  globalThis.__tf_clock = createDeterministicClock();
+  process.env.TF_FIXED_TS = String(FIXED_TS);
+  globalThis.__tf_clock = createDeterministicClock(FIXED_TS);
   process.argv = [process.argv[0], join(genDir, 'run.mjs'), '--caps', capsPath];
 
   try {
@@ -104,6 +110,8 @@ async function runGeneratedRunner(genDir, capsPath, statusPath, tracePath) {
     else process.env.TF_STATUS_PATH = prevStatus;
     if (prevTrace === undefined) delete process.env.TF_TRACE_PATH;
     else process.env.TF_TRACE_PATH = prevTrace;
+    if (prevFixedTs === undefined) delete process.env.TF_FIXED_TS;
+    else process.env.TF_FIXED_TS = prevFixedTs;
     process.argv = prevArgv;
     if (prevClock === undefined) delete globalThis.__tf_clock;
     else globalThis.__tf_clock = prevClock;
@@ -173,6 +181,7 @@ async function main() {
   const summaryProc = spawnSync('node', [traceSummary], {
     input: traceRaw,
     encoding: 'utf8',
+    env: baseEnv,
   });
   if (summaryProc.status !== 0) {
     throw new Error('pilot-build-run: trace-summary failed');

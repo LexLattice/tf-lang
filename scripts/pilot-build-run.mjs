@@ -23,6 +23,7 @@ function resolveOutDir() {
 
 const outDir = resolveOutDir();
 const goldenDir = join(outDir, 'golden');
+const specCatalogPath = join(rootDir, 'packages', 'tf-l0-spec', 'spec', 'catalog.json');
 const tfCompose = join(rootDir, 'packages', 'tf-compose', 'bin', 'tf.mjs');
 const tfManifest = join(rootDir, 'packages', 'tf-compose', 'bin', 'tf-manifest.mjs');
 const traceSummary = join(rootDir, 'packages', 'tf-l0-tools', 'trace-summary.mjs');
@@ -161,6 +162,8 @@ async function main() {
     allow_writes_prefixes: ['res://ledger/'],
   };
   await writeFile(join(genDir, 'caps.json'), JSON.stringify(caps, null, 2) + '\n');
+
+  await writeFile(join(outDir, 'catalog.json'), await readFile(specCatalogPath, 'utf8'));
 
   const statusPath = join(outDir, 'status.json');
   const tracePath = join(outDir, 'trace.jsonl');

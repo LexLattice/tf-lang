@@ -55,3 +55,9 @@ TF_FIXED_TS=1750000000000 pnpm run pilot:all && cat out/0.4/parity/report.json
 ```
 
 The parity harness exits non-zero if any artifact digests differ and is covered by `tests/pilot-parity.test.mjs`, which reruns the harness to ensure byte-for-byte determinism.
+
+### Runtime verify (schema + meta + composition)
+- Local: `node scripts/runtime-verify.mjs --flow pilot --out out/0.4/verify/pilot/report.json --catalog out/0.4/pilot-l0/catalog.json --catalog-hash $(jq -r '.provenance.catalog_hash' out/0.4/pilot-l0/status.json)`
+  - Add `--print-inputs` to echo the resolved artifact paths + hashes.
+  - The report now includes an `inputs` map containing `{path, sha256}` for each artifact (IR, manifest, status, trace, catalog).
+- CI: workflow **“L0 Runtime Verify”** runs the same steps and uploads `l0-runtime-verify` artifacts.

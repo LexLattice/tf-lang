@@ -1,0 +1,61 @@
+name: L0 Runtime Verify
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: l0-runtime-verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-pnpm
+        with:
+          node-version: '20'
+          install: 'true'
+          frozen: 'true'
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            **/pnpm-lock.yaml
+
+      - name: Build
+        run: |
+          pnpm run a0
+          pnpm run a1
+          pnpm -w -r build
+
+      - name: Pilot build & run w/ provenance
+        env:
+          TF_PROVENANCE: '1'
+          TF_FIXED_TS: '1750000000000'
+        run: node scripts/pilot-build-run.mjs
+
+      - name: Verify (schema + meta + composition)
+        run: node scripts/runtime-verify.mjs --flow pilot --out out/0.4/verify/pilot/report.json
+
+      - name: List reports
+        run: |
+          echo "::group::verify reports"
+          find out/0.4/verify -type f -print
+          echo "::endgroup::"
+
+      - name: Upload verify artifacts
+        if: ${{ !env.ACT }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: l0-runtime-verify
+          path: out/0.4/verify/**
+
+      - name: Print input hashes
+        if: ${{ always() }}
+        run: |
+          if [ -f out/0.4/verify/pilot/report.json ]; then
+            node -e "const fs=require('node:fs');const data=fs.readFileSync('out/0.4/verify/pilot/report.json','utf8');const report=JSON.parse(data);const inputs=report.inputs||{};for (const [key, info] of Object.entries(inputs)){if(info&&info.sha256){console.log(\`\${key}: \${info.sha256}\`);}}"
+          else
+            echo 'verify report not found'
+          fi

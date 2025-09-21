@@ -172,6 +172,15 @@ cat tests/fixtures/trace-sample.jsonl | node packages/tf-l0-tools/trace-filter.m
 Tip: malformed lines are skipped with a warning; pass --quiet to suppress it.
 ```
 
+### Example App: Order Publish
+node scripts/app-order-publish.mjs
+cat out/0.4/apps/order_publish/status.json
+cat out/0.4/apps/order_publish/summary.json | jq .
+Caps file: /tmp/caps.order.json with {"effects":["Network.Out","Observability","Pure"],"allow_writes_prefixes":[]}.
+The generated runner enforces those capabilities before publishing orders.
+Trace summary highlights tf:network/publish@1 counts and Network.Out usage.
+Artifacts live under out/0.4/apps/order_publish/ for reuse.
+
 ### Tree
 - `catalogs/` — legacy YAMLs (frontend_primitives.yaml, information_primitives.yaml, interaction_interface.yaml, observability_telemetry.yaml, policy_governance.yaml, process_computation.yaml, resource_infrastructure.yaml, security_primitives.yaml, state_identity.yaml)
 - `packages/`

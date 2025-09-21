@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
-import { mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdir, writeFile, rm, readFile } from 'node:fs/promises';
 import { join, dirname, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import inmem from '../packages/tf-l0-codegen-ts/src/runtime/inmem.mjs';
@@ -107,6 +107,18 @@ async function main() {
       effects: Array.from(effects).sort(),
       manifest_path: manifestPath,
     };
+    try {
+      const generatedStatusPath = join(outDir, 'status.json');
+      const generatedRaw = await readFile(generatedStatusPath, 'utf8');
+      const generatedStatus = JSON.parse(generatedRaw);
+      if (generatedStatus && Object.prototype.hasOwnProperty.call(generatedStatus, 'provenance')) {
+        status.provenance = generatedStatus.provenance;
+      }
+    } catch (err) {
+      if (err?.code !== 'ENOENT') {
+        console.warn('pilot-handwritten: unable to copy provenance from generated status', err);
+      }
+    }
     await writeFile(statusPath, JSON.stringify(status, null, 2) + '\n');
   } finally {
     if (prevStatus === undefined) delete process.env.TF_STATUS_PATH;

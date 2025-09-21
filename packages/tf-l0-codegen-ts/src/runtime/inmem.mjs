@@ -1,10 +1,5 @@
 import { createHash } from 'node:crypto';
-
-const storage = new Map();
-const metricsLog = [];
-const topicQueues = new Map();
-const registry = new Map();
-const handlers = Object.create(null);
+import { createInmemAdapters } from '../adapters/inmem.mjs';
 
 function stableStringify(value) {
   return JSON.stringify(canonicalize(value));
@@ -27,15 +22,45 @@ function canonicalize(value) {
   return out;
 }
 
-function keyFor(uri, key) {
-  return `${uri}#${key}`;
+function encodeString(value) {
+  return Buffer.from(value ?? '', 'utf8');
 }
 
-function nextEtag(current) {
-  return (Number.isFinite(current) ? Number(current) : 0) + 1;
+function encodeValue(value) {
+  if (value instanceof Uint8Array) {
+    return value;
+  }
+  if (Buffer.isBuffer(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    return encodeString(value);
+  }
+  return encodeString(JSON.stringify(value));
 }
 
-function register(canonicalId, aliases, effect, impl) {
+function decodeSignature(value) {
+  if (value instanceof Uint8Array || Buffer.isBuffer(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    if (value.length === 0) {
+      return encodeString('');
+    }
+    try {
+      const buf = Buffer.from(value, 'base64');
+      if (buf.length > 0 || value === '') {
+        return buf;
+      }
+    } catch {
+      // ignore and fall through
+    }
+    return encodeString(value);
+  }
+  return encodeValue(value);
+}
+
+function register(registry, handlers, canonicalId, aliases, effect, impl) {
   const entry = { canonicalId, effect, impl };
   const names = new Set([canonicalId, ...(aliases || [])]);
   for (const name of names) {
@@ -44,89 +69,166 @@ function register(canonicalId, aliases, effect, impl) {
   }
 }
 
-register('tf:resource/write-object@1', ['write-object'], 'Storage.Write', async ({ uri, key, value }) => {
-  const storageKey = keyFor(uri, key);
-  const current = storage.get(storageKey);
-  const etag = nextEtag(current?.etag);
-  storage.set(storageKey, { value, etag });
-  return { ok: true, etag };
-});
+export function createRuntimeFromAdapters(adapters = createInmemAdapters()) {
+  const typed = adapters;
+  const registry = new Map();
+  const handlers = Object.create(null);
 
-register('tf:resource/read-object@1', ['read-object'], 'Storage.Read', async ({ uri, key }) => {
-  const storageKey = keyFor(uri, key);
-  const current = storage.get(storageKey);
-  if (!current) {
-    return { ok: false, value: null, etag: null };
+  register(
+    registry,
+    handlers,
+    'tf:resource/write-object@1',
+    ['write-object'],
+    'Storage.Write',
+    async ({ uri, key, value, idempotency_key }) => {
+      await typed.writeObject?.(uri, key, value, idempotency_key);
+      return { ok: true };
+    },
+  );
+
+  register(
+    registry,
+    handlers,
+    'tf:resource/read-object@1',
+    ['read-object'],
+    'Storage.Read',
+    async ({ uri, key }) => {
+      if (typeof typed.readObject !== 'function') {
+        return { ok: false, value: null };
+      }
+      const value = await typed.readObject(uri, key);
+      return { ok: value !== null && value !== undefined, value, etag: null };
+    },
+  );
+
+  register(
+    registry,
+    handlers,
+    'tf:resource/compare-and-swap@1',
+    ['compare-and-swap'],
+    'Storage.Write',
+    async ({ uri, key, value, ifMatch, expect }) => {
+      const expected = expect ?? ifMatch ?? '';
+      const update = value ?? '';
+      const ok = typeof typed.compareAndSwap === 'function'
+        ? await typed.compareAndSwap(uri, key, expected, update)
+        : false;
+      return { ok, etag: null };
+    },
+  );
+
+  register(
+    registry,
+    handlers,
+    'tf:observability/emit-metric@1',
+    ['emit-metric'],
+    'Observability.EmitMetric',
+    async ({ name, value }) => {
+      await typed.emitMetric?.(name, value);
+      return { ok: true };
+    },
+  );
+
+  register(
+    registry,
+    handlers,
+    'tf:network/publish@1',
+    ['publish'],
+    'Network.Out',
+    async ({ topic, key, payload }) => {
+      await typed.publish?.(topic ?? 'default', key ?? '', payload ?? '');
+      return { ok: true };
+    },
+  );
+
+  register(
+    registry,
+    handlers,
+    'tf:information/hash@1',
+    ['hash'],
+    'Information.Hash',
+    async (args = {}) => {
+      const target = Object.prototype.hasOwnProperty.call(args, 'value') ? args.value : args;
+      const canonical = stableStringify(target);
+      const data = encodeString(canonical);
+      let digest = null;
+      if (typeof typed.hash === 'function') {
+        digest = await typed.hash(data);
+      } else {
+        digest = createHash('sha256').update(data).digest('hex');
+      }
+      return { ok: true, hash: `sha256:${digest}` };
+    },
+  );
+
+  register(
+    registry,
+    handlers,
+    'tf:security/sign-data@1',
+    ['sign-data'],
+    'Crypto',
+    async ({ key_ref, key, data, payload }) => {
+      const keyId = key_ref ?? key ?? 'k1';
+      const raw = payload ?? data ?? '';
+      const bytes = encodeValue(raw);
+      if (typeof typed.sign !== 'function') {
+        throw new Error('inmem: sign adapter not available');
+      }
+      const sig = await typed.sign(keyId, bytes);
+      return { ok: true, signature: Buffer.from(sig).toString('base64') };
+    },
+  );
+
+  register(
+    registry,
+    handlers,
+    'tf:security/verify-signature@1',
+    ['verify-signature'],
+    'Crypto',
+    async ({ key_ref, key, data, payload, signature, sig }) => {
+      const keyId = key_ref ?? key ?? 'k1';
+      const raw = payload ?? data ?? '';
+      const bytes = encodeValue(raw);
+      const signed = signature ?? sig ?? '';
+      if (typeof typed.verify !== 'function') {
+        return { ok: false };
+      }
+      const provided = decodeSignature(signed);
+      const ok = await typed.verify(keyId, bytes, provided);
+      return { ok };
+    },
+  );
+
+  function effectFor(name) {
+    const entry = registry.get(name);
+    return entry?.effect ?? null;
   }
-  return { ok: true, value: current.value, etag: current.etag };
-});
 
-register('tf:resource/compare-and-swap@1', ['compare-and-swap'], 'Storage.Write', async ({ uri, key, value, ifMatch }) => {
-  const storageKey = keyFor(uri, key);
-  const current = storage.get(storageKey);
-  if (!current) {
-    return { ok: false, etag: null };
-  }
-  const matches = String(current.etag) === String(ifMatch);
-  if (!matches) {
-    return { ok: false, etag: current.etag };
-  }
-  const etag = nextEtag(current.etag);
-  storage.set(storageKey, { value, etag });
-  return { ok: true, etag };
-});
+  const runtime = handlers;
 
-register('tf:information/hash@1', ['hash'], 'Information.Hash', async (args = {}) => {
-  const target = Object.prototype.hasOwnProperty.call(args, 'value') ? args.value : args;
-  const s = stableStringify(target);
-  const digest = createHash('sha256').update(s).digest('hex');
-  return { ok: true, hash: `sha256:${digest}` };
-});
+  runtime.getAdapter = function getAdapter(name) {
+    return registry.get(name)?.impl ?? null;
+  };
 
-register('tf:observability/emit-metric@1', ['emit-metric'], 'Observability.EmitMetric', async (args = {}) => {
-  metricsLog.push(args);
-  if (process.env.DEV_PROOFS) {
-    console.log('[metric]', JSON.stringify(args));
-  }
-  return { ok: true };
-});
+  runtime.canonicalPrim = function canonicalPrim(name) {
+    return registry.get(name)?.canonicalId ?? name;
+  };
 
-register('tf:network/publish@1', ['publish'], 'Network.Out', async (args = {}) => {
-  const topic = args.topic ?? 'default';
-  if (!topicQueues.has(topic)) {
-    topicQueues.set(topic, []);
-  }
-  topicQueues.get(topic).push(args);
-  return { ok: true };
-});
+  runtime.effectFor = effectFor;
 
-function effectFor(name) {
-  const entry = registry.get(name);
-  return entry?.effect ?? null;
+  runtime.state = typed.state;
+
+  runtime.reset = function reset() {
+    if (typeof typed.reset === 'function') {
+      typed.reset();
+    }
+  };
+
+  runtime.adapters = typed;
+
+  return runtime;
 }
 
-const inmem = handlers;
+const defaultRuntime = createRuntimeFromAdapters();
 
-inmem.getAdapter = function getAdapter(name) {
-  return registry.get(name)?.impl ?? null;
-};
-
-inmem.canonicalPrim = function canonicalPrim(name) {
-  return registry.get(name)?.canonicalId ?? name;
-};
-
-inmem.effectFor = effectFor;
-
-inmem.state = {
-  storage,
-  metrics: metricsLog,
-  topics: topicQueues,
-};
-
-inmem.reset = function reset() {
-  storage.clear();
-  metricsLog.length = 0;
-  topicQueues.clear();
-};
-
-export default inmem;
+export default defaultRuntime;

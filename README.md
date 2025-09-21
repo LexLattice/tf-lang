@@ -165,6 +165,11 @@ TF_CAPS='{"effects":["Network.Out","Pure"],"allow_writes_prefixes":[]}' node out
 # Summarize traces
 cat tests/fixtures/trace-sample.jsonl | node packages/tf-l0-tools/trace-summary.mjs --top=3 --pretty
 
+### Generated pipeline adapters
+- Each TS emission includes `runtime/adapters/types.ts`, which defines the minimal `Adapters` surface (network, storage, crypto, observability).
+- `src/adapters.ts` exports `requireAdapters` so pipelines can assert that their runtime implements every primitive referenced in the IR.
+- The runtime ships with `runtime/adapters/inmem.mjs` — a deterministic in-memory implementation (`createInmemAdapters`) that powers the default runner and is handy for local tests.
+
 ### Trace files (T3)
 - Runners always print JSON trace lines to stdout; setting `TF_TRACE_PATH=out/0.4/traces/<name>.jsonl` is an optional mirror.
 - Per run: `TF_TRACE_PATH=out/0.4/traces/publish.jsonl node out/0.4/codegen-ts/run_publish/run.mjs --caps caps.json`.

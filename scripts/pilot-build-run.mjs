@@ -6,6 +6,7 @@ import { copyFileSync } from 'node:fs';
 import { join, dirname, isAbsolute } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { canonicalStringify, hashJsonLike } from './hash-jsonl.mjs';
+import { sha256OfCanonicalJson } from '../packages/tf-l0-tools/lib/digest.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(here, '..');
@@ -63,7 +64,7 @@ async function rewriteManifest(path) {
   return manifest;
 }
 
-async function patchRunManifest(runPath, manifest) {
+async function patchRunManifest(runPath, manifest, options = {}) {
   const source = await readFile(runPath, 'utf8');
   const marker = 'const MANIFEST = ';
   const idx = source.indexOf(marker);
@@ -74,7 +75,32 @@ async function patchRunManifest(runPath, manifest) {
   if (end === -1) return;
   const prefix = source.slice(0, start);
   const suffix = remainder.slice(end + 2);
-  const next = `${prefix}${JSON.stringify(manifest)};\n${suffix}`;
+  let next = `${prefix}${JSON.stringify(manifest)};\n${suffix}`;
+  const { manifestHash, irHash } = options ?? {};
+  if (typeof manifestHash === 'string') {
+    const hashMarker = "const MANIFEST_HASH = '";
+    const hashIdx = next.indexOf(hashMarker);
+    if (hashIdx !== -1) {
+      const hashStart = hashIdx + hashMarker.length;
+      const hashTail = next.slice(hashStart);
+      const hashEnd = hashTail.indexOf("';");
+      if (hashEnd !== -1) {
+        next = `${next.slice(0, hashStart)}${manifestHash}${hashTail.slice(hashEnd)}`;
+      }
+    }
+  }
+  if (typeof irHash === 'string') {
+    const irMarker = "const IR_HASH = '";
+    const irIdx = next.indexOf(irMarker);
+    if (irIdx !== -1) {
+      const irStart = irIdx + irMarker.length;
+      const irTail = next.slice(irStart);
+      const irEnd = irTail.indexOf("';");
+      if (irEnd !== -1) {
+        next = `${next.slice(0, irStart)}${irHash}${irTail.slice(irEnd)}`;
+      }
+    }
+  }
   await writeFile(runPath, next);
 }
 
@@ -144,11 +170,24 @@ async function main() {
   sh('node', [tfCompose, 'canon', flowPath, '-o', canonPath]);
   sh('node', [tfManifest, flowPath, '-o', manifestPath]);
   const manifest = await rewriteManifest(manifestPath);
+  let irHash;
+  try {
+    const irRaw = await readFile(irPath, 'utf8');
+    irHash = sha256OfCanonicalJson(JSON.parse(irRaw));
+  } catch (err) {
+    console.warn('pilot-build-run: unable to hash IR', err);
+  }
+  let manifestHash;
+  try {
+    manifestHash = await hashJsonLike(manifestPath);
+  } catch (err) {
+    console.warn('pilot-build-run: unable to hash manifest', err);
+  }
 
   const genDir = join(outDir, 'codegen-ts', 'pilot_min');
   await mkdir(genDir, { recursive: true });
   sh('node', [tfCompose, 'emit', '--lang', 'ts', flowPath, '--out', genDir]);
-  await patchRunManifest(join(genDir, 'run.mjs'), manifest);
+  await patchRunManifest(join(genDir, 'run.mjs'), manifest, { manifestHash, irHash });
 
   const caps = {
     effects: ['Network.Out', 'Storage.Write', 'Observability', 'Pure'],
@@ -175,6 +214,20 @@ async function main() {
   if (!Number.isFinite(status.ops) || status.ops < 2) throw new Error('pilot-build-run: status.ops too low');
   if (!Array.isArray(status.effects) || !status.effects.includes('Network.Out') || !status.effects.includes('Storage.Write')) {
     throw new Error('pilot-build-run: status missing required effects');
+  }
+  if (status.provenance && typeof status.provenance === 'object') {
+    const next = { ...status.provenance };
+    if (typeof irHash === 'string') {
+      next.ir_hash = irHash;
+    } else {
+      console.warn('pilot-build-run: IR hash unavailable for provenance');
+    }
+    if (typeof manifestHash === 'string') {
+      next.manifest_hash = manifestHash;
+    } else {
+      console.warn('pilot-build-run: manifest hash unavailable for provenance');
+    }
+    status.provenance = next;
   }
   status.manifest_path = manifestPath;
   await writeFile(statusPath, JSON.stringify(status, null, 2) + '\n');

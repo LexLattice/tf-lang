@@ -8,6 +8,7 @@ import { manifestFromVerdict } from '../../tf-l0-check/src/manifest.mjs';
 
 const moduleDir = dirname(fileURLToPath(import.meta.url));
 const runtimeSrc = join(moduleDir, '..', 'src', 'runtime');
+const adaptersSrc = join(moduleDir, '..', 'src', 'adapters');
 const catalogPath = join(moduleDir, '..', '..', 'tf-l0-spec', 'spec', 'catalog.json');
 
 let catalogPromise = null;
@@ -63,17 +64,50 @@ function prims(ir, out = new Set()) {
 
 function genAdapters(ir) {
   const names = Array.from(prims(ir));
-  const methods = names.map((name) => `  ${to(name)}(input: any): Promise<any>`).join('\n');
-  const stubs = names.map((name) => stub(name)).join('\n\n');
-  return `export interface Adapters {\n${methods}\n}\n\n${stubs}\n`;
-
-  function to(name) {
-    return `prim_${name.replace(/[^a-z0-9]/g, '_')}`;
+  const methods = new Set();
+  for (const name of names) {
+    const method = adapterFor(name);
+    if (method) {
+      methods.add(method);
+    }
   }
+  const methodList = Array.from(methods).sort();
+  const pickKeys = methodList.length > 0 ? methodList.map((key) => `'${key}'`).join(' | ') : 'never';
+  const typeAlias = methodList.length > 0 ? `Required<Pick<BaseAdapters, ${pickKeys}>>` : 'BaseAdapters';
+  const checks = methodList
+    .map((key) => `  if (typeof adapters.${key} !== 'function') missing.push('${key}');`)
+    .join('\n');
+  return `import type { Adapters as BaseAdapters } from '../runtime/adapters/types';\nexport type PipelineAdapters = ${typeAlias};\n\nexport function requireAdapters(adapters: BaseAdapters): PipelineAdapters {\n  const missing: string[] = [];\n${checks ? `${checks}\n` : ''}  if (missing.length > 0) {\n    throw new Error('Missing adapters: ' + missing.join(', '));\n  }\n  return adapters as PipelineAdapters;\n}\n\nexport type Adapters = PipelineAdapters;\nexport type { Network, Storage, Crypto, Observability } from '../runtime/adapters/types';\n`;
 
-  function stub(name) {
-    const method = to(name);
-    return `export async function ${method}(input:any):Promise<any>{ throw new Error('Not wired: ${method}'); }`;
+  function adapterFor(prim) {
+    switch (prim) {
+      case 'publish':
+      case 'tf:network/publish@1':
+        return 'publish';
+      case 'emit-metric':
+      case 'tf:observability/emit-metric@1':
+        return 'emitMetric';
+      case 'write-object':
+      case 'tf:resource/write-object@1':
+        return 'writeObject';
+      case 'read-object':
+      case 'tf:resource/read-object@1':
+        return 'readObject';
+      case 'compare-and-swap':
+      case 'tf:resource/compare-and-swap@1':
+        return 'compareAndSwap';
+      case 'sign-data':
+      case 'tf:security/sign-data@1':
+        return 'sign';
+      case 'verify-signature':
+      case 'tf:security/verify-signature@1':
+        return 'verify';
+      case 'hash':
+      case 'tf:information/hash@1':
+        return 'hash';
+      default:
+        return null;
+    }
   }
 }
 
@@ -128,6 +162,10 @@ async function emitRuntime(ir, outDir, manifest, catalog) {
   await copyFile(join(runtimeSrc, 'inmem.mjs'), join(runtimeOut, 'inmem.mjs'));
   await copyFile(join(runtimeSrc, 'run-ir.mjs'), join(runtimeOut, 'run-ir.mjs'));
   await copyFile(join(runtimeSrc, 'capabilities.mjs'), join(runtimeOut, 'capabilities.mjs'));
+  const adaptersOut = join(outDir, 'adapters');
+  await mkdir(adaptersOut, { recursive: true });
+  await copyFile(join(adaptersSrc, 'inmem.mjs'), join(adaptersOut, 'inmem.mjs'));
+  await copyFile(join(adaptersSrc, 'types.ts'), join(adaptersOut, 'types.ts'));
 
   const canonicalIrLiteral = canonicalize(ir);
   const canonicalIr = JSON.parse(canonicalIrLiteral);

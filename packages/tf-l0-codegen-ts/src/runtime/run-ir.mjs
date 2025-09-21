@@ -1,6 +1,7 @@
 import { createWriteStream, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { validateCapabilities } from './capabilities.mjs';
+import defaultInmemRuntime, { createRuntimeFromAdapters } from './inmem.mjs';
 
 let clockWarned = false;
 
@@ -90,6 +91,52 @@ function normalizeOk(value) {
   return typeof value === 'boolean' ? value : true;
 }
 
+function hasPrimKeys(runtime) {
+  if (!runtime || typeof runtime !== 'object') {
+    return false;
+  }
+  const keys = Object.keys(runtime);
+  return keys.some((key) => typeof key === 'string' && key.includes(':'));
+}
+
+function isRuntimeAdapterObject(runtime) {
+  if (!runtime || typeof runtime !== 'object') {
+    return false;
+  }
+  if (typeof runtime.getAdapter === 'function') {
+    return true;
+  }
+  if (runtime instanceof Map) {
+    return true;
+  }
+  return hasPrimKeys(runtime);
+}
+
+function isTypedAdapterSurface(value) {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const candidates = ['publish', 'writeObject', 'readObject', 'compareAndSwap', 'sign', 'verify', 'emitMetric', 'hash'];
+  return candidates.some((key) => typeof value[key] === 'function');
+}
+
+function normalizeRuntime(runtime) {
+  if (isRuntimeAdapterObject(runtime)) {
+    return runtime;
+  }
+  if (runtime && typeof runtime === 'object' && isTypedAdapterSurface(runtime.adapters)) {
+    const bridged = createRuntimeFromAdapters(runtime.adapters);
+    return bridged;
+  }
+  if (isTypedAdapterSurface(runtime)) {
+    return createRuntimeFromAdapters(runtime);
+  }
+  if (!runtime) {
+    return createRuntimeFromAdapters();
+  }
+  return runtime;
+}
+
 async function execNode(node, runtime, ctx, input) {
   if (!node || typeof node !== 'object') {
     return { value: input, ok: true };
@@ -164,6 +211,7 @@ async function execNode(node, runtime, ctx, input) {
 }
 
 export async function runIR(ir, runtime, options = {}) {
+  runtime = normalizeRuntime(runtime ?? defaultInmemRuntime);
   const tracePath = process.env.TF_TRACE_PATH;
   let traceStream = null;
   let traceWritable = false;

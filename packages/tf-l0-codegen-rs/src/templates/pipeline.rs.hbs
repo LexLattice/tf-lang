@@ -1,0 +1,9 @@
+// @generated
+use anyhow::Result;
+
+{{TRAITS}}
+
+pub fn run_pipeline(adapters: &(impl {{TRAIT_BOUNDS}})) -> Result<()> {
+    let _ = adapters;
+{{STEPS}}    Ok(())
+}

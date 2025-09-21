@@ -8,6 +8,7 @@ const REFINEMENT_TAGS = new Set([
   'symbol',
   'idempotency_key'
 ]);
+const CANONICAL_SORT = Symbol('tf:canonical:sort');
 
 function normalizeRefinements(refinements = []) {
   const tags = Array.from(new Set(refinements));
@@ -177,16 +178,28 @@ export function refined(type, tag) {
   return freezeType({ kind: base.kind, refinements: normalizeRefinements(Array.from(tags)) });
 }
 
+const ERROR_REASONS = new Set(['kind_mismatch', 'shape_mismatch', 'refinement_mismatch', 'union_conflict']);
+
 function fail(reason) {
+  if (!ERROR_REASONS.has(reason)) {
+    throw new Error(`invalid failure reason: ${reason}`);
+  }
   return { ok: false, reason };
 }
 
 function baseUnify(a, b) {
-  const shared = a.refinements.filter((tag) => b.refinements.includes(tag));
-  if (shared.length === 0 && (a.refinements.length > 0 || b.refinements.length > 0)) {
+  if (a.refinements.length === 0 && b.refinements.length === 0) {
+    return { ok: true, type: baseKind(a.kind) };
+  }
+  if (a.refinements.length !== b.refinements.length) {
     return fail('refinement_mismatch');
   }
-  return { ok: true, type: baseKind(a.kind, shared) };
+  for (let i = 0; i < a.refinements.length; i += 1) {
+    if (a.refinements[i] !== b.refinements[i]) {
+      return fail('refinement_mismatch');
+    }
+  }
+  return { ok: true, type: baseKind(a.kind, a.refinements) };
 }
 
 function unifyArrays(a, b) {
@@ -221,14 +234,16 @@ function unifyObjects(a, b) {
     }
   }
   const resultFields = {};
-  for (const name of sharedKeys.sort()) {
+  const sortedShared = sharedKeys.sort();
+  for (const name of sortedShared) {
     const unified = unify(a.fields[name].type, b.fields[name].type);
     if (!unified.ok) {
       return unified;
     }
+    const optional = a.fields[name].optional && b.fields[name].optional;
     resultFields[name] = {
       type: unified.type,
-      optional: a.fields[name].optional && b.fields[name].optional,
+      optional,
     };
   }
   return { ok: true, type: makeObject(resultFields) };
@@ -247,7 +262,7 @@ function unifyUnions(a, b) {
     }
   }
   if (results.length === 0) {
-    return fail('union_mismatch');
+    return fail('union_conflict');
   }
   const combined = makeUnionType(results);
   return { ok: true, type: combined };
@@ -284,27 +299,24 @@ function canonicalTypeKey(type) {
   return canonicalStringify(toJSON(type));
 }
 
-export function toJSON(type) {
-  assertType(type);
+function encodeTypeJSON(type) {
   if (type.kind === 'union') {
-    return { union: type.variants.map((variant) => toJSON(variant)) };
+    const variants = type.variants.map((variant) => encodeTypeJSON(variant));
+    const marked = markUnorderedArray(variants);
+    return { union: marked };
   }
   if (type.kind === 'array') {
-    return { array: toJSON(type.items) };
+    return { array: encodeTypeJSON(type.items) };
   }
   if (type.kind === 'option') {
-    return { option: toJSON(type.inner) };
+    return { option: encodeTypeJSON(type.inner) };
   }
   if (type.kind === 'object') {
-    const entries = Object.entries(type.fields)
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([name, field]) => {
-        const key = field.optional ? `${name}?` : name;
-        return [key, toJSON(field.type)];
-      });
     const shape = {};
-    for (const [key, value] of entries) {
-      shape[key] = value;
+    const entries = Object.entries(type.fields).sort((a, b) => a[0].localeCompare(b[0]));
+    for (const [name, field] of entries) {
+      const key = field.optional ? `${name}?` : name;
+      shape[key] = encodeTypeJSON(field.type);
     }
     return { object: shape };
   }
@@ -312,6 +324,11 @@ export function toJSON(type) {
     return { refined: [type.kind, ...type.refinements] };
   }
   return { [type.kind]: true };
+}
+
+export function toJSON(type) {
+  assertType(type);
+  return normalizeCanonicalJSON(encodeTypeJSON(type));
 }
 
 export function fromJSON(json) {
@@ -371,20 +388,44 @@ export function fromJSON(json) {
   }
 }
 
-export function canonicalStringify(value) {
-  return canonicalize(value);
+function markUnorderedArray(values) {
+  const copy = values.slice();
+  Object.defineProperty(copy, CANONICAL_SORT, {
+    value: true,
+    enumerable: false,
+    configurable: false,
+    writable: false,
+  });
+  return copy;
 }
 
-function canonicalize(value) {
+function normalizeCanonicalJSON(value) {
   if (Array.isArray(value)) {
-    return `[${value.map((v) => canonicalize(v)).join(',')}]`;
+    const normalizedItems = value.map((item) => normalizeCanonicalJSON(item));
+    if (value[CANONICAL_SORT]) {
+      normalizedItems.sort((left, right) =>
+        toCanonicalJSON(left).localeCompare(toCanonicalJSON(right))
+      );
+    }
+    return normalizedItems;
   }
   if (value && typeof value === 'object') {
-    const keys = Object.keys(value).sort();
-    const parts = keys.map((key) => `${JSON.stringify(key)}:${canonicalize(value[key])}`);
-    return `{${parts.join(',')}}`;
+    const entries = Object.entries(value).sort((a, b) => a[0].localeCompare(b[0]));
+    const normalized = {};
+    for (const [key, child] of entries) {
+      normalized[key] = normalizeCanonicalJSON(child);
+    }
+    return normalized;
   }
-  return JSON.stringify(value);
+  return value;
+}
+
+export function toCanonicalJSON(value) {
+  return JSON.stringify(normalizeCanonicalJSON(value));
+}
+
+export function canonicalStringify(value) {
+  return toCanonicalJSON(value);
 }
 
 export function writeJSON(type) {

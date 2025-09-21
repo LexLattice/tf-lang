@@ -4,6 +4,7 @@ import {
   any,
   array,
   bytes,
+  int,
   object,
   option,
   refined,
@@ -47,12 +48,34 @@ test('bytes and string do not unify', () => {
   assert.equal(result.reason, 'kind_mismatch');
 });
 
+test('array(string) with array(string) succeeds', () => {
+  const result = unify(array(string), array(string));
+  assert.equal(result.ok, true);
+  const expected = canonicalStringify(toJSON(array(string)));
+  assert.equal(canonicalStringify(toJSON(result.type)), expected);
+});
+
+test('array(string) with array(int) fails with kind mismatch', () => {
+  const mismatch = unify(array(string), array(int));
+  assert.equal(mismatch.ok, false);
+  assert.equal(mismatch.reason, 'kind_mismatch');
+});
+
 test('object shapes require matching required keys', () => {
   const source = object({ key: string, value: string });
   const target = object({ key: string });
   const result = unify(source, target);
   assert.equal(result.ok, false);
   assert.equal(result.reason, 'shape_mismatch');
+});
+
+test('object intersection drops optional keys missing on one side', () => {
+  const left = object({ a: string, 'b?': array(string) });
+  const right = object({ a: string });
+  const unified = unify(left, right);
+  assert.equal(unified.ok, true);
+  const json = toJSON(unified.type);
+  assert.deepEqual(json, { object: { a: { string: true } } });
 });
 
 test('refinement mismatch is detected', () => {
@@ -63,11 +86,13 @@ test('refinement mismatch is detected', () => {
   assert.equal(result.reason, 'refinement_mismatch');
 });
 
-test('arrays unify element-wise', () => {
-  const left = array(refined(string, 'symbol'));
-  const right = array(refined(string, 'symbol'));
-  const result = unify(left, right);
-  assert.equal(result.ok, true);
-  assert.equal(canonicalStringify(toJSON(result.type)), canonicalStringify(toJSON(left)));
+test('refined uri with refined uri succeeds deterministically', () => {
+  const left = refined(string, 'uri');
+  const right = refined(string, 'uri');
+  const first = unify(left, right);
+  const second = unify(left, right);
+  assert.equal(first.ok, true);
+  assert.equal(second.ok, true);
+  assert.equal(canonicalStringify(toJSON(first.type)), canonicalStringify(toJSON(second.type)));
 });
 

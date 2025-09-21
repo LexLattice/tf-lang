@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { fromJSON, toJSON, unify, canonicalStringify } from '../packages/tf-l0-types/src/types.mjs';
+import { fromJSON, toJSON, unify, toCanonicalJSON } from '../packages/tf-l0-types/src/types.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -59,6 +59,8 @@ const cases = chains.map((chain) => {
   return { chain: label, ok: false, reason: verdict.reason };
 });
 
+cases.sort((a, b) => a.chain.localeCompare(b.chain));
+
 const summary = cases.reduce(
   (acc, entry) => {
     if (entry.ok) {
@@ -74,4 +76,4 @@ const summary = cases.reduce(
 const payload = { cases, summary };
 
 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-fs.writeFileSync(outputPath, `${canonicalStringify(payload)}\n`);
+fs.writeFileSync(outputPath, `${toCanonicalJSON(payload)}\n`);

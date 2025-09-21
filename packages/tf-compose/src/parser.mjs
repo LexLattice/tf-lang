@@ -6,101 +6,436 @@ export function parseDSL(src) {
   return seq;
 }
 
-function tokenize(s) {
-  const out = []; let i=0;
-  while (i<s.length) {
-    const c=s[i];
-    if (/\s/.test(c)) { i++; continue; }
-    if (s.startsWith('|>', i)) { out.push({t:'PIPE'}); i+=2; continue; }
-    if (s.startsWith('par{', i)) { out.push({t:'PAR_OPEN'}); i+=4; continue; }
-    if (s.startsWith('seq{', i)) { out.push({t:'SEQ_OPEN'}); i+=4; continue; }
-    if (s.startsWith('authorize', i) && ['{','('].includes(s[i+9])) { out.push({t:'REGION_AUTH'}); i+=9; continue; }
-    if (s.startsWith('txn', i) && ['{','('].includes(s[i+3])) { out.push({t:'REGION_TXN'}); i+=3; continue; }
-    if (c==='{' ) { out.push({t:'LBRACE'}); i++; continue; }
-    if (c==='}') { out.push({t:'RBRACE'}); i++; continue; }
-    if (c==='(' ) { out.push({t:'LPAREN'}); i++; continue; }
-    if (c===')' ) { out.push({t:'RPAREN'}); i++; continue; }
-    if (c===';') { out.push({t:'SEMI'}); i++; continue; }
-    if (c===',') { out.push({t:'COMMA'}); i++; continue; }
-    if (c==='=') { out.push({t:'EQ'}); i++; continue; }
-    if (c==='"' || c==="'" ) {
-      const q=c; i++; let buf=''; while (i<s.length && s[i]!==q){ if(s[i]=='\\'){ buf+=s[i+1]; i+=2; } else { buf+=s[i++]; } }
-      i++; out.push({t:'STRING', v:buf}); continue;
-    }
-    if (/[0-9]/.test(c)) { let j=i; while (j<s.length && /[0-9]/.test(s[j])) j++; out.push({t:'NUMBER', v:Number(s.slice(i,j))}); i=j; continue; }
-    let j=i; while (j<s.length && /[A-Za-z0-9_\-\.]/.test(s[j])) j++;
-    out.push({t:'IDENT', v:s.slice(i,j)}); i=j;
+function tokenize(src) {
+  const tokens = [];
+  let i = 0;
+  let line = 1;
+  let col = 1;
+
+  function currentPos() {
+    return { index: i, line, col };
   }
-  return {i:0, list:out};
+
+  function advanceChar() {
+    const ch = src[i++];
+    if (ch === '\n') {
+      line += 1;
+      col = 1;
+    } else if (ch === '\r') {
+      if (src[i] === '\n') {
+        i += 1;
+      }
+      line += 1;
+      col = 1;
+    } else {
+      col += 1;
+    }
+    return ch;
+  }
+
+  function makeToken(t, v, start) {
+    return { t, v, start, end: currentPos() };
+  }
+
+  function throwError(start, message, span = 2) {
+    throw syntaxErrorFromPositions(src, start, currentPos(), message, span);
+  }
+
+  function consumeWord(word) {
+    for (const ch of word) {
+      if (src[i] !== ch) return false;
+      advanceChar();
+    }
+    return true;
+  }
+
+  function consumeWhile(regex) {
+    let consumed = '';
+    while (i < src.length && regex.test(src[i])) {
+      consumed += advanceChar();
+    }
+    return consumed;
+  }
+
+  while (i < src.length) {
+    const ch = src[i];
+    if (/\s/.test(ch)) {
+      advanceChar();
+      continue;
+    }
+
+    const start = currentPos();
+
+    if (src.startsWith('|>', i)) {
+      advanceChar();
+      advanceChar();
+      tokens.push(makeToken('PIPE', null, start));
+      continue;
+    }
+
+    if (src.startsWith('par{', i)) {
+      consumeWord('par{');
+      tokens.push(makeToken('PAR_OPEN', null, start));
+      continue;
+    }
+
+    if (src.startsWith('seq{', i)) {
+      consumeWord('seq{');
+      tokens.push(makeToken('SEQ_OPEN', null, start));
+      continue;
+    }
+
+    if (src.startsWith('authorize', i)) {
+      const next = src[i + 9] ?? '';
+      if (next === '{' || next === '(') {
+        consumeWord('authorize');
+        tokens.push(makeToken('REGION_AUTH', null, start));
+        continue;
+      }
+    }
+
+    if (src.startsWith('txn', i)) {
+      const next = src[i + 3] ?? '';
+      if (next === '{' || next === '(') {
+        consumeWord('txn');
+        tokens.push(makeToken('REGION_TXN', null, start));
+        continue;
+      }
+    }
+
+    if (ch === '{') {
+      advanceChar();
+      tokens.push(makeToken('LBRACE', null, start));
+      continue;
+    }
+
+    if (ch === '}') {
+      advanceChar();
+      tokens.push(makeToken('RBRACE', null, start));
+      continue;
+    }
+
+    if (ch === '[') {
+      advanceChar();
+      tokens.push(makeToken('LBRACKET', null, start));
+      continue;
+    }
+
+    if (ch === ']') {
+      advanceChar();
+      tokens.push(makeToken('RBRACKET', null, start));
+      continue;
+    }
+
+    if (ch === '(') {
+      advanceChar();
+      tokens.push(makeToken('LPAREN', null, start));
+      continue;
+    }
+
+    if (ch === ')') {
+      advanceChar();
+      tokens.push(makeToken('RPAREN', null, start));
+      continue;
+    }
+
+    if (ch === ';') {
+      advanceChar();
+      tokens.push(makeToken('SEMI', null, start));
+      continue;
+    }
+
+    if (ch === ',') {
+      advanceChar();
+      tokens.push(makeToken('COMMA', null, start));
+      continue;
+    }
+
+    if (ch === '=') {
+      advanceChar();
+      tokens.push(makeToken('EQ', null, start));
+      continue;
+    }
+
+    if (ch === ':') {
+      advanceChar();
+      tokens.push(makeToken('COLON', null, start));
+      continue;
+    }
+
+    if (ch === '"' || ch === "'") {
+      const quote = advanceChar();
+      let buf = '';
+      let closed = false;
+      while (i < src.length) {
+        const nextCh = advanceChar();
+        if (nextCh === quote) {
+          closed = true;
+          break;
+        }
+        if (nextCh === '\\') {
+          if (i >= src.length) {
+            throwError(start, 'Unterminated string literal');
+          }
+          const escaped = advanceChar();
+          buf += escaped;
+          continue;
+        }
+        buf += nextCh;
+      }
+      if (!closed) {
+        throwError(start, 'Unterminated string literal');
+      }
+      tokens.push(makeToken('STRING', buf, start));
+      continue;
+    }
+
+    const isNumberStart = (ch === '-' && /[0-9]/.test(src[i + 1] ?? '')) || /[0-9]/.test(ch);
+    if (isNumberStart) {
+      let raw = '';
+      if (ch === '-') {
+        raw += advanceChar();
+      }
+      const digits = consumeWhile(/[0-9]/);
+      raw += digits;
+      if (!digits) {
+        throwError(start, 'Invalid number literal');
+      }
+      if (src[i] === '.') {
+        raw += advanceChar();
+        const frac = consumeWhile(/[0-9]/);
+        if (!frac) {
+          throwError(start, 'Invalid number literal');
+        }
+        raw += frac;
+      }
+      const value = Number(raw);
+      if (!Number.isFinite(value)) {
+        throwError(start, 'Invalid number literal');
+      }
+      tokens.push(makeToken('NUMBER', value, start));
+      continue;
+    }
+
+    let ident = '';
+    while (i < src.length && /[A-Za-z0-9_\-\.]/.test(src[i])) {
+      ident += advanceChar();
+    }
+    if (ident) {
+      tokens.push(makeToken('IDENT', ident, start));
+      continue;
+    }
+
+    throwError(start, `Unexpected character '${ch}'`);
+  }
+
+  return { i: 0, list: tokens, src, endPos: { index: i, line, col } };
 }
 
-function peek(t){ return t.list[t.i]||{t:'EOF'}; }
-function take(t, kind){ const p=peek(t); if (p.t!==kind) throw new Error(`Expected ${kind}, got ${p.t}`); t.i++; return p; }
-function maybe(t, kind){ const p=peek(t); if (p.t===kind){ t.i++; return true; } return false; }
-function expectEOF(t){ if (peek(t).t!=='EOF') throw new Error('Trailing tokens'); }
-
-function parseSeq(t){
-  const parts=[parseStep(t)];
-  while (maybe(t,'PIPE')) parts.push(parseStep(t));
-  return parts.length===1 ? parts[0] : { node:'Seq', children: parts };
+function peek(tokens) {
+  return tokens.list[tokens.i] || { t: 'EOF', start: tokens.endPos, end: tokens.endPos };
 }
 
-function parseBlock(t, node){
-  const kids=[];
-  while (true){
-    kids.push(parseStep(t));
-    if (maybe(t,'SEMI')) continue;
-    take(t,'RBRACE'); break;
+function take(tokens, kind) {
+  const token = peek(tokens);
+  if (token.t !== kind) {
+    throw syntaxError(tokens, token, `Expected ${kind}, got ${token.t}`);
+  }
+  tokens.i += 1;
+  return token;
+}
+
+function maybe(tokens, kind) {
+  const token = peek(tokens);
+  if (token.t === kind) {
+    tokens.i += 1;
+    return true;
+  }
+  return false;
+}
+
+function expectEOF(tokens) {
+  if (peek(tokens).t !== 'EOF') {
+    throw syntaxError(tokens, peek(tokens), 'Trailing tokens');
+  }
+}
+
+function syntaxError(tokens, token, message, span) {
+  const start = token.start || tokens.endPos;
+  const end = token.end || start;
+  const err = new Error(formatErrorMessage(tokens.src, start, end, message, span));
+  err.loc = { line: start.line, col: start.col };
+  return err;
+}
+
+function syntaxErrorFromPositions(src, start, end, message, span) {
+  return new Error(formatErrorMessage(src, start, end, message, span));
+}
+
+function formatErrorMessage(src, start, end, message, spanOverride) {
+  const line = start.line ?? 1;
+  const col = start.col ?? 1;
+  const index = start.index ?? 0;
+  const span = spanOverride ?? Math.max(1, (end?.index ?? index + 1) - index);
+  const caretCount = Math.min(12, Math.max(2, span));
+
+  let lineStart = index;
+  while (lineStart > 0 && src[lineStart - 1] !== '\n') {
+    lineStart -= 1;
+  }
+  let lineEnd = index;
+  while (lineEnd < src.length && src[lineEnd] !== '\n') {
+    lineEnd += 1;
+  }
+  const lineText = src.slice(lineStart, lineEnd);
+  const caretOffset = Math.max(0, index - lineStart);
+  const caretLine = `${' '.repeat(caretOffset)}${'^'.repeat(caretCount)}`;
+
+  return `Parse error at ${line}:${col}: ${message}\n${lineText}\n${caretLine}`;
+}
+
+function parseSeq(tokens) {
+  const parts = [parseStep(tokens)];
+  while (maybe(tokens, 'PIPE')) {
+    parts.push(parseStep(tokens));
+  }
+  return parts.length === 1 ? parts[0] : { node: 'Seq', children: parts };
+}
+
+function parseBlock(tokens, node) {
+  const kids = [];
+  if (maybe(tokens, 'RBRACE')) {
+    node.children = kids;
+    return node;
+  }
+  while (true) {
+    kids.push(parseStep(tokens));
+    if (maybe(tokens, 'SEMI')) {
+      if (maybe(tokens, 'RBRACE')) break;
+      continue;
+    }
+    take(tokens, 'RBRACE');
+    break;
   }
   node.children = kids;
   return node;
 }
 
-function parseRegion(t, kind){
-  // optional attrs: e.g., authorize(region="us", scope="kms.sign"){ ... }
-  let attrs={};
-  if (maybe(t,'LPAREN')) {
-    if (!maybe(t,'RPAREN')) {
-      while (true){
-        const key = take(t,'IDENT').v;
-        take(t,'EQ');
-        const vTok=peek(t);
-        let val;
-        if (vTok.t==='STRING' || vTok.t==='NUMBER'){ take(t,vTok.t); val=vTok.v; }
-        else if (vTok.t==='IDENT'){ take(t,'IDENT'); val=vTok.v; }
-        else throw new Error('Bad region attr value');
-        attrs[key]=val;
-        if (maybe(t,'COMMA')) continue;
-        take(t,'RPAREN'); break;
+function parseRegion(tokens, kind) {
+  const attrs = {};
+  if (maybe(tokens, 'LPAREN')) {
+    if (!maybe(tokens, 'RPAREN')) {
+      while (true) {
+        const key = take(tokens, 'IDENT').v;
+        take(tokens, 'EQ');
+        attrs[key] = parseValue(tokens);
+        if (maybe(tokens, 'COMMA')) {
+          if (maybe(tokens, 'RPAREN')) break;
+          continue;
+        }
+        take(tokens, 'RPAREN');
+        break;
       }
     }
   }
-  take(t,'LBRACE');
-  return parseBlock(t, { node:'Region', kind, attrs, children: [] });
+  take(tokens, 'LBRACE');
+  return parseBlock(tokens, { node: 'Region', kind, attrs, children: [] });
 }
 
-function parseStep(t){
-  if (maybe(t,'PAR_OPEN')) return parseBlock(t, { node:'Par', children: [] });
-  if (maybe(t,'SEQ_OPEN')) return parseBlock(t, { node:'Seq', children: [] });
-  if (maybe(t,'REGION_AUTH')) return parseRegion(t, 'Authorize');
-  if (maybe(t,'REGION_TXN')) return parseRegion(t, 'Transaction');
-  const id = take(t,'IDENT').v;
-  let args={};
-  if (maybe(t,'LPAREN')) {
-    if (!maybe(t,'RPAREN')) {
-      while (true){
-        const key = take(t,'IDENT').v;
-        take(t,'EQ');
-        const vTok=peek(t);
-        let val;
-        if (vTok.t==='STRING' || vTok.t==='NUMBER'){ take(t,vTok.t); val=vTok.v; }
-        else if (vTok.t==='IDENT'){ take(t,'IDENT'); val=vTok.v; }
-        else throw new Error('Bad arg value');
-        args[key]=val;
-        if (maybe(t,'COMMA')) continue;
-        take(t,'RPAREN'); break;
-      }
+function parseArgs(tokens) {
+  const args = {};
+  if (!maybe(tokens, 'LPAREN')) return args;
+  if (maybe(tokens, 'RPAREN')) return args;
+  while (true) {
+    const key = take(tokens, 'IDENT').v;
+    take(tokens, 'EQ');
+    args[key] = parseValue(tokens);
+    if (maybe(tokens, 'COMMA')) {
+      if (maybe(tokens, 'RPAREN')) break;
+      continue;
     }
+    take(tokens, 'RPAREN');
+    break;
   }
-  return { node:'Prim', prim: id.toLowerCase(), args };
+  return args;
+}
+
+function parseStep(tokens) {
+  if (maybe(tokens, 'PAR_OPEN')) return parseBlock(tokens, { node: 'Par', children: [] });
+  if (maybe(tokens, 'SEQ_OPEN')) return parseBlock(tokens, { node: 'Seq', syntax: 'block', children: [] });
+  if (maybe(tokens, 'REGION_AUTH')) return parseRegion(tokens, 'Authorize');
+  if (maybe(tokens, 'REGION_TXN')) return parseRegion(tokens, 'Transaction');
+  const id = take(tokens, 'IDENT');
+  const args = parseArgs(tokens);
+  return { node: 'Prim', prim: id.v.toLowerCase(), args };
+}
+
+function parseValue(tokens) {
+  const token = peek(tokens);
+  if (token.t === 'STRING') {
+    tokens.i += 1;
+    return token.v;
+  }
+  if (token.t === 'NUMBER') {
+    tokens.i += 1;
+    return token.v;
+  }
+  if (token.t === 'IDENT') {
+    tokens.i += 1;
+    if (token.v === 'true') return true;
+    if (token.v === 'false') return false;
+    if (token.v === 'null') return null;
+    return token.v;
+  }
+  if (token.t === 'LBRACKET') {
+    return parseArray(tokens);
+  }
+  if (token.t === 'LBRACE') {
+    return parseObject(tokens);
+  }
+  throw syntaxError(tokens, token, 'Unexpected value');
+}
+
+function parseArray(tokens) {
+  take(tokens, 'LBRACKET');
+  const values = [];
+  if (maybe(tokens, 'RBRACKET')) return values;
+  while (true) {
+    values.push(parseValue(tokens));
+    if (maybe(tokens, 'COMMA')) {
+      if (maybe(tokens, 'RBRACKET')) break;
+      continue;
+    }
+    take(tokens, 'RBRACKET');
+    break;
+  }
+  return values;
+}
+
+function parseObject(tokens) {
+  take(tokens, 'LBRACE');
+  const obj = Object.create(null);
+  if (maybe(tokens, 'RBRACE')) return obj;
+  while (true) {
+    const keyTok = peek(tokens);
+    let key;
+    if (keyTok.t === 'STRING') {
+      key = take(tokens, 'STRING').v;
+    } else if (keyTok.t === 'IDENT') {
+      key = take(tokens, 'IDENT').v;
+    } else if (keyTok.t === 'NUMBER') {
+      key = String(take(tokens, 'NUMBER').v);
+    } else {
+      throw syntaxError(tokens, keyTok, 'Expected string, identifier, or number key');
+    }
+    take(tokens, 'COLON');
+    obj[key] = parseValue(tokens);
+    if (maybe(tokens, 'COMMA')) {
+      if (maybe(tokens, 'RBRACE')) break;
+      continue;
+    }
+    take(tokens, 'RBRACE');
+    break;
+  }
+  return obj;
 }

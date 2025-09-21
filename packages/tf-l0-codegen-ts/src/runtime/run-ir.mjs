@@ -1,4 +1,47 @@
+import { createWriteStream, mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { validateCapabilities } from './capabilities.mjs';
+
+const tracePath = process.env.TF_TRACE_PATH;
+let traceOut = null;
+if (tracePath) {
+  try {
+    mkdirSync(dirname(tracePath), { recursive: true });
+    traceOut = createWriteStream(tracePath, { flags: 'a' });
+  } catch (err) {
+    console.warn('tf run-ir: unable to open trace file, falling back to stdout only', err);
+    traceOut = null;
+  }
+}
+
+function emitTrace(rec) {
+  const line = JSON.stringify(rec);
+  if (traceOut && !traceOut.writableEnded) {
+    traceOut.write(line + '\n');
+  }
+  console.log(line);
+}
+
+async function closeTrace() {
+  if (!traceOut || traceOut.writableEnded) {
+    return;
+  }
+  const stream = traceOut;
+  await new Promise((resolve, reject) => {
+    const onError = (err) => {
+      stream.off('error', onError);
+      reject(err);
+    };
+    stream.on('error', onError);
+    stream.end(() => {
+      stream.off('error', onError);
+      resolve();
+    });
+  });
+  if (traceOut === stream) {
+    traceOut = null;
+  }
+}
 
 let clockWarned = false;
 
@@ -92,10 +135,20 @@ async function execNode(node, runtime, ctx, input) {
       ctx.ops += 1;
       const result = await adapter(args, runtime?.state ?? {});
       const effect = effectFor(runtime, node.prim) ?? effectFor(runtime, primId);
+      const region = typeof node.meta?.region === 'string' ? node.meta.region : '';
+      let effectTag = '';
+      if (typeof effect === 'string') {
+        effectTag = effect;
+      } else if (typeof node.meta?.effect === 'string') {
+        effectTag = node.meta.effect;
+      } else if (Array.isArray(node.meta?.effects)) {
+        const first = node.meta.effects.find((entry) => typeof entry === 'string');
+        if (first) effectTag = first;
+      }
       if (effect) recordEffects(ctx.effects, effect);
       if (node.meta?.effect) recordEffects(ctx.effects, node.meta.effect);
       if (node.meta?.effects) recordEffects(ctx.effects, node.meta.effects);
-      console.log(JSON.stringify({ prim_id: primId, args, ts }));
+      emitTrace({ ts, prim_id: primId, args, region, effect: effectTag });
       const ok = normalizeOk(result?.ok);
       return { value: result, ok };
     }
@@ -138,13 +191,20 @@ async function execNode(node, runtime, ctx, input) {
 
 export async function runIR(ir, runtime, options = {}) {
   const ctx = { effects: new Set(), ops: 0 };
-  const { value, ok } = await execNode(ir, runtime, ctx, options.input);
-  return {
-    ok: normalizeOk(ok),
-    result: value,
-    ops: ctx.ops,
-    effects: Array.from(ctx.effects).sort(),
-  };
+  try {
+    const { value, ok } = await execNode(ir, runtime, ctx, options.input);
+    const summary = {
+      ok: normalizeOk(ok),
+      result: value,
+      ops: ctx.ops,
+      effects: Array.from(ctx.effects).sort(),
+    };
+    await closeTrace();
+    return summary;
+  } catch (err) {
+    await closeTrace();
+    throw err;
+  }
 }
 
 export async function runWithCaps(ir, runtime, caps, manifest) {

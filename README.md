@@ -161,6 +161,12 @@ TF_CAPS='{"effects":["Network.Out","Pure"],"allow_writes_prefixes":[]}' node out
 # Summarize traces
 cat tests/fixtures/trace-sample.jsonl | node packages/tf-l0-tools/trace-summary.mjs --top=3 --pretty
 
+### Trace files (T3)
+- Set `TF_TRACE_PATH=out/0.4/traces/<name>.jsonl` to mirror stdout into a JSONL file.
+- Records follow `schemas/trace.v0.4.schema.json` and keep the same console log format.
+- Validate traces: `cat file.jsonl | node scripts/validate-trace.mjs`.
+- Streams stay readable because the runner always logs the JSON to stdout.
+
 ### Example App: Order Publish
 ```bash
 node scripts/app-order-publish.mjs

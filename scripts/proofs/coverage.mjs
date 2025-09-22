@@ -207,11 +207,11 @@ async function main() {
 
   const missing_laws_for_used = used_commutations
     .filter(p => !lawBackedSet.has(p.join(',')))
-    .map(p => p.sort());
+    .map(p => [...p].sort());
 
   const missing_laws_for_allowed = allowed_commutations
     .filter(p => !lawBackedSet.has(p.join(',')))
-    .map(p => p.sort());
+    .map(p => [...p].sort());
 
   const idempotentRewrites = new Set();
   const inverseRewritesPairs = [];
@@ -224,25 +224,26 @@ async function main() {
       }
   }
 
-  const report = {
-    allowed: allowed_commutations.map(p => p.sort()).sort(sortPairs),
-    used: used_commutations.map(p => p.sort()).sort(sortPairs),
-    law_backed: law_backed.map(p => p.sort()).sort(sortPairs),
-    missing_laws_for_used: missing_laws_for_used.sort(sortPairs),
-    missing_laws_for_allowed: missing_laws_for_allowed.sort(sortPairs),
+  // Canonical ordering for deterministic JSON
+  const canonical = {
+    allowed: allowed_commutations.map(pair => [...pair].sort()).sort(sortPairs),
+    used: used_commutations.map(pair => [...pair].sort()).sort(sortPairs),
+    law_backed: law_backed.map(pair => [...pair].sort()).sort(sortPairs),
+    missing_laws_for_used: [...missing_laws_for_used].sort(sortPairs),
+    missing_laws_for_allowed: [...missing_laws_for_allowed].sort(sortPairs),
     idempotency_laws: [...idempotentRewrites].sort(),
-    inverse_laws: inverseRewritesPairs.map(p => p.join(' <-> ')).sort(),
+    inverse_laws: inverseRewritesPairs.map(pair => pair.join(' <-> ')).sort(),
   };
 
   const outputDir = path.resolve(process.cwd(), options.out);
   await fs.mkdir(outputDir, { recursive: true });
 
   const jsonOutputPath = path.join(outputDir, 'coverage.json');
-  await fs.writeFile(jsonOutputPath, JSON.stringify(report, null, 2) + '\n');
+  await fs.writeFile(jsonOutputPath, JSON.stringify(canonical, null, 2) + '\n');
   console.log(`Coverage report written to ${jsonOutputPath}`);
 
   const mdPath = options.docs ? path.resolve(process.cwd(), options.docs) : path.join(outputDir, 'coverage.md');
-  await generateMarkdownReport(report, mdPath);
+  await generateMarkdownReport(canonical, mdPath);
   console.log(`Markdown report written to ${mdPath}`);
 }
 

@@ -1,104 +1,57 @@
-import { exec } from 'child_process';
-import { promises as fs } from 'fs';
-import path from 'path';
-import assert from 'assert';
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { readFile, readdir, mkdir, rm } from 'node:fs/promises';
+import path from 'node:path';
 
-const SCRIPT_PATH = 'scripts/proofs/coverage.mjs';
-const EMITTER_SCRIPT_PATH = 'scripts/proofs/emit-missing-laws.mjs';
-const TEST_OUTPUT_DIR = 'out/0.4/proofs_test';
-const COVERAGE_JSON_PATH = path.join(TEST_OUTPUT_DIR, 'coverage.json');
-const COVERAGE_MD_PATH = path.join(TEST_OUTPUT_DIR, 'coverage.md');
-const DOCS_PATH = 'docs/l0-proof-coverage-test.md';
-const STUBS_DIR = path.join(TEST_OUTPUT_DIR, 'laws/stubs');
+const COVERAGE_SCRIPT = ['scripts/proofs/coverage.mjs'];
+const EMITTER_SCRIPT = ['scripts/proofs/emit-missing-laws.mjs'];
+const OUT_DIR = 'out/0.4/proofs-test';
+const COVERAGE_JSON = path.join(OUT_DIR, 'coverage.json');
+const COVERAGE_MD = path.join(OUT_DIR, 'coverage.md');
+const STUBS_DIR = path.join(OUT_DIR, 'laws/stubs');
+const DOCS_PATH = 'out/0.4/proofs-coverage-docs-test.md';
 
-async function runScript(scriptPath, args = []) {
-  return new Promise((resolve, reject) => {
-    const command = `node ${scriptPath} ${args.join(' ')}`;
-    exec(command, (error, stdout, stderr) => {
-      if (error) {
-        console.error(`Error executing: ${command}`);
-        reject(error);
-        return;
-      }
-      if (stderr) {
-        console.error(`stderr for ${command}: ${stderr}`);
-      }
-      resolve(stdout);
-    });
-  });
-}
+test('proof coverage artifacts are deterministic and stubs are normalized', async () => {
+  await rm(OUT_DIR, { recursive: true, force: true });
+  await rm(DOCS_PATH, { force: true });
+  await mkdir(OUT_DIR, { recursive: true });
 
-async function testCoverageScript() {
-  console.log('Running coverage script...');
-  await runScript(SCRIPT_PATH, ['--out', TEST_OUTPUT_DIR]);
-  const firstRunJson = await fs.readFile(COVERAGE_JSON_PATH, 'utf8');
-  const firstRunMd = await fs.readFile(COVERAGE_MD_PATH, 'utf8');
+  const runCoverage = (...extraArgs) =>
+    spawnSync('node', [...COVERAGE_SCRIPT, '--out', OUT_DIR, ...extraArgs], { stdio: 'inherit' });
 
-  console.log('Running coverage script again for stability check...');
-  await runScript(SCRIPT_PATH, ['--out', TEST_OUTPUT_DIR]);
-  const secondRunJson = await fs.readFile(COVERAGE_JSON_PATH, 'utf8');
-  const secondRunMd = await fs.readFile(COVERAGE_MD_PATH, 'utf8');
+  const first = runCoverage();
+  assert.equal(first.status, 0, 'first coverage run failed');
+  const firstJson = await readFile(COVERAGE_JSON, 'utf8');
+  const firstMd = await readFile(COVERAGE_MD, 'utf8');
 
-  assert.deepStrictEqual(JSON.parse(firstRunJson), JSON.parse(secondRunJson), 'Coverage JSON should be stable');
-  console.log('Coverage JSON is stable.');
-  assert.strictEqual(firstRunMd, secondRunMd, 'Coverage markdown should be stable');
-  console.log('Coverage markdown is stable.');
+  const second = runCoverage();
+  assert.equal(second.status, 0, 'second coverage run failed');
+  const secondJson = await readFile(COVERAGE_JSON, 'utf8');
+  const secondMd = await readFile(COVERAGE_MD, 'utf8');
 
-  return JSON.parse(firstRunJson);
-}
+  assert.equal(firstJson, secondJson, 'coverage.json should be byte-stable');
+  assert.equal(firstJson.endsWith('\n'), true, 'coverage.json should end with a newline');
+  assert.equal(firstMd, secondMd, 'coverage.md should be deterministic');
 
-async function testDocsFlag() {
-    console.log('Testing --docs flag...');
-    await runScript(SCRIPT_PATH, ['--docs', DOCS_PATH]);
-    const content = await fs.readFile(DOCS_PATH, 'utf8');
-    assert(content.endsWith('\n'), `File ${DOCS_PATH} should end with a newline.`);
-    console.log('--docs flag test passed.');
-}
+  const emitter = spawnSync('node', [...EMITTER_SCRIPT, '--coverage-json', COVERAGE_JSON], { stdio: 'inherit' });
+  assert.equal(emitter.status, 0, 'missing-law emitter failed');
 
-async function testEmitterScript(coverage) {
-    if (!coverage.missing_laws_for_used || coverage.missing_laws_for_used.length === 0) {
-        console.log('No missing laws to emit, skipping emitter test.');
-        return;
-    }
-
-    console.log('Running emitter script...');
-    await runScript(EMITTER_SCRIPT_PATH, ['--coverage-json', COVERAGE_JSON_PATH]);
-
-    for (const pair of coverage.missing_laws_for_used) {
-        const [familyA, familyB] = pair;
-        const filename = `commute_${familyA}_${familyB}.smt2`.replace(/\./g, '_');
-        const filepath = path.join(STUBS_DIR, filename);
-
-        console.log(`Checking for stub file: ${filepath}`);
-        const content = await fs.readFile(filepath, 'utf8');
-        assert(content.endsWith('\n'), `File ${filename} should end with a newline.`);
-        assert(content.includes(`commutation of ${familyA} and ${familyB}`), `File ${filename} should contain correct header.`);
-    }
-    console.log('Emitter script test passed.');
-}
-
-async function cleanup() {
-    console.log('Cleaning up generated files...');
-    try {
-        await fs.rm(TEST_OUTPUT_DIR, { recursive: true, force: true });
-        await fs.unlink(DOCS_PATH).catch(err => { if (err.code !== 'ENOENT') throw err; });
-    } catch (err) {
-        console.error('Error during cleanup:', err);
-    }
-}
-
-async function main() {
-  try {
-    const coverage = await testCoverageScript();
-    await testDocsFlag();
-    await testEmitterScript(coverage);
-    console.log('All tests passed!');
-  } catch (error) {
-    console.error('Test failed:', error);
-    process.exit(1);
-  } finally {
-    await cleanup();
+  const files = await readdir(STUBS_DIR);
+  assert(files.length > 0, 'expected at least one stub file');
+  files.sort();
+  for (const file of files) {
+    assert.match(file, /^commute_[a-z0-9_]+__[a-z0-9_]+\.smt2$/);
+    const content = await readFile(path.join(STUBS_DIR, file), 'utf8');
+    assert.equal(content.endsWith('\n'), true, `stub ${file} must end with a newline`);
+    assert.notEqual(content.endsWith('\n\n'), true, `stub ${file} must end with exactly one newline`);
   }
-}
 
-main();
+  const docRun = runCoverage('--docs', DOCS_PATH);
+  assert.equal(docRun.status, 0, '--docs coverage run failed');
+  const docContent = await readFile(DOCS_PATH, 'utf8');
+  assert.equal(docContent.endsWith('\n'), true, '--docs output should end with newline');
+
+  await rm(OUT_DIR, { recursive: true, force: true });
+  await rm(DOCS_PATH, { force: true });
+});

@@ -42,28 +42,18 @@ async function main() {
   const stubsDir = path.resolve(path.dirname(coveragePath), 'laws/stubs');
   await fs.mkdir(stubsDir, { recursive: true });
 
-  for (const pair of missingLaws) {
-    const [familyA, familyB] = pair;
-    const filename = `commute_${familyA}_${familyB}.smt2`.replace(/\./g, '_');
-    const filepath = path.join(stubsDir, filename);
+  const norm = value => value.toLowerCase().replace(/[^a-z0-9]+/g, '_');
 
-    const content = `
-; Skeleton for commutation of ${familyA} and ${familyB}
-(declare-sort Val 0)
-(declare-fun ${familyA.replace('.','_')} (Val) Val)
-(declare-fun ${familyB.replace('.','_')} (Val) Val)
-
-(assert (forall ((x Val)) (= (${familyA.replace('.','_')} (${familyB.replace('.','_')} x)) (${familyB.replace('.','_')} (${familyA.replace('.','_')} x)))))
-
-(declare-const input Val)
-(define-fun seqAB () Val (${familyA.replace('.','_')} (${familyB.replace('.','_')} input)))
-(define-fun seqBA () Val (${familyB.replace('.','_')} (${familyA.replace('.','_')} input)))
-
-(assert (not (= seqAB seqBA)))
-(check-sat)
-`.trim() + '\n';
-
-    await fs.writeFile(filepath, content);
+  for (const [familyA, familyB] of [...missingLaws].sort((x, y) => x.join(',').localeCompare(y.join(',')))) {
+    const filepath = path.join(stubsDir, `commute_${norm(familyA)}__${norm(familyB)}.smt2`);
+    await fs.writeFile(
+      filepath,
+      [
+        '(set-logic ALL)',
+        `; TODO: law for commute ${familyA} <-> ${familyB}`,
+        '',
+      ].join('\n')
+    );
     console.log(`Wrote stub file: ${filepath}`);
   }
 }

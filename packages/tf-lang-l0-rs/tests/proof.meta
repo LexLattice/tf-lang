@@ -1,0 +1,4 @@
+kind=proofs
+area=proofs
+speed=fast
+deps=rust

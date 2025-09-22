@@ -1,3 +1,4 @@
+// @tf-test kind=product area=checker speed=fast deps=node
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";

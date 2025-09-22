@@ -1,0 +1,1019 @@
+{
+  "tests": [
+    {
+      "file": "crates/oracles/conservation/tests/oracle.rs",
+      "runner": "cargo",
+      "kind": "product",
+      "area": "oracles",
+      "speed": "fast",
+      "deps": [
+        "rust"
+      ],
+      "crate": "crates/oracles/conservation"
+    },
+    {
+      "file": "crates/oracles/core/tests/core.rs",
+      "runner": "cargo",
+      "kind": "product",
+      "area": "oracles",
+      "speed": "fast",
+      "deps": [
+        "rust"
+      ],
+      "crate": "crates/oracles/core"
+    },
+    {
+      "file": "crates/oracles/determinism/tests/oracle.rs",
+      "runner": "cargo",
+      "kind": "infra",
+      "area": "determinism",
+      "speed": "fast",
+      "deps": [
+        "rust"
+      ],
+      "crate": "crates/oracles/determinism"
+    },
+    {
+      "file": "crates/oracles/idempotence/tests/oracle.rs",
+      "runner": "cargo",
+      "kind": "product",
+      "area": "oracles",
+      "speed": "fast",
+      "deps": [
+        "rust"
+      ],
+      "crate": "crates/oracles/idempotence"
+    },
+    {
+      "file": "crates/oracles/transport/tests/oracle.rs",
+      "runner": "cargo",
+      "kind": "product",
+      "area": "oracles",
+      "speed": "fast",
+      "deps": [
+        "rust"
+      ],
+      "crate": "crates/oracles/transport"
+    },
+    {
+      "file": "packages/adapters/ts/execution/tests/execution.test.ts",
+      "runner": "vitest",
+      "kind": "product",
+      "area": "adapters",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/adapters/ts/execution"
+    },
+    {
+      "file": "packages/coverage/generator/tests/coverage.test.ts",
+      "runner": "vitest",
+      "kind": "infra",
+      "area": "coverage",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/coverage/generator"
+    },
+    {
+      "file": "packages/explorer-test/claims-explorer.test.ts",
+      "runner": "vitest",
+      "kind": "infra",
+      "area": "pages",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/explorer-test"
+    },
+    {
+      "file": "packages/explorer-test/pages-workflow.test.ts",
+      "runner": "vitest",
+      "kind": "infra",
+      "area": "pages",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/explorer-test"
+    },
+    {
+      "file": "packages/explorer-test/test/source-label.test.ts",
+      "runner": "vitest",
+      "kind": "infra",
+      "area": "pages",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/explorer-test"
+    },
+    {
+      "file": "packages/host-lite/test/c1.apply-persists.test.ts",
+      "runner": "vitest",
+      "kind": "product",
+      "area": "host",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/host-lite"
+    },
+    {
+      "file": "packages/host-lite/test/c1.byte-determinism.test.ts",
+      "runner": "vitest",
+      "kind": "infra",
+      "area": "determinism",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/host-lite"
+    },
+    {
+      "file": "packages/host-lite/test/c1.http-400-404.test.ts",
+      "runner": "vitest",
+      "kind": "product",
+      "area": "host",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/host-lite"
+    },
+    {
+      "file": "packages/host-lite/test/c1.import-hygiene.test.ts",
+      "runner": "vitest",
+      "kind": "infra",
+      "area": "deps",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/host-lite"
+    },
+    {
+      "file": "packages/host-lite/test/c1.lru-multiworld.test.ts",
+      "runner": "vitest",
+      "kind": "product",
+      "area": "host",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/host-lite"
+    },
+    {
+      "file": "packages/host-lite/test/c1.proofs-gating-count.test.ts",
+      "runner": "vitest",
+      "kind": "proofs",
+      "area": "runtime",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/host-lite"
+    },
+    {
+      "file": "packages/mapper/trace2tags/tests/mapper.test.ts",
+      "runner": "vitest",
+      "kind": "product",
+      "area": "trace",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/mapper/trace2tags"
+    },
+    {
+      "file": "packages/oracles-core-ts/tests/oracles.test.ts",
+      "runner": "vitest",
+      "kind": "product",
+      "area": "oracles",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/oracles-core-ts"
+    },
+    {
+      "file": "packages/oracles/conservation/tests/oracle.spec.ts",
+      "runner": "vitest",
+      "kind": "product",
+      "area": "oracles",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/oracles/conservation"
+    },
+    {
+      "file": "packages/oracles/core/tests/core.spec.ts",
+      "runner": "vitest",
+      "kind": "product",
+      "area": "oracles",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/oracles/core"
+    },
+    {
+      "file": "packages/oracles/determinism/tests/oracle.spec.ts",
+      "runner": "vitest",
+      "kind": "infra",
+      "area": "determinism",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/oracles/determinism"
+    },
+    {
+      "file": "packages/oracles/idempotence/tests/oracle.spec.ts",
+      "runner": "vitest",
+      "kind": "product",
+      "area": "oracles",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/oracles/idempotence"
+    },
+    {
+      "file": "packages/oracles/transport/tests/oracle.spec.ts",
+      "runner": "vitest",
+      "kind": "product",
+      "area": "oracles",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/oracles/transport"
+    },
+    {
+      "file": "packages/pilot-core/tests/index.test.ts",
+      "runner": "vitest",
+      "kind": "product",
+      "area": "runtime",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/pilot-core"
+    },
+    {
+      "file": "packages/pilot-replay/tests/index.test.ts",
+      "runner": "vitest",
+      "kind": "product",
+      "area": "runtime",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/pilot-replay"
+    },
+    {
+      "file": "packages/pilot-risk/tests/index.test.ts",
+      "runner": "vitest",
+      "kind": "product",
+      "area": "runtime",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/pilot-risk"
+    },
+    {
+      "file": "packages/pilot-strategy/tests/index.test.ts",
+      "runner": "vitest",
+      "kind": "product",
+      "area": "runtime",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/pilot-strategy"
+    },
+    {
+      "file": "packages/tf-check/tests/trace.test.ts",
+      "runner": "vitest",
+      "kind": "product",
+      "area": "checker",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/tf-check"
+    },
+    {
+      "file": "packages/tf-check/tests/validator.test.ts",
+      "runner": "vitest",
+      "kind": "product",
+      "area": "checker",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/tf-check"
+    },
+    {
+      "file": "packages/tf-lang-l0-rs/tests/canon.rs",
+      "runner": "cargo",
+      "kind": "product",
+      "area": "canon",
+      "speed": "fast",
+      "deps": [
+        "rust"
+      ],
+      "crate": "packages/tf-lang-l0-rs"
+    },
+    {
+      "file": "packages/tf-lang-l0-rs/tests/laws.rs",
+      "runner": "cargo",
+      "kind": "product",
+      "area": "runtime",
+      "speed": "medium",
+      "deps": [
+        "rust"
+      ],
+      "crate": "packages/tf-lang-l0-rs"
+    },
+    {
+      "file": "packages/tf-lang-l0-rs/tests/proof_dev.rs",
+      "runner": "cargo",
+      "kind": "proofs",
+      "area": "runtime",
+      "speed": "medium",
+      "deps": [
+        "rust"
+      ],
+      "crate": "packages/tf-lang-l0-rs"
+    },
+    {
+      "file": "packages/tf-lang-l0-rs/tests/proof_vector.rs",
+      "runner": "cargo",
+      "kind": "proofs",
+      "area": "proofs",
+      "speed": "heavy",
+      "deps": [
+        "rust"
+      ],
+      "crate": "packages/tf-lang-l0-rs"
+    },
+    {
+      "file": "packages/tf-lang-l0-rs/tests/proof.rs",
+      "runner": "cargo",
+      "kind": "proofs",
+      "area": "proofs",
+      "speed": "fast",
+      "deps": [
+        "rust"
+      ],
+      "crate": "packages/tf-lang-l0-rs"
+    },
+    {
+      "file": "packages/tf-lang-l0-rs/tests/spec_adapter.rs",
+      "runner": "cargo",
+      "kind": "product",
+      "area": "spec",
+      "speed": "fast",
+      "deps": [
+        "rust"
+      ],
+      "crate": "packages/tf-lang-l0-rs"
+    },
+    {
+      "file": "packages/tf-lang-l0-rs/tests/vectors.rs",
+      "runner": "cargo",
+      "kind": "product",
+      "area": "runtime",
+      "speed": "heavy",
+      "deps": [
+        "rust"
+      ],
+      "crate": "packages/tf-lang-l0-rs"
+    },
+    {
+      "file": "packages/tf-lang-l0-ts/tests/canon.test.ts",
+      "runner": "vitest",
+      "kind": "product",
+      "area": "canon",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/tf-lang-l0-ts"
+    },
+    {
+      "file": "packages/tf-lang-l0-ts/tests/proof-dev.test.ts",
+      "runner": "vitest",
+      "kind": "proofs",
+      "area": "runtime",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/tf-lang-l0-ts"
+    },
+    {
+      "file": "packages/tf-lang-l0-ts/tests/proof-tags.test.ts",
+      "runner": "vitest",
+      "kind": "proofs",
+      "area": "proofs",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/tf-lang-l0-ts"
+    },
+    {
+      "file": "packages/tf-lang-l0-ts/tests/proof-vector.test.ts",
+      "runner": "vitest",
+      "kind": "proofs",
+      "area": "proofs",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/tf-lang-l0-ts"
+    },
+    {
+      "file": "packages/tf-lang-l0-ts/tests/spec.adapter.test.ts",
+      "runner": "vitest",
+      "kind": "product",
+      "area": "spec",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/tf-lang-l0-ts"
+    },
+    {
+      "file": "packages/tf-lang-l0-ts/tests/vm.test.ts",
+      "runner": "vitest",
+      "kind": "product",
+      "area": "runtime",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/tf-lang-l0-ts"
+    },
+    {
+      "file": "packages/tf-plan-compare-core/tests/index.test.ts",
+      "runner": "vitest",
+      "kind": "product",
+      "area": "plan",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/tf-plan-compare-core"
+    },
+    {
+      "file": "packages/tf-plan-compare-render/tests/index.test.ts",
+      "runner": "vitest",
+      "kind": "product",
+      "area": "plan",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/tf-plan-compare-render"
+    },
+    {
+      "file": "packages/tf-plan-compare-render/tests/render.test.ts",
+      "runner": "vitest",
+      "kind": "product",
+      "area": "plan",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/tf-plan-compare-render"
+    },
+    {
+      "file": "packages/tf-plan-compare-render/tests/xss.test.ts",
+      "runner": "vitest",
+      "kind": "infra",
+      "area": "security",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/tf-plan-compare-render"
+    },
+    {
+      "file": "packages/tf-plan-compare/tests/index.test.ts",
+      "runner": "vitest",
+      "kind": "product",
+      "area": "plan",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/tf-plan-compare"
+    },
+    {
+      "file": "packages/tf-plan-core/tests/index.test.ts",
+      "runner": "vitest",
+      "kind": "product",
+      "area": "plan",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/tf-plan-core"
+    },
+    {
+      "file": "packages/tf-plan-enum/tests/index.test.ts",
+      "runner": "vitest",
+      "kind": "product",
+      "area": "plan",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/tf-plan-enum"
+    },
+    {
+      "file": "packages/tf-plan-scaffold-core/tests/index.test.ts",
+      "runner": "vitest",
+      "kind": "product",
+      "area": "plan",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/tf-plan-scaffold-core"
+    },
+    {
+      "file": "packages/tf-plan-scaffold/tests/index.test.ts",
+      "runner": "vitest",
+      "kind": "product",
+      "area": "plan",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/tf-plan-scaffold"
+    },
+    {
+      "file": "packages/tf-plan-scoring/tests/index.test.ts",
+      "runner": "vitest",
+      "kind": "product",
+      "area": "plan",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/tf-plan-scoring"
+    },
+    {
+      "file": "packages/tf-plan/tests/index.test.ts",
+      "runner": "vitest",
+      "kind": "product",
+      "area": "plan",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/tf-plan"
+    },
+    {
+      "file": "packages/utils/tests/index.test.ts",
+      "runner": "vitest",
+      "kind": "product",
+      "area": "utils",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "packages/utils"
+    },
+    {
+      "file": "services/claims-api-ts/test/sqlite.test.ts",
+      "runner": "vitest",
+      "kind": "product",
+      "area": "services",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ],
+      "package": "services/claims-api-ts"
+    },
+    {
+      "file": "tests/adapters-inmem.test.mjs",
+      "runner": "node",
+      "kind": "product",
+      "area": "adapters",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/adapters-misconfig.test.mjs",
+      "runner": "node",
+      "kind": "product",
+      "area": "adapters",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/alloy-auth.test.mjs",
+      "runner": "node",
+      "kind": "proofs",
+      "area": "alloy",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/alloy-emit.test.mjs",
+      "runner": "node",
+      "kind": "proofs",
+      "area": "alloy",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/app-order-publish.test.mjs",
+      "runner": "node",
+      "kind": "product",
+      "area": "apps",
+      "speed": "medium",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/audit.test.mjs",
+      "runner": "node",
+      "kind": "infra",
+      "area": "audit",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/catalog-seed.test.mjs",
+      "runner": "node",
+      "kind": "product",
+      "area": "catalog",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/checker.test.mjs",
+      "runner": "node",
+      "kind": "product",
+      "area": "checker",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/codegen-adapters-wireup.test.mjs",
+      "runner": "node",
+      "kind": "product",
+      "area": "codegen",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/codegen-rs.test.mjs",
+      "runner": "node",
+      "kind": "parity",
+      "area": "codegen",
+      "speed": "heavy",
+      "deps": [
+        "rust"
+      ]
+    },
+    {
+      "file": "tests/docgen.test.mjs",
+      "runner": "node",
+      "kind": "infra",
+      "area": "docs",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/dsl-fmt.test.mjs",
+      "runner": "node",
+      "kind": "product",
+      "area": "dsl",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/dsl-literals.test.mjs",
+      "runner": "node",
+      "kind": "product",
+      "area": "dsl",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/dsl-show.test.mjs",
+      "runner": "node",
+      "kind": "product",
+      "area": "dsl",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/effect-lattice.test.mjs",
+      "runner": "node",
+      "kind": "product",
+      "area": "effects",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/effects-deriver.test.mjs",
+      "runner": "node",
+      "kind": "product",
+      "area": "effects",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/manifest-schema.test.mjs",
+      "runner": "node",
+      "kind": "product",
+      "area": "manifest",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/manifest.test.mjs",
+      "runner": "node",
+      "kind": "product",
+      "area": "manifest",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/normalize-commute.test.mjs",
+      "runner": "node",
+      "kind": "product",
+      "area": "dsl",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/normalize-laws.test.mjs",
+      "runner": "node",
+      "kind": "product",
+      "area": "dsl",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/parser-and-normalizer.test.mjs",
+      "runner": "node",
+      "kind": "product",
+      "area": "dsl",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/pilot-full-parity.test.mjs",
+      "runner": "node",
+      "kind": "parity",
+      "area": "runtime",
+      "speed": "heavy",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/pilot-min.test.mjs",
+      "runner": "node",
+      "kind": "product",
+      "area": "runtime",
+      "speed": "medium",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/pilot-parity.test.mjs",
+      "runner": "node",
+      "kind": "parity",
+      "area": "runtime",
+      "speed": "medium",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/policy-authorize.test.mjs",
+      "runner": "node",
+      "kind": "product",
+      "area": "policy",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/proofs-coverage.test.mjs",
+      "runner": "node",
+      "kind": "proofs",
+      "area": "coverage",
+      "speed": "medium",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/provenance-status-trace.test.mjs",
+      "runner": "node",
+      "kind": "product",
+      "area": "runtime",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/regions.test.mjs",
+      "runner": "node",
+      "kind": "product",
+      "area": "regions",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/run-ir.test.mjs",
+      "runner": "node",
+      "kind": "product",
+      "area": "runtime",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/runner-caps.test.mjs",
+      "runner": "node",
+      "kind": "product",
+      "area": "runtime",
+      "speed": "medium",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/runtime-verify.test.mjs",
+      "runner": "node",
+      "kind": "product",
+      "area": "runtime",
+      "speed": "heavy",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/smt-emit.test.mjs",
+      "runner": "node",
+      "kind": "proofs",
+      "area": "smt",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/smt-laws-extend.test.mjs",
+      "runner": "node",
+      "kind": "proofs",
+      "area": "smt",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/smt-laws.test.mjs",
+      "runner": "node",
+      "kind": "proofs",
+      "area": "smt",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/smt-props.test.mjs",
+      "runner": "node",
+      "kind": "proofs",
+      "area": "smt",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/trace-filter.test.mjs",
+      "runner": "node",
+      "kind": "product",
+      "area": "trace",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/trace-schema.test.mjs",
+      "runner": "node",
+      "kind": "product",
+      "area": "trace",
+      "speed": "medium",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/trace-summary.test.mjs",
+      "runner": "node",
+      "kind": "product",
+      "area": "trace",
+      "speed": "medium",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/txn-policy.test.mjs",
+      "runner": "node",
+      "kind": "product",
+      "area": "policy",
+      "speed": "medium",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/types-unify.test.mjs",
+      "runner": "node",
+      "kind": "product",
+      "area": "types",
+      "speed": "fast",
+      "deps": [
+        "node"
+      ]
+    },
+    {
+      "file": "tests/verify-trace.test.mjs",
+      "runner": "node",
+      "kind": "product",
+      "area": "trace",
+      "speed": "medium",
+      "deps": [
+        "node"
+      ]
+    }
+  ]
+}

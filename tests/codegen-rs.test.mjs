@@ -1,3 +1,4 @@
+// @tf-test kind=parity area=codegen speed=heavy deps=rust
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';

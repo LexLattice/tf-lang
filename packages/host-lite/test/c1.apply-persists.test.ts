@@ -1,3 +1,4 @@
+// @tf-test kind=product area=host speed=fast deps=node
 import { describe, it, expect } from 'vitest';
 import { makeHandler, createHost } from 'host-lite-ts';
 

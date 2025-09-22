@@ -1,3 +1,4 @@
+// @tf-test kind=infra area=pages speed=fast deps=node
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { JSDOM } from 'jsdom';
 

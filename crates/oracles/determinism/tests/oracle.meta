@@ -1,0 +1,4 @@
+kind=infra
+area=determinism
+speed=fast
+deps=rust

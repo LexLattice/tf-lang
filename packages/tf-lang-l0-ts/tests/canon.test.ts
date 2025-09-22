@@ -1,3 +1,4 @@
+// @tf-test kind=product area=canon speed=fast deps=node
 import { describe, it, expect } from 'vitest';
 import { canonicalJsonBytes, blake3hex } from '../src/canon/index.js';
 

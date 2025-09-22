@@ -1,0 +1,4 @@
+kind=product
+area=runtime
+speed=heavy
+deps=rust

@@ -1,3 +1,4 @@
+// @tf-test kind=product area=trace speed=medium deps=node
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';

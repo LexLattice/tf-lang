@@ -1,0 +1,4 @@
+kind=product
+area=spec
+speed=fast
+deps=rust

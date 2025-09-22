@@ -1,0 +1,10 @@
+{
+  "ok": true,
+  "selected": 3,
+  "run": {
+    "node": 3,
+    "vitest": 0,
+    "cargo": 0
+  },
+  "skipped": []
+}

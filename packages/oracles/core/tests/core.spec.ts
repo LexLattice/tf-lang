@@ -1,3 +1,4 @@
+// @tf-test kind=product area=oracles speed=fast deps=node
 import { describe, expect, it } from "vitest";
 
 import {

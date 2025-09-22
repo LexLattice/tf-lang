@@ -1,3 +1,4 @@
+// @tf-test kind=proofs area=runtime speed=fast deps=node
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import type { Program } from '../src/model/bytecode.js';
 

@@ -1,3 +1,4 @@
+// @tf-test kind=infra area=pages speed=fast deps=node
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';

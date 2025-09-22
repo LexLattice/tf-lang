@@ -1,9 +1,36 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 
+function parseArgs() {
+    const args = process.argv.slice(2);
+    const options = {
+      coverageJson: 'out/0.4/proofs/coverage.json',
+    };
+
+    for (let i = 0; i < args.length; i++) {
+      if (args[i] === '--coverage-json' && i + 1 < args.length) {
+        options.coverageJson = args[i + 1];
+        i++;
+      }
+    }
+    return options;
+  }
+
 async function main() {
-  const coveragePath = path.resolve(process.cwd(), 'out/0.4/proofs/coverage.json');
-  const coverageJson = await fs.readFile(coveragePath, 'utf8');
+  const options = parseArgs();
+  const coveragePath = path.resolve(process.cwd(), options.coverageJson);
+  let coverageJson;
+  try {
+    coverageJson = await fs.readFile(coveragePath, 'utf8');
+  } catch (err) {
+      if (err.code === 'ENOENT') {
+          console.error(`Coverage report not found at ${coveragePath}`);
+          console.error('Run the coverage script first.');
+          process.exit(1);
+      }
+      throw err;
+  }
+
   const coverage = JSON.parse(coverageJson);
 
   const missingLaws = coverage.missing_laws_for_used;
@@ -12,7 +39,7 @@ async function main() {
     return;
   }
 
-  const stubsDir = path.resolve(process.cwd(), 'out/0.4/proofs/laws/stubs');
+  const stubsDir = path.resolve(path.dirname(coveragePath), 'laws/stubs');
   await fs.mkdir(stubsDir, { recursive: true });
 
   for (const pair of missingLaws) {

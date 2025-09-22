@@ -27,6 +27,7 @@
     "proofs:laws:axioms": "node scripts/emit-smt-laws.mjs --law idempotent:hash -o out/0.4/proofs/laws/idempotent_hash.smt2 && node scripts/emit-smt-laws.mjs --law inverse:serialize-deserialize -o out/0.4/proofs/laws/inverse_roundtrip.smt2 && node scripts/emit-smt-laws.mjs --law commute:emit-metric-with-pure -o out/0.4/proofs/laws/emit_commute.smt2",
     "proofs:laws:equiv": "node scripts/emit-smt-laws.mjs --equiv examples/flows/info_roundtrip.tf examples/flows/info_roundtrip.tf --laws idempotent:hash,inverse:serialize-deserialize -o out/0.4/proofs/laws/roundtrip_equiv.smt2",
     "proofs:coverage": "node scripts/proofs/coverage.mjs && cat out/0.4/proofs/coverage.json | jq .",
+    "proofs:coverage:docs": "node scripts/proofs/coverage.mjs --docs docs/l0-proof-coverage.md",
     "proofs:emit-missing": "node scripts/proofs/emit-missing-laws.mjs",
     "tf": "node packages/tf-compose/bin/tf.mjs",
     "codegen:rs:signing": "node scripts/generate-rs-run.mjs out/0.4/ir/signing.ir.json -o out/0.4/codegen-rs/signing",

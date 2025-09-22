@@ -22,6 +22,7 @@ help:
 	@echo "  sync-agents     - sync role blocks into AGENTS.md"
 	@echo "  git-clean-refs  - purge stale PR refs and sanitize repo config"
 	@echo "  git-sanitize-config - remove PR refspecs from .git/config"
+	@echo "  keep-main-only  - close open PRs and prune branches down to main"
 
 setup:
 	pnpm install --frozen-lockfile
@@ -172,3 +173,7 @@ git-clean-refs:
 
 git-sanitize-config:
 	@bash ./.codex/scripts/git-clean-refs.sh --sanitize-config
+
+.PHONY: keep-main-only
+keep-main-only:
+	@./scripts/keep-main-only.sh

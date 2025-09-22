@@ -2,6 +2,8 @@ import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { sortTests } from './utils.mjs';
+
 const ROOT = path.resolve(fileURLToPath(new URL('../../', import.meta.url)));
 const IGNORE_DIRS = new Set(['.git', 'node_modules', 'out', 'dist', 'build', '.pnpm', 'target']);
 const TEST_EXTENSIONS = new Set(['.mjs', '.js', '.ts']);
@@ -58,7 +60,7 @@ function normalizeDeps(value) {
   if (deps.length === 1 && deps[0].toLowerCase() === 'none') {
     return [];
   }
-  return deps;
+  return deps.sort((a, b) => a.localeCompare(b));
 }
 
 function ensureMetadata(meta, file) {
@@ -188,6 +190,5 @@ export async function discoverTests() {
     if (!file.endsWith('.test' + ext)) continue;
     tests.push(await parseJsTsTest(file));
   }
-  tests.sort((a, b) => a.file.localeCompare(b.file));
-  return tests;
+  return sortTests(tests);
 }

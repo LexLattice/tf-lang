@@ -1,9 +1,9 @@
-import { mkdir, writeFile } from 'node:fs/promises';
 import { spawn, spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { discoverTests } from './discover.mjs';
+import { sortTests, writeJsonCanonical } from './utils.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('../../', import.meta.url)));
 const OUT_DIR = path.join(ROOT, 'out', '0.4', 'tests');
@@ -75,7 +75,11 @@ async function runTest(test) {
   if (test.runner.type === 'vitest') {
     const pkgDir = test.runner.packageDir;
     const testPath = test.runner.testPath;
-    return runCommand('pnpm', ['vitest', 'run', testPath], { cwd: path.join(ROOT, pkgDir) });
+    return runCommand(
+      'pnpm',
+      ['exec', 'vitest', 'run', '--dir', '.', testPath],
+      { cwd: path.join(ROOT, pkgDir) },
+    );
   }
   if (test.runner.type === 'cargo') {
     const manifest = test.runner.manifestPath;
@@ -88,12 +92,14 @@ async function runTest(test) {
 async function main() {
   const { filters, allowMissingDeps } = parseArgs(process.argv.slice(2));
   const tests = await discoverTests();
-  const selected = tests.filter((test) => {
-    if (filters.kind.length && !filters.kind.includes(test.kind)) return false;
-    if (filters.speed.length && !filters.speed.includes(test.speed)) return false;
-    if (filters.deps.length && !filters.deps.every((dep) => test.deps.includes(dep))) return false;
-    return true;
-  });
+  const selected = sortTests(
+    tests.filter((test) => {
+      if (filters.kind.length && !filters.kind.includes(test.kind)) return false;
+      if (filters.speed.length && !filters.speed.includes(test.speed)) return false;
+      if (filters.deps.length && !filters.deps.every((dep) => test.deps.includes(dep))) return false;
+      return true;
+    }),
+  );
 
   const summary = {
     ok: true,
@@ -101,6 +107,10 @@ async function main() {
     run: { node: 0, vitest: 0, cargo: 0 },
     skipped: [],
   };
+
+  if (selected.length === 0) {
+    console.log('No tests matched the provided filters.');
+  }
 
   for (const test of selected) {
     const depCheck = checkDeps(test, allowMissingDeps);
@@ -120,10 +130,10 @@ async function main() {
     }
   }
 
-  await mkdir(OUT_DIR, { recursive: true });
+  summary.skipped.sort((a, b) => a.file.localeCompare(b.file));
+
   const manifestPath = path.join(OUT_DIR, 'manifest.json');
-  const json = JSON.stringify(summary, null, 2) + '\n';
-  await writeFile(manifestPath, json, 'utf8');
+  await writeJsonCanonical(manifestPath, summary);
   if (!summary.ok) {
     process.exitCode = 1;
   }

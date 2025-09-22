@@ -25,6 +25,9 @@ jobs:
           pnpm run a1
           pnpm -w -r build
 
+      - name: Fast tests
+        run: pnpm run test:fast
+
       - name: Generate docs
         run: pnpm run docs:gen
 
@@ -41,3 +44,10 @@ jobs:
         with:
           name: docs
           path: docs.zip
+
+      - name: Upload test manifests
+        if: ${{ !env.ACT }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-tests
+          path: out/0.4/tests/**

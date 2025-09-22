@@ -37,6 +37,9 @@ jobs:
       - name: Build TS kernel
         run: pnpm -C packages/tf-lang-l0-ts build
 
+      - name: Parity tests
+        run: pnpm run test:parity
+
       - name: Run TS vectors
         run: pnpm -C packages/tf-lang-l0-ts vectors
 
@@ -56,6 +59,13 @@ jobs:
         with:
           name: rs-report
           path: tests/vectors/.out/rs-report.json
+
+      - name: Upload test manifests
+        if: ${{ !env.ACT }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-tests
+          path: out/0.4/tests/**
 
       - name: Cross-compare TS vs RS reports
         run: node .codex/scripts/compare-reports.mjs

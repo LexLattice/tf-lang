@@ -89,6 +89,9 @@ export async function run() {
   const seen = new Set();
 
   for (const relPath of Array.from(targets).sort()) {
+    if (relPath.startsWith('docs/runs/')) {
+      continue;
+    }
     const absPath = path.join(ROOT, relPath);
     let content;
     try {

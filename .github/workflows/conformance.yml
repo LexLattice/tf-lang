@@ -45,11 +45,23 @@ jobs:
           name: ts-report
           path: tests/vectors/.out/ts-report.json
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
-        with:
-          toolchain: stable
-          components: rustfmt,clippy   # optional but usually handy
+      - name: Setup Rust (retry)
+        run: |
+          RUSTUP_BIN="$HOME/.cargo/bin/rustup"
+          apt-get update
+          apt-get install -y --no-install-recommends curl ca-certificates build-essential pkg-config
+          curl --proto '=https' --tlsv1.2 --retry 5 --retry-connrefused --location --silent --show-error --fail https://sh.rustup.rs \
+            | sh -s -- --default-toolchain none -y
+          source "$HOME/.cargo/env"
+          for attempt in 1 2 3; do
+            if "$RUSTUP_BIN" toolchain install stable && "$RUSTUP_BIN" default stable && "$RUSTUP_BIN" component add rustfmt clippy; then
+              exit 0
+            fi
+            echo "rustup failed (attempt ${attempt}); retrying in 10s..."
+            sleep 10
+          done
+          echo "rustup failed after retries"
+          exit 1
 
       - name: Cargo tests (includes vectors)
         run: cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml --tests -- --nocapture
@@ -68,6 +80,14 @@ jobs:
         if: failure()
         run: |
           echo '--- ts-report ---'
-          cat tests/vectors/.out/ts-report.json || true
+          if [ -f tests/vectors/.out/ts-report.json ]; then
+            cat tests/vectors/.out/ts-report.json
+          else
+            echo 'ts-report missing'
+          fi
           echo '--- rs-report ---'
-          cat tests/vectors/.out/rs-report.json || true
+          if [ -f tests/vectors/.out/rs-report.json ]; then
+            cat tests/vectors/.out/rs-report.json
+          else
+            echo 'rs-report missing'
+          fi

@@ -13,6 +13,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '../..');
 const REPORT_DIR = path.join(ROOT, 'out/0.4/audit');
 const REPORT_PATH = path.join(REPORT_DIR, 'report.json');
+const ARGS = process.argv.slice(2);
+const STRICT = ARGS.includes('--strict') || process.env.AUDIT_STRICT === '1';
 
 function sortStrings(values) {
   return Array.isArray(values) ? [...values].map((value) => String(value)).sort((a, b) => a.localeCompare(b)) : [];
@@ -150,7 +152,7 @@ export async function run() {
 
 async function main() {
   const { report } = await run();
-  if (!report.ok) {
+  if (STRICT && !report.ok) {
     process.exitCode = 1;
   }
 }

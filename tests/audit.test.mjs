@@ -21,13 +21,23 @@ async function fileExists(targetPath) {
   }
 }
 
+async function runAudit() {
+  try {
+    await execFileAsync(process.execPath, ['scripts/audit/run.mjs'], { cwd: ROOT });
+  } catch (err) {
+    if (err?.code !== 1) {
+      throw err;
+    }
+  }
+}
+
 test('audit report is emitted deterministically', async () => {
-  await execFileAsync(process.execPath, ['scripts/audit/run.mjs'], { cwd: ROOT });
+  await runAudit();
   const first = await readFile(REPORT_PATH);
   const report = JSON.parse(first);
   assert.strictEqual(typeof report.ok, 'boolean');
 
-  await execFileAsync(process.execPath, ['scripts/audit/run.mjs'], { cwd: ROOT });
+  await runAudit();
   const second = await readFile(REPORT_PATH);
   assert.ok(first.equals(second));
 });

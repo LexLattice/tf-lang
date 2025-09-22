@@ -14,6 +14,81 @@ const ROOT = path.resolve(__dirname, '../..');
 const REPORT_DIR = path.join(ROOT, 'out/0.4/audit');
 const REPORT_PATH = path.join(REPORT_DIR, 'report.json');
 
+function sortStrings(values) {
+  return Array.isArray(values) ? [...values].map((value) => String(value)).sort((a, b) => a.localeCompare(b)) : [];
+}
+
+function canonicalizeSchemas(schemas) {
+  const entries = Array.isArray(schemas?.entries) ? schemas.entries : [];
+  const normalized = entries.map((entry) => {
+    const file = typeof entry?.file === 'string' ? entry.file : String(entry?.file || '');
+    const base = { file, ok: Boolean(entry?.ok) };
+    if (Array.isArray(entry?.errors) && entry.errors.length > 0) {
+      base.errors = sortStrings(entry.errors);
+    }
+    return base;
+  });
+  normalized.sort((a, b) => a.file.localeCompare(b.file));
+  return {
+    ok: Boolean(schemas?.ok),
+    entries: normalized,
+  };
+}
+
+function canonicalizeDeterminism(determinism) {
+  const issues = Array.isArray(determinism?.issues) ? determinism.issues : [];
+  const normalized = issues.map((issue) => {
+    const entry = {
+      path: typeof issue?.path === 'string' ? issue.path : String(issue?.path || ''),
+      issue: typeof issue?.issue === 'string' ? issue.issue : String(issue?.issue || ''),
+    };
+    if (issue?.workflow) {
+      entry.workflow = true;
+    }
+    if (issue?.error) {
+      entry.error = String(issue.error);
+    }
+    return entry;
+  });
+  normalized.sort((a, b) => {
+    if (a.path === b.path) {
+      return a.issue.localeCompare(b.issue);
+    }
+    return a.path.localeCompare(b.path);
+  });
+  return {
+    ok: Boolean(determinism?.ok),
+    issues: normalized,
+  };
+}
+
+function canonicalizeLinks(links) {
+  const broken = Array.isArray(links?.broken) ? links.broken : [];
+  const normalized = broken.map((entry) => ({
+    from: typeof entry?.from === 'string' ? entry.from : String(entry?.from || ''),
+    href: typeof entry?.href === 'string' ? entry.href : String(entry?.href || ''),
+  }));
+  normalized.sort((a, b) => {
+    if (a.from === b.from) {
+      return a.href.localeCompare(b.href);
+    }
+    return a.from.localeCompare(b.from);
+  });
+  return {
+    ok: Boolean(links?.ok),
+    broken: normalized,
+  };
+}
+
+function canonicalizeCatalog(catalog) {
+  return {
+    ok: Boolean(catalog?.ok),
+    effects_unrecognized: sortStrings(catalog?.effects_unrecognized),
+    prims_missing_effects: sortStrings(catalog?.prims_missing_effects),
+    laws_ref_missing_prims: sortStrings(catalog?.laws_ref_missing_prims),
+  };
+}
+
 function accumulateSummary(schemas, determinism, links, catalog) {
   let errors = 0;
   let warnings = 0;
@@ -22,20 +97,12 @@ function accumulateSummary(schemas, determinism, links, catalog) {
   errors += links.broken.length;
 
   for (const issue of determinism.issues) {
-    switch (issue.issue) {
-      case 'has_crlf':
-        errors += 1;
-        break;
-      case 'missing_exec':
-        if (issue.workflow) {
-          errors += 1;
-        } else {
-          warnings += 1;
-        }
-        break;
-      default:
-        warnings += 1;
-        break;
+    if (issue.issue === 'has_crlf') {
+      errors += 1;
+    } else if (issue.issue === 'missing_exec' && issue.workflow) {
+      errors += 1;
+    } else {
+      warnings += 1;
     }
   }
 
@@ -47,10 +114,15 @@ function accumulateSummary(schemas, determinism, links, catalog) {
 }
 
 export async function run() {
-  const schemas = await checkSchemas();
-  const determinism = await checkDeterminism();
-  const links = await checkLinks();
-  const catalog = await checkCatalog();
+  const rawSchemas = await checkSchemas();
+  const rawDeterminism = await checkDeterminism();
+  const rawLinks = await checkLinks();
+  const rawCatalog = await checkCatalog();
+
+  const schemas = canonicalizeSchemas(rawSchemas);
+  const determinism = canonicalizeDeterminism(rawDeterminism);
+  const links = canonicalizeLinks(rawLinks);
+  const catalog = canonicalizeCatalog(rawCatalog);
 
   const summary = accumulateSummary(schemas, determinism, links, catalog);
   const ok = summary.errors === 0;
@@ -77,7 +149,10 @@ export async function run() {
 }
 
 async function main() {
-  await run();
+  const { report } = await run();
+  if (!report.ok) {
+    process.exitCode = 1;
+  }
 }
 
 const isCli = process.argv[1]

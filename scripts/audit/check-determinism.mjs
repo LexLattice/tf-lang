@@ -7,19 +7,31 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '../..');
 const SKIP_DIRS = new Set(['.git', 'node_modules', 'out', '.pnpm', 'dist']);
+const IGNORE_PREFIXES = ['out/', 'node_modules/', '.git/'];
+
+function shouldIgnore(relPath) {
+  if (!relPath) return false;
+  const normalized = relPath.endsWith('/') ? relPath : `${relPath}`;
+  return IGNORE_PREFIXES.some((prefix) => normalized === prefix.slice(0, -1) || normalized.startsWith(prefix));
+}
 
 async function walk(dir, collector) {
   const entries = await readdir(dir, { withFileTypes: true });
   for (const entry of entries) {
     const absPath = path.join(dir, entry.name);
     const rel = path.relative(ROOT, absPath);
+    const relNormalized = normalizeRel(rel);
+    const relForCheck = entry.isDirectory() ? `${relNormalized}/` : relNormalized;
+    if (shouldIgnore(relForCheck)) {
+      continue;
+    }
     if (entry.isDirectory()) {
       if (SKIP_DIRS.has(entry.name)) {
         continue;
       }
       await walk(absPath, collector);
     } else if (entry.isFile()) {
-      collector(path.posix.join(...rel.split(path.sep)));
+      collector(relNormalized);
     }
   }
 }
@@ -85,11 +97,7 @@ export async function run() {
   const alsFiles = new Set();
   const binFiles = new Set();
 
-  await walk(ROOT, (relPathRaw) => {
-    const relPath = normalizeRel(relPathRaw);
-    if (relPath.startsWith('out/')) return;
-    if (relPath.startsWith('node_modules/')) return;
-    if (relPath.startsWith('.git/')) return;
+  await walk(ROOT, (relPath) => {
     if (relPath.startsWith('.pnpm/')) return;
     if (relPath.startsWith('dist/')) return;
     if (relPath.startsWith('.codex/')) return;

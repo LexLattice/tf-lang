@@ -3,6 +3,10 @@ name: l0-audit
 on:
   pull_request:
 
+concurrency:
+  group: l0-audit-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   actions: write

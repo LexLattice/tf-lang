@@ -1,3 +1,4 @@
+// @tf-test kind=infra area=coverage speed=medium deps=node
 import { mkdtempSync, rmSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";

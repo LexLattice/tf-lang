@@ -1,3 +1,4 @@
+// @tf-test kind=infra area=host speed=fast deps=node
 import { describe, it, expect } from 'vitest';
 import { makeRawHandler, makeHandler, createHost } from 'host-lite-ts';
 import { canonicalJsonBytes } from 'tf-lang-l0';

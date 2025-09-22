@@ -1,3 +1,4 @@
+// @tf-test kind=proofs area=proofs speed=medium deps=node
 import { describe, it, expect } from 'vitest';
 import type { Witness, Normalization, Transport, Refutation, Conservativity, ProofTag } from '../src/proof/index.js';
 

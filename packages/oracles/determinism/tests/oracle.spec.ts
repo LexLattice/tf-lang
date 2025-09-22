@@ -1,3 +1,4 @@
+// @tf-test kind=infra area=oracles speed=fast deps=node
 import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";

@@ -1,3 +1,4 @@
+// @tf-test kind=proofs area=coverage speed=fast deps=node
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';

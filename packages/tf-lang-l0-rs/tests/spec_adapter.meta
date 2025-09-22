@@ -1,0 +1,4 @@
+kind=product
+area=l0
+speed=heavy
+deps=rust

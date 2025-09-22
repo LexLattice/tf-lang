@@ -1,3 +1,4 @@
+// @tf-test kind=product area=plan speed=fast deps=node
 import { describe, expect, it } from 'vitest';
 import { CompareReport } from '@tf-lang/tf-plan-compare-core';
 import { renderHtml, renderMarkdown } from '../src/index.js';

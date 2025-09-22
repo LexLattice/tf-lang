@@ -14,9 +14,6 @@
     "t5:rerun": "node scripts/t5-run.mjs --force",
     "t5:clean": "node -e \"require('fs').rmSync('out/t5',{recursive:true,force:true}); console.log('cleaned out/t5')\"",
     "t5:run:obsolete": "echo 'Use node scripts/t5-run.mjs (or t5:rerun) instead' && exit 1",
-    "test:workspace": "pnpm run --recursive test",
-    "test:l0": "node --test tests/*.test.mjs",
-    "test": "pnpm run test:workspace && pnpm run test:l0",
     "pilot:build-run": "node scripts/pilot-build-run.mjs",
     "a0": "node packages/tf-l0-spec/scripts/build-ids.mjs && node packages/tf-l0-spec/scripts/finalize-a0.mjs",
     "a1": "node packages/tf-l0-spec/scripts/build-catalog.mjs && node packages/tf-l0-spec/scripts/derive-effects.mjs && node packages/tf-l0-spec/scripts/build-laws.mjs && node packages/tf-l0-spec/scripts/finalize-a1.mjs",
@@ -56,7 +53,15 @@
     "policy:auth": "node packages/tf-compose/bin/tf-policy-auth.mjs",
     "policy:auth:samples": "node -e \"(async()=>{const {spawnSync}=require('node:child_process');const runs=[['ok','examples/flows/auth_ok.tf'],['wrong','examples/flows/auth_wrong_scope.tf'],['missing','examples/flows/auth_missing.tf']];for(const [label,file] of runs){const r=spawnSync('node',['packages/tf-compose/bin/tf-policy-auth.mjs','--','check',file],{stdio:'inherit'}); if(r.status!==0) console.error(`[auth smoke] ${label} -> nonzero (expected for wrong/missing)`);} process.exit(0)})();\"",
     "docs:gen": "node scripts/docgen/catalog.mjs && node scripts/docgen/dsl.mjs && node scripts/docgen/effects.mjs",
-    "docs:check": "node scripts/docgen/check.mjs"
+    "docs:check": "node scripts/docgen/check.mjs",
+    "test": "node scripts/test/run.mjs --kind product --kind infra --speed fast",
+    "test:product": "node scripts/test/run.mjs --kind product",
+    "test:infra": "node scripts/test/run.mjs --kind infra",
+    "test:proofs": "node scripts/test/run.mjs --kind proofs",
+    "test:parity": "node scripts/test/run.mjs --kind parity --allow-missing-deps",
+    "test:fast": "node scripts/test/run.mjs --speed fast",
+    "test:heavy": "node scripts/test/run.mjs --speed heavy --allow-missing-deps",
+    "tests:list": "node scripts/test/list.mjs && cat out/0.4/tests/available.json"
   },
   "devDependencies": {
     "typescript": "5.9.2",

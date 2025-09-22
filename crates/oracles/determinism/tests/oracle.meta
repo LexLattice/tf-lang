@@ -1,0 +1,4 @@
+kind=infra
+area=oracles
+speed=heavy
+deps=rust

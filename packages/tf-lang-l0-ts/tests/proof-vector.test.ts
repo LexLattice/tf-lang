@@ -1,3 +1,4 @@
+// @tf-test kind=proofs area=proofs speed=medium deps=node
 import { it, expect, afterEach, beforeEach, vi } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';

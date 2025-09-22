@@ -1,0 +1,38 @@
+name: l0-audit
+
+on:
+  pull_request:
+
+concurrency:
+  group: l0-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  audit:
+    name: L0 audit sweep
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-pnpm
+        with:
+          node-version: '20'
+          install: 'true'
+          frozen: 'true'
+      - run: pnpm run a0
+      - run: pnpm run a1
+      - run: pnpm -w -r build
+      - run: node scripts/audit/run.mjs
+      - name: Print summary
+        if: always()
+        run: node -e "const r=require('fs').readFileSync('out/0.4/audit/report.json','utf8'); const j=JSON.parse(r); console.log('errors=%d warnings=%d ok=%s', j.summary?.errors||0, j.summary?.warnings||0, !!j.ok)"
+      - name: Upload audit report
+        if: ${{ !env.ACT }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: l0-audit-report
+          path: out/0.4/audit/report.json

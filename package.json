@@ -7,6 +7,7 @@
     "build": "pnpm run --recursive build",
     "preinstall": "corepack enable pnpm",
     "check:fixtures": "tsx .codex/scripts/check-fixtures-json.ts",
+    "audit": "node scripts/audit/run.mjs",
     "t5:build": "pnpm -w -r build",
     "t5:test": "pnpm -w -r test",
     "t5:run": "node scripts/t5-run.mjs",

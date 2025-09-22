@@ -1,3 +1,5 @@
+// @tf-test kind=product area=effects speed=medium deps=node
+
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';

@@ -1,3 +1,5 @@
+// @tf-test kind=product area=runtime speed=fast deps=node
+
 
 import { describe, it, expect } from 'vitest';
 import { VM, Host } from '../src/vm/index.js';

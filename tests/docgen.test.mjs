@@ -1,3 +1,5 @@
+// @tf-test kind=infra area=docs speed=fast deps=node
+
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile, stat } from 'node:fs/promises';

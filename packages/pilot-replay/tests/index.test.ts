@@ -1,3 +1,5 @@
+// @tf-test kind=product area=pilot speed=fast deps=node
+
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';

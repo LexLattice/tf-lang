@@ -1,3 +1,5 @@
+// @tf-test kind=product area=spec speed=fast deps=node
+
 import { readFileSync, readdirSync } from "fs";
 import { fileURLToPath } from "url";
 import path from "path";

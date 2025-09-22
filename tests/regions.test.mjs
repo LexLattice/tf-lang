@@ -1,3 +1,5 @@
+// @tf-test kind=product area=catalog speed=fast deps=node
+
 import test from 'node:test';
 import assert from 'node:assert/strict';
 

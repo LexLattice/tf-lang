@@ -1,0 +1,4 @@
+kind=proofs
+area=runtime
+speed=medium
+deps=rust

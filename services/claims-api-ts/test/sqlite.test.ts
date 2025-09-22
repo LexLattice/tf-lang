@@ -1,3 +1,5 @@
+// @tf-test kind=infra area=services speed=fast deps=node
+
 import { execSync, spawnSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';

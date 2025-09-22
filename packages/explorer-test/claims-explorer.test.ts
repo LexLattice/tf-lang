@@ -1,3 +1,5 @@
+// @tf-test kind=infra area=pages speed=fast deps=node
+
 import { JSDOM } from 'jsdom';
 import { describe, it, expect } from 'vitest';
 import { fileURLToPath } from 'node:url';

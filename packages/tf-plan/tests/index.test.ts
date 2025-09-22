@@ -1,3 +1,5 @@
+// @tf-test kind=product area=plan speed=fast deps=node
+
 import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';

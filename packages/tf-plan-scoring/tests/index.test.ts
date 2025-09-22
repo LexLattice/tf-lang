@@ -1,3 +1,5 @@
+// @tf-test kind=product area=plan speed=fast deps=node
+
 import { describe, expect, it } from 'vitest';
 import { scorePlanNode } from '../src/index.js';
 

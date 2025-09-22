@@ -1,3 +1,5 @@
+// @tf-test kind=product area=utils speed=fast deps=node
+
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";

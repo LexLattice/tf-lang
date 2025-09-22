@@ -1,3 +1,5 @@
+// @tf-test kind=product area=runtime speed=fast deps=node
+
 import { describe, it, expect } from 'vitest';
 import { makeRawHandler, makeHandler, createHost } from 'host-lite-ts';
 import { canonicalJsonBytes, blake3hex } from 'tf-lang-l0';

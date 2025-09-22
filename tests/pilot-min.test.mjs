@@ -1,3 +1,5 @@
+// @tf-test kind=product area=runtime speed=fast deps=node
+
 import test from 'node:test';
 import { spawnSync } from 'node:child_process';
 import { readFileSync, mkdirSync, openSync, closeSync, unlinkSync } from 'node:fs';

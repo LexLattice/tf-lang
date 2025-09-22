@@ -1,3 +1,5 @@
+// @tf-test kind=product area=plan speed=fast deps=node
+
 import { describe, expect, it } from 'vitest';
 import demoSpec from '../../../tests/specs/demo.json' with { type: 'json' };
 import { enumeratePlan } from '@tf-lang/tf-plan-enum';

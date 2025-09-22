@@ -1,3 +1,5 @@
+// @tf-test kind=product area=checker speed=fast deps=node
+
 import { describe, it, expect } from 'vitest';
 import { parseFilters } from '../src/filters.js';
 

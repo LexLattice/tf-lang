@@ -1,3 +1,4 @@
+// @tf-test kind=product area=runtime speed=fast deps=node
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';

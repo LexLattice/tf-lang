@@ -1,3 +1,4 @@
+// @tf-test kind=product area=host speed=fast deps=node
 import { describe, it, expect } from 'vitest';
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';

@@ -1,0 +1,4 @@
+kind=parity
+area=runtime
+speed=heavy
+deps=rust

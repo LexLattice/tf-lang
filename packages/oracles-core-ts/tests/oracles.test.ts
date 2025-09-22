@@ -1,3 +1,4 @@
+// @tf-test kind=product area=oracles speed=fast deps=node
 import { describe, it, expect } from "vitest";
 import { equals, subsetOf, inRange, matchesRegex, nonEmpty } from "../src/index.js";
 import { MESSAGES } from "../src/messages.js";

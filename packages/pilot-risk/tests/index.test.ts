@@ -1,3 +1,4 @@
+// @tf-test kind=product area=pilot speed=fast deps=node
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';

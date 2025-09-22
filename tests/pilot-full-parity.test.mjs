@@ -1,3 +1,4 @@
+// @tf-test kind=parity area=runtime speed=heavy deps=node
 import test from 'node:test';
 import { spawnSync } from 'node:child_process';
 import { readFileSync, rmSync, writeFileSync } from 'node:fs';

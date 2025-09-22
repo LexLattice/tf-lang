@@ -19,6 +19,9 @@ jobs:
           install: 'true'
           frozen: 'true'
 
+      - name: Install ripgrep (needed by sqlite.test.ts)
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
+
       - name: Build (for lattice import)
         run: |
           pnpm run a0

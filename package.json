@@ -22,6 +22,7 @@
     "test:fast": "node scripts/test/run.mjs --speed fast",
     "test:heavy": "node scripts/test/run.mjs --speed heavy --allow-missing-deps",
     "tests:list": "node scripts/test/list.mjs && cat out/0.4/tests/available.json",
+    "tests:audit:metadata": "node scripts/test/audit-metadata.mjs",
     "pilot:build-run": "node scripts/pilot-build-run.mjs",
     "a0": "node packages/tf-l0-spec/scripts/build-ids.mjs && node packages/tf-l0-spec/scripts/finalize-a0.mjs",
     "a1": "node packages/tf-l0-spec/scripts/build-catalog.mjs && node packages/tf-l0-spec/scripts/derive-effects.mjs && node packages/tf-l0-spec/scripts/build-laws.mjs && node packages/tf-l0-spec/scripts/finalize-a1.mjs",

@@ -79,6 +79,10 @@ jobs:
       - name: Fast tests
         run: pnpm run test:fast
 
+      - name: Metadata audit
+        run: pnpm run tests:audit:metadata
+        continue-on-error: true
+
       - name: Contract break checks
         run: pnpm run contracts:check-breaking
 

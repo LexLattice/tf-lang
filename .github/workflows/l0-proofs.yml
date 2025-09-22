@@ -28,13 +28,18 @@ jobs:
       - name: Emit proof artifacts
         run: node scripts/proofs-emit-all.mjs
 
+      - name: Run proof coverage analysis
+        run: |
+          node scripts/proofs/coverage.mjs
+          node scripts/proofs/emit-missing-laws.mjs
+
       - name: List artifacts
         run: |
           echo "::group::proof files"
           find out/0.4/proofs -type f -print
           echo "::endgroup::"
 
-      - name: Upload proof artifacts
+      - name: Upload proofs (SMT + models + coverage)
         if: ${{ !env.ACT }}
         uses: actions/upload-artifact@v4
         with:

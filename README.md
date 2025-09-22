@@ -132,6 +132,8 @@ out/ (artifacts)/
 
 ## What’s next (0.4)
 
+* Proof coverage (allowed/used/law-backed): generated under `out/0.4/proofs/`.
+  To check in a docs snapshot locally: `pnpm run proofs:coverage:docs`.
 * Trace Explorer (static, safe UI).
 * WASM & Python bindings (parity with Rust/TS).
 * Streaming scale (1M–10M frames) and perf suite.

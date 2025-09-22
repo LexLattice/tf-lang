@@ -1,3 +1,5 @@
+// @tf-test kind=infra area=audit speed=fast deps=node
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, unlink, access, writeFile, mkdir } from 'node:fs/promises';

@@ -1,3 +1,5 @@
+// @tf-test kind=product area=codegen speed=medium deps=node
+
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';

@@ -62,7 +62,7 @@ jobs:
         run: pnpm run determinism:full
 
       - name: Build workspace packages
-        run: pnpm run --recursive build
+        run: pnpm -w -r build
 
       - name: Ensure ripgrep is available
         run: |
@@ -76,8 +76,12 @@ jobs:
             fi
           fi
 
-      - name: Unit tests
-        run: pnpm test
+      - name: Fast tests
+        run: pnpm run test:fast
+
+      - name: Metadata audit
+        run: pnpm run tests:audit:metadata
+        continue-on-error: true
 
       - name: Contract break checks
         run: pnpm run contracts:check-breaking
@@ -92,4 +96,5 @@ jobs:
           name: tf-l0-out
           path: |
             out/0.4/**
+            out/0.4/tests/**
             packages/tf-l0-spec/spec/**

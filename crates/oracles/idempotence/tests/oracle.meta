@@ -1,0 +1,4 @@
+kind=product
+area=oracles
+speed=medium
+deps=rust

@@ -36,6 +36,11 @@ out/
 !out/t2/
 !out/t2/**
 
+# Test runner outputs
+out/0.4/tests/available.json
+out/0.4/tests/manifest.json
+out/0.4/tests/metadata-report.json
+
 # TypeScript
 *.tsbuildinfo
 

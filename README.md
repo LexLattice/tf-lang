@@ -251,3 +251,9 @@ Tip: malformed lines are skipped with a warning; pass --quiet to suppress it.
 ### Determinism
 - Canonical JSON writer with stable key order included.
 - Hashes (`sha256`) generated for core artifacts.
+
+### Test Suite
+- Test taxonomy: each test declares `@tf-test kind=… area=… speed=… deps=…`
+  - List: `pnpm run tests:list` → `out/0.4/tests/available.json`
+  - Run (fast product + infra): `pnpm run test`
+  - Other filters: `pnpm run test:product | test:infra | test:parity | test:heavy`

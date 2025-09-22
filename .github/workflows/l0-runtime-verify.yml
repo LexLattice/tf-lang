@@ -29,6 +29,9 @@ jobs:
           pnpm run a1
           pnpm -w -r build
 
+      - name: Product tests
+        run: pnpm run test:product
+
       - name: Pilot build & run w/ provenance
         env:
           TF_PROVENANCE: '1'
@@ -50,6 +53,13 @@ jobs:
         with:
           name: l0-runtime-verify
           path: out/0.4/verify/**
+
+      - name: Upload test manifests
+        if: ${{ !env.ACT }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: l0-runtime-tests
+          path: out/0.4/tests/**
 
       - name: Print input hashes
         if: ${{ always() }}

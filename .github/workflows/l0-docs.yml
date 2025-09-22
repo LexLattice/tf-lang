@@ -19,11 +19,17 @@ jobs:
           install: 'true'
           frozen: 'true'
 
+      - name: Install ripgrep (needed by sqlite.test.ts)
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
+
       - name: Build (for lattice import)
         run: |
           pnpm run a0
           pnpm run a1
           pnpm -w -r build
+
+      - name: Fast tests
+        run: pnpm run test:fast
 
       - name: Generate docs
         run: pnpm run docs:gen
@@ -41,3 +47,10 @@ jobs:
         with:
           name: docs
           path: docs.zip
+
+      - name: Upload test manifests
+        if: ${{ !env.ACT }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-tests
+          path: out/0.4/tests/**

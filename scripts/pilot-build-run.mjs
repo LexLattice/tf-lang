@@ -175,7 +175,7 @@ async function main() {
 
   await runGeneratedRunner(genDir, join(genDir, 'caps.json'), statusPath, tracePath);
 
-  const traceRaw = await readFile(tracePath, 'utf8');
+  let traceRaw = await readFile(tracePath, 'utf8');
   if (!traceRaw.trim()) {
     throw new Error('pilot-build-run: empty trace output');
   }
@@ -187,6 +187,36 @@ async function main() {
   }
   status.manifest_path = manifestPath;
   await writeFile(statusPath, JSON.stringify(status, null, 2) + '\n');
+
+  const provenance = status.provenance || {};
+  const metaBlock = {
+    ir_hash: provenance.ir_hash || irHash,
+    manifest_hash: provenance.manifest_hash || manifestHash,
+    catalog_hash: provenance.catalog_hash || (await hashJsonLike(join(outDir, 'catalog.json'))),
+  };
+
+  const traceEntries = traceRaw
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map((line) => JSON.parse(line));
+
+  const normalizedTrace = traceEntries.map((entry) => {
+    if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+      return {
+        ts: entry.ts,
+        prim_id: entry.prim_id,
+        args: entry.args,
+        region: entry.region ?? '',
+        effect: entry.effect,
+        meta: { ...metaBlock },
+      };
+    }
+    return { ...metaBlock };
+  });
+
+  traceRaw = normalizedTrace.map((entry) => JSON.stringify(entry)).join('\n') + '\n';
+  await writeFile(tracePath, traceRaw);
 
   const summaryProc = spawnSync('node', [traceSummary], {
     input: traceRaw,

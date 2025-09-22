@@ -65,6 +65,23 @@ async function main() {
     const baseTs = BigInt(process.env.TF_FIXED_TS || FIXED_TS);
     let offset = 0n;
 
+    let metaBlock = null;
+    let provenanceTemplate = null;
+    try {
+      const generatedRaw = await readFile(join(outDir, 'status.json'), 'utf8');
+      const generatedStatus = JSON.parse(generatedRaw);
+      if (generatedStatus?.provenance) {
+        provenanceTemplate = generatedStatus.provenance;
+        metaBlock = {
+          ir_hash: generatedStatus.provenance.ir_hash,
+          manifest_hash: generatedStatus.provenance.manifest_hash,
+          catalog_hash: generatedStatus.provenance.catalog_hash,
+          caps_source: generatedStatus.provenance.caps_source,
+          caps_effects: generatedStatus.provenance.caps_effects,
+        };
+      }
+    } catch {}
+
     for (const { prim, args } of operations) {
       const adapter = typeof inmem.getAdapter === 'function' ? inmem.getAdapter(prim) : inmem[prim];
       if (typeof adapter !== 'function') {
@@ -82,7 +99,17 @@ async function main() {
         args,
         region: '',
         effect: typeof effect === 'string' ? effect : '',
+        meta: metaBlock
+          ? {
+              ir_hash: metaBlock.ir_hash,
+              manifest_hash: metaBlock.manifest_hash,
+              catalog_hash: metaBlock.catalog_hash,
+            }
+          : undefined,
       };
+      if (!record.meta) {
+        delete record.meta;
+      }
       traceLines.push(JSON.stringify(record));
       await adapter(args, inmem.state ?? {});
       offset += 1n;
@@ -107,13 +134,17 @@ async function main() {
       effects: Array.from(effects).sort(),
       manifest_path: manifestPath,
     };
-    try {
-      const generatedRaw = await readFile(join(outDir, 'status.json'), 'utf8');
-      const generatedStatus = JSON.parse(generatedRaw);
-      if (generatedStatus?.provenance) {
-        status.provenance = generatedStatus.provenance;
-      }
-    } catch {}
+    if (provenanceTemplate) {
+      status.provenance = provenanceTemplate;
+    } else {
+      try {
+        const generatedRaw = await readFile(join(outDir, 'status.json'), 'utf8');
+        const generatedStatus = JSON.parse(generatedRaw);
+        if (generatedStatus?.provenance) {
+          status.provenance = generatedStatus.provenance;
+        }
+      } catch {}
+    }
     await writeFile(statusPath, JSON.stringify(status, null, 2) + '\n');
   } finally {
     if (prevStatus === undefined) delete process.env.TF_STATUS_PATH;

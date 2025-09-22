@@ -18,35 +18,30 @@ function accumulateSummary(schemas, determinism, links, catalog) {
   let errors = 0;
   let warnings = 0;
 
-  const schemaFailures = schemas.entries.filter((entry) => !entry.ok).length;
-  errors += schemaFailures;
-
-  const brokenLinks = links.broken.length;
-  errors += brokenLinks;
+  errors += schemas.entries.filter((entry) => !entry.ok).length;
+  errors += links.broken.length;
 
   for (const issue of determinism.issues) {
-    if (issue.issue === 'has_crlf') {
-      errors += 1;
-    } else if (issue.issue === 'missing_exec') {
-      if (issue.workflow) {
+    switch (issue.issue) {
+      case 'has_crlf':
         errors += 1;
-      } else {
+        break;
+      case 'missing_exec':
+        if (issue.workflow) {
+          errors += 1;
+        } else {
+          warnings += 1;
+        }
+        break;
+      default:
         warnings += 1;
-      }
-    } else if (issue.issue === 'missing_shebang') {
-      if (issue.workflow) {
-        errors += 1;
-      } else {
-        warnings += 1;
-      }
-    } else if (issue.issue === 'missing_newline') {
-      warnings += 1;
+        break;
     }
   }
 
   errors += catalog.prims_missing_effects.length;
   warnings += catalog.effects_unrecognized.length;
-  errors += catalog.laws_ref_missing_prims.length;
+  warnings += catalog.laws_ref_missing_prims.length;
 
   return { errors, warnings };
 }
@@ -61,9 +56,11 @@ export async function run() {
   const ok = summary.errors === 0;
 
   const report = { ok, schemas, determinism, links, catalog, summary };
+  const payload = `${JSON.stringify(report, null, 2)}\n`;
 
   await mkdir(REPORT_DIR, { recursive: true });
-  await writeFile(REPORT_PATH, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+  await writeFile(REPORT_PATH, payload, 'utf8');
+  process.stdout.write(payload);
 
   const logLines = [
     '=== Audit Summary ===',

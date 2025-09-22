@@ -93,7 +93,6 @@ export async function run() {
     if (relPath.startsWith('.pnpm/')) return;
     if (relPath.startsWith('dist/')) return;
     if (relPath.startsWith('.codex/')) return;
-    if (relPath.startsWith('tmp/')) return;
 
     if (relPath.startsWith('scripts/') && relPath.endsWith('.mjs')) {
       scriptFiles.add(relPath);

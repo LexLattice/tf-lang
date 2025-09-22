@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile, unlink, access, writeFile } from 'node:fs/promises';
+import { readFile, unlink, access, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
@@ -33,12 +33,14 @@ test('audit report is emitted deterministically', async () => {
 });
 
 test('determinism check flags CRLF content', async () => {
-  const tempPath = path.join(ROOT, 'tests', 'tmp-crlf.json');
+  const tempDir = path.join(ROOT, 'tmp');
+  const tempPath = path.join(tempDir, 'audit-crlf.json');
+  await mkdir(tempDir, { recursive: true });
   await writeFile(tempPath, '{\r\n}\r\n');
   try {
     const { run: runDeterminism } = await import('../scripts/audit/check-determinism.mjs');
     const result = await runDeterminism();
-    const hit = result.issues.find((issue) => issue.path === 'tests/tmp-crlf.json' && issue.issue === 'has_crlf');
+    const hit = result.issues.find((issue) => issue.path === 'tmp/audit-crlf.json' && issue.issue === 'has_crlf');
     assert.ok(hit, 'expected CRLF issue to be reported');
   } finally {
     if (await fileExists(tempPath)) {

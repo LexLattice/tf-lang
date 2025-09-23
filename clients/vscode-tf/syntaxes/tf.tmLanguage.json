@@ -1,0 +1,10 @@
+{
+  "name": "TF",
+  "scopeName": "source.tf",
+  "patterns": [
+    {
+      "match": "\\b(flow|Authorize)\\b",
+      "name": "keyword.control.tf"
+    }
+  ]
+}

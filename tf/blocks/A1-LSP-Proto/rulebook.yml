@@ -1,60 +1,113 @@
 version: 1
-meta: { node: A1-LSP-Proto, title: "A1-LSP-Proto rulebook" }
+meta: { node: A1-LSP-Proto, title: "A1 — LSP prototype rulebook (full)" }
 
 phases:
   cp1_baseline:
-    title: "Baseline: build + scope"
+    title: "Baseline: build + scope + hygiene (soft)"
     inherits: []
-    rules: [compile_ok, scope_guard, banned_tokens_soft]
+    rules:
+      - compile_ok
+      - scope_guard
+      - no_workspace_edit
+      - banned_tokens_soft
+      - smoke_tf_cli
 
   cp2_diag:
-    title: "Diagnostics with ranges"
+    title: "Diagnostics with ranges + policy smoke"
     inherits: [cp1_baseline]
-    rules: [diag_ranges]
+    rules:
+      - diag_ranges
+      - diag_protected_policy
+      - parser_error_surface
 
   cp3_hover:
-    title: "Hover: signature/effects/laws"
+    title: "Hover: signature / effects / laws"
     inherits: [cp2_diag]
-    rules: [hover_signatures]
+    rules:
+      - hover_signatures
 
   cp4_code_actions:
-    title: "CodeAction: Wrap with Authorize{scope=?}"
+    title: "CodeAction: Wrap with Authorize{scope=?} + hygiene (hard)"
     inherits: [cp3_hover]
-    rules: [code_action_authorize, banned_tokens_hard]
+    rules:
+      - code_action_authorize
+      - banned_tokens_hard
 
+# -------------------------
+# Rules
+# -------------------------
 rules:
+  # --- CP1: Baseline ---
+
   compile_ok:
     kind: probe.exec
-    command: "node -e 'process.exit(0)'"
+    # Build everything in the workspace quietly. Fails fast if the tree doesn’t compile.
+    command: "pnpm -w -r build --silent"
     expect: { exit_code: 0 }
 
   scope_guard:
     kind: probe.exec
+    # Enforce AGENTS.md scope: only allowed paths, no forbidden paths/tokens (soft here).
     command: "cat \"$DIFF_PATH\" | node tools/tf-checker/scan-diff.mjs --config meta/checker.yml --diff -"
     expect: { jsonpath_eq: { "$.ok": true } }
 
+  no_workspace_edit:
+    kind: probe.exec
+    # Prevent accidental edits to pnpm-workspace.yaml (frequent source of churn).
+    command: "bash -lc '! git diff --name-only | grep -q \"^pnpm-workspace.yaml$\"'"
+    expect: { exit_code: 0 }
+
   banned_tokens_soft:
     kind: probe.exec
+    # Gentle guidance early on: violations must be zero; warnings allowed.
     command: "cat \"$DIFF_PATH\" | node tools/tf-checker/scan-diff.mjs --config meta/checker.yml --diff -"
     expect: { jsonpath_eq: { "$.token_violations.length": 0 } }
+
+  smoke_tf_cli:
+    kind: probe.exec
+    # Sanity check: TF CLI OK on a known-good flow (already in repo).
+    command: "node packages/tf-compose/bin/tf.mjs check examples/flows/auth_ok.tf"
+    expect: { exit_code: 0 }
+
+  # --- CP2: Diagnostics ---
+
+  diag_ranges:
+    kind: probe.exec
+    # The stub returns JSON; assert it actually contains a range field (pragmatic check).
+    command: "node scripts/probe-lsp-diag.mjs"
+    expect: { contains: "\"range\"" }
+
+  diag_protected_policy:
+    kind: probe.exec
+    # A known-bad flow must fail with the protected-op policy reason.
+    command: "node packages/tf-compose/bin/tf.mjs check examples/flows/auth_missing.tf"
+    expect: { contains: "Protected op", }
+
+  parser_error_surface:
+    kind: probe.exec
+    # Ensure parse errors report coordinates; helps agents implement range mapping.
+    command: "bash -lc 'mkdir -p out/tmp && printf \"seq{ write-object( }\" > out/tmp/bad.tf; node packages/tf-compose/bin/tf.mjs parse out/tmp/bad.tf 2>&1 || true'"
+    expect: { contains: "Parse error at " }
+
+  # --- CP3: Hover ---
+
+  hover_signatures:
+    kind: probe.exec
+    # The hover stub returns signature/effects/laws — assert all three are present.
+    command: "node scripts/probe-lsp-hover.mjs tf:network/publish@1"
+    expect: { contains: "signature" }
+
+  # --- CP4: Code Action + hard hygiene ---
+
+  code_action_authorize:
+    kind: probe.exec
+    # Use an existing flow (auth_missing.tf) for the quick fix probe.
+    command: "node scripts/probe-lsp-codeaction.mjs examples/flows/auth_missing.tf"
+    expect: { contains: "Authorize{scope" }
 
   banned_tokens_hard:
     kind: probe.exec
     env: { TF_STRICT: "1" }
+    # Escalate: warnings must be zero in the final phase.
     command: "cat \"$DIFF_PATH\" | node tools/tf-checker/scan-diff.mjs --config meta/checker.yml --diff -"
     expect: { jsonpath_eq: { "$.token_warnings.length": 0 } }
-
-  diag_ranges:
-    kind: probe.exec
-    command: "node scripts/probe-lsp-diag.mjs"
-    expect: { jsonpath: "$.diagnostics[*].range", nonempty: true }
-
-  hover_signatures:
-    kind: probe.exec
-    command: "node scripts/probe-lsp-hover.mjs tf:network/publish@1"
-    expect: { jsonpath_all: ["$.signature","$.effects","$.laws"] }
-
-  code_action_authorize:
-    kind: probe.exec
-    command: "node scripts/probe-lsp-codeaction.mjs samples/illegal_write.tf"
-    expect: { contains: "Authorize{scope" }

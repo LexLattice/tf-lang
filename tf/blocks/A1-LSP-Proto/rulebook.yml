@@ -1,0 +1,60 @@
+version: 1
+meta: { node: A1-LSP-Proto, title: "A1-LSP-Proto rulebook" }
+
+phases:
+  cp1_baseline:
+    title: "Baseline: build + scope"
+    inherits: []
+    rules: [compile_ok, scope_guard, banned_tokens_soft]
+
+  cp2_diag:
+    title: "Diagnostics with ranges"
+    inherits: [cp1_baseline]
+    rules: [diag_ranges]
+
+  cp3_hover:
+    title: "Hover: signature/effects/laws"
+    inherits: [cp2_diag]
+    rules: [hover_signatures]
+
+  cp4_code_actions:
+    title: "CodeAction: Wrap with Authorize{scope=?}"
+    inherits: [cp3_hover]
+    rules: [code_action_authorize, banned_tokens_hard]
+
+rules:
+  compile_ok:
+    kind: probe.exec
+    command: "pnpm -w -r build --silent"
+    expect: { exit_code: 0 }
+
+  scope_guard:
+    kind: probe.exec
+    command: "cat \"$DIFF_PATH\" | node tools/tf-checker/scan-diff.mjs --config meta/checker.yml --diff -"
+    expect: { jsonpath_eq: { "$.ok": true } }
+
+  banned_tokens_soft:
+    kind: probe.exec
+    command: "cat \"$DIFF_PATH\" | node tools/tf-checker/scan-diff.mjs --config meta/checker.yml --diff -"
+    expect: { jsonpath_eq: { "$.token_violations.length": 0 } }
+
+  banned_tokens_hard:
+    kind: probe.exec
+    env: { TF_STRICT: "1" }
+    command: "cat \"$DIFF_PATH\" | node tools/tf-checker/scan-diff.mjs --config meta/checker.yml --diff -"
+    expect: { jsonpath_eq: { "$.token_warnings.length": 0 } }
+
+  diag_ranges:
+    kind: probe.exec
+    command: "node scripts/probe-lsp-diag.mjs"
+    expect: { jsonpath: "$.diagnostics[*].range", nonempty: true }
+
+  hover_signatures:
+    kind: probe.exec
+    command: "node scripts/probe-lsp-hover.mjs tf:network/publish@1"
+    expect: { jsonpath_all: ["$.signature","$.effects","$.laws"] }
+
+  code_action_authorize:
+    kind: probe.exec
+    command: "node scripts/probe-lsp-codeaction.mjs samples/illegal_write.tf"
+    expect: { contains: "Authorize{scope" }

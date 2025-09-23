@@ -62,15 +62,19 @@
     "policy:auth": "node packages/tf-compose/bin/tf-policy-auth.mjs",
     "policy:auth:samples": "node -e \"(async()=>{const {spawnSync}=require('node:child_process');const runs=[['ok','examples/flows/auth_ok.tf'],['wrong','examples/flows/auth_wrong_scope.tf'],['missing','examples/flows/auth_missing.tf']];for(const [label,file] of runs){const r=spawnSync('node',['packages/tf-compose/bin/tf-policy-auth.mjs','--','check',file],{stdio:'inherit'}); if(r.status!==0) console.error(`[auth smoke] ${label} -> nonzero (expected for wrong/missing)`);} process.exit(0)})();\"",
     "docs:gen": "node scripts/docgen/catalog.mjs && node scripts/docgen/dsl.mjs && node scripts/docgen/effects.mjs",
-    "docs:check": "node scripts/docgen/check.mjs"
+    "docs:check": "node scripts/docgen/check.mjs",
+    "tf:new-node": "node tools/tf-lang-cli/scaffold.mjs",
+    "tf:open": "node tools/tf-lang-cli/index.mjs open",
+    "tf:run": "node tools/tf-lang-cli/index.mjs run"
   },
   "devDependencies": {
-    "typescript": "5.9.2",
-    "ajv": "^8.17.1",
-    "yaml": "^2.4.5",
     "@tf-lang/tf-plan": "workspace:*",
+    "@tf-lang/tf-plan-compare": "workspace:*",
     "@tf-lang/tf-plan-scaffold": "workspace:*",
-    "@tf-lang/tf-plan-compare": "workspace:*"
+    "ajv": "^8.17.1",
+    "picomatch": "^4.0.3",
+    "typescript": "5.9.2",
+    "yaml": "^2.8.1"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

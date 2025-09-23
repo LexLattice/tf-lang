@@ -1,0 +1,33 @@
+version: 1
+allow_paths:
+  - "packages/tf-lsp-server/**"
+  - "clients/vscode-tf/**"
+forbid_paths:
+  - "packages/tf-optimize/**"
+  - "crates/**"
+  - "**/*.generated.*"
+
+token_rules:
+  - id: ts_any_type
+    desc: "TypeScript ': any'"
+    include: ["**/*.ts","**/*.tsx"]
+    exclude: ["**/*.d.ts","**/__tests__/**","**/test/**"]
+    pattern: ":\\s*any\\b"
+    severity: block
+  - id: ts_as_any
+    desc: "TypeScript 'as any'"
+    include: ["**/*.ts","**/*.tsx"]
+    pattern: "\\bas\\s+any\\b"
+    severity: block
+  - id: js_eval
+    desc: "eval()"
+    include: ["**/*.js","**/*.ts","**/*.tsx"]
+    pattern: "\\beval\\s*\\("
+    severity: block
+  - id: ts_ignore
+    desc: "@ts-ignore"
+    include: ["**/*.ts","**/*.tsx"]
+    pattern: "@ts-ignore"
+    severity: warn
+
+strict: false

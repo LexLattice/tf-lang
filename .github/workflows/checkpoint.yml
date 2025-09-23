@@ -1,0 +1,32 @@
+name: tf-lang checkpoint
+on: [pull_request]
+jobs:
+  checkpoint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: pnpm -w -r install
+      - name: Extract node/cp from PR title (format: 'node:<ID> cp:<PHASE>')
+        id: meta
+        run: |
+          T="${{ github.event.pull_request.title }}"
+          NODE=$(echo "$T" | sed -n 's/.*node:\([A-Za-z0-9._-]\+\).*/\1/p')
+          CP=$(echo "$T" | sed -n 's/.*cp:\([A-Za-z0-9._-]\+\).*/\1/p')
+          echo "node=$NODE" >> $GITHUB_OUTPUT
+          echo "cp=$CP" >> $GITHUB_OUTPUT
+      - name: Validate meta
+        run: |
+          [ -n "${{ steps.meta.outputs.node }}" ] && [ -n "${{ steps.meta.outputs.cp }}" ] || { echo "PR title must contain 'node:<ID> cp:<PHASE>'"; exit 1; }
+      - name: Get PR diff
+        run: gh pr diff ${{ github.event.pull_request.number }} --patch --color=never > out/tmp/pr.diff
+        env: { GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} }
+      - name: Run checkpoint
+        run: cat out/tmp/pr.diff | node tools/tf-lang-cli/index.mjs run ${{ steps.meta.outputs.node }} ${{ steps.meta.outputs.cp }} --diff -
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TFREPORT
+          path: out/TFREPORT.json

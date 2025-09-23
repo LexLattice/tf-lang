@@ -1,0 +1,7 @@
+id: A1-LSP-Proto
+version: 0.45.0
+scope:
+  allow_paths: ["packages/tf-lsp-server/**","clients/vscode-tf/**"]
+  forbid_paths: ["**/*.generated.*","crates/**"]
+notes:
+  - "Acceptance lives in rulebook.yml phases"

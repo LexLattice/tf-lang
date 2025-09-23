@@ -1,11 +1,11 @@
 import { readFile } from 'node:fs/promises';
-export async function loadCatalog() {
-  const candidates = [
-    'packages/tf-l0-spec/spec/catalog.json',
-    'catalogs/catalog.json',
-  ];
-  for (const p of candidates) {
-    try { return JSON.parse(await readFile(p, 'utf8')); } catch { }
-  }
-  return { primitives: [] };
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+const here = dirname(fileURLToPath(import.meta.url));
+
+export async function loadSampleCatalog() {
+  const catalogPath = join(here, '../../packages/tf-l0-spec/spec/catalog.json');
+  const raw = await readFile(catalogPath, 'utf8');
+  return JSON.parse(raw);
 }

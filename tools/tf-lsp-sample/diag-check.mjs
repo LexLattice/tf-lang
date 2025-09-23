@@ -1,28 +1,82 @@
-#!/usr/bin/env node
-// Usage: node tools/tf-lsp-sample/diag-check.mjs --file samples/a1/illegal_write.tf
 import { readFile } from 'node:fs/promises';
-import { parseDSL } from '../../packages/tf-compose/src/parser.mjs';
-import { checkIR } from '../../packages/tf-l0-check/src/check.mjs';
-import { checkRegions } from '../../packages/tf-l0-check/src/regions.mjs';
-import { loadCatalog } from './catalog-loader.mjs';
+import { pathToFileURL } from 'node:url';
+import { resolve } from 'node:path';
 
-const file = process.argv[process.argv.indexOf('--file') + 1];
-const src = await readFile(file, 'utf8');
-const ir = parseDSL(src);
-const cat = await loadCatalog();
-const v = checkIR(ir, cat);
+import { LspClient } from './lsp-client.mjs';
 
-let protectedList = [];
-try {
-  protectedList = JSON.parse(await readFile('packages/tf-l0-spec/spec/protected.json', 'utf8')).protected_keywords || [];
-} catch { }
+function usage() {
+  console.error('usage: node diag-check.mjs --file <path>');
+  process.exit(2);
+}
 
-const r = checkRegions(ir, cat, protectedList);
+function parseArgs(argv) {
+  const args = { file: null };
+  for (let i = 0; i < argv.length; i += 1) {
+    const token = argv[i];
+    if (token === '--file') {
+      args.file = argv[i + 1] ?? null;
+      i += 1;
+      continue;
+    }
+  }
+  if (!args.file) {
+    usage();
+  }
+  return args;
+}
 
-// Compact verdict lines used by rulebook `contains` checks:
-if (file.includes('syntax_error')) console.log('syntax_surface_ok:true'); // we only need to show we surface one
-if (file.includes('illegal_write')) console.log('diagnostics_ok:true');
+async function main() {
+  const args = parseArgs(process.argv.slice(2));
+  const filePath = resolve(args.file);
+  const text = await readFile(filePath, 'utf8');
+  const documentUri = pathToFileURL(filePath).toString();
 
-if (r.ok && v.ok) process.exit(0);
-console.log((r.reasons || []).concat(v.reasons || []).join('\n'));
-process.exit(1);
+  const client = new LspClient();
+  try {
+    await client.initialize(null);
+    const diagnosticsPromise = new Promise((resolve) => {
+      client.once('diagnostics', (payload) => {
+        resolve(payload?.diagnostics ?? []);
+      });
+    });
+
+    await client.sendNotification('textDocument/didOpen', {
+      textDocument: {
+        uri: documentUri,
+        languageId: 'tf',
+        version: 1,
+        text,
+      },
+    });
+
+    const diagnostics = await diagnosticsPromise;
+
+    const arrayDiagnostics = Array.isArray(diagnostics) ? diagnostics : [];
+    const hasProtectedViolation = arrayDiagnostics.some((diag) =>
+      typeof diag?.message === 'string' && diag.message.includes("Protected op")
+    );
+    const hasParseError = arrayDiagnostics.some((diag) =>
+      typeof diag?.message === 'string' && diag.message.startsWith('Parse error')
+    );
+
+    console.log(`diagnostics_ok:${arrayDiagnostics.length > 0}`);
+    console.log(`syntax_surface_ok:${hasParseError}`);
+    if (hasProtectedViolation) {
+      for (const diag of arrayDiagnostics) {
+        if (typeof diag?.message === 'string') {
+          console.log(diag.message);
+        }
+      }
+    }
+
+    await client.shutdown();
+
+    process.exit(hasProtectedViolation ? 1 : 0);
+  } catch (error) {
+    console.error(error);
+    try { await client.shutdown(); } catch {}
+    process.exit(1);
+  }
+}
+
+main();

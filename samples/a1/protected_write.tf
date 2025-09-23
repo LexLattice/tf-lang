@@ -1,1 +1,1 @@
-# legal except protected write outside Authorize (for code action)
+write-object(resource_uri="s3://bucket/item")

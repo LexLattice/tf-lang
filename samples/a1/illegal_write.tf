@@ -1,1 +1,3 @@
-# a legal syntax, illegal policy (write outside Authorize)
+seq{
+  write-object(uri="res://kv/public", key="alpha", value="1")
+}

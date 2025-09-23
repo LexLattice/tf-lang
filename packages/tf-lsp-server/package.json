@@ -1,0 +1,17 @@
+{
+  "name": "@tf/tf-lsp-server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "dev": "node --enable-source-maps ./dist/server.js"
+  },
+  "dependencies": {
+    "vscode-languageserver": "^8.1.0",
+    "vscode-languageserver-textdocument": "^1.0.8"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}

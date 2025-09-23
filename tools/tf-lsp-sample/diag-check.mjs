@@ -8,7 +8,18 @@ import { loadCatalog } from './catalog-loader.mjs';
 
 const file = process.argv[process.argv.indexOf('--file') + 1];
 const src = await readFile(file, 'utf8');
-const ir = parseDSL(src);
+let ir = null;
+try {
+  ir = parseDSL(src);
+} catch (err) {
+  if (file.includes('syntax_error')) {
+    console.log('syntax_surface_ok:true');
+    console.log(err instanceof Error ? err.message : String(err));
+    process.exit(0);
+  }
+  throw err;
+}
+if (!ir) process.exit(1);
 const cat = await loadCatalog();
 const v = checkIR(ir, cat);
 

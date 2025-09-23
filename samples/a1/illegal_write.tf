@@ -1,1 +1,1 @@
-# a legal syntax, illegal policy (write outside Authorize)
+write-object(uri="res://kv/orders", key="order-1", value="payload")

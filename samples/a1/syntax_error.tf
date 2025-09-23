@@ -1,1 +1,1 @@
-# malformed on purpose (for parser error surfacing)
+authorize{ write-object(uri="res://kv/orders", key="order-1", value="payload")

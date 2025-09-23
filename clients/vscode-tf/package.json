@@ -1,0 +1,41 @@
+{
+  "name": "@tf-lang/vscode-tf",
+  "displayName": "TF Language Support",
+  "description": "Basic VS Code integration for the TF language.",
+  "version": "0.0.1",
+  "private": true,
+  "publisher": "tf-lang",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onLanguage:tf"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "tf",
+        "aliases": ["TF"],
+        "extensions": [".tflo"]
+      }
+    ],
+    "grammars": [
+      {
+        "language": "tf",
+        "scopeName": "source.tf",
+        "path": "./syntaxes/tf.tmLanguage.json"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/vscode": "1.80.0",
+    "typescript": "^5.4.5"
+  }
+}

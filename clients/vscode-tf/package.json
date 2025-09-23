@@ -1,0 +1,31 @@
+{
+  "name": "tf-lang-vscode",
+  "displayName": "TF Language",
+  "version": "0.0.1",
+  "private": true,
+  "publisher": "tf-lang",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "main": "dist/extension.js",
+  "scripts": {
+    "build": "tsc -p ."
+  },
+  "activationEvents": [],
+  "contributes": {
+    "grammars": [
+      {
+        "language": "tf",
+        "scopeName": "source.tf",
+        "path": "./syntaxes/tf.tmLanguage.json"
+      }
+    ]
+  },
+  "dependencies": {
+    "vscode-languageclient": "^8.1.0"
+  },
+  "devDependencies": {
+    "@types/vscode": "1.80.0",
+    "typescript": "^5.4.0"
+  }
+}

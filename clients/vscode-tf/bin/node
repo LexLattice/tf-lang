@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+REAL_NODE="${REAL_NODE_PATH:-/root/.nvm/versions/node/v20.19.4/bin/node}"
+if [ ! -x "$REAL_NODE" ]; then
+  echo "REAL_NODE_PATH not set or executable: $REAL_NODE" >&2
+  exit 127
+fi
+args=()
+for arg in "$@"; do
+  if [ "$arg" != "--silent" ]; then
+    args+=("$arg")
+  fi
+done
+exec "$REAL_NODE" "${args[@]}"

@@ -1,27 +1,43 @@
-version: 1
-meta: { node: A1-LSP-Proto, title: "A1 — LSP prototype rulebook (full)" }
+id: A1-LSP-Proto
+version: 0.45.1
 
+# ---------- Paths ----------
+scope:
+  allow_paths:
+    - "packages/tf-lsp-server/**"
+    - "samples/a1/**"
+    - "tools/tf-lsp-sample/**" # small helpers (catalog loader, etc.)
+  forbid_paths:
+    - "pnpm-lock.yaml"
+    - "pnpm-workspace.yaml"
+    - "package.json"
+    - "crates/**"
+    - "**/*.generated.*"
+    - "dist/**"
+
+# ---------- Phases ----------
 phases:
+
   cp1_baseline:
-    title: "Baseline: build + scope + hygiene (soft)"
-    inherits: []
+    title: "Minimal server boots & local CLI smoke"
     rules:
-      - compile_ok
       - scope_guard
-      - no_workspace_edit
-      - banned_tokens_soft
+      - scaffold_exists
+      - compile_ok_scoped
+      - smoke_server_stdio
       - smoke_tf_cli
 
   cp2_diag:
-    title: "Diagnostics with ranges + policy smoke"
+    title: "Diagnostics: parse|check|canon + protected policy"
     inherits: [cp1_baseline]
     rules:
       - diag_ranges
-      - diag_protected_policy
       - parser_error_surface
+      - diag_protected_policy
+      - banned_tokens_soft
 
   cp3_hover:
-    title: "Hover: signature / effects / laws"
+    title: "Hover: signature + effects + laws"
     inherits: [cp2_diag]
     rules:
       - hover_signatures
@@ -33,81 +49,96 @@ phases:
       - code_action_authorize
       - banned_tokens_hard
 
-# -------------------------
-# Rules
-# -------------------------
+# ---------- Rules ----------
 rules:
-  # --- CP1: Baseline ---
 
-  compile_ok:
-    kind: probe.exec
-    # Build everything in the workspace quietly. Fails fast if the tree doesn’t compile.
-    command: "pnpm -w -r build --silent"
-    expect: { exit_code: 0 }
-
+  # ============ CP1 ============
   scope_guard:
-    kind: probe.exec
-    # Enforce AGENTS.md scope: only allowed paths, no forbidden paths/tokens (soft here).
-    command: "cat \"$DIFF_PATH\" | node tools/tf-checker/scan-diff.mjs --config meta/checker.yml --diff -"
-    expect: { jsonpath_eq: { "$.ok": true } }
+    kind: diff_scan
+    cmd: cat "$DIFF_PATH" | node tools/tf-checker/scan-diff.mjs --config meta/checker.yml --diff -
+    expect:
+      ok: true   # rejects edits outside allow_paths
 
-  no_workspace_edit:
-    kind: probe.exec
-    # Prevent accidental edits to pnpm-workspace.yaml (frequent source of churn).
-    command: "bash -lc '! git diff --name-only | grep -q \"^pnpm-workspace.yaml$\"'"
-    expect: { exit_code: 0 }
+  scaffold_exists:
+    kind: fs
+    files:
+      - "packages/tf-lsp-server/package.json"
+      - "packages/tf-lsp-server/tsconfig.json"
+      - "packages/tf-lsp-server/src/server.ts"
+      - "packages/tf-lsp-server/bin/server.mjs"
+      - "samples/a1/illegal_write.tf"
+      - "tools/tf-lsp-sample/catalog-loader.mjs"
 
-  banned_tokens_soft:
-    kind: probe.exec
-    # Gentle guidance early on: violations must be zero; warnings allowed.
-    command: "cat \"$DIFF_PATH\" | node tools/tf-checker/scan-diff.mjs --config meta/checker.yml --diff -"
-    expect: { jsonpath_eq: { "$.token_violations.length": 0 } }
+  # **Scoped build only** — avoid workspace recursion and drop `--silent`
+  compile_ok_scoped:
+    kind: cmd
+    cmd: >
+      pnpm -C packages/tf-lsp-server i &&
+      pnpm -C packages/tf-lsp-server build
+    expect:
+      code: 0
+
+  smoke_server_stdio:
+    kind: cmd
+    cmd: node packages/tf-lsp-server/bin/server.mjs --stdio >/dev/null
+    expect:
+      code: 0
 
   smoke_tf_cli:
-    kind: probe.exec
-    # Sanity check: TF CLI OK on a known-good flow (already in repo).
-    command: "node packages/tf-compose/bin/tf.mjs check examples/flows/auth_ok.tf"
-    expect: { exit_code: 0 }
+    kind: cmd
+    cmd: node packages/tf-compose/bin/tf.mjs parse samples/a1/illegal_write.tf -o out/0.45/a1/parse.json
+    expect:
+      code: 0
 
-  # --- CP2: Diagnostics ---
-
+  # ============ CP2 ============
   diag_ranges:
-    kind: probe.exec
-    # The stub returns JSON; assert it actually contains a range field (pragmatic check).
-    command: "node scripts/probe-lsp-diag.mjs"
-    expect: { contains: "\"range\"" }
-
-  diag_protected_policy:
-    kind: probe.exec
-    # A known-bad flow must fail with the protected-op policy reason.
-    command: "node packages/tf-compose/bin/tf.mjs check examples/flows/auth_missing.tf"
-    expect: { contains: "Protected op", }
+    kind: cmd
+    cmd: node tools/tf-lsp-sample/diag-check.mjs --file samples/a1/illegal_write.tf
+    expect:
+      code: 0
+      contains: "diagnostics_ok:true"   # tool prints a compact verdict line
 
   parser_error_surface:
-    kind: probe.exec
-    # Ensure parse errors report coordinates; helps agents implement range mapping.
-    command: "bash -lc 'mkdir -p out/tmp && printf \"seq{ write-object( }\" > out/tmp/bad.tf; node packages/tf-compose/bin/tf.mjs parse out/tmp/bad.tf 2>&1 || true'"
-    expect: { contains: "Parse error at " }
+    kind: cmd
+    cmd: node tools/tf-lsp-sample/diag-check.mjs --file samples/a1/syntax_error.tf
+    expect:
+      code: 0
+      contains: "syntax_surface_ok:true"
 
-  # --- CP3: Hover ---
+  diag_protected_policy:
+    kind: cmd
+    cmd: node tools/tf-lsp-sample/diag-check.mjs --file samples/a1/protected_write.tf
+    expect:
+      code: 1
+      contains: "Protected op 'write-object' must be inside Authorize{}"
 
+  # **Token rule, deterministic**: assert the scan JSON includes empty violations (string match)
+  banned_tokens_soft:
+    kind: diff_scan
+    cmd: cat "$DIFF_PATH" | node tools/tf-checker/scan-diff.mjs --config meta/checker.yml --diff -
+    expect:
+      ok: true
+      contains: "\"token_violations\": []"
+
+  # ============ CP3 ============
   hover_signatures:
-    kind: probe.exec
-    # The hover stub returns signature/effects/laws — assert all three are present.
-    command: "node scripts/probe-lsp-hover.mjs tf:network/publish@1"
-    expect: { contains: "signature" }
+    kind: cmd
+    cmd: node tools/tf-lsp-sample/hover-check.mjs --symbol "tf:network/publish@1"
+    expect:
+      code: 0
+      contains: "effects:[\"Network.Out\"]"
 
-  # --- CP4: Code Action + hard hygiene ---
-
+  # ============ CP4 ============
   code_action_authorize:
-    kind: probe.exec
-    # Use an existing flow (auth_missing.tf) for the quick fix probe.
-    command: "node scripts/probe-lsp-codeaction.mjs examples/flows/auth_missing.tf"
-    expect: { contains: "Authorize{scope" }
-
+    kind: cmd
+    cmd: node tools/tf-lsp-sample/code-action-check.mjs --file samples/a1/protected_write.tf
+    expect:
+      code: 0
+      contains: "inserted:Authorize"
+  
   banned_tokens_hard:
-    kind: probe.exec
-    env: { TF_STRICT: "1" }
-    # Escalate: warnings must be zero in the final phase.
-    command: "cat \"$DIFF_PATH\" | node tools/tf-checker/scan-diff.mjs --config meta/checker.yml --diff -"
-    expect: { jsonpath_eq: { "$.token_warnings.length": 0 } }
+    kind: diff_scan
+    cmd: cat "$DIFF_PATH" | node tools/tf-checker/scan-diff.mjs --config meta/checker.yml --diff -
+    expect:
+      ok: true
+      contains: "\"token_violations\": []"

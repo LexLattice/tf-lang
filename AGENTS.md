@@ -19,6 +19,8 @@ For any task `NODE_ID` and phase `CHECKPOINT`:
 
    > Why staged? It makes the diff deterministic, avoids empty-diff edge cases, and keeps token/scope checks crisp.
 
+   Fixtures policy: samples/a1/** and scripts/lsp-smoke/** are read-only after cp1. If you need a different sample, propose it in a meta PR. The checker enforces this in cp2+.
+
 3. **Act only on failing rules, then re-run step 2**
 
    * Open `out/TFREPORT.json`; fix **only** the rules where `.results[rule].ok == false`.

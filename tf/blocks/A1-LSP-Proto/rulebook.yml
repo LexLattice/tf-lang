@@ -1,63 +1,47 @@
-id: A1-LSP-Proto
-version: 0.45.1
+version: 1
+meta: { node: A1-LSP-Proto, title: "A1 — LSP prototype (v3 hardened)" }
 
-# ---------- Paths ----------
-scope:
-  allow_paths:
-    - "packages/tf-lsp-server/**"
-    - "samples/a1/**"
-    - "tools/tf-lsp-sample/**" # small helpers (catalog loader, etc.)
-  forbid_paths:
-    - "pnpm-lock.yaml"
-    - "pnpm-workspace.yaml"
-    - "package.json"
-    - "crates/**"
-    - "**/*.generated.*"
-    - "dist/**"
-
-# ---------- Phases ----------
 phases:
-
   cp1_baseline:
-    title: "Minimal server boots & local CLI smoke"
+    title: "Scoped build + scope + hygiene (soft)"
+    inherits: []
     rules:
       - scope_guard
       - scaffold_exists
       - compile_ok_scoped
-      - smoke_server_stdio
+      - server_stdio_init
       - smoke_tf_cli
-
-  cp2_diag:
-    title: "Diagnostics: parse|check|canon + protected policy"
-    inherits: [cp1_baseline]
-    rules:
-      - diag_ranges
-      - parser_error_surface
-      - diag_protected_policy
       - banned_tokens_soft
 
+  cp2_diag:
+    title: "Diagnostics via real LSP (publishDiagnostics)"
+    inherits: [cp1_baseline]
+    rules:
+      - fixtures_readonly              # freeze samples/helpers from here on
+      - lsp_diag_protected_write       # requires publishDiagnostics from server
+      - lsp_diag_syntax_error          # requires parse error surfaced with coords
+
   cp3_hover:
-    title: "Hover: signature + effects + laws"
+    title: "Hover via real LSP (signature/effects/laws)"
     inherits: [cp2_diag]
     rules:
-      - hover_signatures
+      - lsp_hover_effects
+      - banned_ts_expect_error_warn    # start warning on @ts-expect-error
 
   cp4_code_actions:
-    title: "CodeAction: Wrap with Authorize{scope=?} + hygiene (hard)"
+    title: "CodeAction wrap Authorize + hygiene (hard)"
     inherits: [cp3_hover]
     rules:
-      - code_action_authorize
+      - lsp_code_action_authorize
       - banned_tokens_hard
+      - banned_ts_expect_error_hard
 
-# ---------- Rules ----------
 rules:
-
-  # ============ CP1 ============
+  # ------- CP1
   scope_guard:
     kind: diff_scan
     cmd: cat "$DIFF_PATH" | node tools/tf-checker/scan-diff.mjs --config meta/checker.yml --diff -
-    expect:
-      ok: true   # rejects edits outside allow_paths
+    expect: { ok: true }
 
   scaffold_exists:
     kind: fs
@@ -67,52 +51,29 @@ rules:
       - "packages/tf-lsp-server/src/server.ts"
       - "packages/tf-lsp-server/bin/server.mjs"
       - "samples/a1/illegal_write.tf"
-      - "tools/tf-lsp-sample/catalog-loader.mjs"
+      - "samples/a1/protected_write.tf"
+      - "samples/a1/syntax_error.tf"
+      - "scripts/lsp-smoke/stdio.mjs"
 
-  # **Scoped build only** — avoid workspace recursion and drop `--silent`
   compile_ok_scoped:
     kind: cmd
     cmd: >
       pnpm -C packages/tf-lsp-server i &&
       pnpm -C packages/tf-lsp-server build
-    expect:
-      code: 0
+    expect: { code: 0 }
 
-  smoke_server_stdio:
+  server_stdio_init:
     kind: cmd
-    cmd: node packages/tf-lsp-server/bin/server.mjs --stdio >/dev/null
+    cmd: node scripts/lsp-smoke/stdio.mjs --mode init
     expect:
       code: 0
+      contains: '"capabilities"'
 
   smoke_tf_cli:
     kind: cmd
     cmd: node packages/tf-compose/bin/tf.mjs parse samples/a1/illegal_write.tf -o out/0.45/a1/parse.json
-    expect:
-      code: 0
+    expect: { code: 0 }
 
-  # ============ CP2 ============
-  diag_ranges:
-    kind: cmd
-    cmd: node tools/tf-lsp-sample/diag-check.mjs --file samples/a1/illegal_write.tf
-    expect:
-      code: 0
-      contains: "diagnostics_ok:true"   # tool prints a compact verdict line
-
-  parser_error_surface:
-    kind: cmd
-    cmd: node tools/tf-lsp-sample/diag-check.mjs --file samples/a1/syntax_error.tf
-    expect:
-      code: 0
-      contains: "syntax_surface_ok:true"
-
-  diag_protected_policy:
-    kind: cmd
-    cmd: node tools/tf-lsp-sample/diag-check.mjs --file samples/a1/protected_write.tf
-    expect:
-      code: 1
-      contains: "Protected op 'write-object' must be inside Authorize{}"
-
-  # **Token rule, deterministic**: assert the scan JSON includes empty violations (string match)
   banned_tokens_soft:
     kind: diff_scan
     cmd: cat "$DIFF_PATH" | node tools/tf-checker/scan-diff.mjs --config meta/checker.yml --diff -
@@ -120,25 +81,51 @@ rules:
       ok: true
       contains: "\"token_violations\": []"
 
-  # ============ CP3 ============
-  hover_signatures:
+  # ------- CP2 (real LSP, not helper-only)
+  fixtures_readonly:
     kind: cmd
-    cmd: node tools/tf-lsp-sample/hover-check.mjs --symbol "tf:network/publish@1"
-    expect:
-      code: 0
-      contains: "effects:[\"Network.Out\"]"
+    cmd: bash -lc 'test -z "$(git diff --cached --name-only -- samples/a1/** scripts/lsp-smoke/**)"'
+    expect: { code: 0 }
 
-  # ============ CP4 ============
-  code_action_authorize:
+  lsp_diag_protected_write:
     kind: cmd
-    cmd: node tools/tf-lsp-sample/code-action-check.mjs --file samples/a1/protected_write.tf
+    cmd: node scripts/lsp-smoke/stdio.mjs --mode diagnostics --file samples/a1/protected_write.tf
     expect:
       code: 0
-      contains: "inserted:Authorize"
-  
-  banned_tokens_hard:
+      contains: '"publishDiagnostics"'
+  lsp_diag_syntax_error:
+    kind: cmd
+    cmd: node scripts/lsp-smoke/stdio.mjs --mode diagnostics --file samples/a1/syntax_error.tf
+    expect:
+      code: 0
+      contains: '"range":{"start":{"line":'
+
+  # ------- CP3 (real LSP hover)
+  lsp_hover_effects:
+    kind: cmd
+    cmd: node scripts/lsp-smoke/stdio.mjs --mode hover --file samples/a1/illegal_write.tf --symbol "tf:network/publish@1"
+    expect:
+      code: 0
+      contains: '"effects":["Network.Out"]'
+
+  banned_ts_expect_error_warn:
     kind: diff_scan
     cmd: cat "$DIFF_PATH" | node tools/tf-checker/scan-diff.mjs --config meta/checker.yml --diff -
     expect:
       ok: true
-      contains: "\"token_violations\": []"
+      contains: "\"token_violations\": []"   # we warn via checker, escalate in cp4
+
+  # ------- CP4 (action + hard hygiene)
+  lsp_code_action_authorize:
+    kind: cmd
+    cmd: node scripts/lsp-smoke/stdio.mjs --mode codeAction --file samples/a1/protected_write.tf
+    expect:
+      code: 0
+      contains: "Authorize{ scope:"
+
+  banned_ts_expect_error_hard:
+    kind: diff_scan
+    cmd: TF_STRICT=1 cat "$DIFF_PATH" | node tools/tf-checker/scan-diff.mjs --config meta/checker.yml --diff -
+    expect:
+      ok: true
+      contains: "\"token_warnings\": []"

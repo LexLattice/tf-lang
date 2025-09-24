@@ -33,5 +33,11 @@ token_rules:
     include: ["**/*.ts","**/*.tsx"]
     pattern: "@ts-ignore"
     severity: warn
+  - id: ts_expect_error
+    desc: "@ts-expect-error is not allowed in added lines"
+    include: ["**/*.ts","**/*.tsx"]
+    pattern: "@ts-expect-error"
+    severity: warn
+
 
 strict: false

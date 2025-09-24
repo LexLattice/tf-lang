@@ -11,7 +11,8 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "declaration": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "noImplicitAny": true
   },
   // include the ambient declarations so NodeNext sees our .mjs shims
   "include": ["src/**/*"],

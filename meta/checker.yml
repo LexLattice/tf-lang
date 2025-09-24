@@ -41,5 +41,11 @@ token_rules:
     pattern: "@ts-expect-error"
     severity: warn
 
+  - id: forbid_vscode_dist
+    desc: "Do not commit clients/vscode-tf/dist/** (built artifacts)"
+    include: ["clients/vscode-tf/dist/**"]
+    pattern: ".*"
+    severity: error
+
 
 strict: false

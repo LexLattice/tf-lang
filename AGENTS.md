@@ -65,3 +65,4 @@ run_checkpoint() {
 
 * You don’t need to remember policies; the checkpoint contract encodes them. Just **run the checkpoint** and fix what it reports.
 * If you truly need to adjust the rulebook or TF.yaml for the node, do it in the **meta** phase (when available) or as a separate meta change—otherwise scope guard will block.
+* VS Code client builds: the extension's `dist/` output is blocked by the checker. Build VSIX packages via scripts, but never stage `clients/vscode-tf/dist/**`.

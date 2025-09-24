@@ -39,6 +39,10 @@ function formatNode(node, level) {
     return formatInclude(node, level);
   }
 
+  if (node.node === 'Ref') {
+    return [`${indent(level)}${node.name}`];
+  }
+
   if (node.node === 'Seq') {
     return formatPipeline(node, level);
   }
@@ -162,6 +166,9 @@ function renderInline(node) {
   if (node.node === 'Prim') {
     return formatPrim(node);
   }
+  if (node.node === 'Ref') {
+    return node.name || '';
+  }
   return formatNode(node, 0).join('\n');
 }
 
@@ -209,6 +216,10 @@ function renderTreeLines(node, level) {
       lines.push(...renderTreeLines(child, level + 1));
     }
     return lines;
+  }
+
+  if (node.node === 'Ref') {
+    return [`${indent(level)}Ref: ${node.name}`];
   }
 
   return [`${indent(level)}${String(node.node ?? node)}`];

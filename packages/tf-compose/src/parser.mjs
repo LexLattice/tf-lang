@@ -6,7 +6,7 @@ export function parseDSL(src) {
     // allow optional trailing semicolons at the top level
   }
   expectEOF(tokens);
-  return seq;
+  return annotateLetRefs(seq);
 }
 
 const RESERVED_BINDING_NAMES = new Set(['let', 'include', 'seq', 'par', 'authorize', 'txn']);
@@ -329,7 +329,7 @@ function parseBlock(tokens, node) {
     return node;
   }
   while (true) {
-    kids.push(parseStep(tokens));
+    kids.push(parseSeq(tokens));
     if (maybe(tokens, 'SEMI')) {
       if (maybe(tokens, 'RBRACE')) break;
       continue;
@@ -396,7 +396,14 @@ function parseStep(tokens) {
   if (maybe(tokens, 'REGION_TXN')) return parseRegion(tokens, 'Transaction');
   const id = take(tokens, 'IDENT');
   const args = parseArgs(tokens);
-  return { node: 'Prim', prim: id.v.toLowerCase(), args };
+  const endToken = lastConsumedToken(tokens) || id;
+  return {
+    node: 'Prim',
+    prim: id.v.toLowerCase(),
+    raw: id.v,
+    args,
+    loc: makeLoc(id.start, endToken.end || endToken.start)
+  };
 }
 
 function parseLet(tokens, letToken) {
@@ -510,4 +517,97 @@ function makeLoc(start, end) {
 
 function clonePos(pos) {
   return pos ? { index: pos.index, line: pos.line, col: pos.col } : null;
+}
+
+function annotateLetRefs(root) {
+  const envStack = [new Map()];
+  return annotateNode(root, envStack);
+}
+
+function annotateNode(node, envStack) {
+  if (!node || typeof node !== 'object') return node;
+
+  if (node.node === 'Let') {
+    if (node.init) {
+      node.init = annotateNode(node.init, envStack);
+    }
+    bindLetName(envStack, node.name);
+    if (node.body) {
+      node.body = annotateNode(node.body, envStack);
+    }
+    return node;
+  }
+
+  if (node.node === 'Seq') {
+    const isBlock = node.syntax === 'block';
+    if (isBlock) pushScope(envStack);
+    const kids = node.children ?? [];
+    node.children = kids.map((child) => annotateNode(child, envStack));
+    if (isBlock) popScope(envStack);
+    return node;
+  }
+
+  if (node.node === 'Par') {
+    const children = node.children ?? [];
+    node.children = children.map((child) => annotateNode(child, cloneEnvStack(envStack)));
+    return node;
+  }
+
+  if (node.node === 'Region') {
+    pushScope(envStack);
+    node.children = (node.children ?? []).map((child) => annotateNode(child, envStack));
+    popScope(envStack);
+    return node;
+  }
+
+  if (Array.isArray(node.children)) {
+    node.children = node.children.map((child) => annotateNode(child, envStack));
+    return node;
+  }
+
+  if (node.node === 'Prim' && isRefCandidate(node, envStack)) {
+    return {
+      node: 'Ref',
+      name: node.raw || node.prim,
+      loc: node.loc
+    };
+  }
+
+  return node;
+}
+
+function isRefCandidate(node, envStack) {
+  if (!node || typeof node !== 'object') return false;
+  const hasArgs = node.args && Object.keys(node.args).length > 0;
+  if (hasArgs) return false;
+  const key = normalizeBindingKey(node.prim);
+  return lookupLetName(envStack, key);
+}
+
+function bindLetName(envStack, name) {
+  const top = envStack[envStack.length - 1];
+  top.set(normalizeBindingKey(name), true);
+}
+
+function lookupLetName(envStack, key) {
+  for (let i = envStack.length - 1; i >= 0; i -= 1) {
+    if (envStack[i].has(key)) return true;
+  }
+  return false;
+}
+
+function normalizeBindingKey(name) {
+  return typeof name === 'string' ? name.toLowerCase() : '';
+}
+
+function pushScope(envStack) {
+  envStack.push(new Map());
+}
+
+function popScope(envStack) {
+  envStack.pop();
+}
+
+function cloneEnvStack(envStack) {
+  return envStack.map((frame) => new Map(frame));
 }

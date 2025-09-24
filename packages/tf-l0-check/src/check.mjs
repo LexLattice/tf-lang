@@ -26,102 +26,280 @@ function mergeQos(base = {}, next = {}) {
  *   This keeps tests green before A2 (footprints) or autofix are applied.
  */
 export function checkIR(ir, catalog, options = {}) {
-  return walk(ir, catalog, options);
+  const ctx = {
+    catalog: catalog || { primitives: [] },
+    options: options || {},
+    envStack: [new Map()]
+  };
+  return walk(ir, ctx);
 }
 
-function walk(node, catalog, options) {
+function walk(node, ctx) {
   if (!node || typeof node !== 'object') {
     return okVerdict();
   }
 
+  if (node.node === 'Let') {
+    return handleLet(node, ctx);
+  }
+
+  if (node.node === 'Ref') {
+    return handleRef(node, ctx);
+  }
+
   if (node.node === 'Prim') {
-    const prim = lookupWithInference(node, catalog);
-    return {
-      ok: true,
-      effects: prim.effects || [],
-      reads: prim.reads || [],
-      writes: prim.writes || [],
-      qos: prim.qos || {},
-      reasons: []
-    };
+    return handlePrim(node, ctx);
   }
 
   if (node.node === 'Seq') {
-    let acc = okVerdict();
-    let prevFamily = null;
-    for (const c of node.children || []) {
-      const v = walk(c, catalog, options);
-      acc.ok = acc.ok && v.ok;
-      acc.effects = unionEffects(acc.effects, v.effects);
-      acc.reads = [...acc.reads, ...(v.reads || [])];
-      acc.writes = [...acc.writes, ...(v.writes || [])];
-      acc.reasons.push(...(v.reasons || []));
-      acc.qos = mergeQos(acc.qos, v.qos);
-
-       const currentFamily = nodeFamily(c, v, catalog);
-       if (typeof c === 'object' && c) {
-         c.commutes_with_prev = prevFamily ? canCommute(prevFamily, currentFamily) : false;
-       }
-       prevFamily = currentFamily || null;
-    }
-    return acc;
+    return handleSeq(node, ctx);
   }
 
   if (node.node === 'Par') {
-    const vs = (node.children || []).map(c => walk(c, catalog, options));
-    let ok = vs.every(v => v.ok);
-    let qos = {};
-    let conflictDetected = false;
-
-    // pairwise conflict check on writes (same resource URI => conflict)
-    for (let i = 0; i < vs.length; i++) {
-      for (let j = i + 1; j < vs.length; j++) {
-        const famA = nodeFamily(node.children?.[i], vs[i], catalog);
-        const famB = nodeFamily(node.children?.[j], vs[j], catalog);
-        if (!parSafe(famA, famB, {
-          conflict,
-          disjoint: options?.disjoint,
-          writesA: vs[i].writes,
-          writesB: vs[j].writes
-        })) {
-          ok = false;
-          conflictDetected = conflictDetected || (famA === 'Storage.Write' && famB === 'Storage.Write');
-        }
-      }
-    }
-
-    for (const v of vs) {
-      qos = mergeQos(qos, v.qos);
-    }
-
-    return {
-      ok,
-      effects: vs.reduce((e, v) => unionEffects(e, v.effects), []),
-      reads: vs.flatMap(v => v.reads || []),
-      writes: vs.flatMap(v => v.writes || []),
-      qos,
-      reasons: ok
-        ? []
-        : [conflictDetected ? 'Par conflict: overlapping writes detected' : 'Par effect pair deemed unsafe']
-    };
+    return handlePar(node, ctx);
   }
 
-  // Region or unknown nodes just traverse children if present
+  if (node.node === 'Region') {
+    pushScope(ctx);
+    const verdict = aggregateChildren(node.children || [], ctx);
+    popScope(ctx);
+    return verdict;
+  }
+
   if (Array.isArray(node.children)) {
-    let acc = okVerdict();
-    for (const c of node.children) {
-      const v = walk(c, catalog, options);
-      acc.ok = acc.ok && v.ok;
-      acc.effects = unionEffects(acc.effects, v.effects);
-      acc.reads = [...acc.reads, ...(v.reads || [])];
-      acc.writes = [...acc.writes, ...(v.writes || [])];
-      acc.reasons.push(...(v.reasons || []));
-      acc.qos = mergeQos(acc.qos, v.qos);
-    }
-    return acc;
+    return aggregateChildren(node.children, ctx);
   }
 
   return okVerdict();
+}
+
+function handleLet(node, ctx) {
+  const initVerdict = node.init ? walk(node.init, ctx) : okVerdict();
+  let verdict = cloneVerdict(initVerdict);
+
+  const bindingReasons = bindLet(ctx, node.name, node.loc);
+
+  if (node.body) {
+    verdict = mergeVerdicts(verdict, walk(node.body, ctx));
+  }
+
+  const extraReasons = [];
+  if (ctx.options?.flagImpureLet && hasImpureEffects(initVerdict)) {
+    extraReasons.push(`LetImpureInit: ${node.name}`);
+  }
+
+  const reasons = [...bindingReasons, ...extraReasons];
+  if (reasons.length > 0) {
+    verdict.ok = false;
+    verdict.reasons = [...verdict.reasons, ...reasons];
+  }
+
+  return verdict;
+}
+
+function handleRef(node, ctx) {
+  if (lookupLet(ctx, node.name)) {
+    return okVerdict();
+  }
+  return verdictWithReason(`LetUndefined: ${node.name}`);
+}
+
+function handlePrim(node, ctx) {
+  const name = typeof node.prim === 'string' ? node.prim : '';
+  const hasArgs = node.args && Object.keys(node.args).length > 0;
+  const bound = lookupLet(ctx, name);
+
+  if (bound && !hasArgs) {
+    return okVerdict();
+  }
+
+  if (!bound && !hasArgs && !catalogHasPrimitive(name, ctx.catalog)) {
+    return verdictWithReason(`LetUndefined: ${node.raw ?? name}`);
+  }
+
+  const prim = lookupWithInference(node, ctx.catalog);
+  return {
+    ok: true,
+    effects: prim.effects || [],
+    reads: prim.reads || [],
+    writes: prim.writes || [],
+    qos: prim.qos || {},
+    reasons: []
+  };
+}
+
+function handleSeq(node, ctx) {
+  const isBlock = node.syntax === 'block';
+  if (isBlock) pushScope(ctx);
+
+  let acc = okVerdict();
+  let prevFamily = null;
+  for (const child of node.children || []) {
+    const childVerdict = walk(child, ctx);
+    acc = mergeVerdicts(acc, childVerdict);
+
+    const currentFamily = nodeFamily(child, childVerdict, ctx.catalog);
+    if (typeof child === 'object' && child) {
+      child.commutes_with_prev = prevFamily ? canCommute(prevFamily, currentFamily) : false;
+    }
+    prevFamily = currentFamily || null;
+  }
+
+  if (isBlock) popScope(ctx);
+  return acc;
+}
+
+function handlePar(node, ctx) {
+  const children = node.children || [];
+  const results = [];
+  const families = [];
+
+  for (const child of children) {
+    const childCtx = cloneCtx(ctx);
+    const verdict = walk(child, childCtx);
+    results.push(verdict);
+    families.push(nodeFamily(child, verdict, ctx.catalog));
+  }
+
+  let acc = okVerdict();
+  for (const verdict of results) {
+    acc = mergeVerdicts(acc, verdict);
+  }
+
+  let ok = results.every((v) => v.ok);
+  let conflictDetected = false;
+
+  for (let i = 0; i < results.length; i += 1) {
+    for (let j = i + 1; j < results.length; j += 1) {
+      if (!parSafe(families[i], families[j], {
+        conflict,
+        disjoint: ctx.options?.disjoint,
+        writesA: results[i].writes,
+        writesB: results[j].writes
+      })) {
+        ok = false;
+        conflictDetected = conflictDetected || (families[i] === 'Storage.Write' && families[j] === 'Storage.Write');
+      }
+    }
+  }
+
+  if (!ok) {
+    const reason = conflictDetected
+      ? 'Par conflict: overlapping writes detected'
+      : 'Par effect pair deemed unsafe';
+    acc.ok = false;
+    acc.reasons = [...acc.reasons, reason];
+  }
+
+  return acc;
+}
+
+function aggregateChildren(children, ctx) {
+  let acc = okVerdict();
+  for (const child of children) {
+    acc = mergeVerdicts(acc, walk(child, ctx));
+  }
+  return acc;
+}
+
+function cloneVerdict(verdict) {
+  return {
+    ok: verdict.ok,
+    effects: [...(verdict.effects || [])],
+    reads: [...(verdict.reads || [])],
+    writes: [...(verdict.writes || [])],
+    qos: { ...(verdict.qos || {}) },
+    reasons: [...(verdict.reasons || [])]
+  };
+}
+
+function mergeVerdicts(left, right) {
+  return {
+    ok: left.ok && right.ok,
+    effects: unionEffects(left.effects || [], right.effects || []),
+    reads: [...(left.reads || []), ...(right.reads || [])],
+    writes: [...(left.writes || []), ...(right.writes || [])],
+    qos: mergeQos(left.qos, right.qos),
+    reasons: [...(left.reasons || []), ...(right.reasons || [])]
+  };
+}
+
+function verdictWithReason(reason) {
+  return {
+    ok: false,
+    effects: [],
+    reads: [],
+    writes: [],
+    qos: {},
+    reasons: [reason]
+  };
+}
+
+function hasImpureEffects(verdict) {
+  return (
+    (verdict.effects && verdict.effects.length > 0) ||
+    (verdict.reads && verdict.reads.length > 0) ||
+    (verdict.writes && verdict.writes.length > 0)
+  );
+}
+
+function pushScope(ctx) {
+  ctx.envStack.push(new Map());
+}
+
+function popScope(ctx) {
+  ctx.envStack.pop();
+}
+
+function bindLet(ctx, name, loc) {
+  const reasons = [];
+  const key = normalizeBindingKey(name);
+  const top = ctx.envStack[ctx.envStack.length - 1];
+  if (top.has(key)) {
+    reasons.push(`LetShadowing: ${name}`);
+  }
+  top.set(key, { loc });
+  return reasons;
+}
+
+function lookupLet(ctx, name) {
+  const key = normalizeBindingKey(name);
+  for (let i = ctx.envStack.length - 1; i >= 0; i -= 1) {
+    if (ctx.envStack[i].has(key)) return true;
+  }
+  return false;
+}
+
+function normalizeBindingKey(name) {
+  return typeof name === 'string' ? name.toLowerCase() : '';
+}
+
+function catalogHasPrimitive(name, catalog) {
+  const target = normalizeBindingKey(name);
+  if (!target) return false;
+  const list = Array.isArray(catalog?.primitives) ? catalog.primitives : [];
+  return list.some((entry) => {
+    const entryName = typeof entry?.name === 'string' ? entry.name.toLowerCase() : '';
+    if (entryName === target) return true;
+    const id = typeof entry?.id === 'string' ? entry.id : '';
+    if (!id) return false;
+    const parts = id.split('/');
+    const last = parts[parts.length - 1] || '';
+    const [raw] = last.split('@');
+    return typeof raw === 'string' && raw.toLowerCase() === target;
+  });
+}
+
+function cloneCtx(ctx) {
+  return {
+    catalog: ctx.catalog,
+    options: ctx.options,
+    envStack: cloneEnvStack(ctx.envStack)
+  };
+}
+
+function cloneEnvStack(stack) {
+  return stack.map((frame) => new Map(frame));
 }
 
 function okVerdict() {

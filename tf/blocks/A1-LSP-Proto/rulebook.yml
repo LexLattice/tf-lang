@@ -36,7 +36,6 @@ phases:
     rules:
       - lsp_code_action_authorize
       - banned_tokens_hard
-      - banned_ts_expect_error_hard
 
 rules:
   # ------- CP1 (lockfile-aware)

@@ -17,6 +17,8 @@ import {
   createConnection
 } from 'vscode-languageserver/node.js';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import { parseDSL } from '../../tf-compose/src/parser.mjs';
 import { checkIR } from '../../tf-l0-check/src/check.mjs';
 import { checkRegions } from '../../tf-l0-check/src/regions.mjs';
@@ -61,6 +63,24 @@ connection.onInitialized(() => {
 connection.onExit(() => { process.exit(0); });
 process.stdin.on('end', () => { process.exit(0); });
 process.on('exit', (code) => { if (code !== 0) process.exitCode = 0; });
+
+connection.onRequest('tf/sourceMap', async (params: { symbol?: string; file?: string } | null) => {
+  if (!params?.symbol || !params.file) return null;
+  const pattern = buildRegex(params.symbol);
+  if (!pattern) return null;
+  try {
+    const target = params.file.startsWith('file:') ? fileURLToPath(params.file) : params.file;
+    const contents = await readFile(target, 'utf8');
+    const match = pattern.exec(contents);
+    if (!match) return null;
+    const start = positionAt(contents, match.index);
+    const end = positionAt(contents, match.index + match[0].length);
+    return { start, end } satisfies Range;
+  } catch (err) {
+    writeProbe(`sourceMapError:${err instanceof Error ? err.message : String(err)}`);
+    return null;
+  }
+});
 
 documents.onDidOpen(e => { void validateTextDocument(e.document); });
 documents.onDidChangeContent(e => { void validateTextDocument(e.document); });
@@ -316,6 +336,47 @@ function signatureFor(id: string): string {
     return `${name}(${keys.join(', ')})`;
   }
   return `${name}(...)`;
+}
+
+function buildRegex(symbol: string): RegExp | null {
+  try {
+    return new RegExp(symbol, 'g');
+  } catch (err) {
+    try {
+      return new RegExp(escapeRegExp(symbol), 'g');
+    } catch {
+      writeProbe(`sourceMapRegexError:${err instanceof Error ? err.message : String(err)}`);
+      return null;
+    }
+  }
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\$&');
+}
+
+function positionAt(text: string, offset: number): Position {
+  const clamped = Math.max(0, Math.min(offset, text.length));
+  let line = 0;
+  let lastLineStart = 0;
+  for (let i = 0; i < clamped; i++) {
+    const ch = text.charCodeAt(i);
+    if (ch === 13 /* \r */) {
+      const next = text.charCodeAt(i + 1);
+      if (next === 10 /* \n */) {
+        i++;
+      }
+      line++;
+      lastLineStart = i + 1;
+      continue;
+    }
+    if (ch === 10 /* \n */) {
+      line++;
+      lastLineStart = i + 1;
+    }
+  }
+  const character = clamped - lastLineStart;
+  return { line, character };
 }
 
 function lawIdsFor(id: string): string[] {

@@ -2,9 +2,14 @@
 export function parseDSL(src) {
   const tokens = tokenize(src);
   const seq = parseSeq(tokens);
+  while (maybe(tokens, 'SEMI')) {
+    // allow optional trailing semicolons at the top level
+  }
   expectEOF(tokens);
   return seq;
 }
+
+const RESERVED_BINDING_NAMES = new Set(['let', 'include', 'seq', 'par', 'authorize', 'txn']);
 
 function tokenize(src) {
   const tokens = [];
@@ -222,6 +227,14 @@ function tokenize(src) {
       ident += advanceChar();
     }
     if (ident) {
+      if (ident === 'let') {
+        tokens.push(makeToken('LET', ident, start));
+        continue;
+      }
+      if (ident === 'include') {
+        tokens.push(makeToken('INCLUDE', ident, start));
+        continue;
+      }
       tokens.push(makeToken('IDENT', ident, start));
       continue;
     }
@@ -295,11 +308,18 @@ function formatErrorMessage(src, start, end, message, spanOverride) {
 }
 
 function parseSeq(tokens) {
-  const parts = [parseStep(tokens)];
+  const first = parseStep(tokens);
+  if (!maybe(tokens, 'PIPE')) {
+    return first;
+  }
+  if (isBindingNode(first)) {
+    throw syntaxError(tokens, peek(tokens), 'Let/include cannot be used in pipelines');
+  }
+  const parts = [first, parseStep(tokens)];
   while (maybe(tokens, 'PIPE')) {
     parts.push(parseStep(tokens));
   }
-  return parts.length === 1 ? parts[0] : { node: 'Seq', children: parts };
+  return { node: 'Seq', children: parts };
 }
 
 function parseBlock(tokens, node) {
@@ -361,6 +381,15 @@ function parseArgs(tokens) {
 }
 
 function parseStep(tokens) {
+  const token = peek(tokens);
+  if (token.t === 'LET') {
+    tokens.i += 1;
+    return parseLet(tokens, token);
+  }
+  if (token.t === 'INCLUDE') {
+    tokens.i += 1;
+    return parseInclude(tokens, token);
+  }
   if (maybe(tokens, 'PAR_OPEN')) return parseBlock(tokens, { node: 'Par', children: [] });
   if (maybe(tokens, 'SEQ_OPEN')) return parseBlock(tokens, { node: 'Seq', syntax: 'block', children: [] });
   if (maybe(tokens, 'REGION_AUTH')) return parseRegion(tokens, 'Authorize');
@@ -368,6 +397,32 @@ function parseStep(tokens) {
   const id = take(tokens, 'IDENT');
   const args = parseArgs(tokens);
   return { node: 'Prim', prim: id.v.toLowerCase(), args };
+}
+
+function parseLet(tokens, letToken) {
+  const nameToken = take(tokens, 'IDENT');
+  if (RESERVED_BINDING_NAMES.has(nameToken.v.toLowerCase())) {
+    throw syntaxError(tokens, nameToken, `Reserved keyword '${nameToken.v}' cannot be used as a binding name`);
+  }
+  take(tokens, 'EQ');
+  const init = parseSeq(tokens);
+  const last = lastConsumedToken(tokens) || nameToken;
+  return {
+    node: 'Let',
+    name: nameToken.v,
+    init,
+    body: null,
+    loc: makeLoc(letToken.start, last.end || last.start || letToken.end || letToken.start),
+  };
+}
+
+function parseInclude(tokens, includeToken) {
+  const pathToken = take(tokens, 'STRING');
+  return {
+    node: 'Include',
+    path: pathToken.v,
+    loc: makeLoc(includeToken.start, pathToken.end || includeToken.end || includeToken.start),
+  };
 }
 
 function parseValue(tokens) {
@@ -438,4 +493,21 @@ function parseObject(tokens) {
     break;
   }
   return obj;
+}
+
+function isBindingNode(node) {
+  return node && typeof node === 'object' && (node.node === 'Let' || node.node === 'Include');
+}
+
+function lastConsumedToken(tokens) {
+  const idx = tokens.i - 1;
+  return idx >= 0 ? tokens.list[idx] || null : null;
+}
+
+function makeLoc(start, end) {
+  return { start: clonePos(start), end: clonePos(end) };
+}
+
+function clonePos(pos) {
+  return pos ? { index: pos.index, line: pos.line, col: pos.col } : null;
 }

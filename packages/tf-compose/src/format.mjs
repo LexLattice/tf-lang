@@ -31,6 +31,14 @@ function formatNode(node, level) {
     return formatRegion(node, level);
   }
 
+  if (node.node === 'Let') {
+    return formatLet(node, level);
+  }
+
+  if (node.node === 'Include') {
+    return formatInclude(node, level);
+  }
+
   if (node.node === 'Seq') {
     return formatPipeline(node, level);
   }
@@ -65,6 +73,55 @@ function formatBlock(name, children, level) {
   });
   lines.push(`${indent(level)}}`);
   return lines;
+}
+
+function formatLet(node, level) {
+  const base = indent(level);
+  const name = typeof node.name === 'string' ? node.name : '';
+  const initLines = renderLetInit(node.init);
+
+  const lines = [];
+  if (initLines.length === 0) {
+    lines.push(`${base}let ${name} = null`);
+  } else {
+    lines.push(`${base}let ${name} = ${initLines[0]}`);
+    for (let i = 1; i < initLines.length; i += 1) {
+      lines.push(`${base}${initLines[i]}`);
+    }
+  }
+
+  if (node.body) {
+    const bodyLines = formatNode(node.body, level + 1);
+    lines.push(...bodyLines);
+  }
+
+  return lines;
+}
+
+function formatInclude(node, level) {
+  const base = indent(level);
+  const path = typeof node.path === 'string' ? node.path : '';
+  return [`${base}include "${escapeString(path)}"`];
+}
+
+function renderLetInit(init) {
+  if (init === undefined || init === null) return ['null'];
+  if (typeof init === 'number' || typeof init === 'boolean') {
+    return [String(init)];
+  }
+  if (typeof init === 'string') {
+    return [`"${escapeString(init)}"`];
+  }
+  if (Array.isArray(init)) {
+    return [formatLiteral(init)];
+  }
+  if (init && typeof init === 'object') {
+    if (init.node) {
+      return renderInline(init).split('\n');
+    }
+    return [formatLiteral(init)];
+  }
+  return ['null'];
 }
 
 function formatRegion(node, level) {

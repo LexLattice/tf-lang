@@ -396,13 +396,11 @@ function parseStep(tokens) {
   if (maybe(tokens, 'REGION_TXN')) return parseRegion(tokens, 'Transaction');
   const id = take(tokens, 'IDENT');
   const args = parseArgs(tokens);
-  const endToken = lastConsumedToken(tokens) || id;
   return {
     node: 'Prim',
     prim: id.v.toLowerCase(),
     raw: id.v,
-    args,
-    loc: makeLoc(id.start, endToken.end || endToken.start)
+    args
   };
 }
 

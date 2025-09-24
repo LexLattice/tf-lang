@@ -16,6 +16,7 @@ import {
   TextDocuments,
   createConnection
 } from 'vscode-languageserver/node.js';
+import { readFile } from 'node:fs/promises';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { parseDSL } from '../../tf-compose/src/parser.mjs';
 import { checkIR } from '../../tf-l0-check/src/check.mjs';
@@ -56,6 +57,43 @@ connection.onInitialize((_params: InitializeParams): InitializeResult => ({
 connection.onInitialized(() => {
   // No additional initialization behavior for the baseline server.
 });
+
+connection.onRequest(
+  'tf/sourceMap',
+  async (params: { symbol?: string; file?: string }): Promise<Range | null> => {
+    if (!params || typeof params.symbol !== 'string' || typeof params.file !== 'string') {
+      return null;
+    }
+
+    let text: string;
+    try {
+      text = await readFile(params.file, 'utf8');
+    } catch (error) {
+      writeProbe(`sourceMap-read-error:${String(error instanceof Error ? error.message : error)}`);
+      return null;
+    }
+
+    let regex: RegExp;
+    try {
+      regex = new RegExp(params.symbol, 'g');
+    } catch (error) {
+      writeProbe(`sourceMap-regex-error:${String(error instanceof Error ? error.message : error)}`);
+      return null;
+    }
+
+    const match = regex.exec(text);
+    if (!match) {
+      return null;
+    }
+
+    const start = match.index;
+    const end = start + match[0].length;
+    return {
+      start: offsetToPosition(text, start),
+      end: offsetToPosition(text, end)
+    };
+  }
+);
 
 // When CI closes STDIN (stdio mode), exit with 0 instead of 1.
 connection.onExit(() => { process.exit(0); });
@@ -325,6 +363,14 @@ function lawIdsFor(id: string): string[] {
     return applies.some(entry => typeof entry === 'string' && entry === id);
   });
   return hits.length ? hits.map(law => String((law as { id?: unknown }).id ?? 'law')) : [];
+}
+
+function offsetToPosition(text: string, offset: number): Position {
+  const slice = text.slice(0, Math.max(0, offset));
+  const lines = slice.split(/\r?\n/);
+  const line = lines.length - 1;
+  const character = lines[lines.length - 1]?.length ?? 0;
+  return { line, character };
 }
 
 function findPrimitiveById(id: string) {

@@ -1,0 +1,24 @@
+{
+  "name": "@tf-lang/vscode-tf",
+  "version": "0.0.0",
+  "private": true,
+  "displayName": "TF Language Tools",
+  "description": "VS Code extension for TF language experiments",
+  "publisher": "tf-lang",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onLanguage:tf",
+    "onCommand:tf.showTraceSource"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "tf.showTraceSource",
+        "title": "TF: Show Trace Source"
+      }
+    ]
+  }
+}

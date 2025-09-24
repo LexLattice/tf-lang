@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import {
   CodeAction,
   CodeActionKind,
+  CodeActionParams,
   Diagnostic,
   DiagnosticSeverity,
   Hover,
@@ -151,10 +152,30 @@ connection.onCodeAction(async params => {
   const doc = documents.get(params.textDocument.uri);
   if (!doc) return [];
 
-  const offending = (params.context.diagnostics || []).find(d =>
+  const src = doc.getText();
+  const actions: CodeAction[] = [];
+
+  const wrapActions = await computeWrapAuthorizeActions(params, doc, src);
+  actions.push(...wrapActions);
+  actions.push(...computeIntroduceLetActions(params, doc, src));
+  actions.push(...computeInlineLetActions(params, doc, src));
+
+  if (PROBE_ENABLED && actions.length) {
+    for (const action of actions) {
+      process.stderr.write(`${JSON.stringify({ codeAction: action.title })}\n`);
+    }
+  }
+
+  return actions;
+});
+
+async function computeWrapAuthorizeActions(params: CodeActionParams, doc: TextDocument, src: string): Promise<CodeAction[]> {
+  const offending = (params.context?.diagnostics || []).find(d =>
     /Protected op '.*' must be inside Authorize\{\}/.test(d.message)
   );
-  const baseRange = offending?.range ?? params.range;
+  const requestedRange = normalizeRange(params.range, doc);
+  const baseRange = offending?.range ? offending.range : requestedRange;
+
   if (!baseRange) return [];
 
   let diagStart = doc.offsetAt(baseRange.start);
@@ -163,7 +184,6 @@ connection.onCodeAction(async params => {
     [diagStart, diagEnd] = [diagEnd, diagStart];
   }
 
-  const src = doc.getText();
   let selectionStart = diagStart;
   while (selectionStart > 0 && src[selectionStart - 1] !== '\n') {
     selectionStart--;
@@ -197,12 +217,198 @@ connection.onCodeAction(async params => {
     }
   };
 
-  if (PROBE_ENABLED) {
-    process.stderr.write(`${JSON.stringify({ codeAction: action.title })}\n`);
+  return [action];
+}
+
+function computeIntroduceLetActions(params: CodeActionParams, doc: TextDocument, src: string): CodeAction[] {
+  const range = normalizeRange(params.range, doc);
+  let targetRange = range;
+  let rawSelection = doc.getText(targetRange);
+
+  if (!rawSelection || !rawSelection.trim()) {
+    const wordRange = wordRangeAt(doc, range.start);
+    if (!wordRange) return [];
+    targetRange = wordRange;
+    rawSelection = doc.getText(wordRange);
   }
 
-  return [action];
-});
+  if (!rawSelection) return [];
+  const trimmed = rawSelection.trim();
+  if (!trimmed || trimmed.includes('\n')) return [];
+
+  const leading = rawSelection.indexOf(trimmed);
+  const selectionStart = doc.offsetAt(targetRange.start) + Math.max(0, leading);
+  const selectionEnd = selectionStart + trimmed.length;
+  const occurrences = findOccurrences(src, trimmed);
+  if (occurrences.length < 2) return [];
+
+  const letName = pickFreshName(src, 'tmp');
+  const insertEdit: TextEdit = TextEdit.insert({ line: 0, character: 0 }, `let ${letName} = ${trimmed};\n`);
+
+  const replaceEdits: TextEdit[] = [];
+  for (const index of occurrences) {
+    if (index >= selectionStart && index < selectionEnd) continue;
+    replaceEdits.push(TextEdit.replace({
+      start: doc.positionAt(index),
+      end: doc.positionAt(index + trimmed.length)
+    }, letName));
+  }
+
+  if (!replaceEdits.length) return [];
+
+  return [{
+    title: 'Introduce let',
+    kind: CodeActionKind.RefactorExtract,
+    edit: {
+      changes: {
+        [params.textDocument.uri]: [insertEdit, ...replaceEdits]
+      }
+    }
+  }];
+}
+
+function computeInlineLetActions(params: CodeActionParams, doc: TextDocument, src: string): CodeAction[] {
+  const position = params.range?.start ?? doc.positionAt(0);
+  const identifierRange = wordRangeAt(doc, position);
+  if (!identifierRange) return [];
+  const identifier = doc.getText(identifierRange);
+  if (!identifier || !/^[_A-Za-z][_A-Za-z0-9]*$/.test(identifier)) return [];
+
+  const decl = findLetDeclaration(src, identifier);
+  if (!decl) return [];
+
+  const uses = findAllUses(src, identifier).filter(idx => idx < decl.start || idx >= decl.end);
+  if (!uses.length) return [];
+
+  const edits: TextEdit[] = [];
+  edits.push(TextEdit.replace({
+    start: doc.positionAt(decl.start),
+    end: doc.positionAt(decl.end)
+  }, ''));
+
+  for (const index of uses) {
+    edits.push(TextEdit.replace({
+      start: doc.positionAt(index),
+      end: doc.positionAt(index + identifier.length)
+    }, decl.init));
+  }
+
+  return [{
+    title: 'Inline let',
+    kind: CodeActionKind.RefactorInline,
+    edit: {
+      changes: {
+        [params.textDocument.uri]: edits
+      }
+    }
+  }];
+}
+
+function normalizeRange(range: Range | undefined, doc: TextDocument): Range {
+  if (!range) {
+    const zero = doc.positionAt(0);
+    return { start: zero, end: zero };
+  }
+  const startOffset = doc.offsetAt(range.start);
+  const endOffset = doc.offsetAt(range.end);
+  if (endOffset < startOffset) {
+    return { start: range.end, end: range.start };
+  }
+  return range;
+}
+
+function wordRangeAt(doc: TextDocument, position: Position): Range | null {
+  const text = doc.getText();
+  const offset = doc.offsetAt(position);
+  if (offset < 0 || offset > text.length) return null;
+  let start = offset;
+  while (start > 0 && isIdentifierChar(text[start - 1])) start--;
+  let end = offset;
+  while (end < text.length && isIdentifierChar(text[end])) end++;
+  if (start === end) return null;
+  return { start: doc.positionAt(start), end: doc.positionAt(end) };
+}
+
+function isIdentifierChar(ch: string | undefined): boolean {
+  if (!ch) return false;
+  return /[A-Za-z0-9_]/.test(ch);
+}
+
+function findLetDeclaration(text: string, name: string): { start: number; end: number; init: string } | null {
+  const pattern = new RegExp(`\\blet\\s+${escapeRegExp(name)}\\s*=`, 'g');
+  const match = pattern.exec(text);
+  if (!match || match.index == null) return null;
+  const start = match.index;
+  let cursor = pattern.lastIndex;
+  while (cursor < text.length && /\s/.test(text[cursor] || '')) cursor++;
+  let end = cursor;
+  while (end < text.length && text[end] !== ';' && text[end] !== '\n' && text[end] !== '\r') {
+    end++;
+  }
+  if (end > text.length) end = text.length;
+  let initEnd = end;
+  if (text[end] === ';') {
+    initEnd = end;
+    end++;
+  }
+  if (text[end] === '\r') {
+    end++;
+    if (text[end] === '\n') end++;
+  } else if (text[end] === '\n') {
+    end++;
+  }
+  let initStart = cursor;
+  while (initStart < initEnd && /\s/.test(text[initStart])) initStart++;
+  let finalInitEnd = initEnd;
+  while (finalInitEnd > initStart && /\s/.test(text[finalInitEnd - 1])) finalInitEnd--;
+  const init = text.slice(initStart, finalInitEnd);
+  if (!init) return null;
+  return { start, end, init };
+}
+
+function findAllUses(text: string, name: string): number[] {
+  const regex = new RegExp(`\\b${escapeRegExp(name)}\\b`, 'g');
+  const out: number[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index != null) out.push(match.index);
+  }
+  return out;
+}
+
+function pickFreshName(text: string, base: string): string {
+  const existing = new Set<string>();
+  const declRegex = /\blet\s+([A-Za-z_][A-Za-z0-9_]*)\b/g;
+  let match: RegExpExecArray | null;
+  while ((match = declRegex.exec(text)) !== null) {
+    if (match[1]) existing.add(match[1].toLowerCase());
+  }
+  let candidate = base;
+  let counter = 0;
+  while (existing.has(candidate.toLowerCase()) || identifierAppears(text, candidate)) {
+    counter += 1;
+    candidate = `${base}${counter}`;
+  }
+  return candidate;
+}
+
+function identifierAppears(text: string, name: string): boolean {
+  const regex = new RegExp(`\\b${escapeRegExp(name)}\\b`, 'i');
+  return regex.test(text);
+}
+
+function findOccurrences(text: string, needle: string): number[] {
+  if (!needle) return [];
+  const out: number[] = [];
+  let idx = 0;
+  while (idx < text.length) {
+    const hit = text.indexOf(needle, idx);
+    if (hit === -1) break;
+    out.push(hit);
+    idx = hit + needle.length;
+  }
+  return out;
+}
 
 async function validateTextDocument(document: TextDocument): Promise<void> {
   const text = document.getText();

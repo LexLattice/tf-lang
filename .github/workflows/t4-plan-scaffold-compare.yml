@@ -9,11 +9,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v3
+      - uses: ./.github/actions/setup-pnpm
         with:
-          version: 10.16.1
-      - name: Install
-        run: pnpm install --frozen-lockfile
+          node-version: '20'
+          install: 'true'
+          frozen: 'false'
       - name: Build packages
         run: pnpm -r build
       - name: Prepare plan directory
@@ -38,11 +38,11 @@ jobs:
     needs: plan
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v3
+      - uses: ./.github/actions/setup-pnpm
         with:
-          version: 10.16.1
-      - name: Install
-        run: pnpm install --frozen-lockfile
+          node-version: '20'
+          install: 'true'
+          frozen: 'false'
       - name: Build packages
         run: pnpm -r build
       - name: Prepare scaffold directory
@@ -67,11 +67,11 @@ jobs:
       - scaffold
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v3
+      - uses: ./.github/actions/setup-pnpm
         with:
-          version: 10.16.1
-      - name: Install
-        run: pnpm install --frozen-lockfile
+          node-version: '20'
+          install: 'true'
+          frozen: 'false'
       - name: Build packages
         run: pnpm -r build
       - name: Prepare compare directory

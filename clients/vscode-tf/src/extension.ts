@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import {
@@ -34,6 +36,7 @@ interface EditorLike {
 export interface SourceMapParams {
   symbol: string;
   file: string;
+  src_range?: SourceMapRange | null;
 }
 
 export interface SourceMapRange {
@@ -65,31 +68,78 @@ async function loadVscode(): Promise<VsModule> {
   return vscodeModule;
 }
 
+const requireForResolution = createRequire(import.meta.url);
+
+function escapeRe(value: string): string {
+  return value.replace(/[|\\{}()[\]^$+*?.-]/g, '\\$&');
+}
+
+function buildLiteralRegExp(symbol: string): RegExp | null {
+  try {
+    return new RegExp(escapeRe(symbol), 'gm');
+  } catch {
+    return null;
+  }
+}
+
+function resolveServerModule(context: ExtensionLikeContext): string {
+  const bundled = context.asAbsolutePath('server.js');
+  if (bundled && existsSync(bundled)) {
+    return bundled;
+  }
+  try {
+    return requireForResolution.resolve('@tf-lang/tf-lsp-server/bin/server.mjs');
+  } catch {
+    // fall through to repo-relative resolution
+  }
+  const repoRelative = context.asAbsolutePath(
+    path.join('..', '..', 'packages', 'tf-lsp-server', 'dist', 'server.js')
+  );
+  if (existsSync(repoRelative)) {
+    return repoRelative;
+  }
+  throw new Error('Unable to locate TF language server module');
+}
+
 async function ensureConnection(context: ExtensionLikeContext): Promise<MessageConnection> {
   if (!connectionPromise) {
     connectionPromise = (async () => {
-      const serverModule = context.asAbsolutePath(path.join('..', '..', 'packages', 'tf-lsp-server', 'dist', 'server.js'));
-      lspProcess = spawn(process.execPath, [serverModule, '--stdio'], { stdio: ['pipe', 'pipe', 'pipe'] });
-      const reader = new StreamMessageReader(lspProcess.stdout);
-      const writer = new StreamMessageWriter(lspProcess.stdin);
-      const connection = createMessageConnection(reader, writer);
-      connection.listen();
-      lspConnection = connection;
-      lspProcess.stderr.setEncoding('utf8');
-      lspProcess.stderr.on('data', data => {
-        const text = data.toString();
-        if (text.trim()) {
-          console.error(`[tf-lsp] ${text.trim()}`);
-        }
-      });
-      lspProcess.on('exit', () => {
-        connection.dispose();
-        lspConnection = null;
-        lspProcess = null;
+      try {
+        const serverModule = resolveServerModule(context);
+        lspProcess = spawn(process.execPath, [serverModule, '--stdio'], { stdio: ['pipe', 'pipe', 'pipe'] });
+        const reader = new StreamMessageReader(lspProcess.stdout);
+        const writer = new StreamMessageWriter(lspProcess.stdin);
+        const connection = createMessageConnection(reader, writer);
+        connection.listen();
+        lspConnection = connection;
+        lspProcess.stderr.setEncoding('utf8');
+        lspProcess.stderr.on('data', data => {
+          const text = data.toString();
+          if (text.trim()) {
+            console.error(`[tf-lsp] ${text.trim()}`);
+          }
+        });
+        lspProcess.on('exit', () => {
+          connection.dispose();
+          lspConnection = null;
+          lspProcess = null;
+          connectionPromise = null;
+          initializePromise = null;
+        });
+        lspProcess.on('error', () => {
+          connection.dispose();
+          lspConnection = null;
+          lspProcess = null;
+          connectionPromise = null;
+          initializePromise = null;
+        });
+        return connection;
+      } catch (err) {
         connectionPromise = null;
-        initializePromise = null;
-      });
-      return connection;
+        lspProcess = null;
+        lspConnection = null;
+        throw err;
+      }
     })();
   }
   return connectionPromise;
@@ -113,20 +163,22 @@ async function ensureInitialized(context: ExtensionLikeContext): Promise<Message
 }
 
 function pickSymbol(editor: EditorLike): string | null {
-  const selection = editor.selection;
   const document = editor.document;
+  const selection = editor.selection;
+  const tokenRange = document.getWordRangeAtPosition(selection.active, /[A-Za-z0-9_:@\-]+/);
+  if (tokenRange) {
+    const token = document.getText(tokenRange).trim();
+    if (token) {
+      return token;
+    }
+  }
   if (!selection.isEmpty) {
     const selected = document.getText(selection).trim();
     if (selected) {
       return selected;
     }
   }
-  const wordRange = document.getWordRangeAtPosition(selection.active, /[A-Za-z0-9_:@\-]+/);
-  if (!wordRange) {
-    return null;
-  }
-  const word = document.getText(wordRange).trim();
-  return word || null;
+  return null;
 }
 
 export async function runSourceMapWorkflow(
@@ -139,6 +191,11 @@ export async function runSourceMapWorkflow(
   const file = input.file ? input.file.trim() : '';
   if (!symbol || !file) {
     notify?.('Select a symbol to map.');
+    return null;
+  }
+  const re = buildLiteralRegExp(symbol);
+  if (!re) {
+    notify?.('The selected symbol is not a valid search pattern.');
     return null;
   }
   const range = await request({ symbol, file });
@@ -159,6 +216,10 @@ export async function activate(context: ExtensionLikeContext): Promise<void> {
       return;
     }
     const symbol = pickSymbol(editor);
+    if (!symbol) {
+      notifyUser(vscode, 'Place the cursor on a symbol to map.');
+      return;
+    }
     const file = editor.document.uri.fsPath;
     try {
       await runSourceMapWorkflow(

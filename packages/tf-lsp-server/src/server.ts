@@ -58,7 +58,15 @@ connection.onInitialized(() => {
   // No additional initialization behavior for the baseline server.
 });
 
-connection.onRequest('tf/sourceMap', async (params: { symbol?: string; file?: string }): Promise<Range | null> => {
+function escapeRegExp(value: string): string {
+  return value.replace(/[|\\{}()[\]^$+*?.-]/g, '\\$&');
+}
+
+connection.onRequest('tf/sourceMap', async (params: { symbol?: string; file?: string; src_range?: Range | null }): Promise<Range | null> => {
+  const explicitRange = params?.src_range ?? null;
+  if (explicitRange) {
+    return explicitRange;
+  }
   const symbol = params?.symbol;
   const file = params?.file;
   if (!symbol || !file) {
@@ -72,7 +80,7 @@ connection.onRequest('tf/sourceMap', async (params: { symbol?: string; file?: st
   }
   let regex: RegExp;
   try {
-    regex = new RegExp(symbol, 'm');
+    regex = new RegExp(escapeRegExp(symbol), 'gm');
   } catch {
     return null;
   }

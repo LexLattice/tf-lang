@@ -5,6 +5,7 @@ allow_paths:
   - "tools/tf-lsp-sample/**"
   - "tools/tf-lang-cli/**"
   - "meta/**"
+  - "tf/blocks/A1-LSP-Proto/**"
   - "clients/vscode-tf/**"
 forbid_paths:
   - "packages/tf-optimize/**"

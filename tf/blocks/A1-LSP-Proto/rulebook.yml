@@ -6,7 +6,8 @@ phases:
     title: "Scoped build + scope + hygiene (soft)"
     inherits: []
     rules:
-      - scope_guard
+      - scope_guard_cp1
+      - install_ok_scoped
       - scaffold_exists
       - compile_ok_scoped
       - server_stdio_init
@@ -17,6 +18,7 @@ phases:
     title: "Diagnostics via real LSP (publishDiagnostics)"
     inherits: [cp1_baseline]
     rules:
+      - freeze_lockfile              # lockfile must NOT change from cp2+
       - fixtures_readonly              # freeze samples/helpers from here on
       - lsp_diag_protected_write       # requires publishDiagnostics from server
       - lsp_diag_syntax_error          # requires parse error surfaced with coords
@@ -37,11 +39,20 @@ phases:
       - banned_ts_expect_error_hard
 
 rules:
-  # ------- CP1
-  scope_guard:
+  # ------- CP1 (lockfile-aware)
+  scope_guard_cp1:
     kind: diff_scan
-    cmd: cat "$DIFF_PATH" | node tools/tf-checker/scan-diff.mjs --config meta/checker.yml --diff -
+    cmd: >
+      cat "$DIFF_PATH" | node tools/tf-checker/scan-diff.mjs \
+        --config meta/checker.yml \
+        --diff - \
+        --allow "pnpm-lock.yaml"
     expect: { ok: true }
+
+  install_ok_scoped:
+    kind: process
+    cmd: pnpm -C packages/tf-lsp-server install --no-frozen-lockfile --prefer-offline
+    expect: { code: 0 }
 
   scaffold_exists:
     kind: fs
@@ -56,10 +67,8 @@ rules:
       - "scripts/lsp-smoke/stdio.mjs"
 
   compile_ok_scoped:
-    kind: cmd
-    cmd: >
-      pnpm -C packages/tf-lsp-server i &&
-      pnpm -C packages/tf-lsp-server build
+    kind: process
+    cmd: pnpm -C packages/tf-lsp-server run build
     expect: { code: 0 }
 
   server_stdio_init:
@@ -80,6 +89,15 @@ rules:
     expect:
       ok: true
       contains: "\"token_violations\": []"
+
+  freeze_lockfile:
+    kind: diff_scan
+    cmd: >
+      cat "$DIFF_PATH" | node tools/tf-checker/scan-diff.mjs \
+        --config meta/checker.yml \
+        --diff - \
+        --forbid "pnpm-lock.yaml"
+    expect: { ok: true }
 
   # ------- CP2 (real LSP, not helper-only)
   fixtures_readonly:
@@ -122,6 +140,15 @@ rules:
     expect:
       code: 0
       contains: "Authorize{ scope:"
+
+  # Harden hygiene in cp4: no warnings allowed when TF_STRICT=1
+  banned_tokens_hard:
+    kind: diff_scan
+    cmd: TF_STRICT=1 cat "$DIFF_PATH" \
+         | node tools/tf-checker/scan-diff.mjs --config meta/checker.yml --diff -
+    expect:
+      ok: true
+      contains: "\"token_warnings\": []"
 
   banned_ts_expect_error_hard:
     kind: diff_scan

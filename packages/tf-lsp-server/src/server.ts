@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import {
   CodeAction,
   CodeActionKind,
@@ -55,6 +56,35 @@ connection.onInitialize((_params: InitializeParams): InitializeResult => ({
 
 connection.onInitialized(() => {
   // No additional initialization behavior for the baseline server.
+});
+
+connection.onRequest('tf/sourceMap', async (params: { symbol?: string; file?: string }): Promise<Range | null> => {
+  const symbol = params?.symbol;
+  const file = params?.file;
+  if (!symbol || !file) {
+    return null;
+  }
+  let content: string;
+  try {
+    content = await readFile(file, 'utf8');
+  } catch {
+    return null;
+  }
+  let regex: RegExp;
+  try {
+    regex = new RegExp(symbol, 'm');
+  } catch {
+    return null;
+  }
+  const match = regex.exec(content);
+  if (!match || match.index == null) {
+    return null;
+  }
+  const startOffset = match.index;
+  const endOffset = startOffset + (match[0]?.length ?? 0);
+  const start = offsetToPosition(content, startOffset);
+  const end = offsetToPosition(content, endOffset);
+  return { start, end };
 });
 
 // When CI closes STDIN (stdio mode), exit with 0 instead of 1.
@@ -258,6 +288,26 @@ function nextRange(map: Map<string, Range[]>, usage: Map<string, number>, key: s
   const count = usage.get(key) || 0;
   usage.set(key, count + 1);
   return ranges[Math.min(count, ranges.length - 1)];
+}
+
+function offsetToPosition(text: string, offset: number): Position {
+  const clamped = Math.max(0, Math.min(offset, text.length));
+  let line = 0;
+  let lastLineStart = 0;
+  for (let i = 0; i < clamped; i++) {
+    const code = text.charCodeAt(i);
+    if (code === 10) {
+      line++;
+      lastLineStart = i + 1;
+    } else if (code === 13) {
+      if (i + 1 < text.length && text.charCodeAt(i + 1) === 10) {
+        i++;
+      }
+      line++;
+      lastLineStart = i + 1;
+    }
+  }
+  return { line, character: clamped - lastLineStart };
 }
 
 function extractSymbol(document: TextDocument, position: Position): string | null {

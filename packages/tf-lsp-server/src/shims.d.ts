@@ -15,14 +15,18 @@ declare module '../../tf-l0-check/src/regions.mjs' {
 }
 
 declare module './actions/wrap-authorize.mjs' {
-  export interface WrapAuthorizeEdit {
-    range: { start: number; end: number };
+  export interface WrapAuthorizeRange {
+    start?: number;
+    end?: number;
+  }
+  export interface WrapAuthorizeResult {
     newText: string;
+    start: number;
+    end: number;
+    before: string;
+    after: string;
   }
-  export interface WrapAuthorizeOptions {
-    rangeHint?: unknown;
-  }
-  export function wrapWithAuthorize(src: string, options?: WrapAuthorizeOptions): WrapAuthorizeEdit | null;
+  export function wrapWithAuthorize(src: string, range?: WrapAuthorizeRange): WrapAuthorizeResult;
 }
 
 export {};

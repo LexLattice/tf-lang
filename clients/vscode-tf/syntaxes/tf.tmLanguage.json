@@ -1,0 +1,54 @@
+{
+  "scopeName": "source.tf",
+  "name": "TF",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "match": "\\b(let|in|node|effect|import|export)\\b",
+      "name": "keyword.control.tf"
+    },
+    {
+      "match": "\\b([A-Z][A-Za-z0-9_]*)\\b",
+      "name": "support.type.tf"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "match": "#.*$",
+          "name": "comment.line.number-sign.tf"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "begin": '"',
+          "beginCaptures": {
+            "0": { "name": "punctuation.definition.string.begin.tf" }
+          },
+          "end": '"',
+          "endCaptures": {
+            "0": { "name": "punctuation.definition.string.end.tf" }
+          },
+          "name": "string.quoted.double.tf",
+          "patterns": [
+            {
+              "match": "\\\\.",
+              "name": "constant.character.escape.tf"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "fileTypes": [
+    "tf"
+  ]
+}

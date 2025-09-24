@@ -243,7 +243,13 @@ function computeIntroduceLetActions(params: CodeActionParams, doc: TextDocument,
   if (occurrences.length < 2) return [];
 
   const letName = pickFreshName(src, 'tmp');
-  const insertEdit: TextEdit = TextEdit.insert({ line: 0, character: 0 }, `let ${letName} = ${trimmed};\n`);
+  const newline = detectNewline(src);
+  const insertOffset = findInsertionOffset(src, selectionStart);
+  const insertIndent = readIndent(src, insertOffset);
+  const insertEdit: TextEdit = TextEdit.insert(
+    doc.positionAt(insertOffset),
+    `${insertIndent}let ${letName} = ${trimmed};${newline}`
+  );
 
   const replaceEdits: TextEdit[] = [];
   for (const index of occurrences) {
@@ -408,6 +414,26 @@ function findOccurrences(text: string, needle: string): number[] {
     idx = hit + needle.length;
   }
   return out;
+}
+
+function detectNewline(text: string): string {
+  return text.includes('\r\n') ? '\r\n' : '\n';
+}
+
+function findInsertionOffset(text: string, selectionStart: number): number {
+  const lineBreak = text.lastIndexOf('\n', Math.max(0, selectionStart - 1));
+  if (lineBreak === -1) {
+    return 0;
+  }
+  return lineBreak + 1;
+}
+
+function readIndent(text: string, offset: number): string {
+  let idx = offset;
+  while (idx < text.length && (text[idx] === ' ' || text[idx] === '\t')) {
+    idx += 1;
+  }
+  return text.slice(offset, idx);
 }
 
 async function validateTextDocument(document: TextDocument): Promise<void> {

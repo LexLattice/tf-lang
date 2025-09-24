@@ -11,6 +11,7 @@ forbid_paths:
   - "packages/tf-optimize/**"
   - "crates/**"
   - "**/*.generated.*"
+  - "clients/vscode-tf/dist/**"
 
 token_rules:
   - id: ts_any_type

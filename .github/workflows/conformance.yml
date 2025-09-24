@@ -16,7 +16,7 @@ jobs:
         with:
           node-version: '20'
           install: 'true'
-          frozen: 'true'
+          frozen: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'merge_group' }}
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable

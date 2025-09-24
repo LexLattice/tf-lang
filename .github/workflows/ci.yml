@@ -20,7 +20,7 @@ jobs:
         with:
           node-version: '20'
           install: 'true'
-          frozen: 'true'
+          frozen: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'merge_group' }}
       - run: pnpm -r --filter "./packages/tf-lang-l0-ts" test
 
   rust:
@@ -46,7 +46,7 @@ jobs:
         with:
           node-version: '20'
           install: 'true'
-          frozen: 'true'
+          frozen: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'merge_group' }}
           # Ensure the subpackage is built before packing (if your tarball includes dist/)
       - name: Build tf-lang-l0-ts
         run: pnpm -C packages/tf-lang-l0-ts build
@@ -98,7 +98,7 @@ jobs:
         with:
           node-version: '20'
           install: 'true'
-          frozen: 'true'
+          frozen: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'merge_group' }}
       - run: pnpm -C packages/oracles-core-ts build
       - run: pnpm -C packages/oracles-core-ts test
       - run: ./scripts/oracle-core-results
@@ -122,7 +122,7 @@ jobs:
         with:
           node-version: '20'
           install: 'true'
-          frozen: 'true'
+          frozen: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'merge_group' }}
       - run: node scripts/validate-trace.mjs < tests/fixtures/trace-sample.jsonl
 
   container-image:

@@ -17,7 +17,7 @@ jobs:
         with:
           node-version: '20'
           install: 'true'
-          frozen: 'true'
+          frozen: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'merge_group' }}
 
       - name: Install ripgrep (needed by sqlite.test.ts)
         run: sudo apt-get update && sudo apt-get install -y ripgrep

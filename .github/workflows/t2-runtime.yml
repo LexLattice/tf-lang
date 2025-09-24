@@ -17,7 +17,7 @@ jobs:
         with:
           node-version: '20'
           install: 'true'
-          frozen: 'true'
+          frozen: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'merge_group' }}
       - run: pnpm --filter @tf-lang/tf-check run build
       - run: pnpm --filter @tf-lang/tf-check run test
       - run: pnpm --filter @tf-lang/tf-check run artifacts
@@ -71,7 +71,7 @@ jobs:
         with:
           node-version: '20'
           install: 'true'
-          frozen: 'true'
+          frozen: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'merge_group' }}
       - run: pnpm --filter @tf-lang/adapter-execution-ts run build
       - run: pnpm --filter @tf-lang/adapter-execution-ts run test
       - run: pnpm --filter @tf-lang/adapter-execution-ts run fixtures
@@ -104,7 +104,7 @@ jobs:
         with:
           node-version: '20'
           install: 'true'
-          frozen: 'true'
+          frozen: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'merge_group' }}
       - run: pnpm --filter @tf-lang/trace2tags run build
       - run: pnpm --filter @tf-lang/trace2tags run test
       - run: pnpm --filter @tf-lang/trace2tags run artifacts
@@ -125,7 +125,7 @@ jobs:
         with:
           node-version: '20'
           install: 'true'
-          frozen: 'true'
+          frozen: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'merge_group' }}
       - run: pnpm --filter @tf-lang/trace2tags run artifacts
       - run: pnpm --filter @tf-lang/coverage-generator run build
       - run: pnpm --filter @tf-lang/coverage-generator run test
@@ -151,7 +151,7 @@ jobs:
         with:
           node-version: '20'
           install: 'true'
-          frozen: 'true'
+          frozen: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'merge_group' }}
       - name: Install Rust
         run: |
           sudo apt-get update

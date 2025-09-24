@@ -16,7 +16,7 @@ jobs:
         with:
           node-version: '20'
           install: 'true'
-          frozen: 'true'
+          frozen: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'merge_group' }}
           cache-dependency-path: '**/pnpm-lock.yaml'
 
       # Build tf-check + its local deps + the TS runtime used by defaultCommand()
@@ -48,7 +48,7 @@ jobs:
         with:
           node-version: '20'
           install: 'true'
-          frozen: 'true'
+          frozen: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'merge_group' }}
           cache-dependency-path: '**/pnpm-lock.yaml'
       - run: pnpm --filter '@tf-lang/utils' -w run build
       - run: pnpm --filter tf-lang-l0 -w run build

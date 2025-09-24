@@ -22,7 +22,7 @@ jobs:
         with:
           node-version: '20'
           install: 'true'
-          frozen: 'true'
+          frozen: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'merge_group' }}
       - run: pnpm run a0
       - run: pnpm run a1
       - run: pnpm -w -r build

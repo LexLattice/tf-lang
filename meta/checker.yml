@@ -1,6 +1,10 @@
 version: 1
 allow_paths:
   - "packages/tf-lsp-server/**"
+  - "samples/a1/**"
+  - "tools/tf-lsp-sample/**"
+  - "tools/tf-lang-cli/**"
+  - "meta/**"
   - "clients/vscode-tf/**"
 forbid_paths:
   - "packages/tf-optimize/**"

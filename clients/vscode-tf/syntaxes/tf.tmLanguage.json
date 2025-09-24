@@ -1,0 +1,19 @@
+{
+  "name": "TF",
+  "scopeName": "source.tf",
+  "patterns": [
+    {
+      "include": "#comments"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.number-sign.tf",
+          "match": "#.*$"
+        }
+      ]
+    }
+  }
+}

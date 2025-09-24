@@ -1,0 +1,59 @@
+{
+  "name": "@tf-lang/clients-vscode-tf",
+  "displayName": "TF Language Basics",
+  "description": "TF language integration with the TF language server.",
+  "version": "0.0.1",
+  "publisher": "tf-lang",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:tf"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "tf",
+        "aliases": [
+          "TF",
+          "tf"
+        ],
+        "extensions": [
+          ".tf",
+          ".tfvars"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "tf",
+        "scopeName": "source.tf",
+        "path": "./syntaxes/tf.tmLanguage.json"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./tsconfig.json",
+    "watch": "tsc -w -p ./tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.7",
+    "@types/vscode": "^1.85.0",
+    "tslib": "^2.6.2",
+    "typescript": "^5.4.5",
+    "vscode-languageclient": "^9.0.1"
+  },
+  "files": [
+    "dist",
+    "syntaxes",
+    "language-configuration.json",
+    "package.json",
+    "README.md"
+  ]
+}

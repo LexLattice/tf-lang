@@ -12,21 +12,16 @@
     "Programming Languages"
   ],
   "activationEvents": [
-    "onLanguage:tf"
+    "onLanguage:tf",
+    "onCommand:tf.showTraceSource"
   ],
   "main": "./dist/extension.js",
   "contributes": {
     "languages": [
       {
         "id": "tf",
-        "aliases": [
-          "TF",
-          "tf"
-        ],
-        "extensions": [
-          ".tf",
-          ".tfvars"
-        ],
+        "aliases": ["TF", "tf"],
+        "extensions": [".tf", ".tfvars"],
         "configuration": "./language-configuration.json"
       }
     ],
@@ -36,18 +31,27 @@
         "scopeName": "source.tf",
         "path": "./syntaxes/tf.tmLanguage.json"
       }
+    ],
+    "commands": [
+      {
+        "command": "tf.showTraceSource",
+        "title": "TF: Show Trace Source"
+      }
     ]
   },
   "scripts": {
-    "compile": "tsc -p ./tsconfig.json",
-    "watch": "tsc -w -p ./tsconfig.json"
+    "clean": "rimraf dist",
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -w -p tsconfig.json"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {
     "@types/node": "^20.12.7",
     "@types/vscode": "^1.85.0",
-    "tslib": "^2.6.2",
-    "typescript": "^5.4.5",
-    "vscode-languageclient": "^9.0.1"
+    "rimraf": "^5.0.0",
+    "typescript": "^5.9.0"
   },
   "files": [
     "dist",

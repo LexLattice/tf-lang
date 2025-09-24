@@ -16,6 +16,7 @@ import {
   TextDocuments,
   createConnection
 } from 'vscode-languageserver/node.js';
+import { promises as fs } from 'node:fs';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { parseDSL } from '../../tf-compose/src/parser.mjs';
 import { checkIR } from '../../tf-l0-check/src/check.mjs';
@@ -44,6 +45,39 @@ function writeProbe(text: string) {
   }
 }
 writeProbe(`probe-enabled=${PROBE_ENABLED}`);
+
+type SourceMapParams = { symbol?: unknown; file?: unknown };
+
+connection.onRequest('tf/sourceMap', async (params: SourceMapParams): Promise<Range | null> => {
+  if (!params || typeof params.symbol !== 'string' || typeof params.file !== 'string') {
+    return null;
+  }
+  let contents: string;
+  try {
+    contents = await fs.readFile(params.file, 'utf8');
+  } catch {
+    return null;
+  }
+
+  let pattern: RegExp;
+  try {
+    pattern = new RegExp(params.symbol, 'm');
+  } catch {
+    return null;
+  }
+
+  const match = pattern.exec(contents);
+  if (!match) {
+    return null;
+  }
+
+  const startOffset = match.index;
+  const endOffset = startOffset + match[0].length;
+  return {
+    start: offsetToPosition(contents, startOffset),
+    end: offsetToPosition(contents, endOffset)
+  };
+});
 
 connection.onInitialize((_params: InitializeParams): InitializeResult => ({
   capabilities: {
@@ -296,6 +330,27 @@ function extractFQSymbol(text: string, pos: Position): string | null {
     return best.v;
   }
   return null;
+}
+
+function offsetToPosition(text: string, offset: number): Position {
+  let line = 0;
+  let lastBreak = 0;
+  let idx = 0;
+  while (idx < offset) {
+    const ch = text.charCodeAt(idx);
+    if (ch === 13 /* \r */ || ch === 10 /* \n */) {
+      line++;
+      if (ch === 13 && text.charCodeAt(idx + 1) === 10) {
+        idx++;
+      }
+      lastBreak = idx + 1;
+    }
+    idx++;
+  }
+  return {
+    line,
+    character: Math.max(0, offset - lastBreak)
+  };
 }
 
 function effectsOf(idOrName: string): string[] {

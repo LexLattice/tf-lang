@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
-import { basename, dirname } from 'node:path';
+import { basename, dirname, resolve } from 'node:path';
 
 import { parseDSL } from '../src/parser.mjs';
 import { formatDSL, renderIRTree } from '../src/format.mjs';
@@ -9,6 +9,7 @@ import { hash, canonicalize } from '../../tf-l0-ir/src/hash.mjs';
 import { checkIR } from '../../tf-l0-check/src/check.mjs';
 import { manifestFromVerdict } from '../../tf-l0-check/src/manifest.mjs';
 import { checkRegions } from '../../tf-l0-check/src/regions.mjs';
+import { expandIncludes, readText } from '../src/io.mjs';
 
 async function loadCatalog() {
   try {
@@ -29,7 +30,7 @@ async function run() {
     console.error('Usage: tf <parse|check|canon|emit|manifest|fmt|show> <flow.tf> [--out path] [--lang ts|rs] [--write|-w]');
     process.exit(2);
   }
-  const optionKeys = new Set(['--out', '-o', '--lang']);
+  const optionKeys = new Set(['--out', '-o', '--lang', '--base']);
   let file = null;
   for (let i = 1; i < args.length; i++) {
     const token = args[i];
@@ -67,24 +68,39 @@ async function run() {
     process.exit(0);
   }
 
+  const baseDir = arg('--base') || dirname(file);
+  let expanded;
+  try {
+    expanded = await expandIncludes(ir, {
+      base: baseDir,
+      loadFile: readText,
+      parse: parseDSL,
+      stack: [resolve(process.cwd(), file)]
+    });
+  } catch (err) {
+    const message = err && typeof err.message === 'string' ? err.message : String(err);
+    console.error(message);
+    process.exit(1);
+  }
+
   const cat = await loadCatalog();
 
   if (cmd === 'parse') {
-    const s = canonicalize(ir) + '\n';
+    const s = canonicalize(expanded) + '\n';
     if (out) { await mkdir(dirname(out), { recursive: true }); await writeFile(out, s, 'utf8'); }
     else process.stdout.write(s);
     process.exit(0);
   }
 
   if (cmd === 'check') {
-    const verdict = checkIR(ir, cat);
+    const verdict = checkIR(expanded, cat);
 
     let protectedList = [];
     try {
       const p = JSON.parse(await readFile('packages/tf-l0-spec/spec/protected.json', 'utf8'));
       protectedList = p.protected_keywords || [];
     } catch { }
-    const regionVerdict = checkRegions(ir, cat, protectedList);
+    const regionVerdict = checkRegions(expanded, cat, protectedList);
 
     const ok = Boolean(verdict.ok && regionVerdict.ok);
     const reasons = []
@@ -99,7 +115,7 @@ async function run() {
 
   if (cmd === 'canon') {
     const laws = await readFile('packages/tf-l0-spec/spec/laws.json', 'utf8').then(JSON.parse).catch(() => ({ laws: [] }));
-    const norm = canon(ir, laws);
+    const norm = canon(expanded, laws);
     const payload = canonicalize(norm) + '\n';
     if (out) { await mkdir(dirname(out), { recursive: true }); await writeFile(out, payload, 'utf8'); }
     else process.stdout.write(payload);
@@ -107,7 +123,7 @@ async function run() {
   }
 
   if (cmd === 'manifest') {
-    const verdict = checkIR(ir, cat);
+    const verdict = checkIR(expanded, cat);
     const mani = manifestFromVerdict(verdict);
     const payload = JSON.stringify(mani, null, 2) + '\n';
     if (out) { await mkdir(dirname(out), { recursive: true }); await writeFile(out, payload, 'utf8'); }
@@ -121,10 +137,10 @@ async function run() {
     await mkdir(outDir, { recursive: true });
     if (lang === 'ts') {
       const gen = await import('../../tf-l0-codegen-ts/scripts/generate.mjs');
-      await gen.generate(ir, { outDir });
+      await gen.generate(expanded, { outDir });
     } else if (lang === 'rs') {
       const gen = await import('../../tf-l0-codegen-rs/scripts/generate.mjs');
-      await gen.generate(ir, { outDir });
+      await gen.generate(expanded, { outDir });
     } else {
       console.error('Unknown language:', lang);
       process.exit(2);

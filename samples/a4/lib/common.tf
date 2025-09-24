@@ -1,3 +1,3 @@
 seq{
-  audit();
+  serialize(payload="hi");
 }

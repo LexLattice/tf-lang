@@ -1,0 +1,47 @@
+{
+  "name": "@tf-lang/clients-vscode-tf",
+  "displayName": "TF Language",
+  "description": "VS Code integration for the TF language.",
+  "version": "0.0.1",
+  "publisher": "tf-lang",
+  "license": "Apache-2.0",
+  "private": true,
+  "engines": {
+    "vscode": "^1.89.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:tf"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "tf",
+        "aliases": ["TF", "tf"],
+        "extensions": [".tf"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "tf",
+        "scopeName": "source.tf",
+        "path": "./syntaxes/tf.tmLanguage.json"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "pnpm exec tsc -p ./tsconfig.json",
+    "watch": "pnpm exec tsc -p ./tsconfig.json --watch"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.89.0",
+    "typescript": "^5.5.4"
+  }
+}

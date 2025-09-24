@@ -1,0 +1,34 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "TF",
+  "scopeName": "source.tf",
+  "patterns": [
+    {
+      "name": "comment.line.number-sign.tf",
+      "match": "#.*$"
+    },
+    {
+      "name": "string.quoted.double.tf",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.tf",
+          "match": "\\."
+        }
+      ]
+    },
+    {
+      "name": "constant.numeric.tf",
+      "match": "\\b[0-9]+(?:\\.[0-9]+)?\\b"
+    },
+    {
+      "name": "keyword.control.tf",
+      "match": "\\b(?:action|resource|when|then|else)\\b"
+    },
+    {
+      "name": "variable.tf",
+      "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+    }
+  ]
+}

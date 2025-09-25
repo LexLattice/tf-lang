@@ -14,8 +14,11 @@ const readStdin = () =>
 const compileGlobs = (patterns = []) =>
   patterns.map(glob => picomatch(glob, { dot: true }));
 
-const matchesAny = (matchers, file) =>
-  matchers.length > 0 && matchers.some(match => match(file));
+const flattenPatterns = list =>
+  (list || [])
+    .flatMap(item => String(item).split(','))
+    .map(s => s.trim())
+    .filter(Boolean);
 
 const globs = patterns => {
   const matchers = compileGlobs(patterns || []);
@@ -145,10 +148,12 @@ function scan(diff, cfg) {
 
   const configPath = getValue("--config") || "meta/checker.yml";
   const diffArg = getValue("--diff");
-  const allowPatterns = getAll("--allow");
-  const forbidPatterns = getAll("--forbid");
+  const allowPatterns = flattenPatterns(getAll("--allow"));
+  const forbidPatterns = flattenPatterns(getAll("--forbid"));
 
   const config = yaml.parse(fs.readFileSync(configPath, "utf8"));
+  config.allow_paths = [...(config.allow_paths || []), ...allowPatterns];
+  config.forbid_paths = [...(config.forbid_paths || []), ...forbidPatterns];
 
   let diffText = "";
   if (diffArg === "-") {
@@ -159,24 +164,6 @@ function scan(diff, cfg) {
 
   const files = parseDiff(diffText);
   const report = scan(files, config);
-
-  const allowMatchers = compileGlobs(allowPatterns);
-  const forbidMatchers = compileGlobs(forbidPatterns);
-
-  if (Array.isArray(report.forbidden_paths_violations) && allowMatchers.length) {
-    report.forbidden_paths_violations = report.forbidden_paths_violations.filter(
-      violation => !matchesAny(allowMatchers, violation.file)
-    );
-  }
-
-  if (forbidMatchers.length && Array.isArray(report.touched_files)) {
-    const extras = report.touched_files
-      .filter(file => matchesAny(forbidMatchers, file))
-      .map(file => ({ file, reason: "explicitly forbidden via --forbid" }));
-    if (extras.length) {
-      report.forbidden_paths_violations = (report.forbidden_paths_violations || []).concat(extras);
-    }
-  }
 
   const noForbidden = !(report.forbidden_paths_violations && report.forbidden_paths_violations.length);
   report.allowed_scope_ok = noForbidden && report.allowed_scope_ok !== false;

@@ -1,0 +1,30 @@
+name: lockfile-guard
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Detect package.json changes
+        id: diff
+        run: |
+          BASE="${{ github.base_ref }}"
+          git fetch origin "$BASE":"refs/remotes/origin/$BASE"
+          CHANGED=$(git diff --name-only "origin/$BASE"...HEAD -- \
+            'package.json' 'packages/**/package.json' 'pnpm-workspace.yaml')
+          echo "changed=$CHANGED" >> "$GITHUB_OUTPUT"
+      - name: Require lockfile delta when packages change
+        if: steps.diff.outputs.changed != ''
+        run: |
+          BASE="${{ github.base_ref }}"
+          git fetch origin "$BASE":"refs/remotes/origin/$BASE"
+          if ! git diff --name-only "origin/$BASE"...HEAD | grep -q '^pnpm-lock.yaml$'; then
+            echo "::error::package.json changed but pnpm-lock.yaml did not. Run: pnpm -w install --lockfile-only"
+            exit 1
+          fi

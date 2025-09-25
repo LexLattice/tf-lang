@@ -67,6 +67,6 @@ runs:
         if [[ "${{ inputs.frozen }}" == "true" ]]; then
           pnpm install --frozen-lockfile
         else
-          # In CI, pnpm defaults to frozen installs when CI=true; override that here.
-          pnpm install --no-frozen-lockfile --prefer-offline
+          # IMPORTANT: CI defaults to frozen; force a thaw when callers opt out.
+          pnpm install --no-frozen-lockfile
         fi

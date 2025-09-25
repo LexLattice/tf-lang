@@ -2,6 +2,7 @@ For any task `NODE_ID` and phase `CHECKPOINT`:
 
 1. **Edit only inside allowed paths**
    See `meta/checker.yml` and `tf/blocks/<NODE_ID>/TF.yaml`. The checker will hard-fail if you touch files outside scope.&#x20;
+   ⚠️ **cp1 lockfile exception**: when a task adds a new package, run `pnpm -w install --lockfile-only` and commit `pnpm-lock.yaml` in the same checkpoint. From cp2 onward the lockfile stays frozen.
 
 2. **After each change, run the checkpoint with a stable, staged diff** *(the one habit)*
 

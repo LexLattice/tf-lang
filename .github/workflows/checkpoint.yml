@@ -6,7 +6,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with: { version: 9 }
+        with:
+          version: 10.16.1
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
       - run: pnpm -w -r install
@@ -21,12 +22,23 @@ jobs:
       - name: Validate meta
         run: |
           [ -n "${{ steps.meta.outputs.node }}" ] && [ -n "${{ steps.meta.outputs.cp }}" ] || { echo "PR title must contain 'node:<ID> cp:<PHASE>'"; exit 1; }
+      - name: Prepare diff directory
+        run: mkdir -p out/tmp
       - name: Get PR diff
-        run: gh pr diff ${{ github.event.pull_request.number }} --patch --color=never > out/tmp/pr.diff
-        env: { GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if command -v gh >/dev/null 2>&1; then
+            gh pr diff ${{ github.event.pull_request.number }} --patch --color=never > out/tmp/pr.diff
+          else
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            git fetch --depth=1 origin "$BASE_SHA"
+            git diff --no-color "$BASE_SHA"...HEAD > out/tmp/pr.diff
+          fi
       - name: Run checkpoint
         run: cat out/tmp/pr.diff | node tools/tf-lang-cli/index.mjs run ${{ steps.meta.outputs.node }} ${{ steps.meta.outputs.cp }} --diff -
       - uses: actions/upload-artifact@v4
+        if: ${{ env.ACT != 'true' }}
         with:
           name: TFREPORT
           path: out/TFREPORT.json

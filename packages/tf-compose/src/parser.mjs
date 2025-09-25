@@ -2,9 +2,14 @@
 export function parseDSL(src) {
   const tokens = tokenize(src);
   const seq = parseSeq(tokens);
+  while (maybe(tokens, 'SEMI')) {
+    // allow optional trailing semicolons at the top level
+  }
   expectEOF(tokens);
-  return seq;
+  return annotateLetRefs(seq);
 }
+
+const RESERVED_BINDING_NAMES = new Set(['let', 'include', 'seq', 'par', 'authorize', 'txn']);
 
 function tokenize(src) {
   const tokens = [];
@@ -222,6 +227,14 @@ function tokenize(src) {
       ident += advanceChar();
     }
     if (ident) {
+      if (ident === 'let') {
+        tokens.push(makeToken('LET', ident, start));
+        continue;
+      }
+      if (ident === 'include') {
+        tokens.push(makeToken('INCLUDE', ident, start));
+        continue;
+      }
       tokens.push(makeToken('IDENT', ident, start));
       continue;
     }
@@ -295,11 +308,18 @@ function formatErrorMessage(src, start, end, message, spanOverride) {
 }
 
 function parseSeq(tokens) {
-  const parts = [parseStep(tokens)];
+  const first = parseStep(tokens);
+  if (!maybe(tokens, 'PIPE')) {
+    return first;
+  }
+  if (isBindingNode(first)) {
+    throw syntaxError(tokens, peek(tokens), 'Let/include cannot be used in pipelines');
+  }
+  const parts = [first, parseStep(tokens)];
   while (maybe(tokens, 'PIPE')) {
     parts.push(parseStep(tokens));
   }
-  return parts.length === 1 ? parts[0] : { node: 'Seq', children: parts };
+  return { node: 'Seq', children: parts };
 }
 
 function parseBlock(tokens, node) {
@@ -309,7 +329,7 @@ function parseBlock(tokens, node) {
     return node;
   }
   while (true) {
-    kids.push(parseStep(tokens));
+    kids.push(parseSeq(tokens));
     if (maybe(tokens, 'SEMI')) {
       if (maybe(tokens, 'RBRACE')) break;
       continue;
@@ -361,13 +381,53 @@ function parseArgs(tokens) {
 }
 
 function parseStep(tokens) {
+  const token = peek(tokens);
+  if (token.t === 'LET') {
+    tokens.i += 1;
+    return parseLet(tokens, token);
+  }
+  if (token.t === 'INCLUDE') {
+    tokens.i += 1;
+    return parseInclude(tokens, token);
+  }
   if (maybe(tokens, 'PAR_OPEN')) return parseBlock(tokens, { node: 'Par', children: [] });
   if (maybe(tokens, 'SEQ_OPEN')) return parseBlock(tokens, { node: 'Seq', syntax: 'block', children: [] });
   if (maybe(tokens, 'REGION_AUTH')) return parseRegion(tokens, 'Authorize');
   if (maybe(tokens, 'REGION_TXN')) return parseRegion(tokens, 'Transaction');
   const id = take(tokens, 'IDENT');
   const args = parseArgs(tokens);
-  return { node: 'Prim', prim: id.v.toLowerCase(), args };
+  return {
+    node: 'Prim',
+    prim: id.v.toLowerCase(),
+    raw: id.v,
+    args
+  };
+}
+
+function parseLet(tokens, letToken) {
+  const nameToken = take(tokens, 'IDENT');
+  if (RESERVED_BINDING_NAMES.has(nameToken.v.toLowerCase())) {
+    throw syntaxError(tokens, nameToken, `Reserved keyword '${nameToken.v}' cannot be used as a binding name`);
+  }
+  take(tokens, 'EQ');
+  const init = parseSeq(tokens);
+  const last = lastConsumedToken(tokens) || nameToken;
+  return {
+    node: 'Let',
+    name: nameToken.v,
+    init,
+    body: null,
+    loc: makeLoc(letToken.start, last.end),
+  };
+}
+
+function parseInclude(tokens, includeToken) {
+  const pathToken = take(tokens, 'STRING');
+  return {
+    node: 'Include',
+    path: pathToken.v,
+    loc: makeLoc(includeToken.start, pathToken.end),
+  };
 }
 
 function parseValue(tokens) {
@@ -438,4 +498,114 @@ function parseObject(tokens) {
     break;
   }
   return obj;
+}
+
+function isBindingNode(node) {
+  return node && typeof node === 'object' && (node.node === 'Let' || node.node === 'Include');
+}
+
+function lastConsumedToken(tokens) {
+  const idx = tokens.i - 1;
+  return idx >= 0 ? tokens.list[idx] || null : null;
+}
+
+function makeLoc(start, end) {
+  return { start: clonePos(start), end: clonePos(end) };
+}
+
+function clonePos(pos) {
+  return pos ? { index: pos.index, line: pos.line, col: pos.col } : null;
+}
+
+function annotateLetRefs(root) {
+  const envStack = [new Map()];
+  return annotateNode(root, envStack);
+}
+
+function annotateNode(node, envStack) {
+  if (!node || typeof node !== 'object') return node;
+
+  if (node.node === 'Let') {
+    if (node.init) {
+      node.init = annotateNode(node.init, envStack);
+    }
+    bindLetName(envStack, node.name);
+    if (node.body) {
+      node.body = annotateNode(node.body, envStack);
+    }
+    return node;
+  }
+
+  if (node.node === 'Seq') {
+    const isBlock = node.syntax === 'block';
+    if (isBlock) pushScope(envStack);
+    const kids = node.children ?? [];
+    node.children = kids.map((child) => annotateNode(child, envStack));
+    if (isBlock) popScope(envStack);
+    return node;
+  }
+
+  if (node.node === 'Par') {
+    const children = node.children ?? [];
+    node.children = children.map((child) => annotateNode(child, cloneEnvStack(envStack)));
+    return node;
+  }
+
+  if (node.node === 'Region') {
+    pushScope(envStack);
+    node.children = (node.children ?? []).map((child) => annotateNode(child, envStack));
+    popScope(envStack);
+    return node;
+  }
+
+  if (Array.isArray(node.children)) {
+    node.children = node.children.map((child) => annotateNode(child, envStack));
+    return node;
+  }
+
+  if (node.node === 'Prim' && isRefCandidate(node, envStack)) {
+    return {
+      node: 'Ref',
+      name: node.raw || node.prim,
+      loc: node.loc
+    };
+  }
+
+  return node;
+}
+
+function isRefCandidate(node, envStack) {
+  if (!node || typeof node !== 'object') return false;
+  const hasArgs = node.args && Object.keys(node.args).length > 0;
+  if (hasArgs) return false;
+  const key = normalizeBindingKey(node.prim);
+  return lookupLetName(envStack, key);
+}
+
+function bindLetName(envStack, name) {
+  const top = envStack[envStack.length - 1];
+  top.set(normalizeBindingKey(name), true);
+}
+
+function lookupLetName(envStack, key) {
+  for (let i = envStack.length - 1; i >= 0; i -= 1) {
+    if (envStack[i].has(key)) return true;
+  }
+  return false;
+}
+
+function normalizeBindingKey(name) {
+  return typeof name === 'string' ? name.toLowerCase() : '';
+}
+
+function pushScope(envStack) {
+  envStack.push(new Map());
+}
+
+function popScope(envStack) {
+  envStack.pop();
+}
+
+function cloneEnvStack(envStack) {
+  return envStack.map((frame) => new Map(frame));
 }

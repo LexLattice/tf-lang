@@ -1,11 +1,15 @@
 version: 1
 allow_paths:
   - "packages/tf-lsp-server/**"
+  - "packages/tf-compose/src/**"
   - "samples/a1/**"
+  - "samples/a4/**"
   - "tools/tf-lsp-sample/**"
   - "tools/tf-lang-cli/**"
   - "meta/**"
   - "tf/blocks/A1-LSP-Proto/**"
+  - "tf/blocks/A4-DSL-Ergonomics/**"
+  - "scripts/lsp-smoke/**"
   - "clients/vscode-tf/**"
 forbid_paths:
   - "packages/tf-optimize/**"

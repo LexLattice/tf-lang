@@ -1,0 +1,92 @@
+version: 1
+meta: { node: A4-DSL-Ergonomics, title: "A4 — DSL ergonomics (let + include + LSP refactors)" }
+
+phases:
+  cp1_syntax:
+    title: "Parser + formatter support for let/include"
+    inherits: []
+    rules:
+      - scope_guard_cp1
+      - tf_parse_let_basic
+      - dsl_let_include_roundtrip_tests
+
+  cp2_scoping:
+    title: "Let scoping + checker"
+    inherits: [cp1_syntax]
+    rules:
+      - tf_check_let_shadowing
+      - tf_check_let_ok
+      - dsl_roundtrip_canon_stable
+
+  cp3_include:
+    title: "Include expansion"
+    inherits: [cp2_scoping]
+    rules:
+      - tf_parse_include_expand
+      - tf_include_cycle_guard
+
+  cp4_refactors:
+    title: "LSP code actions"
+    inherits: [cp3_include]
+    rules:
+      - lsp_code_action_introduce_let
+      - lsp_code_action_inline_let
+
+rules:
+  scope_guard_cp1:
+    kind: diff_scan
+    cmd: cat "$DIFF_PATH" | node tools/tf-checker/scan-diff.mjs --config meta/checker.yml --diff -
+    expect: { ok: true }
+
+  tf_parse_let_basic:
+    kind: cmd
+    cmd: node packages/tf-compose/bin/tf.mjs parse samples/a4/let_basic.tf -o out/0.45/a4/let.json
+    expect: { code: 0 }
+
+  dsl_let_include_roundtrip_tests:
+    kind: cmd
+    cmd: node --test packages/tf-compose/src/tests/let-include.test.mjs
+    expect: { code: 0 }
+
+  tf_check_let_shadowing:
+    kind: cmd
+    cmd: node packages/tf-compose/bin/tf.mjs check samples/a4/let_shadow.tf
+    expect:
+      code: 1
+      contains: "LetShadowing"
+
+  tf_check_let_ok:
+    kind: cmd
+    cmd: node packages/tf-compose/bin/tf.mjs check samples/a4/let_ok.tf
+    expect: { code: 0 }
+
+  dsl_roundtrip_canon_stable:
+    kind: cmd
+    cmd: node --test packages/tf-compose/src/tests/let-canon.test.mjs
+    expect: { code: 0 }
+
+  tf_parse_include_expand:
+    kind: cmd
+    cmd: node packages/tf-compose/bin/tf.mjs parse samples/a4/root_with_include.tf --base samples/a4 -o out/0.45/a4/include-expanded.json
+    expect: { code: 0 }
+
+  tf_include_cycle_guard:
+    kind: cmd
+    cmd: node packages/tf-compose/bin/tf.mjs parse samples/a4/include_cycle_root.tf --base samples/a4
+    expect:
+      code: 1
+      contains: "IncludeCycle"
+
+  lsp_code_action_introduce_let:
+    kind: cmd
+    cmd: node scripts/lsp-smoke/stdio.mjs --mode codeAction --file samples/a4/dup_expr.tf
+    expect:
+      code: 0
+      contains: "Introduce let"
+
+  lsp_code_action_inline_let:
+    kind: cmd
+    cmd: node scripts/lsp-smoke/stdio.mjs --mode codeAction --file samples/a4/let_decl.tf
+    expect:
+      code: 0
+      contains: "Inline let"

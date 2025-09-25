@@ -1,0 +1,16 @@
+id: A4-DSL-Ergonomics
+version: 0.45.0
+scope:
+  allow_paths:
+    - "packages/tf-compose/src/**"
+    - "packages/tf-lsp-server/src/**"
+    - "scripts/lsp-smoke/**"
+    - "samples/a4/**"
+    - "tf/blocks/A4-DSL-Ergonomics/**"
+  forbid_paths:
+    - "**/*.generated.*"
+    - "clients/vscode-tf/dist/**"
+    - "crates/**"
+    - "dist/**"
+notes:
+  - "Acceptance lives in rulebook.yml phases"

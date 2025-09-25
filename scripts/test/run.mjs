@@ -41,7 +41,11 @@ function checkCargo() {
 }
 
 function checkDeps(test, allowMissing) {
-  const missing = test.deps.filter((dep) => !depAvailability.get(dep));
+  const required = new Set(test.deps || []);
+  if (test?.runner?.type === 'cargo') {
+    required.add('rust');
+  }
+  const missing = [...required].filter((dep) => !depAvailability.get(dep));
   if (missing.length === 0) {
     return { status: 'ok', missing: [] };
   }
@@ -90,7 +94,15 @@ async function runTest(test) {
 }
 
 async function main() {
-  const { filters, allowMissingDeps } = parseArgs(process.argv.slice(2));
+  let { filters, allowMissingDeps } = parseArgs(process.argv.slice(2));
+  // Fast runs should tolerate missing heavy toolchains (e.g., cargo).
+  if (!allowMissingDeps && filters.speed.includes('fast')) {
+    allowMissingDeps = true;
+  }
+  const debugFlags = process.env.TEST_RUN_DEBUG === '1';
+  if (debugFlags) {
+    console.log(`[tests] filters=${JSON.stringify(filters)} allowMissingDeps=${allowMissingDeps}`);
+  }
   const tests = await discoverTests();
   const selected = sortTests(
     tests.filter((test) => {
@@ -115,18 +127,28 @@ async function main() {
   for (const test of selected) {
     const depCheck = checkDeps(test, allowMissingDeps);
     if (depCheck.status === 'skip') {
+      if (debugFlags) {
+        console.log(`[tests] skip ${test.file} (missing ${depCheck.missing.join(', ')})`);
+      }
       summary.skipped.push({ file: test.file, reason: `missing ${depCheck.missing.join(', ')}` });
       continue;
     }
     if (depCheck.status === 'error') {
+      if (debugFlags) {
+        console.error(`[tests] missing required deps: ${test.file} -> ${depCheck.missing.join(', ')}`);
+      }
       summary.skipped.push({ file: test.file, reason: `missing ${depCheck.missing.join(', ')} (required)` });
       summary.ok = false;
       continue;
+    }
+    if (debugFlags) {
+      console.log(`[tests] run ${test.file}`);
     }
     const success = await runTest(test);
     summary.run[test.runner.type] += 1;
     if (!success) {
       summary.ok = false;
+      console.error(`[tests] failure: ${test.file}`);
     }
   }
 
@@ -134,9 +156,13 @@ async function main() {
 
   const manifestPath = path.join(OUT_DIR, 'manifest.json');
   await writeJsonCanonical(manifestPath, summary);
-  if (!summary.ok) {
-    process.exitCode = 1;
+  if (debugFlags) {
+    console.log('[tests] summary', JSON.stringify(summary));
   }
+  process.exitCode = summary.ok ? 0 : 1;
+  console.log(
+    `[tests] selected=${summary.selected} run=${JSON.stringify(summary.run)} skipped=${summary.skipped.length} ok=${summary.ok}`,
+  );
 }
 
 main().catch((err) => {

@@ -35,6 +35,10 @@ async function main() {
   const mode = args.includes('--mode') ? args[args.indexOf('--mode') + 1] : 'init';
   const file = args.includes('--file') ? args[args.indexOf('--file') + 1] : null;
   const symbol = args.includes('--symbol') ? args[args.indexOf('--symbol') + 1] : null;
+  const rangeArg = args.includes('--range') ? args[args.indexOf('--range') + 1] : null;
+  const posArg = args.includes('--position') ? args[args.indexOf('--position') + 1] : null;
+  const grep = args.includes('--grep') ? args[args.indexOf('--grep') + 1] : null;
+  const select = args.includes('--select') ? args[args.indexOf('--select') + 1] : null;
 
   const srv = spawn(process.execPath, ['packages/tf-lsp-server/bin/server.mjs', '--stdio'], { stdio: ['pipe', 'pipe', 'inherit'] });
   const onChunk = parseStream(onMsg);
@@ -98,11 +102,91 @@ async function main() {
   }
 
   if (mode === 'codeAction') {
-    const ca = await req('textDocument/codeAction', { textDocument: { uri }, range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, context: { diagnostics: diags[0]?.diagnostics || [] } });
+    const defaultPos = { line: 0, character: 0 };
+    const selectionRange = select ? findSelectionRange(text, select) : null;
+    let parsedRange = selectionRange || parseRange(rangeArg, posArg);
+    if (!parsedRange) {
+      parsedRange = findDuplicateWordRange(text) || { start: defaultPos, end: defaultPos };
+    }
+    const ca = await req('textDocument/codeAction', {
+      textDocument: { uri },
+      range: parsedRange,
+      context: { diagnostics: diags[0]?.diagnostics || [] }
+    });
     const items = ca.result || [];
     const titles = items.map(x => x.title || '');
     console.log(JSON.stringify({ titles }, null, 2));
-    process.exit(titles.some(t => /Authorize/.test(t)) ? 0 : 2);
+    const ok = grep
+      ? titles.some(t => t.includes(grep))
+      : titles.some(t => /Authorize/.test(t));
+    process.exit(ok ? 0 : 2);
   }
+}
+
+function parseRange(rangeArg, posArg) {
+  if (rangeArg) {
+    const [startStr, endStr] = rangeArg.split('-');
+    const start = parsePosition(startStr);
+    const end = parsePosition(endStr || startStr);
+    return { start, end };
+  }
+  if (posArg) {
+    const pos = parsePosition(posArg);
+    return { start: pos, end: pos };
+  }
+  return null;
+}
+
+function parsePosition(text) {
+  if (!text) return { line: 0, character: 0 };
+  const [lineStr, charStr] = text.split(':');
+  const line = Number(lineStr) || 0;
+  const character = Number(charStr) || 0;
+  return { line, character };
+}
+
+function findSelectionRange(content, snippet) {
+  if (!snippet) return null;
+  const idx = content.indexOf(snippet);
+  if (idx < 0) return null;
+  const start = offsetToPosition(content, idx);
+  const end = offsetToPosition(content, idx + snippet.length);
+  return { start, end };
+}
+
+function offsetToPosition(text, offset) {
+  const clamped = Math.max(0, Math.min(offset, text.length));
+  let line = 0;
+  let character = 0;
+  for (let i = 0; i < clamped; i++) {
+    if (text[i] === '\n') {
+      line++;
+      character = 0;
+    } else {
+      character++;
+    }
+  }
+  return { line, character };
+}
+
+function findDuplicateWordRange(text) {
+  const regex = /\b[A-Za-z_][A-Za-z0-9_]*\b/g;
+  const seen = new Map();
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    const word = match[0];
+    const record = seen.get(word);
+    if (!record) {
+      seen.set(word, { count: 1, index: match.index });
+    } else {
+      record.count += 1;
+      if (record.count === 2 && record.index != null) {
+        const start = offsetToPosition(text, record.index);
+        const end = offsetToPosition(text, record.index + word.length);
+        return { start, end };
+      }
+    }
+  }
+  return null;
 }
 main().catch(e => { console.error(e.stack || String(e)); process.exit(2); });

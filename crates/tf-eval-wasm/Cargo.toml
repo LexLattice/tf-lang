@@ -1,0 +1,15 @@
+[package]
+name = "tf-eval-wasm"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+tf-eval-core = { path = "../tf-eval-core" }
+wasm-bindgen = "0.2"
+serde-wasm-bindgen = "0.5"
+
+[workspace]

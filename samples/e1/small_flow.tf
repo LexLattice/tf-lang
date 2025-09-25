@@ -1,0 +1,3 @@
+seq{
+  hash |> emit-metric
+}

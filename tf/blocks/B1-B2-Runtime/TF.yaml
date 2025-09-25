@@ -1,0 +1,14 @@
+id: B1-B2-Runtime
+version: 0.45.0
+scope:
+  allow_paths:
+    - "crates/tf-eval-core/**"
+    - "crates/tf-eval-wasm/**"
+    - "packages/tf-run-wasm/**"
+    - "scripts/wasm/**"
+    - "samples/b1/**"
+  forbid_paths:
+    - "pnpm-workspace.yaml"
+    - "package.json"
+notes:
+  - "Phases: cp1_scaffold, cp2_wasm_bindings, cp3_parity_smoke"

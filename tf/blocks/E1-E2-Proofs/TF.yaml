@@ -1,0 +1,12 @@
+id: E1-E2-Proofs
+version: 0.45.0
+scope:
+  allow_paths:
+    - "scripts/proofs/**"
+    - "packages/tf-opt/**"
+    - "samples/e1/**"
+  forbid_paths:
+    - "pnpm-workspace.yaml"
+    - "package.json"
+notes:
+  - "Phases: cp1_linkage, cp2_solver_gate"

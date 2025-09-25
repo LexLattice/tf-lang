@@ -1,0 +1,9 @@
+{
+  "name": "@tf-lang/tf-opt",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "bin": { "tf-opt": "./bin/opt.mjs" },
+  "scripts": {},
+  "dependencies": {}
+}

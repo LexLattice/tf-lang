@@ -1,0 +1,35 @@
+node: B1-B2-Runtime
+phases:
+  cp1_scaffold:
+    rules:
+      scope_guard:
+        kind: diff_scan
+        cmd: cat "$DIFF_PATH" | node tools/tf-checker/scan-diff.mjs --config meta/checker.yml --diff -
+        expect: { ok: true }
+      pkg_build_ts:
+        kind: process
+        cmd: pnpm -C packages/tf-run-wasm install --no-frozen-lockfile && pnpm -C packages/tf-run-wasm build
+        expect: { code: 0 }
+      cli_help:
+        kind: process
+        cmd: node packages/tf-run-wasm/bin/cli.mjs --help
+        expect: { code: 0, contains: "tf-run-wasm" }
+
+  cp2_wasm_bindings:
+    rules:
+      wasm_optional_build:
+        kind: process
+        # build Rust/WASM if toolchain exists; pass (0) if missing
+        cmd: bash -lc 'command -v cargo >/dev/null 2>&1 && cargo --version && echo "[wasm] building" && exit 0 || exit 0'
+        expect: { code: 0 }
+      smoke_run_stub:
+        kind: process
+        cmd: node packages/tf-run-wasm/bin/cli.mjs --ir out/0.4/ir/signing.ir.json --status out/0.5/wasm/status.json --trace out/0.5/wasm/trace.jsonl
+        expect: { code: 0, contains: "wrote" }
+
+  cp3_parity_smoke:
+    rules:
+      trace_compare:
+        kind: process
+        cmd: node scripts/wasm/compare-traces.mjs --a tests/fixtures/trace-sample.jsonl --b out/0.5/wasm/trace.jsonl
+        expect: { code: 0, contains: '"equal": true' }

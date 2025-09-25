@@ -1,0 +1,12 @@
+id: D1-D2-Optimizer
+version: 0.45.0
+scope:
+  allow_paths:
+    - "packages/tf-opt/**"
+    - "scripts/opt/**"
+    - "samples/d1/**"
+  forbid_paths:
+    - "pnpm-workspace.yaml"
+    - "package.json"
+notes:
+  - "Phases: cp1_cost_model, cp2_rewrites"

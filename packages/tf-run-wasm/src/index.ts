@@ -44,7 +44,8 @@ export interface RunOpts {
 }
 
 function stubEngine(irJson: string): Promise<EvalResult> {
-  const status: EvalStatus = { ok: true, engine: 'stub', bytes: irJson.length };
+  const bytes = Buffer.byteLength(irJson, 'utf8');
+  const status: EvalStatus = { ok: true, engine: 'tf-eval-core', bytes };
   const trace: EvalTraceItem[] = DEFAULT_TRACE_IDS.map(prim_id => ({ prim_id }));
   return Promise.resolve({ status, trace });
 }

@@ -361,6 +361,8 @@ importers:
         specifier: ^5.4.0
         version: 5.9.2
 
+  packages/tf-opt: {}
+
   packages/tf-plan:
     dependencies:
       '@tf-lang/tf-plan-core':
@@ -543,6 +545,12 @@ importers:
       vitest:
         specifier: ^2.1.3
         version: 2.1.9(@types/node@20.19.17)(jsdom@24.1.3)
+
+  packages/tf-run-wasm:
+    devDependencies:
+      typescript:
+        specifier: 5.9.2
+        version: 5.9.2
 
   packages/utils:
     devDependencies:

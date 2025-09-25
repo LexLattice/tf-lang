@@ -40,9 +40,14 @@ async function expandNode(node, ctx) {
     return { ...node, args };
   }
 
-  if (node.node === 'Seq' || node.node === 'Par' || node.node === 'Region') {
+  if (node.node === 'Seq' || node.node === 'Region') {
     const children = await expandChildren(node.children || [], ctx);
     return { ...node, children };
+  }
+
+  if (node.node === 'Par') {
+    const items = await Promise.all((node.children || []).map((child) => expandNode(child, ctx)));
+    return { ...node, children: items };
   }
 
   if (node.node === 'Ref') {
@@ -59,7 +64,12 @@ async function expandNode(node, ctx) {
 async function expandChildren(children, ctx) {
   const out = [];
   for (const child of children) {
-    out.push(await expandNode(child, ctx));
+    const expanded = await expandNode(child, ctx);
+    if (expanded && expanded.node === 'Seq' && Array.isArray(expanded.children)) {
+      out.push(...expanded.children);
+    } else {
+      out.push(expanded);
+    }
   }
   return out;
 }

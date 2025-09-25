@@ -74,21 +74,25 @@ function walk(node, ctx) {
 }
 
 function handleLet(node, ctx) {
-  const initVerdict = node.init ? walk(node.init, ctx) : okVerdict();
-  let verdict = cloneVerdict(initVerdict);
+  const initVerdict = node?.init ? walk(node.init, ctx) : okVerdict();
+  const reasons = [...(initVerdict.reasons || [])];
 
-  const bindingReasons = bindLet(ctx, node.name, node.loc);
-
-  if (node.body) {
-    verdict = mergeVerdicts(verdict, walk(node.body, ctx));
+  const topIndex = ctx.envStack.length - 1;
+  if (!ctx.envStack[topIndex]) ctx.envStack[topIndex] = new Map();
+  const top = ctx.envStack[topIndex];
+  const key = normalizeBindingKey(node.name);
+  if (key) {
+    if (top.has(key)) reasons.push(`LetShadowing: ${node.name}`);
+    top.set(key, { loc: node.loc });
   }
 
-  const extraReasons = [];
+  const bodyVerdict = node?.body ? walk(node.body, ctx) : okVerdict();
+  let verdict = mergeVerdicts(initVerdict, bodyVerdict);
+
   if (ctx.options?.flagImpureLet && hasImpureEffects(initVerdict)) {
-    extraReasons.push(`LetImpureInit: ${node.name}`);
+    reasons.push(`LetImpureInit: ${node.name}`);
   }
 
-  const reasons = [...bindingReasons, ...extraReasons];
   if (reasons.length > 0) {
     verdict.ok = false;
     verdict.reasons = [...verdict.reasons, ...reasons];
@@ -98,7 +102,7 @@ function handleLet(node, ctx) {
 }
 
 function handleRef(node, ctx) {
-  if (lookupLet(ctx, node.name)) {
+  if (lookupRef(ctx.envStack, node.name)) {
     return okVerdict();
   }
   return verdictWithReason(`LetUndefined: ${node.name}`);
@@ -106,15 +110,8 @@ function handleRef(node, ctx) {
 
 function handlePrim(node, ctx) {
   const name = typeof node.prim === 'string' ? node.prim : '';
-  const hasArgs = node.args && Object.keys(node.args).length > 0;
-  const bound = lookupLet(ctx, name);
-
-  if (bound && !hasArgs) {
-    return okVerdict();
-  }
-
-  if (!bound && !hasArgs && !catalogHasPrimitive(name, ctx.catalog)) {
-    return verdictWithReason(`LetUndefined: ${node.raw ?? name}`);
+  if (!catalogHasPrimitive(name, ctx.catalog)) {
+    return verdictWithReason(`UndefinedPrimitive: ${node.raw ?? name}`);
   }
 
   const prim = lookupWithInference(node, ctx.catalog);
@@ -214,6 +211,8 @@ function cloneVerdict(verdict) {
 }
 
 function mergeVerdicts(left, right) {
+  if (!left) return right || okVerdict();
+  if (!right) return left;
   return {
     ok: left.ok && right.ok,
     effects: unionEffects(left.effects || [], right.effects || []),
@@ -251,21 +250,16 @@ function popScope(ctx) {
   ctx.envStack.pop();
 }
 
-function bindLet(ctx, name, loc) {
-  const reasons = [];
-  const key = normalizeBindingKey(name);
-  const top = ctx.envStack[ctx.envStack.length - 1];
-  if (top.has(key)) {
-    reasons.push(`LetShadowing: ${name}`);
-  }
-  top.set(key, { loc });
-  return reasons;
+function lookupLet(ctx, name) {
+  return lookupRef(ctx.envStack, name);
 }
 
-function lookupLet(ctx, name) {
+function lookupRef(envStack, name) {
   const key = normalizeBindingKey(name);
-  for (let i = ctx.envStack.length - 1; i >= 0; i -= 1) {
-    if (ctx.envStack[i].has(key)) return true;
+  if (!key) return false;
+  for (let i = envStack.length - 1; i >= 0; i -= 1) {
+    const frame = envStack[i];
+    if (frame && frame.has(key)) return true;
   }
   return false;
 }

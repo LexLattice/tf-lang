@@ -45,12 +45,11 @@ test('expandIncludes replaces include nodes with parsed content', async () => {
 
   assert.equal(expanded.node, 'Seq');
   assert.ok(Array.isArray(expanded.children));
-  const firstChild = expanded.children[0];
-  assert.equal(firstChild.node, 'Seq');
-  assert.deepEqual(
-    collectNodes(firstChild, 'Prim').map((n) => n.prim),
-    ['serialize']
-  );
+  assert.equal(expanded.children.length, 2);
+  assert.equal(expanded.children[0].node, 'Prim');
+  assert.equal(expanded.children[0].prim, 'serialize');
+  assert.equal(expanded.children[1].node, 'Prim');
+  assert.equal(expanded.children[1].prim, 'hash');
 });
 
 test('expandIncludes detects include cycles', async () => {

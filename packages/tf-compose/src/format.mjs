@@ -85,13 +85,9 @@ function formatLet(node, level) {
   const initLines = renderLetInit(node.init);
 
   const lines = [];
-  if (initLines.length === 0) {
-    lines.push(`${base}let ${name} = null`);
-  } else {
-    lines.push(`${base}let ${name} = ${initLines[0]}`);
-    for (let i = 1; i < initLines.length; i += 1) {
-      lines.push(`${base}${initLines[i]}`);
-    }
+  lines.push(`${base}let ${name} = ${initLines[0]}`);
+  for (let i = 1; i < initLines.length; i += 1) {
+    lines.push(`${base}${initLines[i]}`);
   }
 
   if (node.body) {

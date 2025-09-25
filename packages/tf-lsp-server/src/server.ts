@@ -405,13 +405,11 @@ function identifierAppears(text: string, name: string): boolean {
 
 function findOccurrences(text: string, needle: string): number[] {
   if (!needle) return [];
+  const pattern = new RegExp(`(?:(?<=^)|(?<=[^A-Za-z0-9_]))${escapeRegExp(needle)}(?=$|[^A-Za-z0-9_])`, 'g');
   const out: number[] = [];
-  let idx = 0;
-  while (idx < text.length) {
-    const hit = text.indexOf(needle, idx);
-    if (hit === -1) break;
-    out.push(hit);
-    idx = hit + needle.length;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(text)) !== null) {
+    out.push(match.index ?? 0);
   }
   return out;
 }

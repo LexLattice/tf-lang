@@ -417,7 +417,7 @@ function parseLet(tokens, letToken) {
     name: nameToken.v,
     init,
     body: null,
-    loc: makeLoc(letToken.start, last.end || last.start || letToken.end || letToken.start),
+    loc: makeLoc(letToken.start, last.end),
   };
 }
 
@@ -426,7 +426,7 @@ function parseInclude(tokens, includeToken) {
   return {
     node: 'Include',
     path: pathToken.v,
-    loc: makeLoc(includeToken.start, pathToken.end || includeToken.end || includeToken.start),
+    loc: makeLoc(includeToken.start, pathToken.end),
   };
 }
 

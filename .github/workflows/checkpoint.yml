@@ -10,7 +10,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
       - run: pnpm -w -r install
-      - name: Extract node/cp from PR title (format: 'node:<ID> cp:<PHASE>')
+      - name: "Extract node/cp from PR title (format: 'node:<ID> cp:<PHASE>')"
         id: meta
         run: |
           T="${{ github.event.pull_request.title }}"

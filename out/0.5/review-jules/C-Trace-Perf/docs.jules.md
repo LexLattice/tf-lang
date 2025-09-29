@@ -34,15 +34,15 @@ node packages/tf-trace/bin/trace.mjs validate --in samples/c/trace_small.jsonl
 # 3. Create a performance summary
 node packages/tf-trace/bin/trace.mjs summary \\
   --in samples/c/trace_small.jsonl \\
-  --out out/0.5/review/C-Trace-Perf/summary.json
+  --out out/0.5/review-jules/C-Trace-Perf/summary.json
 
 # Expected Output:
-# {"ok":true,"out":"out/0.5/review/C-Trace-Perf/summary.json",...}
-# wrote summary to out/0.5/review/C-Trace-Perf/summary.json
+# {"ok":true,"out":"out/0.5/review-jules/C-Trace-Perf/summary.json",...}
+# wrote summary to out/0.5/review-jules/C-Trace-Perf/summary.json
 
 # 4. Check the summary against a budget
 node packages/tf-trace/bin/trace.mjs budget \\
-  --summary-in out/0.5/review/C-Trace-Perf/summary.json \\
+  --summary-in out/0.5/review-jules/C-Trace-Perf/summary.json \\
   --budgets samples/c/budgets.sample.json
 
 # Expected Output:
@@ -51,12 +51,12 @@ node packages/tf-trace/bin/trace.mjs budget \\
 
 # 5. Export the summary to CSV for triage
 node packages/tf-trace/bin/trace.mjs export \\
-  --summary out/0.5/review/C-Trace-Perf/summary.json \\
-  --csv out/0.5/review/C-Trace-Perf/export.csv
+  --summary out/0.5/review-jules/C-Trace-Perf/summary.json \\
+  --csv out/0.5/review-jules/C-Trace-Perf/export.csv
 
 # Expected Output:
-# {"ok":true,"csv":"out/0.5/review/C-Trace-Perf/export.csv",...}
-# wrote summary csv to out/0.5/review/C-Trace-Perf/export.csv
+# {"ok":true,"csv":"out/0.5/review-jules/C-Trace-Perf/export.csv",...}
+# wrote summary csv to out/0.5/review-jules/C-Trace-Perf/export.csv
 ```
 
 ## 3. FAQ & Usability Notes

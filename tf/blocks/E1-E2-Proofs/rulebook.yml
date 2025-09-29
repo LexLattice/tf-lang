@@ -8,7 +8,8 @@ phases:
 
   cp2_solver_gate:
     rules:
-      - z3_optional_small
+      z3_optional_small:
+        kind: process
 
 rules:
   used_laws_present:

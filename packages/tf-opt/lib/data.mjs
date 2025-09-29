@@ -17,9 +17,7 @@ export async function readJsonFile(path, defaultValue = {}) {
     const raw = await readFile(path, 'utf8');
     return JSON.parse(raw);
   } catch (error) {
-    if (error && error.code === 'ENOENT') {
-      return defaultValue;
-    }
+    if (error && error.code === 'ENOENT') return defaultValue;
     throw error;
   }
 }

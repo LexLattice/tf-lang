@@ -22,7 +22,7 @@ phases:
       - id: run_on_signing
         kind: process
         cmd: node packages/tf-opt/bin/opt.mjs --ir out/0.4/ir/signing.ir.json -o out/0.5/opt/signing.plan.json
-        expect: { code: 0, contains: '"rewritesApplied":' }
+        expect: { code: 0, contains: '"rewrites_applied":' }
       - id: manifest_links_laws
         kind: process
         cmd: node packages/tf-opt/bin/opt.mjs --ir out/0.4/ir/signing.ir.json --emit-used-laws out/0.5/proofs/used-laws.json

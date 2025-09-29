@@ -36,16 +36,16 @@ async function main() {
   const primitives = extractPrimitivesFromIr(ir);
   const analysis = await analyzePrimitiveSequence(primitives);
   const plan = buildPlan(ir, analysis);
-  const planJson = JSON.stringify(plan, null, 2);
-  console.log(planJson);
-  const serialized = `${planJson}\n`;
+  const planJson = JSON.stringify(plan, null, 2) + '\n';
+  process.stdout.write(planJson);
   if (out) {
     await mkdir(dirname(out), { recursive: true });
-    await writeFile(out, serialized);
+    await writeFile(out, planJson, 'utf8');
   }
   if (emitUsed) {
+    const used = JSON.stringify({ used_laws: plan.used_laws }, null, 2) + '\n';
     await mkdir(dirname(emitUsed), { recursive: true });
-    await writeFile(emitUsed, serialized);
+    await writeFile(emitUsed, used, 'utf8');
   }
 }
 
@@ -77,7 +77,7 @@ function buildPlan(ir, analysis) {
   }
 
   return {
-    rewritesApplied,
+    rewrites_applied: rewritesApplied,
     used_laws: Array.from(lawSet).sort(),
   };
 }

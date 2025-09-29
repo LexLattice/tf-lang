@@ -14,13 +14,17 @@ const FUNCTIONS = {
   W: { domain: ['URI', 'Key', 'IdKey', 'Val'], codomain: 'Val' },
 };
 
-const LAWS = {
+const LAWS = validateLawEntries({
   'idempotent:hash': {
+    id: 'idempotent:hash',
+    name: 'Hash idempotency',
     sorts: ['Val'],
     functions: ['H'],
     axioms: ['(assert (forall ((x Val)) (= (H (H x)) (H x))))'],
   },
   'inverse:serialize-deserialize': {
+    id: 'inverse:serialize-deserialize',
+    name: 'Serialize/deserialize inverse',
     sorts: ['Val', 'Bytes'],
     functions: ['S', 'D'],
     axioms: [
@@ -29,6 +33,8 @@ const LAWS = {
     ],
   },
   'idempotent:write-by-key': {
+    id: 'idempotent:write-by-key',
+    name: 'Write-by-key idempotency',
     sorts: ['Val', 'URI', 'Key', 'IdKey'],
     functions: ['W'],
     axioms: [
@@ -42,11 +48,15 @@ const LAWS = {
     ],
   },
   'commute:emit-metric-with-pure': {
+    id: 'commute:emit-metric-with-pure',
+    name: 'Emit metric commutes with pure',
     sorts: ['Val'],
     functions: ['E', 'H'],
     axioms: ['(assert (forall ((x Val)) (= (E (H x)) (H (E x)))))'],
   },
-};
+});
+
+const LAW_NAMES = Object.freeze(Object.keys(LAWS));
 
 const OPERATION_DEFINITIONS = {
   hash: { symbol: 'H', domain: 'Val', codomain: 'Val' },
@@ -55,8 +65,85 @@ const OPERATION_DEFINITIONS = {
   'emit-metric': { symbol: 'E', domain: 'Val', codomain: 'Val' },
 };
 
+export function validateLawEntries(entries) {
+  if (!entries || typeof entries !== 'object') {
+    throw new Error('Law registry must be an object');
+  }
+  const normalized = {};
+  const seenIds = new Set();
+  for (const [key, raw] of Object.entries(entries)) {
+    if (!raw || typeof raw !== 'object') {
+      throw new Error(`Law ${key} must be an object`);
+    }
+    const id = typeof raw.id === 'string' ? raw.id.trim() : '';
+    if (!id) {
+      throw new Error(`Law ${key} is missing an id`);
+    }
+    if (id !== key) {
+      throw new Error(`Law ${key} id mismatch (expected ${key}, got ${id})`);
+    }
+    if (seenIds.has(id)) {
+      throw new Error(`Duplicate law id detected: ${id}`);
+    }
+    seenIds.add(id);
+
+    const name = typeof raw.name === 'string' ? raw.name.trim() : '';
+    if (!name) {
+      throw new Error(`Law ${id} is missing a name`);
+    }
+
+    const sorts = normalizeStringList(raw.sorts ?? [], { label: `${id}.sorts`, allowEmpty: true });
+    const functions = normalizeStringList(raw.functions ?? [], {
+      label: `${id}.functions`,
+      allowEmpty: true,
+    });
+    const axioms = normalizeStringList(raw.axioms, {
+      label: `${id}.axioms`,
+      allowEmpty: false,
+      dedupe: false,
+    });
+
+    normalized[id] = Object.freeze({
+      ...raw,
+      id,
+      name,
+      sorts,
+      functions,
+      axioms,
+    });
+  }
+  return Object.freeze(normalized);
+}
+
+export function normalizeStringList(value, { label, allowEmpty, dedupe = true }) {
+  if (!Array.isArray(value)) {
+    if (allowEmpty && value === undefined) return Object.freeze([]);
+    throw new Error(`Law ${label} must be an array`);
+  }
+  const result = [];
+  const seen = new Set();
+  for (let i = 0; i < value.length; i += 1) {
+    const entry = value[i];
+    if (typeof entry !== 'string') {
+      throw new Error(`Law ${label}[${i}] must be a string`);
+    }
+    const trimmed = entry.trim();
+    if (!trimmed) {
+      throw new Error(`Law ${label}[${i}] must not be empty`);
+    }
+    if (!dedupe || !seen.has(trimmed)) {
+      if (dedupe) seen.add(trimmed);
+      result.push(trimmed);
+    }
+  }
+  if (!allowEmpty && result.length === 0) {
+    throw new Error(`Law ${label} must contain at least one entry`);
+  }
+  return Object.freeze(result);
+}
+
 export function listLawNames() {
-  return Object.keys(LAWS).sort();
+  return LAW_NAMES;
 }
 
 export function emitLaw(law, opts = {}) {

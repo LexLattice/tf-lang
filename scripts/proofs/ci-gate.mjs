@@ -264,17 +264,23 @@ if (process.argv.includes('--small')) {
     loadPrimitiveEffectMap(),
   ]);
   const rewritten = reorderCommute(flow, effectMap);
+  const baseData = {
+    obligations: analysis.obligations,
+    primitives: analysis.primitives,
+    rewritten,
+    laws: analysis.laws,
+  };
 
   const unknown = analysis.laws.filter((law) => !KNOWN_LAW_SET.has(law));
   if (unknown.length > 0) {
     const payload = {
       ok: false,
       solver: 'tf-small-solver',
-      missing_laws: unknown.sort((a, b) => a.localeCompare(b)),
-      obligations: analysis.obligations,
-      primitives: analysis.primitives,
-      rewritten,
-      laws: analysis.laws,
+      status: 'missing-laws',
+      data: {
+        ...baseData,
+        missing_laws: unknown.sort((a, b) => a.localeCompare(b)),
+      },
     };
     console.log(JSON.stringify(payload, null, 2));
     process.exit(1);
@@ -282,15 +288,16 @@ if (process.argv.includes('--small')) {
 
   const equivalence = emitFlowEquivalence(analysis.primitives, rewritten, analysis.laws);
   const solve = await runZ3(equivalence);
+  const baseDataWithSmt = {
+    ...baseData,
+    smt: equivalence,
+  };
   if (!solve.available) {
     const payload = {
       ok: true,
       skipped: 'z3 not found',
       solver: 'tf-small-solver',
-      obligations: analysis.obligations,
-      primitives: analysis.primitives,
-      rewritten,
-      laws: analysis.laws,
+      data: baseDataWithSmt,
     };
     console.log(JSON.stringify(payload, null, 2));
     process.exit(0);
@@ -298,17 +305,27 @@ if (process.argv.includes('--small')) {
 
   const stdout = (solve.stdout || '').trim();
   const stderr = (solve.stderr || '').trim();
-  const unsat = stdout.split(/\s+/).includes('unsat');
+  const tokens = stdout.split(/\s+/).filter((entry) => entry.length > 0);
+  const unsat = tokens.includes('unsat');
+  let status = 'unknown';
+  if (unsat) {
+    status = 'unsat';
+  } else if (tokens.length > 0) {
+    [status] = tokens;
+  }
+  const data = {
+    ...baseDataWithSmt,
+    stdout: stdout || undefined,
+    stderr: stderr || undefined,
+  };
+  if (!data.stdout) delete data.stdout;
+  if (!data.stderr) delete data.stderr;
   const payload = {
     ok: unsat,
     solver: 'z3',
-    status: stdout || null,
-    obligations: analysis.obligations,
-    primitives: analysis.primitives,
-    rewritten,
-    laws: analysis.laws,
+    status,
+    data,
   };
-  if (stderr) payload.stderr = stderr;
   console.log(JSON.stringify(payload, null, 2));
   process.exit(unsat ? 0 : 1);
 }

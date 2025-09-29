@@ -30,7 +30,8 @@ function parseSmallFlow(source) {
     .replace(/#.*$/gm, '');
   const withoutSeq = cleaned.replace(/\bseq\s*\{/gi, '').replace(/\}/g, '');
   return withoutSeq
-    .split('|>')
+    .replace(/\|\s*>/g, '\n')
+    .split(/\n+/)
     .map((segment) => segment.trim())
     .filter((segment) => segment.length > 0)
     .map((segment) => canonicalPrimitiveName(segment.split(/\s+/)[0]))
@@ -279,6 +280,7 @@ if (process.argv.includes('--small')) {
       status: 'missing-laws',
       data: {
         ...baseData,
+        status: 'missing-laws',
         missing_laws: unknown.sort((a, b) => a.localeCompare(b)),
       },
     };
@@ -315,6 +317,7 @@ if (process.argv.includes('--small')) {
   }
   const data = {
     ...baseDataWithSmt,
+    status,
     stdout: stdout || undefined,
     stderr: stderr || undefined,
   };

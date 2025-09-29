@@ -294,9 +294,12 @@ if (process.argv.includes('--small')) {
       ok: false,
       solver: 'tf-small-solver',
       missing_laws: unknown.sort((a, b) => a.localeCompare(b)),
-      obligations: analysis.obligations,
-      primitives: analysis.primitives,
-      rewritten,
+      data: {
+        obligations: analysis.obligations,
+        primitives: analysis.primitives,
+        rewritten,
+        laws: analysis.laws,
+      },
     };
     console.log(JSON.stringify(payload, null, 2));
     process.exit(1);
@@ -309,10 +312,12 @@ if (process.argv.includes('--small')) {
       ok: true,
       skipped: 'z3 not found',
       solver: 'tf-small-solver',
-      obligations: analysis.obligations,
-      primitives: analysis.primitives,
-      rewritten,
-      laws: analysis.laws,
+      data: {
+        obligations: analysis.obligations,
+        primitives: analysis.primitives,
+        rewritten,
+        laws: analysis.laws,
+      },
     };
     console.log(JSON.stringify(payload, null, 2));
     process.exit(0);
@@ -324,14 +329,16 @@ if (process.argv.includes('--small')) {
   const payload = {
     ok: unsat,
     solver: 'z3',
-    status: stdout || null,
-    obligations: analysis.obligations,
-    primitives: analysis.primitives,
-    rewritten,
-    laws: analysis.laws,
+    data: {
+      obligations: analysis.obligations,
+      primitives: analysis.primitives,
+      rewritten,
+      laws: analysis.laws,
+      status: stdout || null,
+    },
   };
   if (stderr) {
-    payload.stderr = stderr;
+    payload.data.stderr = stderr;
   }
   console.log(JSON.stringify(payload, null, 2));
   process.exit(unsat ? 0 : 1);

@@ -17,12 +17,8 @@ export function rulesForPhase(rulebookPath, phaseId) {
     }
     for (const entry of phase.rules || []) {
       const normalized = normalizeRuleEntry(entry, ruleMap);
-      if (!normalized) {
-        continue;
-      }
-      if (seen.has(normalized.id)) {
-        continue;
-      }
+      if (!normalized) continue;
+      if (seen.has(normalized.id)) continue;
       seen.add(normalized.id);
       ordered.push(normalized);
     }
@@ -34,14 +30,12 @@ export function rulesForPhase(rulebookPath, phaseId) {
 
 function normalizeRulebook(rb) {
   const phases = new Map();
+
+  // phases may be an array of objects { id, inherits, rules } or a mapping { id: {...} }
   if (Array.isArray(rb?.phases)) {
     for (const item of rb.phases) {
-      if (!item || typeof item !== "object") {
-        continue;
-      }
-      if (typeof item.id !== "string" || item.id.length === 0) {
-        continue;
-      }
+      if (!item || typeof item !== "object") continue;
+      if (typeof item.id !== "string" || item.id.length === 0) continue;
       phases.set(item.id, {
         ...item,
         inherits: Array.isArray(item.inherits) ? item.inherits : [],
@@ -50,9 +44,7 @@ function normalizeRulebook(rb) {
     }
   } else if (rb && typeof rb.phases === "object") {
     for (const [id, value] of Object.entries(rb.phases)) {
-      if (!value || typeof value !== "object") {
-        continue;
-      }
+      if (!value || typeof value !== "object") continue;
       phases.set(id, {
         id,
         ...value,
@@ -65,9 +57,7 @@ function normalizeRulebook(rb) {
   const ruleMap = new Map();
   if (rb && typeof rb.rules === "object") {
     for (const [id, definition] of Object.entries(rb.rules)) {
-      if (!definition || typeof definition !== "object") {
-        continue;
-      }
+      if (!definition || typeof definition !== "object") continue;
       ruleMap.set(id, { id, ...definition });
     }
   }
@@ -76,21 +66,19 @@ function normalizeRulebook(rb) {
 }
 
 function normalizeRuleEntry(entry, ruleMap) {
-  if (!entry) {
-    return null;
-  }
+  if (!entry) return null;
+
+  // string id -> look up in ruleMap
   if (typeof entry === "string") {
     const rule = ruleMap.get(entry);
-    if (!rule) {
-      throw new Error(`unknown rule ${entry}`);
-    }
+    if (!rule) throw new Error(`unknown rule ${entry}`);
     return rule;
   }
+
+  // object { id, ... } -> merge with ruleMap fallback
   if (typeof entry === "object") {
     const id = typeof entry.id === "string" ? entry.id : null;
-    if (!id) {
-      throw new Error("rule entry missing id");
-    }
+    if (!id) throw new Error("rule entry missing id");
     const normalized = { ...entry };
     if (!normalized.kind && ruleMap.has(id)) {
       const fallback = ruleMap.get(id);
@@ -98,5 +86,6 @@ function normalizeRuleEntry(entry, ruleMap) {
     }
     return normalized;
   }
+
   return null;
 }

@@ -9,7 +9,7 @@ import {
   HoverParams,
   InitializeParams,
   InitializeResult,
-  MarkupKind,
+  MarkedString,
   Position,
   ProposedFeatures,
   Range,
@@ -223,27 +223,30 @@ connection.onHover(async (params: HoverParams): Promise<Hover | null> => {
   const effects = effectsOf(fq);
   const signature = signatureFor(fq);
   const lawIds = lawIdsFor(fq);
-  const header = fq;
-  const mdLines = [
-    `**${header}**`,
-    `Signature: ${signature}`,
-    `Effects: ${effects.length ? effects.join(', ') : '—'}`
-  ];
-  if (lawIds.length) {
-    mdLines.push(`Laws: ${lawIds.join(', ')}`);
+  const sortedEffects = sortAscii(effects);
+  const sortedLaws = sortAscii(lawIds);
+  const signatureLine = `**${signature}**`;
+  const detailParts = [`Primitive \`${fq}\``];
+  detailParts.push(sortedEffects.length ? `effects: ${sortedEffects.join(', ')}` : 'effects: —');
+  if (sortedLaws.length) {
+    detailParts.push(`laws: ${sortedLaws.join(', ')}`);
   }
+  const markdown = `${signatureLine}\n${detailParts.join('; ')}.`;
 
-  const hoverPayload = {
-    contents: { kind: MarkupKind.Markdown, value: mdLines.join('\n') },
-    effects,
-    signature,
-    laws: lawIds,
-    effectsProbe: effects.length ? `"effects":[${effects.map(effect => `"${effect}"`).join(',')}]` : '"effects":[]'
-  } as Hover & { effects: string[]; signature: string; laws: string[] };
+  const machineContent = {
+    tf: {
+      signature,
+      effects: sortedEffects,
+      laws: sortedLaws
+    }
+  };
 
-  if (effects.length) {
-    writeProbe(`"effects":[${effects.map(effect => `"${effect}"`).join(',')}]`);
-  }
+  const hoverPayload: Hover = {
+    contents: [
+      markdown,
+      machineContent as unknown as MarkedString
+    ]
+  };
 
   return hoverPayload;
 });
@@ -538,13 +541,16 @@ function readIndent(text: string, offset: number): string {
 async function validateTextDocument(document: TextDocument): Promise<void> {
   const state = getDocumentState(document);
   const text = state.text;
-  const diagnostics: Diagnostic[] = [];
+  const diagnosticsMap = new Map<string, Diagnostic>();
+  const pushDiag = (diag: Diagnostic) => {
+    diagnosticsMap.set(diagnosticKey(diag), diag);
+  };
   try {
     const ir = parseDSL(text);
     const verdict = checkIR(ir, catalog);
     if (!verdict.ok) {
       for (const reason of verdict.reasons || []) {
-        diagnostics.push(makeDiag(docStartRange(document), reason));
+        pushDiag(makeDiag(docStartRange(document), reason));
       }
     }
     const regionVerdict = checkRegions(ir, catalog, protectedKeywords);
@@ -552,14 +558,29 @@ async function validateTextDocument(document: TextDocument): Promise<void> {
       const rangeMap = buildKeywordRanges(document, state, protectedLookup);
       const usage = new Map<string, number>();
       for (const reason of regionVerdict.reasons || []) {
-        const key = extractQuoted(reason);
-        const range = nextRange(rangeMap, usage, key) ?? docStartRange(document);
-        diagnostics.push(makeDiag(range, reason));
+        const { raw, normalized } = extractQuoted(reason);
+        const range = nextRange(rangeMap, usage, normalized) ?? docStartRange(document);
+        const symbol = raw || normalized || undefined;
+        const humanMessage = raw
+          ? `Protected primitive ${raw} requires Authorize{}`
+          : reason;
+        pushDiag(
+          makeDiag(range, humanMessage, {
+            code: symbol ? `policy/protected:${symbol}` : 'policy/protected',
+            policy: {
+              kind: 'protected',
+              symbol: symbol ?? null,
+              normalized: normalized || null,
+              reason
+            }
+          })
+        );
       }
     }
   } catch (err) {
-    diagnostics.push(makeParseDiag(document, err));
+    pushDiag(makeParseDiag(document, err));
   }
+  const diagnostics = Array.from(diagnosticsMap.values());
   if (diagnostics.length) {
     writeProbe('"publishDiagnostics"');
     const first = diagnostics[0];
@@ -568,13 +589,23 @@ async function validateTextDocument(document: TextDocument): Promise<void> {
   connection.sendDiagnostics({ uri: document.uri, diagnostics });
 }
 
+function diagnosticKey(diag: Diagnostic): string {
+  const { start, end } = diag.range;
+  const code = diag.code == null ? '' : String(diag.code);
+  const rangePart = `${start.line}:${start.character}-${end.line}:${end.character}`;
+  if (code) {
+    return `${code}|${rangePart}`;
+  }
+  return `${code}|${rangePart}|${diag.message}`;
+}
+
 function lookupPrimitive(symbol: string) {
   const target = symbol.toLowerCase();
   return (catalog.primitives || []).find(p => (p.id || '').toLowerCase() === target || (p.name || '').toLowerCase() === target) || null;
 }
 
 function makeDiag(range: Range, message: string, extraData: Record<string, unknown> = {}): Diagnostic {
-  const { severity: severityHint, level: levelHint, ...rest } = extraData;
+  const { severity: severityHint, level: levelHint, code, ...rest } = extraData;
   const severity = normalizeSeverity(levelHint ?? severityHint);
   const data = {
     marker: 'publishDiagnostics',
@@ -585,13 +616,17 @@ function makeDiag(range: Range, message: string, extraData: Record<string, unkno
   if (data.severityHint === undefined) {
     delete (data as { severityHint?: unknown }).severityHint;
   }
-  return {
+  const diagnostic: Diagnostic = {
     severity,
     range,
     message,
     source: DIAGNOSTIC_SOURCE,
     data
   };
+  if (code !== undefined) {
+    diagnostic.code = typeof code === 'string' || typeof code === 'number' ? code : JSON.stringify(code);
+  }
+  return diagnostic;
 }
 
 function docStartRange(doc: TextDocument): Range {
@@ -601,12 +636,21 @@ function docStartRange(doc: TextDocument): Range {
 
 function makeParseDiag(doc: TextDocument, cause: unknown): Diagnostic {
   const msg = cause instanceof Error ? cause.message : String(cause);
-  const m = /Parse error at (\d+):(\d+)/.exec(msg);
-  const line = m ? Math.max(0, Number(m[1]) - 1) : 0;
-  const ch = m ? Math.max(0, Number(m[2]) - 1) : 0;
+  const firstLine = (msg.split('\n')[0] || '').trim();
+  const m = /Parse error(?: at (\d+):(\d+))?(?::\s*(.*))?/i.exec(firstLine);
+  const line = m?.[1] ? Math.max(0, Number(m[1]) - 1) : 0;
+  const ch = m?.[2] ? Math.max(0, Number(m[2]) - 1) : 0;
+  const detail = (m?.[3] ?? '').trim();
   const range: Range = { start: { line, character: ch }, end: { line, character: ch + 1 } };
-  const summary = msg.split('\n')[0] || 'Parse error';
-  return makeDiag(range, summary, { at: { line, character: ch } });
+  const human = detail ? `Parse error: ${detail}` : 'Parse error';
+  return makeDiag(range, human, {
+    code: 'parse/error',
+    parse: {
+      detail: detail || null,
+      raw: msg
+    },
+    at: { line, character: ch }
+  });
 }
 
 function buildKeywordRanges(doc: TextDocument, state: DocumentState, keys: string[]): Map<string, Range[]> {
@@ -626,9 +670,10 @@ function buildKeywordRanges(doc: TextDocument, state: DocumentState, keys: strin
   return map;
 }
 
-function extractQuoted(text: string): string {
+function extractQuoted(text: string): { raw: string; normalized: string } {
   const m = /'([^']+)'/.exec(text);
-  return (m?.[1] ?? '').toLowerCase();
+  const raw = m?.[1] ?? '';
+  return { raw, normalized: raw.toLowerCase() };
 }
 
 function nextRange(map: Map<string, Range[]>, usage: Map<string, number>, key: string) {
@@ -755,8 +800,28 @@ function normalizeSeverity(value: unknown): DiagnosticSeverity {
   return DiagnosticSeverity.Error;
 }
 
+function sortAscii(values: string[]): string[] {
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  for (const value of values) {
+    const text = String(value ?? '');
+    if (!text) continue;
+    if (seen.has(text)) continue;
+    seen.add(text);
+    normalized.push(text);
+  }
+  normalized.sort((a, b) => {
+    if (a < b) return -1;
+    if (a > b) return 1;
+    return 0;
+  });
+  return normalized;
+}
+
 function effectsOf(idOrName: string): string[] {
-  return lookupPrimitive(idOrName)?.effects ?? [];
+  const entry = lookupPrimitive(idOrName);
+  if (!entry || !Array.isArray(entry.effects)) return [];
+  return entry.effects.map(effect => String(effect ?? '')).filter(effect => effect.length > 0);
 }
 
 function signatureFor(id: string): string {
@@ -781,7 +846,10 @@ function lawIdsFor(id: string): string[] {
     if (!Array.isArray(applies)) return false;
     return applies.some(entry => typeof entry === 'string' && entry === id);
   });
-  return hits.length ? hits.map(law => String((law as { id?: unknown }).id ?? 'law')) : [];
+  if (!hits.length) return [];
+  return hits
+    .map(law => String((law as { id?: unknown }).id ?? 'law'))
+    .filter(idValue => idValue.length > 0);
 }
 
 function findPrimitiveById(id: string) {

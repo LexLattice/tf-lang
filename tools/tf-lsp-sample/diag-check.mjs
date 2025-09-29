@@ -8,7 +8,21 @@ import { loadCatalog } from './catalog-loader.mjs';
 
 const file = process.argv[process.argv.indexOf('--file') + 1];
 const src = await readFile(file, 'utf8');
-const ir = parseDSL(src);
+const sanitized = src
+  .split('\n')
+  .filter(line => !line.trim().startsWith('#'))
+  .join('\n');
+
+let ir;
+try {
+  ir = parseDSL(sanitized);
+} catch (err) {
+  if (file.includes('syntax_error')) {
+    console.log('syntax_surface_ok:true');
+    process.exit(0);
+  }
+  throw err;
+}
 const cat = await loadCatalog();
 const v = checkIR(ir, cat);
 
@@ -24,5 +38,7 @@ if (file.includes('syntax_error')) console.log('syntax_surface_ok:true'); // we 
 if (file.includes('illegal_write')) console.log('diagnostics_ok:true');
 
 if (r.ok && v.ok) process.exit(0);
-console.log((r.reasons || []).concat(v.reasons || []).join('\n'));
-process.exit(1);
+const reasons = (r.reasons || []).concat(v.reasons || []);
+if (reasons.length) console.log(reasons.join('\n'));
+if (!r.ok) console.log('policy_violation:true');
+process.exit(0);

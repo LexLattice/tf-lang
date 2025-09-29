@@ -39,6 +39,7 @@ async function main() {
   const posArg = args.includes('--position') ? args[args.indexOf('--position') + 1] : null;
   const grep = args.includes('--grep') ? args[args.indexOf('--grep') + 1] : null;
   const select = args.includes('--select') ? args[args.indexOf('--select') + 1] : null;
+  const expect = args.includes('--expect') ? args[args.indexOf('--expect') + 1] : null;
 
   const srv = spawn(process.execPath, ['packages/tf-lsp-server/bin/server.mjs', '--stdio'], { stdio: ['pipe', 'pipe', 'inherit'] });
   const onChunk = parseStream(onMsg);
@@ -87,7 +88,9 @@ async function main() {
   if (mode === 'hover') {
     // naive position: start of file or first match of symbol
     let pos = { line: 0, character: 0 };
-    if (symbol) {
+    if (posArg) {
+      pos = parsePosition(posArg);
+    } else if (symbol) {
       const idx = text.indexOf(symbol.split('/').pop().split('@')[0]);
       if (idx >= 0) {
         const pre = text.slice(0, idx);
@@ -97,6 +100,21 @@ async function main() {
       }
     }
     const hv = await req('textDocument/hover', { textDocument: { uri }, position: pos });
+    if (expect) {
+      const payload = hv.result || null;
+      const markdown = typeof payload?.contents === 'string'
+        ? payload.contents
+        : payload?.contents?.value || '';
+      const matches = typeof markdown === 'string' && markdown.includes(`**${expect}**`);
+      if (!matches) {
+        console.error(JSON.stringify({
+          expect,
+          position: pos,
+          received: payload
+        }, null, 2));
+        process.exit(2);
+      }
+    }
     console.log(JSON.stringify(hv.result || {}, null, 2));
     process.exit(0);
   }

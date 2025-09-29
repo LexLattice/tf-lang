@@ -9,7 +9,7 @@ import {
   HoverParams,
   InitializeParams,
   InitializeResult,
-  MarkupKind,
+  MarkedString,
   Position,
   ProposedFeatures,
   Range,
@@ -32,6 +32,90 @@ const wrapAuthorizeModuleUrl = new URL('../src/actions/wrap-authorize.mjs', impo
 
 const connection = createConnection(ProposedFeatures.all);
 const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
+
+interface DocumentState {
+  version: number;
+  text: string;
+  lineOffsets: number[];
+}
+
+const documentStates = new Map<string, DocumentState>();
+
+function computeLineOffsets(text: string): number[] {
+  const offsets: number[] = [0];
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    if (code === 13) {
+      if (i + 1 < text.length && text.charCodeAt(i + 1) === 10) {
+        offsets.push(i + 2);
+        i += 1;
+      } else {
+        offsets.push(i + 1);
+      }
+    } else if (code === 10) {
+      offsets.push(i + 1);
+    }
+  }
+  return offsets;
+}
+
+function refreshDocumentState(doc: TextDocument): DocumentState {
+  const text = doc.getText();
+  const state: DocumentState = {
+    version: doc.version,
+    text,
+    lineOffsets: computeLineOffsets(text)
+  };
+  documentStates.set(doc.uri, state);
+  return state;
+}
+
+function getDocumentState(doc: TextDocument): DocumentState {
+  const cached = documentStates.get(doc.uri);
+  if (cached && cached.version === doc.version) {
+    return cached;
+  }
+  return refreshDocumentState(doc);
+}
+
+function releaseDocumentState(uri: string): void {
+  documentStates.delete(uri);
+}
+
+function lineTextAt(state: DocumentState, line: number): string {
+  if (line < 0) return '';
+  const { lineOffsets, text } = state;
+  if (!lineOffsets.length) {
+    return line === 0 ? text : '';
+  }
+  if (line >= lineOffsets.length) {
+    return '';
+  }
+  const start = lineOffsets[line];
+  const end = line + 1 < lineOffsets.length ? lineOffsets[line + 1] : text.length;
+  let raw = text.slice(start, end);
+  while (raw.endsWith('\n') || raw.endsWith('\r')) {
+    raw = raw.slice(0, -1);
+  }
+  return raw;
+}
+
+function offsetFromPosition(state: DocumentState, position: Position): number {
+  const { text, lineOffsets } = state;
+  if (!lineOffsets.length) {
+    return Math.min(Math.max(position.character, 0), text.length);
+  }
+  const maxLineIndex = lineOffsets.length - 1;
+  const clampedLine = Math.max(0, Math.min(position.line, maxLineIndex));
+  const lineStart = lineOffsets[clampedLine];
+  const nextLineStart = clampedLine + 1 < lineOffsets.length ? lineOffsets[clampedLine + 1] : text.length;
+  const clampedChar = Math.max(0, Math.min(position.character, nextLineStart - lineStart));
+  let offset = lineStart + clampedChar;
+  if (position.line > maxLineIndex) {
+    offset = text.length;
+  }
+  return Math.min(offset, text.length);
+}
 
 const catalog = catalogSpec as { primitives?: Array<{ id?: string; name?: string; effects?: string[]; laws?: string[] }> };
 const protectedKeywords = (protectedSpec as { protected_keywords?: string[] }).protected_keywords || [];
@@ -101,49 +185,68 @@ connection.onExit(() => { process.exit(0); });
 process.stdin.on('end', () => { process.exit(0); });
 process.on('exit', (code) => { if (code !== 0) process.exitCode = 0; });
 
-documents.onDidOpen(e => { void validateTextDocument(e.document); });
-documents.onDidChangeContent(e => { void validateTextDocument(e.document); });
-documents.onDidClose(e => { connection.sendDiagnostics({ uri: e.document.uri, diagnostics: [] }); });
+documents.onDidOpen(e => { refreshDocumentState(e.document); void validateTextDocument(e.document); });
+documents.onDidChangeContent(e => { refreshDocumentState(e.document); void validateTextDocument(e.document); });
+documents.onDidClose(e => { releaseDocumentState(e.document.uri); connection.sendDiagnostics({ uri: e.document.uri, diagnostics: [] }); });
 
 connection.onHover(async (params: HoverParams): Promise<Hover | null> => {
   const doc = documents.get(params.textDocument.uri);
   if (!doc) return null;
-  const text = doc.getText();
+  const state = getDocumentState(doc);
 
-  let fq = extractFQSymbol(text, params.position);
+  const resolution = resolveFQSymbol(state, params.position);
+  const fq = resolution.symbol;
   if (!fq) {
-    const hint = extractSymbol(doc, params.position);
-    const primitive = hint ? lookupPrimitive(hint) : null;
-    if (primitive?.id) {
-      fq = primitive.id;
+    if (PROBE_ENABLED && resolution.multiple.length > 1) {
+      writeProbe(JSON.stringify({
+        hoverMulti: {
+          line: params.position.line,
+          character: params.position.character,
+          tokens: resolution.multiple.map(span => span.value)
+        }
+      }));
     }
+    return null;
   }
-  if (!fq) return null;
+
+  if (PROBE_ENABLED && resolution.multiple.length > 1) {
+    writeProbe(JSON.stringify({
+      hoverMulti: {
+        line: params.position.line,
+        character: params.position.character,
+        tokens: resolution.multiple.map(span => span.value),
+        chosen: fq
+      }
+    }));
+  }
 
   const effects = effectsOf(fq);
   const signature = signatureFor(fq);
   const lawIds = lawIdsFor(fq);
-  const header = fq;
-  const mdLines = [
-    `**${header}**`,
-    `Signature: ${signature}`,
-    `Effects: ${effects.length ? effects.join(', ') : '—'}`
-  ];
-  if (lawIds.length) {
-    mdLines.push(`Laws: ${lawIds.join(', ')}`);
+  const sortedEffects = sortAscii(effects);
+  const sortedLaws = sortAscii(lawIds);
+  const signatureLine = `**${signature}**`;
+  const detailParts = [`Primitive \`${fq}\``];
+  detailParts.push(sortedEffects.length ? `effects: ${sortedEffects.join(', ')}` : 'effects: —');
+  if (sortedLaws.length) {
+    detailParts.push(`laws: ${sortedLaws.join(', ')}`);
   }
+  const markdown = `${signatureLine}\n${detailParts.join('; ')}.`;
 
-  const hoverPayload = {
-    contents: { kind: MarkupKind.Markdown, value: mdLines.join('\n') },
-    effects,
-    signature,
-    laws: lawIds,
-    effectsProbe: effects.length ? `"effects":[${effects.map(effect => `"${effect}"`).join(',')}]` : '"effects":[]'
-  } as Hover & { effects: string[]; signature: string; laws: string[] };
+  const machineContent = {
+    tf: {
+      signature,
+      effects: sortedEffects,
+      laws: sortedLaws
+    }
+  };
 
-  if (effects.length) {
-    writeProbe(`"effects":[${effects.map(effect => `"${effect}"`).join(',')}]`);
-  }
+  const hoverPayload: Hover = {
+    contents: [
+      markdown,
+      machineContent as unknown as MarkedString
+    ]
+  };
 
   return hoverPayload;
 });
@@ -324,8 +427,9 @@ function normalizeRange(range: Range | undefined, doc: TextDocument): Range {
 }
 
 function wordRangeAt(doc: TextDocument, position: Position): Range | null {
-  const text = doc.getText();
-  const offset = doc.offsetAt(position);
+  const state = getDocumentState(doc);
+  const text = state.text;
+  const offset = offsetFromPosition(state, position);
   if (offset < 0 || offset > text.length) return null;
   let start = offset;
   while (start > 0 && isIdentifierChar(text[start - 1])) start--;
@@ -435,29 +539,48 @@ function readIndent(text: string, offset: number): string {
 }
 
 async function validateTextDocument(document: TextDocument): Promise<void> {
-  const text = document.getText();
-  const diagnostics: Diagnostic[] = [];
+  const state = getDocumentState(document);
+  const text = state.text;
+  const diagnosticsMap = new Map<string, Diagnostic>();
+  const pushDiag = (diag: Diagnostic) => {
+    diagnosticsMap.set(diagnosticKey(diag), diag);
+  };
   try {
     const ir = parseDSL(text);
     const verdict = checkIR(ir, catalog);
     if (!verdict.ok) {
       for (const reason of verdict.reasons || []) {
-        diagnostics.push(makeDiag(docStartRange(document), reason));
+        pushDiag(makeDiag(docStartRange(document), reason));
       }
     }
     const regionVerdict = checkRegions(ir, catalog, protectedKeywords);
     if (!regionVerdict.ok) {
-      const rangeMap = buildKeywordRanges(document, protectedLookup);
+      const rangeMap = buildKeywordRanges(document, state, protectedLookup);
       const usage = new Map<string, number>();
       for (const reason of regionVerdict.reasons || []) {
-        const key = extractQuoted(reason);
-        const range = nextRange(rangeMap, usage, key) ?? docStartRange(document);
-        diagnostics.push(makeDiag(range, reason));
+        const { raw, normalized } = extractQuoted(reason);
+        const range = nextRange(rangeMap, usage, normalized) ?? docStartRange(document);
+        const symbol = raw || normalized || undefined;
+        const humanMessage = raw
+          ? `Protected primitive ${raw} requires Authorize{}`
+          : reason;
+        pushDiag(
+          makeDiag(range, humanMessage, {
+            code: symbol ? `policy/protected:${symbol}` : 'policy/protected',
+            policy: {
+              kind: 'protected',
+              symbol: symbol ?? null,
+              normalized: normalized || null,
+              reason
+            }
+          })
+        );
       }
     }
   } catch (err) {
-    diagnostics.push(makeParseDiag(document, err));
+    pushDiag(makeParseDiag(document, err));
   }
+  const diagnostics = Array.from(diagnosticsMap.values());
   if (diagnostics.length) {
     writeProbe('"publishDiagnostics"');
     const first = diagnostics[0];
@@ -466,21 +589,44 @@ async function validateTextDocument(document: TextDocument): Promise<void> {
   connection.sendDiagnostics({ uri: document.uri, diagnostics });
 }
 
+function diagnosticKey(diag: Diagnostic): string {
+  const { start, end } = diag.range;
+  const code = diag.code == null ? '' : String(diag.code);
+  const rangePart = `${start.line}:${start.character}-${end.line}:${end.character}`;
+  if (code) {
+    return `${code}|${rangePart}`;
+  }
+  return `${code}|${rangePart}|${diag.message}`;
+}
+
 function lookupPrimitive(symbol: string) {
   const target = symbol.toLowerCase();
   return (catalog.primitives || []).find(p => (p.id || '').toLowerCase() === target || (p.name || '').toLowerCase() === target) || null;
 }
 
 function makeDiag(range: Range, message: string, extraData: Record<string, unknown> = {}): Diagnostic {
-  const compactRange = JSON.stringify({ range: { start: range.start, end: range.end } });
-  const probeRange = `"range":{"start":{"line":${range.start.line},"character":${range.start.character}}}`;
-  return {
-    severity: DiagnosticSeverity.Error,
+  const { severity: severityHint, level: levelHint, code, ...rest } = extraData;
+  const severity = normalizeSeverity(levelHint ?? severityHint);
+  const data = {
+    marker: 'publishDiagnostics',
+    rangeInfo: { start: range.start, end: range.end },
+    ...rest,
+    severityHint: severityHint ?? levelHint ?? undefined
+  };
+  if (data.severityHint === undefined) {
+    delete (data as { severityHint?: unknown }).severityHint;
+  }
+  const diagnostic: Diagnostic = {
+    severity,
     range,
     message,
     source: DIAGNOSTIC_SOURCE,
-    data: { marker: 'publishDiagnostics', compactRange, probeRange, ...extraData }
+    data
   };
+  if (code !== undefined) {
+    diagnostic.code = typeof code === 'string' || typeof code === 'number' ? code : JSON.stringify(code);
+  }
+  return diagnostic;
 }
 
 function docStartRange(doc: TextDocument): Range {
@@ -490,16 +636,25 @@ function docStartRange(doc: TextDocument): Range {
 
 function makeParseDiag(doc: TextDocument, cause: unknown): Diagnostic {
   const msg = cause instanceof Error ? cause.message : String(cause);
-  const m = /Parse error at (\d+):(\d+)/.exec(msg);
-  const line = m ? Math.max(0, Number(m[1]) - 1) : 0;
-  const ch = m ? Math.max(0, Number(m[2]) - 1) : 0;
+  const firstLine = (msg.split('\n')[0] || '').trim();
+  const m = /Parse error(?: at (\d+):(\d+))?(?::\s*(.*))?/i.exec(firstLine);
+  const line = m?.[1] ? Math.max(0, Number(m[1]) - 1) : 0;
+  const ch = m?.[2] ? Math.max(0, Number(m[2]) - 1) : 0;
+  const detail = (m?.[3] ?? '').trim();
   const range: Range = { start: { line, character: ch }, end: { line, character: ch + 1 } };
-  const summary = msg.split('\n')[0] || 'Parse error';
-  return makeDiag(range, summary, { at: { line, character: ch } });
+  const human = detail ? `Parse error: ${detail}` : 'Parse error';
+  return makeDiag(range, human, {
+    code: 'parse/error',
+    parse: {
+      detail: detail || null,
+      raw: msg
+    },
+    at: { line, character: ch }
+  });
 }
 
-function buildKeywordRanges(doc: TextDocument, keys: string[]): Map<string, Range[]> {
-  const lower = doc.getText().toLowerCase();
+function buildKeywordRanges(doc: TextDocument, state: DocumentState, keys: string[]): Map<string, Range[]> {
+  const lower = state.text.toLowerCase();
   const map = new Map<string, Range[]>();
   for (const key of keys) {
     let idx = 0;
@@ -515,9 +670,10 @@ function buildKeywordRanges(doc: TextDocument, keys: string[]): Map<string, Rang
   return map;
 }
 
-function extractQuoted(text: string): string {
+function extractQuoted(text: string): { raw: string; normalized: string } {
   const m = /'([^']+)'/.exec(text);
-  return (m?.[1] ?? '').toLowerCase();
+  const raw = m?.[1] ?? '';
+  return { raw, normalized: raw.toLowerCase() };
 }
 
 function nextRange(map: Map<string, Range[]>, usage: Map<string, number>, key: string) {
@@ -548,46 +704,124 @@ function offsetToPosition(text: string, offset: number): Position {
   return { line, character: clamped - lastLineStart };
 }
 
-function extractSymbol(document: TextDocument, position: Position): string | null {
-  const text = document.getText();
-  const offset = document.offsetAt(position);
-  const isIdentifierChar = (ch: string) => /[A-Za-z0-9_:\-@]/.test(ch);
-  let start = offset;
-  while (start > 0 && isIdentifierChar(text[start - 1] || '')) start--;
-  let end = offset;
-  while (end < text.length && isIdentifierChar(text[end] || '')) end++;
-  if (start === end) return null;
-  return text.slice(start, end);
+interface FQTokenSpan {
+  start: number;
+  end: number;
+  value: string;
 }
 
-function extractFQSymbol(text: string, pos: Position): string | null {
-  const line = text.split(/\r?\n/)[pos.line] ?? '';
+function resolveFQSymbol(state: DocumentState, pos: Position): { symbol: string | null; multiple: FQTokenSpan[] } {
+  const line = lineTextAt(state, pos.line);
+  const spans = scanFQTokens(line);
+  const ch = Math.max(0, Math.min(pos.character, line.length));
+  const token = pickFQToken(spans, ch, line);
+  return { symbol: token?.value ?? null, multiple: spans };
+}
+
+function scanFQTokens(line: string): FQTokenSpan[] {
+  if (!line) return [];
   const re = /\btf:[a-z-]+\/[a-z-]+@\d+\b/gi;
-  const spans: Array<{ s: number; e: number; v: string }> = [];
+  const spans: FQTokenSpan[] = [];
   let match: RegExpExecArray | null;
   while ((match = re.exec(line)) !== null) {
-    spans.push({ s: match.index, e: match.index + match[0].length, v: match[0] });
+    const index = match.index ?? 0;
+    spans.push({ start: index, end: index + match[0].length, value: match[0] });
   }
-  const ch = pos.character;
-  const hit = spans.find(span => ch >= span.s && ch <= span.e);
-  if (hit) return hit.v;
-  if (spans.length) {
-    let best = spans[0];
-    let dist = Math.abs(ch - (best.s + best.e) / 2);
-    for (const span of spans) {
-      const d = Math.abs(ch - (span.s + span.e) / 2);
-      if (d < dist) {
-        best = span;
-        dist = d;
+  return spans;
+}
+
+const HARD_TOKEN_BOUNDARIES = ['|>', ',', ';'];
+
+function hasBoundaryBetween(line: string, a: number, b: number): boolean {
+  if (!line) return false;
+  const start = Math.min(a, b);
+  const end = Math.max(a, b);
+  const scanStart = Math.max(0, start - 2);
+  const scanEnd = Math.min(line.length, end + 2);
+  for (const boundary of HARD_TOKEN_BOUNDARIES) {
+    let idx = line.indexOf(boundary, scanStart);
+    while (idx !== -1 && idx <= end) {
+      const boundaryEnd = idx + boundary.length;
+      if (boundaryEnd > start) {
+        return true;
       }
+      idx = line.indexOf(boundary, idx + 1);
     }
-    return best.v;
+  }
+  return false;
+}
+
+function pickFQToken(spans: FQTokenSpan[], ch: number, line: string): FQTokenSpan | null {
+  if (!spans.length) return null;
+  const exact = spans.find(span => ch >= span.start && ch < span.end);
+  if (exact) return exact;
+  for (let i = spans.length - 1; i >= 0; i--) {
+    const span = spans[i];
+    if (span.end <= ch && !hasBoundaryBetween(line, span.end, ch)) {
+      return span;
+    }
+  }
+  for (const span of spans) {
+    if (span.start >= ch && !hasBoundaryBetween(line, ch, span.start)) {
+      return span;
+    }
   }
   return null;
 }
 
+function extractFQSymbol(state: DocumentState, pos: Position): string | null {
+  return resolveFQSymbol(state, pos).symbol;
+}
+
+function normalizeSeverity(value: unknown): DiagnosticSeverity {
+  if (typeof value === 'number' && Number.isInteger(value)) {
+    switch (value) {
+      case DiagnosticSeverity.Error:
+      case DiagnosticSeverity.Warning:
+      case DiagnosticSeverity.Information:
+      case DiagnosticSeverity.Hint:
+        return value;
+    }
+  }
+  if (typeof value === 'string') {
+    switch (value.toLowerCase()) {
+      case 'error':
+        return DiagnosticSeverity.Error;
+      case 'warning':
+      case 'warn':
+        return DiagnosticSeverity.Warning;
+      case 'information':
+      case 'info':
+        return DiagnosticSeverity.Information;
+      case 'hint':
+        return DiagnosticSeverity.Hint;
+    }
+  }
+  return DiagnosticSeverity.Error;
+}
+
+function sortAscii(values: string[]): string[] {
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  for (const value of values) {
+    const text = String(value ?? '');
+    if (!text) continue;
+    if (seen.has(text)) continue;
+    seen.add(text);
+    normalized.push(text);
+  }
+  normalized.sort((a, b) => {
+    if (a < b) return -1;
+    if (a > b) return 1;
+    return 0;
+  });
+  return normalized;
+}
+
 function effectsOf(idOrName: string): string[] {
-  return lookupPrimitive(idOrName)?.effects ?? [];
+  const entry = lookupPrimitive(idOrName);
+  if (!entry || !Array.isArray(entry.effects)) return [];
+  return entry.effects.map(effect => String(effect ?? '')).filter(effect => effect.length > 0);
 }
 
 function signatureFor(id: string): string {
@@ -612,7 +846,10 @@ function lawIdsFor(id: string): string[] {
     if (!Array.isArray(applies)) return false;
     return applies.some(entry => typeof entry === 'string' && entry === id);
   });
-  return hits.length ? hits.map(law => String((law as { id?: unknown }).id ?? 'law')) : [];
+  if (!hits.length) return [];
+  return hits
+    .map(law => String((law as { id?: unknown }).id ?? 'law'))
+    .filter(idValue => idValue.length > 0);
 }
 
 function findPrimitiveById(id: string) {

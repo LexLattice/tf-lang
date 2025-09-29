@@ -29,21 +29,39 @@ so the artifacts are deterministic.
 
 ### Examples
 
-Run an existing IR artifact and stream the result to stdout:
+Run an existing IR artifact and stream the aggregate JSON result to stdout with a
+trailing newline:
 
 ```bash
-node packages/tf-run-wasm/bin/run-wasm.mjs \
-  --ir samples/b3/minimal.ir.json \
-  --json
+$ node packages/tf-run-wasm/bin/run-wasm.mjs --ir samples/b3/minimal.ir.json --json
+{"status":{"ok":true,"engine":"mini-runtime","bytes":170,"primitives":2},"trace":[{"prim_id":"tf:pure/identity@1","effect":"return identity"},{"prim_id":"tf:resource/write-object@1","effect":"persist payload"}]}
 ```
 
-Compile the sample flow, capture the aggregate JSON result on disk, and reuse the
-same file in follow-up tooling:
+Compile the sample flow, emit a deterministic summary on stdout, and capture the
+aggregate JSON payload on disk (directories are created automatically):
 
 ```bash
-node packages/tf-run-wasm/bin/run-wasm.mjs \
-  --flow samples/b3/minimal.tf \
-  --out out/mini/result.json
+$ node packages/tf-run-wasm/bin/run-wasm.mjs --flow samples/b3/minimal.tf --out out/mini/result.json
+ok engine=mini-runtime primitives=2 bytes=138
+$ cat out/mini/result.json
+{
+  "status": {
+    "ok": true,
+    "engine": "mini-runtime",
+    "bytes": 138,
+    "primitives": 2
+  },
+  "trace": [
+    {
+      "prim_id": "tf:pure/identity@1",
+      "effect": "return identity"
+    },
+    {
+      "prim_id": "tf:resource/write-object@1",
+      "effect": "persist payload"
+    }
+  ]
+}
 ```
 
 The CLI also accepts optional `--status <file>` and `--trace <file>` flags to emit

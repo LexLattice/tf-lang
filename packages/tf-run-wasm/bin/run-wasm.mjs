@@ -6,7 +6,26 @@ import process from 'node:process';
 import { run } from '../dist/index.js';
 
 function printUsage() {
-  console.log(`Usage: tf-run-wasm (--ir <file.ir.json> | --flow <file.tf>) [--out <file>] [--status <file>] [--trace <file>] [--json]`);
+  console.log(
+    [
+      'Usage: tf-run-wasm (--ir <file.ir.json> | --flow <file.tf>) [options]',
+      '',
+      'Options:',
+      '  --json              Print the aggregate JSON result to stdout',
+      '  --out <file>        Write the aggregate JSON result to disk',
+      '  --status <file>     Write the status JSON document to disk',
+      '  --trace <file>      Write the trace JSONL document to disk',
+      '  --help              Show this message',
+    ].join('\n'),
+  );
+}
+
+function takeValue(argv, index, flag) {
+  const next = argv[index + 1];
+  if (typeof next !== 'string' || next.length === 0 || next.startsWith('-')) {
+    throw new Error(`Expected a value after ${flag}`);
+  }
+  return next;
 }
 
 function parseArgs(argv) {
@@ -21,28 +40,39 @@ function parseArgs(argv) {
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
-    if (arg === '--help' || arg === '-h') {
-      options.help = true;
-      break;
-    } else if (arg === '--flow') {
-      i += 1;
-      options.flowPath = argv[i] ?? null;
-    } else if (arg === '--ir') {
-      i += 1;
-      options.irPath = argv[i] ?? null;
-    } else if (arg === '--out') {
-      i += 1;
-      options.outPath = argv[i] ?? null;
-    } else if (arg === '--status') {
-      i += 1;
-      options.statusPath = argv[i] ?? null;
-    } else if (arg === '--trace') {
-      i += 1;
-      options.tracePath = argv[i] ?? null;
-    } else if (arg === '--json') {
-      options.json = true;
-    } else {
-      throw new Error(`Unknown argument: ${arg}`);
+    switch (arg) {
+      case '--help':
+      case '-h':
+        options.help = true;
+        return options;
+      case '--flow':
+        options.flowPath = takeValue(argv, i, '--flow');
+        i += 1;
+        break;
+      case '--ir':
+        options.irPath = takeValue(argv, i, '--ir');
+        i += 1;
+        break;
+      case '--out':
+        options.outPath = takeValue(argv, i, '--out');
+        i += 1;
+        break;
+      case '--status':
+        options.statusPath = takeValue(argv, i, '--status');
+        i += 1;
+        break;
+      case '--trace':
+        options.tracePath = takeValue(argv, i, '--trace');
+        i += 1;
+        break;
+      case '--json':
+        options.json = true;
+        break;
+      default:
+        if (arg.startsWith('-')) {
+          throw new Error(`Unknown argument: ${arg}`);
+        }
+        throw new Error(`Unexpected positional argument: ${arg}`);
     }
   }
   return options;
@@ -80,6 +110,7 @@ async function main(argv) {
     options = parseArgs(argv);
   } catch (err) {
     console.error(String(err.message ?? err));
+    printUsage();
     process.exitCode = 1;
     return;
   }
@@ -112,7 +143,7 @@ async function main(argv) {
       irSource = JSON.stringify(compileFlowToIr(flowSource));
     }
 
-    const result = await run({ irSource, statusPath: options.statusPath, tracePath: options.tracePath });
+    const result = await run({ irSource, statusPath: options.statusPath ?? undefined, tracePath: options.tracePath ?? undefined });
 
     if (options.outPath) {
       await writeJsonFile(resolve(options.outPath), result);
@@ -120,6 +151,14 @@ async function main(argv) {
 
     if (options.json) {
       process.stdout.write(`${JSON.stringify(result)}\n`);
+    } else {
+      const summary = [
+        result.status.ok ? 'ok' : 'error',
+        `engine=${result.status.engine}`,
+        `primitives=${result.status.primitives}`,
+        `bytes=${result.status.bytes}`,
+      ].join(' ');
+      console.log(summary);
     }
   } catch (err) {
     const message = err instanceof Error && typeof err.message === 'string' ? err.message : String(err);

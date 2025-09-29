@@ -3,7 +3,12 @@ import { writeFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { readJsonFile, isKnownLaw } from '../lib/data.mjs';
 import { extractPrimitivesFromIr, analyzePrimitiveSequence } from '../lib/rewrite-detect.mjs';
-import { applyRewritePlan, stableStringify } from '../lib/plan-apply.mjs';
+import {
+  stableStringify,
+  normalizeRewriteEntries,
+  buildUsedLawManifest,
+} from '../lib/utils.mjs';
+let applyRewritePlanCached = null;
 
 const arg = (k) => {
   const i = process.argv.indexOf(k);
@@ -36,6 +41,17 @@ const COST = {
   Crypto: 8,
 };
 
+async function getApplyRewritePlan() {
+  if (!applyRewritePlanCached) {
+    const mod = await import('../lib/plan-apply.mjs');
+    if (!mod || typeof mod.applyRewritePlan !== 'function') {
+      throw new Error('applyRewritePlan export missing from plan-apply module');
+    }
+    applyRewritePlanCached = mod.applyRewritePlan;
+  }
+  return applyRewritePlanCached;
+}
+
 async function main() {
   if (process.argv.includes('--cost') && arg('--cost') === 'show') {
     console.log(JSON.stringify(COST, null, 2));
@@ -61,7 +77,10 @@ async function main() {
       await writeFile(out, planJson, 'utf8');
     }
     if (emitUsed) {
-      const used = stableStringify({ used_laws: initialPlan.used_laws }) + '\n';
+      const manifest = buildUsedLawManifest({
+        plans: [initialPlan],
+      });
+      const used = stableStringify(manifest) + '\n';
       await mkdir(dirname(emitUsed), { recursive: true });
       await writeFile(emitUsed, used, 'utf8');
     }
@@ -69,6 +88,7 @@ async function main() {
   }
 
   // --apply flow
+  const applyRewritePlan = await getApplyRewritePlan();
   const applied = applyRewritePlan(ir, analysis.obligations || []);
   const appliedIr = applied.ir;
   const appliedJson = stableStringify(appliedIr) + '\n';
@@ -82,14 +102,12 @@ async function main() {
   const postPrimitives = extractPrimitivesFromIr(appliedIr);
   const postAnalysis = await analyzePrimitiveSequence(postPrimitives);
   const postPlan = buildPlan(appliedIr, postAnalysis);
-  const usedLawUnion = ensureKnownLaws([
-    ...initialPlan.used_laws,
-    ...(applied.usedLaws || []),
-    ...postPlan.used_laws,
-  ]);
-
   if (emitUsed) {
-    const used = stableStringify({ used_laws: usedLawUnion }) + '\n';
+    const manifest = buildUsedLawManifest({
+      plans: [initialPlan, postPlan],
+      extras: [applied.usedLaws || []],
+    });
+    const used = stableStringify(manifest) + '\n';
     await mkdir(dirname(emitUsed), { recursive: true });
     await writeFile(emitUsed, used, 'utf8');
   }
@@ -102,6 +120,8 @@ async function main() {
 function buildPlan(ir, analysis = {}) {
   const counts = [];
   const lawNames = [];
+
+  const rewrites = collectRewritesFromAnalysis(analysis);
 
   const trackLaw = (name) => {
     if (typeof name === 'string') {
@@ -134,10 +154,30 @@ function buildPlan(ir, analysis = {}) {
     }
   }
 
-  return {
+  const plan = {
     rewrites_applied: rewritesApplied,
     used_laws: ensureKnownLaws(lawNames),
   };
+
+  if (rewrites.length > 0) {
+    plan.rewrites = rewrites;
+  }
+
+  return plan;
+}
+
+function collectRewritesFromAnalysis(analysis = {}) {
+  if (!analysis || typeof analysis !== 'object') return [];
+
+  const entries = [];
+  if (Array.isArray(analysis.obligations)) {
+    entries.push(...analysis.obligations);
+  }
+  if (Array.isArray(analysis.rewrites)) {
+    entries.push(...analysis.rewrites);
+  }
+
+  return normalizeRewriteEntries(entries);
 }
 
 function collectMetadata(initialEntry, trackLaw, counts) {

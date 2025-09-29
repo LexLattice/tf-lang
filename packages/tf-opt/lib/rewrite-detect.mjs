@@ -1,186 +1,114 @@
-import { isDeepStrictEqual } from 'node:util';
-import { loadPrimitiveEffectMap } from './data.mjs';
+import {
+  canonicalLawName,
+  canonicalPrimitiveName,
+  loadLawAliasSet,
+  loadPrimitiveEffectMap,
+} from './data.mjs';
 
-const COMMUTE_EMIT_METRIC_LAW = 'commute:emit-metric-with-pure';
-const INVERSE_SERIALIZE_DESERIALIZE_LAW = 'inverse:serialize-deserialize';
-const IDEMPOTENT_HASH_LAW = 'idempotent:hash';
-
-const HASH_PRIM = 'hash';
-const EMIT_METRIC_PRIM = 'emit-metric';
-const SERIALIZE_PRIM = 'serialize';
-const DESERIALIZE_PRIM = 'deserialize';
-
-let purePrimitiveSetPromise;
-
-async function listPurePrimitiveNames() {
-  if (!purePrimitiveSetPromise) {
-    purePrimitiveSetPromise = (async () => {
-      const effectMap = await loadPrimitiveEffectMap();
-      const pureNames = new Set();
-      for (const [name, effects] of effectMap.entries()) {
-        if (!Array.isArray(effects)) {
-          continue;
-        }
-        if (effects.some((effect) => String(effect).toLowerCase() === 'pure')) {
-          pureNames.add(name);
-        }
-      }
-      return pureNames;
-    })();
-  }
-  return new Set(await purePrimitiveSetPromise);
-}
-
-export function canonicalPrimitiveName(value) {
-  if (typeof value !== 'string') {
-    return '';
-  }
-  const trimmed = value.trim().toLowerCase();
-  if (!trimmed) {
-    return '';
-  }
-  const afterSlash = trimmed.includes('/')
-    ? trimmed.substring(trimmed.lastIndexOf('/') + 1)
-    : trimmed;
-  const beforeAt = afterSlash.includes('@')
-    ? afterSlash.substring(0, afterSlash.indexOf('@'))
-    : afterSlash;
-  return beforeAt || trimmed;
-}
-
-export function extractPrimitivesFromIr(ir, acc = []) {
-  if (!ir || typeof ir !== 'object') {
-    return acc;
-  }
-
-  if (ir.node === 'Prim') {
-    const candidateKeys = ['prim', 'prim_id', 'primId', 'primID', 'id'];
-    for (const key of candidateKeys) {
-      if (typeof ir[key] === 'string') {
-        const name = canonicalPrimitiveName(ir[key]);
-        if (name) {
-          acc.push({ name, node: ir });
-          break;
-        }
-      }
+export function extractPrimitivesFromIr(ir) {
+  const collected = [];
+  const visit = (node) => {
+    if (!node || typeof node !== 'object') return;
+    if (node.node === 'Prim' && typeof node.prim === 'string') {
+      const prim = canonicalPrimitiveName(node.prim);
+      collected.push(prim);
+      return;
     }
-  }
-
-  for (const value of Object.values(ir)) {
-    if (Array.isArray(value)) {
-      for (const item of value) {
-        extractPrimitivesFromIr(item, acc);
-      }
-    } else if (value && typeof value === 'object') {
-      extractPrimitivesFromIr(value, acc);
+    if (Array.isArray(node)) {
+      for (const item of node) visit(item);
+      return;
     }
-  }
-
-  return acc;
-}
-
-function isHashPair(a, b) {
-  return a === HASH_PRIM && b === HASH_PRIM;
-}
-
-function isSerializeDeserializePair(a, b) {
-  return a === SERIALIZE_PRIM && b === DESERIALIZE_PRIM;
-}
-
-function isEmitMetricPurePair(a, b, pureSet) {
-  return a === EMIT_METRIC_PRIM && pureSet.has(b);
-}
-
-function toDescriptor(entry) {
-  if (typeof entry === 'string') {
-    const name = canonicalPrimitiveName(entry);
-    return name ? { name } : null;
-  }
-  if (!entry || typeof entry !== 'object') {
-    return null;
-  }
-  if (typeof entry.name === 'string') {
-    const name = canonicalPrimitiveName(entry.name);
-    if (!name) {
-      return null;
+    for (const key of Object.keys(node)) {
+      if (key === 'node' || key === 'prim') continue;
+      const value = node[key];
+      if (value && typeof value === 'object') visit(value);
     }
-    const node = entry.node && typeof entry.node === 'object' ? entry.node : null;
-    return node ? { name, node } : { name };
-  }
-  if (entry.node === 'Prim') {
-    const candidateKeys = ['prim', 'prim_id', 'primId', 'primID', 'id'];
-    for (const key of candidateKeys) {
-      if (typeof entry[key] === 'string') {
-        const name = canonicalPrimitiveName(entry[key]);
-        if (name) {
-          return { name, node: entry };
-        }
-      }
-    }
-  }
-  return null;
+  };
+  visit(ir);
+  return collected;
 }
 
-function nodesEqual(a, b) {
-  if (!a || !b) {
-    return false;
-  }
-  if (a === b) {
-    return true;
-  }
-  return isDeepStrictEqual(a, b);
-}
+export async function analyzePrimitiveSequence(primitives) {
+  const [lawSet, effectMap] = await Promise.all([
+    loadLawAliasSet(),
+    loadPrimitiveEffectMap(),
+  ]);
+  const names = primitives
+    .map((name) => canonicalPrimitiveName(name))
+    .filter((name) => name.length > 0);
 
-export async function analyzePrimitiveSequence(seq) {
   const obligations = [];
-  const lawSet = new Set();
-  const pureSet = await listPurePrimitiveNames();
-  const descriptors = [];
+  const encounteredLaws = new Set();
 
-  for (const entry of seq || []) {
-    const descriptor = toDescriptor(entry);
-    if (descriptor) {
-      descriptors.push(descriptor);
+  const addObligation = (rawLaw, details) => {
+    const law = canonicalLawName(rawLaw);
+    if (!law) return;
+    const rewrite = typeof details.rewrite === 'string' ? details.rewrite : `${law}@${obligations.length}`;
+    const entry = {
+      law,
+      rewrite,
+      positions: Array.isArray(details.positions) ? [...details.positions] : [],
+      primitives: Array.isArray(details.primitives) ? [...details.primitives] : [],
+      direction: details.direction ?? null,
+      known: lawSet.has(law),
+    };
+    obligations.push(entry);
+    encounteredLaws.add(law);
+  };
+
+  for (let i = 0; i < names.length; i += 1) {
+    const current = names[i];
+    const next = names[i + 1];
+    if (!next) continue;
+
+    // Idempotent: x |> x
+    if (current === next) {
+      addObligation(`idempotent:${current}`, {
+        rewrite: `idempotent:${current}@${i}`,
+        positions: [i, i + 1],
+        primitives: [current, next],
+      });
+    }
+
+    // Inverse: serialize |> deserialize
+    if (current === 'serialize' && next === 'deserialize') {
+      addObligation('inverse:serialize-deserialize', {
+        rewrite: `inverse:${current}->${next}@${i}`,
+        positions: [i, i + 1],
+        primitives: [current, next],
+      });
+    }
+
+    // Commute: emit-metric with Pure
+    const currentInfo = effectMap.get(current);
+    const nextInfo = effectMap.get(next);
+
+    if (current === 'emit-metric' && nextInfo && nextInfo.includes && nextInfo.includes('Pure')) {
+      addObligation('commute:emit-metric-with-pure', {
+        rewrite: `commute:emit-metric<->${next}@${i}`,
+        positions: [i, i + 1],
+        primitives: [current, next],
+        direction: 'left',
+      });
+    }
+    if (next === 'emit-metric' && currentInfo && currentInfo.includes && currentInfo.includes('Pure')) {
+      addObligation('commute:emit-metric-with-pure', {
+        rewrite: `commute:${current}<->emit-metric@${i}`,
+        positions: [i, i + 1],
+        primitives: [current, next],
+        direction: 'right',
+      });
     }
   }
 
-  for (let i = 1; i < descriptors.length; i += 1) {
-    const prev = descriptors[i - 1];
-    const curr = descriptors[i];
-    const prevName = prev.name;
-    const currName = curr.name;
-    if (isEmitMetricPurePair(prevName, currName, pureSet)) {
-      obligations.push({
-        law: COMMUTE_EMIT_METRIC_LAW,
-        span: [i - 1, i],
-        primitives: [prevName, currName],
-      });
-      lawSet.add(COMMUTE_EMIT_METRIC_LAW);
-      continue;
-    }
-    if (isSerializeDeserializePair(prevName, currName)) {
-      obligations.push({
-        law: INVERSE_SERIALIZE_DESERIALIZE_LAW,
-        span: [i - 1, i],
-        primitives: [prevName, currName],
-      });
-      lawSet.add(INVERSE_SERIALIZE_DESERIALIZE_LAW);
-      continue;
-    }
-    if (isHashPair(prevName, currName) && nodesEqual(prev.node, curr.node)) {
-      obligations.push({
-        law: IDEMPOTENT_HASH_LAW,
-        span: [i - 1, i],
-        primitives: [prevName, currName],
-      });
-      lawSet.add(IDEMPOTENT_HASH_LAW);
-    }
-  }
+  const laws = Array.from(encounteredLaws).sort((a, b) => a.localeCompare(b));
+  const summary = { laws, rewritesApplied: obligations.length };
 
   return {
-    primitives: descriptors.map((descriptor) => descriptor.name),
+    primitives: names,
     obligations,
+    laws,
     rewritesApplied: obligations.length,
-    laws: Array.from(lawSet).sort(),
+    summary,
   };
 }

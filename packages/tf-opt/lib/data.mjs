@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { listLawNames } from '../../tf-l0-proofs/src/smt-laws.mjs';
 
-const HERE = dirname(fileURLToPath(import.meta.url));
+const HERE = dirname(fileURLToPath(new URL('.', import.meta.url)));
 const CATALOG_PATH = resolve(HERE, '..', '..', 'tf-l0-spec', 'spec', 'catalog.json');
 
 const LAW_NAMES = Object.freeze(listLawNames());
@@ -17,9 +17,7 @@ export async function readJsonFile(path, defaultValue = {}) {
     const raw = await readFile(path, 'utf8');
     return JSON.parse(raw);
   } catch (error) {
-    if (error && error.code === 'ENOENT') {
-      return defaultValue;
-    }
+    if (error && error.code === 'ENOENT') return defaultValue;
     throw error;
   }
 }
@@ -31,21 +29,21 @@ async function readCatalog() {
   return catalogCachePromise;
 }
 
+/**
+ * Returns a fresh Map(name -> effects[]) built from the catalog.
+ * Names are lower-cased for canonical matching.
+ */
 export async function loadPrimitiveEffectMap() {
   if (!primitiveEffectMapPromise) {
     primitiveEffectMapPromise = (async () => {
       const catalog = await readCatalog();
       const entries = new Map();
       for (const primitive of catalog.primitives || []) {
-        if (!primitive || typeof primitive !== 'object') {
-          continue;
-        }
-        const name = typeof primitive.name === 'string' ? primitive.name.toLowerCase() : '';
-        if (!name) {
-          continue;
-        }
+        if (!primitive || typeof primitive !== 'object') continue;
+        const name = typeof primitive.name === 'string' ? primitive.name.toLowerCase().trim() : '';
+        if (!name) continue;
         const effects = Array.isArray(primitive.effects)
-          ? primitive.effects.map((effect) => String(effect))
+          ? primitive.effects.map((e) => String(e))
           : [];
         entries.set(name, effects);
       }
@@ -53,6 +51,7 @@ export async function loadPrimitiveEffectMap() {
     })();
   }
   const cached = await primitiveEffectMapPromise;
+  // hand back a copy to keep callers from mutating the cache
   return new Map(cached);
 }
 
@@ -62,4 +61,15 @@ export function getKnownLawNames() {
 
 export function isKnownLaw(name) {
   return typeof name === 'string' && LAW_NAME_SET.has(name);
+}
+
+/* Optional helpers kept for compatibility */
+export function canonicalPrimitiveName(value) {
+  if (typeof value !== 'string') return '';
+  return value.trim().toLowerCase();
+}
+
+export function canonicalLawName(value) {
+  if (typeof value !== 'string') return '';
+  return value.trim();
 }

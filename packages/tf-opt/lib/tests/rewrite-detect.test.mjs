@@ -1,3 +1,5 @@
+// @tf-test kind: product speed: fast deps: node
+
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { analyzePrimitiveSequence } from '../rewrite-detect.mjs';
@@ -6,40 +8,31 @@ const COMMUTE_LAW = 'commute:emit-metric-with-pure';
 const INVERSE_LAW = 'inverse:serialize-deserialize';
 const IDEMPOTENT_LAW = 'idempotent:hash';
 
-test('emit-metric followed by hash registers commute obligation', async () => {
+function assertSingleLaw(result, expectedLaw) {
+  assert.equal(result.obligations.length, 1);
+  assert.equal(result.rewritesApplied, 1);
+  assert.deepEqual(result.laws, [expectedLaw]);
+  assert.equal(result.obligations[0].law, expectedLaw);
+}
+
+test('hash followed by emit-metric counts as commute', async () => {
+  const result = await analyzePrimitiveSequence(['hash', 'emit-metric']);
+  assert.deepEqual(result.primitives, ['hash', 'emit-metric']);
+  assertSingleLaw(result, COMMUTE_LAW);
+});
+
+test('emit-metric followed by hash also counts as commute', async () => {
   const result = await analyzePrimitiveSequence(['emit-metric', 'hash']);
   assert.deepEqual(result.primitives, ['emit-metric', 'hash']);
-  assert.equal(result.rewritesApplied, 1);
-  assert.equal(result.obligations.length, 1);
-  assert.deepEqual(result.laws, [COMMUTE_LAW]);
-  assert.deepEqual(result.obligations[0], {
-    law: COMMUTE_LAW,
-    span: [0, 1],
-    primitives: ['emit-metric', 'hash'],
-  });
+  assertSingleLaw(result, COMMUTE_LAW);
 });
 
-test('serialize followed by deserialize is an inverse obligation', async () => {
+test('serialize followed by deserialize is inverse', async () => {
   const result = await analyzePrimitiveSequence(['serialize', 'deserialize']);
-  assert.equal(result.obligations.length, 1);
-  assert.equal(result.rewritesApplied, 1);
-  assert.deepEqual(result.laws, [INVERSE_LAW]);
-  assert.deepEqual(result.obligations[0], {
-    law: INVERSE_LAW,
-    span: [0, 1],
-    primitives: ['serialize', 'deserialize'],
-  });
+  assertSingleLaw(result, INVERSE_LAW);
 });
 
-test('duplicate hash primitives are idempotent obligations', async () => {
-  const duplicate = { name: 'hash', node: { node: 'Prim', prim: 'hash' } };
-  const result = await analyzePrimitiveSequence([duplicate, duplicate]);
-  assert.equal(result.obligations.length, 1);
-  assert.equal(result.rewritesApplied, 1);
-  assert.deepEqual(result.laws, [IDEMPOTENT_LAW]);
-  assert.deepEqual(result.obligations[0], {
-    law: IDEMPOTENT_LAW,
-    span: [0, 1],
-    primitives: ['hash', 'hash'],
-  });
+test('duplicate hash is idempotent', async () => {
+  const result = await analyzePrimitiveSequence(['hash', 'hash']);
+  assertSingleLaw(result, IDEMPOTENT_LAW);
 });

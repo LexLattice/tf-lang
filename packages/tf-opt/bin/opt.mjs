@@ -6,8 +6,8 @@ import { extractPrimitivesFromIr, analyzePrimitiveSequence } from '../lib/rewrit
 import { applyRewritePlan, stableStringify } from '../lib/plan-apply.mjs';
 
 const arg = (k) => {
-  const index = process.argv.indexOf(k);
-  return index >= 0 ? process.argv[index + 1] : null;
+  const i = process.argv.indexOf(k);
+  return i >= 0 ? process.argv[i + 1] : null;
 };
 
 if (process.argv.includes('--help')) {
@@ -21,7 +21,7 @@ if (process.argv.includes('--help')) {
       '  --emit-used-laws <file>   write the used laws JSON to <file>',
       '  --out, -o <file>          write primary output JSON to <file>',
       '  --cost show               print the cost table',
-      '  --help                    show this message',
+      '  --help                    show this message'
     ].join('\n'),
   );
   process.exit(0);
@@ -45,10 +45,13 @@ async function main() {
   const irPath = arg('--ir');
   const out = arg('-o') || arg('--out');
   const emitUsed = arg('--emit-used-laws');
+
   const ir = irPath ? await readJsonFile(irPath, {}) : {};
   const primitives = extractPrimitivesFromIr(ir);
   const analysis = await analyzePrimitiveSequence(primitives);
+
   const initialPlan = buildPlan(ir, analysis);
+
   const planOnly = process.argv.includes('--plan-only') || !process.argv.includes('--apply');
   if (planOnly) {
     const planJson = stableStringify(initialPlan) + '\n';
@@ -65,7 +68,8 @@ async function main() {
     return;
   }
 
-  const applied = applyRewritePlan(ir, analysis.obligations);
+  // --apply flow
+  const applied = applyRewritePlan(ir, analysis.obligations || []);
   const appliedIr = applied.ir;
   const appliedJson = stableStringify(appliedIr) + '\n';
   process.stdout.write(appliedJson);
@@ -74,12 +78,13 @@ async function main() {
     await writeFile(out, appliedJson, 'utf8');
   }
 
+  // Post-apply analysis (for used_laws emission)
   const postPrimitives = extractPrimitivesFromIr(appliedIr);
   const postAnalysis = await analyzePrimitiveSequence(postPrimitives);
   const postPlan = buildPlan(appliedIr, postAnalysis);
   const usedLawUnion = ensureKnownLaws([
     ...initialPlan.used_laws,
-    ...applied.usedLaws,
+    ...(applied.usedLaws || []),
     ...postPlan.used_laws,
   ]);
 
@@ -90,6 +95,10 @@ async function main() {
   }
 }
 
+/**
+ * Build a deterministic plan from analyzer output, optionally
+ * augmenting with IR-level metadata (rewrites / used_laws / laws).
+ */
 function buildPlan(ir, analysis = {}) {
   const counts = [];
   const lawNames = [];
@@ -101,15 +110,11 @@ function buildPlan(ir, analysis = {}) {
   };
 
   if (Array.isArray(analysis.laws)) {
-    for (const law of analysis.laws) {
-      trackLaw(law);
-    }
+    for (const law of analysis.laws) trackLaw(law);
   }
   if (Array.isArray(analysis.obligations)) {
-    for (const obligation of analysis.obligations) {
-      if (obligation && typeof obligation.law === 'string') {
-        trackLaw(obligation.law);
-      }
+    for (const ob of analysis.obligations) {
+      if (ob && typeof ob.law === 'string') trackLaw(ob.law);
     }
   }
 
@@ -123,9 +128,9 @@ function buildPlan(ir, analysis = {}) {
   );
 
   let rewritesApplied = baseRewrites;
-  for (const value of counts) {
-    if (typeof value === 'number' && Number.isFinite(value) && value > rewritesApplied) {
-      rewritesApplied = value;
+  for (const v of counts) {
+    if (typeof v === 'number' && Number.isFinite(v) && v > rewritesApplied) {
+      rewritesApplied = v;
     }
   }
 
@@ -139,46 +144,33 @@ function collectMetadata(initialEntry, trackLaw, counts) {
   const stack = [initialEntry];
   while (stack.length > 0) {
     const { value, sourceKey, parentKey } = stack.pop();
-    if (value == null) {
-      continue;
-    }
+    if (value == null) continue;
+
     if (typeof value === 'number') {
       counts.push(value);
       continue;
     }
     if (typeof value === 'string') {
-      if (shouldTrackString(sourceKey, parentKey)) {
-        trackLaw(value);
-      }
+      if (shouldTrackString(sourceKey, parentKey)) trackLaw(value);
       continue;
     }
     if (Array.isArray(value)) {
-      if (sourceKey === 'rewrites') {
-        counts.push(value.length);
-      }
+      if (sourceKey === 'rewrites') counts.push(value.length);
       for (let i = value.length - 1; i >= 0; i -= 1) {
         stack.push({ value: value[i], sourceKey, parentKey: sourceKey });
       }
       continue;
     }
     if (typeof value === 'object') {
-      if (typeof value.count === 'number') {
-        counts.push(value.count);
-      }
-      if (typeof value.rewritesApplied === 'number') {
-        counts.push(value.rewritesApplied);
-      }
-      if (typeof value.law === 'string') {
-        trackLaw(value.law);
-      }
+      if (typeof value.count === 'number') counts.push(value.count);
+      if (typeof value.rewritesApplied === 'number') counts.push(value.rewritesApplied);
+      if (typeof value.law === 'string') trackLaw(value.law);
+
       if (sourceKey === 'laws' || sourceKey === 'used_laws' || sourceKey === 'rewrites') {
-        if (typeof value.name === 'string') {
-          trackLaw(value.name);
-        }
-        if (typeof value.id === 'string') {
-          trackLaw(value.id);
-        }
+        if (typeof value.name === 'string') trackLaw(value.name);
+        if (typeof value.id === 'string') trackLaw(value.id);
       }
+
       for (const [key, next] of Object.entries(value)) {
         stack.push({ value: next, sourceKey: key, parentKey: sourceKey });
       }
@@ -187,12 +179,8 @@ function collectMetadata(initialEntry, trackLaw, counts) {
 }
 
 function shouldTrackString(sourceKey, parentKey) {
-  if (sourceKey === 'laws' || sourceKey === 'used_laws' || sourceKey === 'rewrites') {
-    return true;
-  }
-  if (sourceKey === 'law') {
-    return true;
-  }
+  if (sourceKey === 'laws' || sourceKey === 'used_laws' || sourceKey === 'rewrites') return true;
+  if (sourceKey === 'law') return true;
   if ((sourceKey === 'id' || sourceKey === 'name') && (parentKey === 'laws' || parentKey === 'used_laws' || parentKey === 'rewrites')) {
     return true;
   }
@@ -203,13 +191,9 @@ function ensureKnownLaws(laws) {
   const seen = new Set();
   const unknown = new Set();
   for (const law of laws || []) {
-    if (typeof law !== 'string') {
-      continue;
-    }
+    if (typeof law !== 'string') continue;
     const trimmed = law.trim();
-    if (!trimmed) {
-      continue;
-    }
+    if (!trimmed) continue;
     if (!isKnownLaw(trimmed)) {
       unknown.add(trimmed);
       continue;

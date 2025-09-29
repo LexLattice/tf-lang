@@ -1,19 +1,27 @@
 node: E1-E2-Proofs
+
 phases:
   cp1_linkage:
     rules:
-      used_laws_present:
-        kind: process
-        cmd: node packages/tf-opt/bin/opt.mjs --ir out/0.4/ir/signing.ir.json --emit-used-laws out/0.5/proofs/used-laws.json
-        expect: { code: 0, contains: '"used_laws":' }
-      no_missing_laws:
-        kind: process
-        cmd: node scripts/proofs/ci-gate.mjs --check-used out/0.5/proofs/used-laws.json
-        expect: { code: 0, contains: '"missing": []' }
+      - used_laws_present
+      - no_missing_laws
 
   cp2_solver_gate:
     rules:
-      z3_optional_small:
-        kind: process
-        cmd: bash -lc 'command -v z3 >/dev/null 2>&1 || { echo "{\"ok\": true, \"skipped\": \"z3 not found\"}"; exit 0; }; node scripts/proofs/ci-gate.mjs --small samples/e1/small_flow.tf'
-        expect: { code: 0, contains: '"ok": true' }
+      - z3_optional_small
+
+rules:
+  used_laws_present:
+    kind: process
+    cmd: node packages/tf-opt/bin/opt.mjs --ir out/0.4/ir/signing.ir.json --emit-used-laws out/0.5/proofs/used-laws.json
+    expect: { code: 0, contains: '"used_laws":' }
+
+  no_missing_laws:
+    kind: process
+    cmd: node scripts/proofs/ci-gate.mjs --check-used out/0.5/proofs/used-laws.json
+    expect: { code: 0, contains: '"missing": []' }
+
+  z3_optional_small:
+    kind: process
+    cmd: node scripts/proofs/ci-gate.mjs --small samples/e1/small_flow.tf
+    expect: { code: 0, contains: '"ok": true' }

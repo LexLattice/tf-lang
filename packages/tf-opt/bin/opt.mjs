@@ -19,10 +19,20 @@ async function rewritePlan(ir) {
   const primitives = extractPrimitivesFromIr(ir);
   const analysis = await analyzePrimitiveSequence(primitives);
   const summary = analysis.summary ?? { laws: analysis.laws, rewritesApplied: analysis.rewritesApplied };
-  const usedLaws = Array.isArray(summary.laws) ? [...summary.laws] : [];
+  const usedLaws = Array.isArray(summary.laws)
+    ? summary.laws
+        .map((entry) => {
+          if (typeof entry === 'string') return entry;
+          if (entry && typeof entry === 'object' && typeof entry.law === 'string') return entry.law;
+          return '';
+        })
+        .filter((law) => law.length > 0)
+    : [];
+  usedLaws.sort((a, b) => a.localeCompare(b));
+  const rewrites = Array.isArray(analysis.obligations) ? analysis.obligations : [];
   return {
     primitiveSequence: analysis.primitives,
-    rewrites: analysis.obligations,
+    rewrites,
     rewritesApplied: summary.rewritesApplied ?? analysis.rewritesApplied,
     laws: usedLaws,
     used_laws: usedLaws,
@@ -48,9 +58,11 @@ async function main(){
   if (emitUsed) {
     const used = {
       used_laws: plan.used_laws,
-      rewrites: plan.rewrites,
       laws: plan.laws,
     };
+    if (Array.isArray(plan.rewrites) && plan.rewrites.length > 0) {
+      used.rewrites = plan.rewrites;
+    }
     await mkdir(dirname(emitUsed), { recursive: true });
     await writeFile(emitUsed, JSON.stringify(used, null, 2)+'\n');
   }

@@ -1,0 +1,24 @@
+node: B3-B4-Runtime
+phases:
+  cp3_parity:
+    rules:
+      parity_tests_green:
+        kind: process
+        cmd: pnpm -C packages/tf-run-wasm build && pnpm -C packages/tf-run-wasm test
+        expect: { code: 0, contains: "pass 2" }
+  cp4_cli:
+    rules:
+      cli_json_stdout:
+        kind: process
+        cmd: node packages/tf-run-wasm/bin/run-wasm.mjs --ir samples/b3/minimal.ir.json --json
+        expect:
+          code: 0
+          endsWith: "\n"
+      cli_out_file:
+        kind: process
+        cmd: node packages/tf-run-wasm/bin/run-wasm.mjs --flow samples/b3/minimal.tf --out out/mini/result.json
+        expect: { code: 0 }
+      cli_out_newline:
+        kind: process
+        cmd: node -e "const { readFileSync } = require('node:fs'); const body = readFileSync('out/mini/result.json', 'utf8'); if (!body.endsWith('\\n')) { console.error('missing newline'); process.exit(1); }"
+        expect: { code: 0 }

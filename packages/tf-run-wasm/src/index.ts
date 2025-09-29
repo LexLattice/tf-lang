@@ -52,9 +52,11 @@ type WasmBindings = {
 let cachedEngine: Engine | null = null;
 
 export interface RunOpts {
-  irPath: string;
+  irPath?: string;
+  irSource?: string;
   statusPath?: string;
   tracePath?: string;
+  disableWasm?: boolean;
 }
 
 function debugWarn(message: string, err?: unknown) {
@@ -137,7 +139,9 @@ async function loadWasmEngine(): Promise<Engine | null> {
   return null;
 }
 
-async function getEngine(): Promise<Engine> {
+async function getEngine(disable?: boolean): Promise<Engine> {
+  if (disable === true) return stubEngine;
+
   if (!cachedEngine) {
     const wasmEngine = await loadWasmEngine();
     cachedEngine = wasmEngine ?? stubEngine;
@@ -148,25 +152,32 @@ async function getEngine(): Promise<Engine> {
   return cachedEngine;
 }
 
+async function ensureParentDirectory(path: string) {
+  await mkdir(dirname(path), { recursive: true });
+}
+
 export async function run(opts: RunOpts) {
-  const ir = await readFile(opts.irPath, 'utf8').catch(() => '{}');
-  const engine = await getEngine();
+  const irJson = typeof opts.irSource === 'string'
+    ? opts.irSource
+    : await readFile(String(opts.irPath), 'utf8').catch(() => '{}');
+
+  const engine = await getEngine(opts.disableWasm);
 
   let result: EvalResult;
   try {
-    result = await engine(ir);
+    result = await engine(irJson);
   } catch (err) {
     debugWarn('Evaluation engine threw; using stub instead', err);
     cachedEngine = stubEngine;
-    result = await stubEngine(ir);
+    result = await stubEngine(irJson);
   }
 
   if (opts.statusPath) {
-    await mkdir(dirname(opts.statusPath), { recursive: true });
+    await ensureParentDirectory(opts.statusPath);
     await writeFile(opts.statusPath, JSON.stringify(result.status) + '\n', 'utf8');
   }
   if (opts.tracePath) {
-    await mkdir(dirname(opts.tracePath), { recursive: true });
+    await ensureParentDirectory(opts.tracePath);
     const body = result.trace.map(item => JSON.stringify(item)).join('\n') + '\n';
     await writeFile(opts.tracePath, body, 'utf8');
   }

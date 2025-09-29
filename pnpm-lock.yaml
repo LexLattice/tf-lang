@@ -552,6 +552,12 @@ importers:
         specifier: 5.9.2
         version: 5.9.2
 
+  packages/tf-trace:
+    devDependencies:
+      typescript:
+        specifier: 5.9.2
+        version: 5.9.2
+
   packages/utils:
     devDependencies:
       '@types/node':

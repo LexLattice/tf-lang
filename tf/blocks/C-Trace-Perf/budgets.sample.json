@@ -1,0 +1,9 @@
+{
+  "total_ms_max": 25,
+  "by_effect": {
+    "auth": { "ms_max": 5, "count_max": 4 },
+    "storage": { "ms_max": 20, "count_max": 3 },
+    "cache": { "ms_max": 2 },
+    "async": { "count_max": 2 }
+  }
+}

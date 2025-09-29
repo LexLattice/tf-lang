@@ -1,0 +1,11 @@
+id: C-Trace-Perf
+version: 0.45.0
+scope:
+  allow_paths:
+    - "packages/tf-trace/**"
+    - "tools/trace/**"
+    - "samples/c/**"
+    - "tf/blocks/C-Trace-Perf/**"
+    - "scripts/trace/**"
+notes:
+  - "Acceptance lives in rulebook.yml phases"

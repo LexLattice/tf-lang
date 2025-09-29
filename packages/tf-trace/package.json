@@ -1,0 +1,40 @@
+{
+  "name": "@tf-lang/tf-trace",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "tf-trace": "./bin/trace.mjs"
+  },
+  "exports": {
+    "./validate": {
+      "types": "./dist/lib/validate.d.ts",
+      "default": "./dist/lib/validate.js"
+    },
+    "./ingest": {
+      "types": "./dist/lib/ingest.d.ts",
+      "default": "./dist/lib/ingest.js"
+    },
+    "./summary": {
+      "types": "./dist/lib/summary.d.ts",
+      "default": "./dist/lib/summary.js"
+    },
+    "./budget": {
+      "types": "./dist/lib/budget.d.ts",
+      "default": "./dist/lib/budget.js"
+    }
+  },
+  "files": [
+    "bin/",
+    "dist/",
+    "src/schema/"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -w -p tsconfig.json",
+    "test": "pnpm run build && node --test tests"
+  },
+  "devDependencies": {
+    "typescript": "5.9.2"
+  }
+}

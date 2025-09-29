@@ -1,4 +1,4 @@
-// @tf-test kind=product area=trace speed=fast deps=node
+// @tf-test kind=node speed=fast deps=node
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -7,8 +7,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { spawn } from 'node:child_process';
 
-import { validateTraceRecord } from '../dist/lib/validate.js';
-import { ingestTraceFile } from '../dist/lib/ingest.js';
+import { ingestTraceFile, validateTraceRecord } from '../dist/index.js';
 
 const packageRoot = fileURLToPath(new URL('..', import.meta.url));
 
@@ -19,6 +18,27 @@ async function withTempDir(fn) {
   } finally {
     // best-effort cleanup handled by OS tmp management
   }
+}
+
+async function runCli(args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn('node', ['bin/trace.mjs', ...args], {
+      cwd: packageRoot,
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on('error', reject);
+    child.on('close', (code) => {
+      resolve({ code, stdout, stderr });
+    });
+  });
 }
 
 test('validation accepts valid records and optional ms', () => {
@@ -90,31 +110,9 @@ break`, ms: 2.75 }
     const jsonl = records.map((record) => JSON.stringify(record)).join('\n');
     await writeFile(tracePath, `${jsonl}\n`, 'utf8');
 
-    const status = await new Promise((resolve, reject) => {
-      const child = spawn('node', ['bin/trace.mjs', '--quiet', 'export', '--in', tracePath, '--csv', csvPath], {
-        cwd: packageRoot,
-        stdio: ['ignore', 'pipe', 'pipe']
-      });
-      let stdout = '';
-      let stderr = '';
-      child.stdout.on('data', (chunk) => {
-        stdout += chunk.toString();
-      });
-      child.stderr.on('data', (chunk) => {
-        stderr += chunk.toString();
-      });
-      child.on('close', (code) => {
-        if (code === 0) {
-          try {
-            resolve(JSON.parse(stdout.trim()));
-          } catch (error) {
-            reject(error);
-          }
-        } else {
-          reject(new Error(`CLI failed: ${stderr}`));
-        }
-      });
-    });
+    const result = await runCli(['--quiet', 'export', '--in', tracePath, '--csv', csvPath]);
+    assert.equal(result.code, 0);
+    const status = JSON.parse(result.stdout.trim());
 
     assert.equal(status.ok, true);
     assert.equal(status.kind, 'trace');
@@ -127,5 +125,36 @@ break`, ms: 2.75 }
     const newlineSubstring = `"line
 break"`;
     assert.ok(csv.includes(newlineSubstring));
+  });
+});
+
+test('budget --fail-on-violation controls exit code', async () => {
+  await withTempDir(async (dir) => {
+    const tracePath = join(dir, 'trace.jsonl');
+    const specPath = join(dir, 'budgets.json');
+    const records = [
+      { ts: 1, prim_id: 'p', effect: 'cpu', ms: 5 },
+      { ts: 2, prim_id: 'q', effect: 'cpu', ms: 4 }
+    ];
+    await writeFile(tracePath, `${records.map((r) => JSON.stringify(r)).join('\n')}\n`, 'utf8');
+    await writeFile(specPath, JSON.stringify({ total_ms_max: 1 }), 'utf8');
+
+    const withoutFlag = await runCli(['--quiet', 'budget', '--in', tracePath, '--spec', specPath]);
+    assert.equal(withoutFlag.code, 0);
+    const status = JSON.parse(withoutFlag.stdout.trim());
+    assert.equal(status.ok, false);
+
+    const withFlag = await runCli([
+      '--quiet',
+      '--fail-on-violation',
+      'budget',
+      '--in',
+      tracePath,
+      '--spec',
+      specPath
+    ]);
+    assert.notEqual(withFlag.code, 0);
+    const statusWithFlag = JSON.parse(withFlag.stdout.trim());
+    assert.equal(statusWithFlag.ok, false);
   });
 });

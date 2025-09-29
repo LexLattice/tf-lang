@@ -5,11 +5,28 @@ import { fileURLToPath } from 'node:url';
 const repoRoot = new URL('../..', import.meta.url);
 const cliPath = new URL('../../packages/tf-trace/bin/trace.mjs', import.meta.url);
 
+const argv = process.argv.slice(2);
+let traceInput = 'samples/c/trace_small.jsonl';
+let budgetSpec = 'samples/c/budgets.sample.json';
+
+for (let i = 0; i < argv.length; i++) {
+  const arg = argv[i];
+  if (arg === '--in') {
+    traceInput = argv[i + 1] ?? traceInput;
+    i += 1;
+    continue;
+  }
+  if (arg === '--budgets') {
+    budgetSpec = argv[i + 1] ?? budgetSpec;
+    i += 1;
+  }
+}
+
 const tasks = [
-  ['validate', '--in', 'samples/c/trace_small.jsonl'],
-  ['summary', '--in', 'samples/c/trace_small.jsonl', '--out', 'out/0.5/trace/summary.json'],
-  ['budget', '--in', 'samples/c/trace_small.jsonl', '--spec', 'tf/blocks/C-Trace-Perf/budgets.sample.json'],
-  ['export', '--in', 'samples/c/trace_small.jsonl', '--csv', 'out/0.5/trace/trace.csv'],
+  ['validate', '--in', traceInput],
+  ['summary', '--in', traceInput, '--out', 'out/0.5/trace/summary.json'],
+  ['budget', '--in', traceInput, '--budgets', budgetSpec],
+  ['export', '--in', traceInput, '--csv', 'out/0.5/trace/trace.csv'],
   ['export', '--summary', 'out/0.5/trace/summary.json', '--csv', 'out/0.5/trace/summary.csv']
 ];
 

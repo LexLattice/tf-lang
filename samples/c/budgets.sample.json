@@ -1,0 +1,7 @@
+{
+  "total_ms_max": 30,
+  "by_effect": {
+    "cpu": { "ms_max": 18, "count_max": 6 },
+    "io": { "count_max": 4 }
+  }
+}

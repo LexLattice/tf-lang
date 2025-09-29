@@ -7,6 +7,10 @@
     "tf-trace": "./bin/trace.mjs"
   },
   "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
     "./validate": {
       "types": "./dist/lib/validate.d.ts",
       "default": "./dist/lib/validate.js"
@@ -30,9 +34,10 @@
     "src/schema/"
   ],
   "scripts": {
+    "pretest": "node ./scripts/pretest-build.mjs",
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -w -p tsconfig.json",
-    "test": "pnpm run build && node --test tests"
+    "test": "node --test tests"
   },
   "devDependencies": {
     "typescript": "5.9.2"

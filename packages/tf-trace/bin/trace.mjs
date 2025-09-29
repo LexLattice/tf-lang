@@ -8,7 +8,10 @@ import { evaluateBudget } from '../dist/lib/budget.js';
 
 const context = {
   quiet: false,
-  summaryDecimals: parseSummaryDecimals()
+  summaryDecimals: parseSummaryDecimals(),
+  failOnViolation: false,
+  outputFormat: 'json',
+  grepPattern: undefined
 };
 
 function parseSummaryDecimals() {
@@ -30,7 +33,14 @@ function maybeRoundMs(value) {
 }
 
 function parseGlobalOptions(argv) {
-  const options = { quiet: false, json: true };
+  const options = {
+    quiet: false,
+    json: true,
+    help: false,
+    format: 'json',
+    failOnViolation: false,
+    grep: undefined
+  };
   const rest = [];
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -40,6 +50,32 @@ function parseGlobalOptions(argv) {
     }
     if (arg === '--json') {
       options.json = true;
+      continue;
+    }
+    if (arg === '--fail-on-violation') {
+      options.failOnViolation = true;
+      continue;
+    }
+    if (arg === '--format') {
+      const value = argv[i + 1];
+      if (value) {
+        options.format = value;
+        i += 1;
+      }
+      continue;
+    }
+    if (arg === '--grep') {
+      const value = argv[i + 1];
+      if (value) {
+        options.grep = value;
+        i += 1;
+      } else {
+        options.grep = '';
+      }
+      continue;
+    }
+    if (arg === '--help' || arg === '-h') {
+      options.help = true;
       continue;
     }
     rest.push(arg);
@@ -70,6 +106,43 @@ function printStatus(status) {
 function logDiagnostic(message, { force = false } = {}) {
   if (!force && context.quiet) return;
   process.stderr.write(`${message}\n`);
+}
+
+function printHelp() {
+  const lines = [
+    'tf-trace <command> [options]',
+    '',
+    'Commands:',
+    '  validate --in <trace.jsonl>',
+    '  summary  --in <trace.jsonl> --out <file>',
+    '  budget   (--in <trace.jsonl> | --summary-in <file>) --budgets <file>',
+    '  export   (--in <trace.jsonl> | --summary <file>) --csv <file>',
+    '',
+    'Options:',
+    '  --in <trace.jsonl>          Trace input for validate/summary/budget/export',
+    '  --budgets <file>            Budget specification JSON (alias: --spec)',
+    '  --grep <re>                 Filter budget reasons by regular expression',
+    '  --out <file>                Output path for summary JSON',
+    '  --csv <file>                Output path for export CSV',
+    '  --fail-on-violation         Exit with non-zero status when budgets fail',
+    '  --format json|text          Output format (json only)',
+    '  --quiet                     Suppress diagnostics',
+    '  --help                      Show this message'
+  ];
+  process.stdout.write(`${lines.join('\n')}\n`);
+}
+
+function compileGrep(pattern) {
+  if (pattern === undefined) return undefined;
+  try {
+    return new RegExp(pattern, 'u');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logDiagnostic(`invalid --grep pattern: ${message}`, { force: true });
+    printStatus({ ok: false, error: `invalid --grep pattern: ${message}` });
+    process.exitCode = 1;
+    return undefined;
+  }
 }
 
 function formatNumber(value) {
@@ -218,10 +291,46 @@ async function loadSummaryFromFile(path) {
   }
 }
 
+function validateBudgetSpecShape(spec) {
+  const errors = [];
+  if (!spec || typeof spec !== 'object' || Array.isArray(spec)) {
+    errors.push('spec must be an object');
+    return errors;
+  }
+
+  const allowedTop = new Set(['total_ms_max', 'by_effect']);
+  for (const key of Object.keys(spec)) {
+    if (!allowedTop.has(key)) {
+      errors.push(`unexpected top-level key: ${key}`);
+    }
+  }
+
+  if (spec.by_effect !== undefined) {
+    if (!spec.by_effect || typeof spec.by_effect !== 'object' || Array.isArray(spec.by_effect)) {
+      errors.push('by_effect must be an object');
+    } else {
+      for (const [effect, rule] of Object.entries(spec.by_effect)) {
+        if (!rule || typeof rule !== 'object' || Array.isArray(rule)) {
+          errors.push(`by_effect.${effect} must be an object`);
+          continue;
+        }
+        const allowedRuleKeys = new Set(['ms_max', 'count_max']);
+        for (const key of Object.keys(rule)) {
+          if (!allowedRuleKeys.has(key)) {
+            errors.push(`unexpected key in by_effect.${effect}: ${key}`);
+          }
+        }
+      }
+    }
+  }
+
+  return errors;
+}
+
 async function runBudget(args) {
   const input = getOption(args, '--in');
   const summaryInput = getOption(args, '--summary-in');
-  const specPath = getOption(args, '--spec');
+  const specPath = getOption(args, '--spec') ?? getOption(args, '--budgets');
 
   if (!specPath) {
     logDiagnostic('missing --spec', { force: true });
@@ -287,10 +396,20 @@ async function runBudget(args) {
     return;
   }
 
+  const specErrors = validateBudgetSpecShape(spec);
+  if (specErrors.length > 0) {
+    const message = `invalid budget spec: ${specErrors.join('; ')}`;
+    logDiagnostic(message, { force: true });
+    printStatus({ ok: false, error: message, ...baseStatus });
+    process.exitCode = 2;
+    return;
+  }
+
   const result = evaluateBudget(summary, spec);
+  const reasons = context.grepPattern ? result.reasons.filter((reason) => context.grepPattern.test(reason)) : result.reasons;
   const status = {
     ok: result.ok,
-    reasons: result.reasons,
+    reasons,
     total: summary.total,
     ms_total: maybeRoundMs(summary.ms_total),
     ...baseStatus,
@@ -300,7 +419,9 @@ async function runBudget(args) {
   if (!result.ok) {
     logDiagnostic('budget check failed', { force: true });
     printStatus(status);
-    process.exitCode = 1;
+    if (context.failOnViolation) {
+      process.exitCode = 1;
+    }
     return;
   }
 
@@ -368,6 +489,27 @@ async function main() {
   const argv = process.argv.slice(2);
   const { options, rest } = parseGlobalOptions(argv);
   context.quiet = options.quiet;
+  context.failOnViolation = options.failOnViolation;
+  context.outputFormat = options.format ?? 'json';
+
+  if (options.help || rest.length === 0) {
+    printHelp();
+    return;
+  }
+
+  if (context.outputFormat !== 'json') {
+    const message = `unsupported format: ${context.outputFormat}`;
+    logDiagnostic(message, { force: true });
+    printStatus({ ok: false, error: message });
+    process.exitCode = 1;
+    return;
+  }
+
+  const grepPattern = compileGrep(options.grep);
+  if (options.grep !== undefined && grepPattern === undefined && process.exitCode) {
+    return;
+  }
+  context.grepPattern = grepPattern;
   const command = rest[0];
   const commandArgs = rest.slice(1);
 

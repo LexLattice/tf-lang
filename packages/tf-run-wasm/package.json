@@ -4,9 +4,21 @@
   "type": "module",
   "private": true,
   "bin": { "tf-run-wasm": "./bin/cli.mjs" },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "bin/",
+    "dist/"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "tsc -w -p tsconfig.json"
+    "dev": "tsc -w -p tsconfig.json",
+    "test": "node --test tests/*.test.mjs"
   },
   "devDependencies": { "typescript": "5.9.2" }
 }

@@ -32,6 +32,10 @@ const DEFAULT_TRACE_IDS: &[&str] = &[
     "tf:pure/identity@1",
 ];
 
+pub fn default_trace_ids() -> Vec<&'static str> {
+    DEFAULT_TRACE_IDS.to_vec()
+}
+
 pub fn evaluate(ir_json: &str) -> EvalResult {
     let bytes = ir_json.as_bytes().len();
     let trace = extract_trace(ir_json);
@@ -73,10 +77,10 @@ fn extract_trace(ir_json: &str) -> Vec<EvalTraceItem> {
 }
 
 fn stub_trace() -> Vec<EvalTraceItem> {
-    DEFAULT_TRACE_IDS
-        .iter()
+    default_trace_ids()
+        .into_iter()
         .map(|id| EvalTraceItem {
-            prim_id: (*id).to_string(),
+            prim_id: id.to_string(),
         })
         .collect()
 }
@@ -97,7 +101,7 @@ mod tests {
     fn stub_for_invalid_ir() {
         let result = extract_trace("not json");
         let ids: Vec<_> = result.into_iter().map(|t| t.prim_id).collect();
-        let expected: Vec<_> = DEFAULT_TRACE_IDS.iter().map(|s| s.to_string()).collect();
+        let expected: Vec<_> = default_trace_ids().into_iter().map(str::to_string).collect();
         assert_eq!(ids, expected);
     }
 }

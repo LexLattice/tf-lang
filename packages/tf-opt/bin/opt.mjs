@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { writeFile, mkdir } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { readJsonFile, isKnownLaw } from '../lib/data.mjs';
 import { extractPrimitivesFromIr, analyzePrimitiveSequence } from '../lib/rewrite-detect.mjs';
 import {
@@ -9,6 +10,18 @@ import {
   buildUsedLawManifest,
 } from '../lib/utils.mjs';
 let applyRewritePlanCached = null;
+
+const PLAN_STRINGIFY_OPTIONS = {
+  keyOrder: {
+    '': ['rewrites_applied', 'used_laws', 'rewrites'],
+  },
+};
+
+const MANIFEST_STRINGIFY_OPTIONS = {
+  keyOrder: {
+    '': ['used_laws', 'rewrites'],
+  },
+};
 
 const arg = (k) => {
   const i = process.argv.indexOf(k);
@@ -70,7 +83,7 @@ async function main() {
 
   const planOnly = process.argv.includes('--plan-only') || !process.argv.includes('--apply');
   if (planOnly) {
-    const planJson = stableStringify(initialPlan) + '\n';
+    const planJson = stableStringify(initialPlan, PLAN_STRINGIFY_OPTIONS) + '\n';
     process.stdout.write(planJson);
     if (out) {
       await mkdir(dirname(out), { recursive: true });
@@ -80,7 +93,7 @@ async function main() {
       const manifest = buildUsedLawManifest({
         plans: [initialPlan],
       });
-      const used = stableStringify(manifest) + '\n';
+      const used = stableStringify(manifest, MANIFEST_STRINGIFY_OPTIONS) + '\n';
       await mkdir(dirname(emitUsed), { recursive: true });
       await writeFile(emitUsed, used, 'utf8');
     }
@@ -107,7 +120,7 @@ async function main() {
       plans: [initialPlan, postPlan],
       extras: [applied.usedLaws || []],
     });
-    const used = stableStringify(manifest) + '\n';
+    const used = stableStringify(manifest, MANIFEST_STRINGIFY_OPTIONS) + '\n';
     await mkdir(dirname(emitUsed), { recursive: true });
     await writeFile(emitUsed, used, 'utf8');
   }
@@ -118,113 +131,162 @@ async function main() {
  * augmenting with IR-level metadata (rewrites / used_laws / laws).
  */
 function buildPlan(ir, analysis = {}) {
-  const counts = [];
-  const lawNames = [];
+  const analysisMeta = collectPlanMetadata(analysis);
+  const irMeta = collectPlanMetadata(ir);
 
-  const rewrites = collectRewritesFromAnalysis(analysis);
+  const combinedRewrites = normalizeRewriteEntries([
+    ...analysisMeta.rewrites,
+    ...irMeta.rewrites,
+  ]);
 
-  const trackLaw = (name) => {
-    if (typeof name === 'string') {
-      lawNames.push(name);
-    }
-  };
+  const plan = {};
+  plan.rewrites_applied = resolveRewriteCount([
+    ...analysisMeta.counts,
+    ...irMeta.counts,
+  ]);
+  plan.used_laws = ensureKnownLaws([
+    ...analysisMeta.laws,
+    ...irMeta.laws,
+  ]);
 
-  if (Array.isArray(analysis.laws)) {
-    for (const law of analysis.laws) trackLaw(law);
-  }
-  if (Array.isArray(analysis.obligations)) {
-    for (const ob of analysis.obligations) {
-      if (ob && typeof ob.law === 'string') trackLaw(ob.law);
-    }
-  }
-
-  if (ir && typeof ir === 'object') {
-    collectMetadata({ value: ir, sourceKey: 'root', parentKey: '' }, trackLaw, counts);
-  }
-
-  const baseRewrites = Math.max(
-    typeof analysis.rewritesApplied === 'number' ? analysis.rewritesApplied : 0,
-    Array.isArray(analysis.obligations) ? analysis.obligations.length : 0,
-  );
-
-  let rewritesApplied = baseRewrites;
-  for (const v of counts) {
-    if (typeof v === 'number' && Number.isFinite(v) && v > rewritesApplied) {
-      rewritesApplied = v;
-    }
-  }
-
-  const plan = {
-    rewrites_applied: rewritesApplied,
-    used_laws: ensureKnownLaws(lawNames),
-  };
-
-  if (rewrites.length > 0) {
-    plan.rewrites = rewrites;
+  if (combinedRewrites.length > 0) {
+    plan.rewrites = combinedRewrites;
   }
 
   return plan;
 }
 
-function collectRewritesFromAnalysis(analysis = {}) {
-  if (!analysis || typeof analysis !== 'object') return [];
-
-  const entries = [];
-  if (Array.isArray(analysis.obligations)) {
-    entries.push(...analysis.obligations);
-  }
-  if (Array.isArray(analysis.rewrites)) {
-    entries.push(...analysis.rewrites);
+function collectPlanMetadata(source) {
+  if (!source || typeof source !== 'object') {
+    return { laws: [], rewrites: [], counts: [] };
   }
 
-  return normalizeRewriteEntries(entries);
-}
+  const laws = [];
+  const rewrites = [];
+  const counts = [];
 
-function collectMetadata(initialEntry, trackLaw, counts) {
-  const stack = [initialEntry];
+  const LAW_COLLECTION_KEYS = new Set(['laws', 'used_laws', 'usedLaws']);
+  const REWRITE_ARRAY_KEYS = new Set(['rewrites', 'obligations']);
+  const REWRITE_COUNT_KEYS = new Set(['rewrites_applied', 'rewritesApplied']);
+
+  const pushLaw = (law) => {
+    if (typeof law !== 'string') return null;
+    const trimmed = law.trim();
+    if (!trimmed) return null;
+    laws.push(trimmed);
+    return trimmed;
+  };
+
+  const pushRewrite = (law, rewrite) => {
+    const normalizedLaw = pushLaw(law);
+    if (!normalizedLaw || typeof rewrite !== 'string') return;
+    const normalizedRewrite = rewrite.trim();
+    if (!normalizedRewrite) return;
+    rewrites.push({ law: normalizedLaw, rewrite: normalizedRewrite });
+  };
+
+  const enqueueIterable = (iterable, key) => {
+    if (!iterable) return;
+    for (const item of iterable) {
+      if (typeof item === 'string') {
+        pushLaw(item);
+      } else if (item && typeof item === 'object') {
+        for (const candidate of ['law', 'id', 'name']) {
+          if (typeof item[candidate] === 'string') {
+            pushLaw(item[candidate]);
+          }
+        }
+        if (typeof item.rewrite === 'string' && typeof item.law === 'string') {
+          pushRewrite(item.law, item.rewrite);
+        }
+      }
+    }
+  };
+
+  const stack = [{ value: source, key: '', parentKey: '' }];
   while (stack.length > 0) {
-    const { value, sourceKey, parentKey } = stack.pop();
+    const { value, key, parentKey } = stack.pop();
     if (value == null) continue;
 
-    if (typeof value === 'number') {
-      counts.push(value);
-      continue;
-    }
     if (typeof value === 'string') {
-      if (shouldTrackString(sourceKey, parentKey)) trackLaw(value);
-      continue;
-    }
-    if (Array.isArray(value)) {
-      if (sourceKey === 'rewrites') counts.push(value.length);
-      for (let i = value.length - 1; i >= 0; i -= 1) {
-        stack.push({ value: value[i], sourceKey, parentKey: sourceKey });
+      if (key === 'law' || LAW_COLLECTION_KEYS.has(parentKey)) {
+        pushLaw(value);
+      } else if ((key === 'id' || key === 'name') && LAW_COLLECTION_KEYS.has(parentKey)) {
+        pushLaw(value);
       }
       continue;
     }
+
+    if (typeof value === 'number') {
+      if (REWRITE_COUNT_KEYS.has(key) || (key === 'count' && REWRITE_ARRAY_KEYS.has(parentKey))) {
+        counts.push(value);
+      }
+      continue;
+    }
+
+    if (Array.isArray(value) || value instanceof Set) {
+      const entries = value instanceof Set ? Array.from(value) : value;
+      if (REWRITE_ARRAY_KEYS.has(key)) {
+        counts.push(entries.length);
+      }
+      if (LAW_COLLECTION_KEYS.has(key)) {
+        enqueueIterable(entries, key);
+      }
+      for (let i = entries.length - 1; i >= 0; i -= 1) {
+        stack.push({ value: entries[i], key: '', parentKey: key });
+      }
+      continue;
+    }
+
     if (typeof value === 'object') {
-      if (typeof value.count === 'number') counts.push(value.count);
-      if (typeof value.rewritesApplied === 'number') counts.push(value.rewritesApplied);
-      if (typeof value.law === 'string') trackLaw(value.law);
-
-      if (sourceKey === 'laws' || sourceKey === 'used_laws' || sourceKey === 'rewrites') {
-        if (typeof value.name === 'string') trackLaw(value.name);
-        if (typeof value.id === 'string') trackLaw(value.id);
+      if (typeof value.law === 'string' && typeof value.rewrite === 'string') {
+        pushRewrite(value.law, value.rewrite);
       }
-
-      for (const [key, next] of Object.entries(value)) {
-        stack.push({ value: next, sourceKey: key, parentKey: sourceKey });
+      if (typeof value.rewrites_applied === 'number') {
+        counts.push(value.rewrites_applied);
+      }
+      if (typeof value.rewritesApplied === 'number') {
+        counts.push(value.rewritesApplied);
+      }
+      if (LAW_COLLECTION_KEYS.has(key)) {
+        enqueueIterable([value], key);
+      }
+      for (const [childKey, childValue] of Object.entries(value)) {
+        if (LAW_COLLECTION_KEYS.has(childKey)) {
+          if (Array.isArray(childValue) || childValue instanceof Set) {
+            enqueueIterable(childValue instanceof Set ? Array.from(childValue) : childValue, childKey);
+          } else if (childValue && typeof childValue === 'object') {
+            for (const candidate of ['law', 'id', 'name']) {
+              if (typeof childValue[candidate] === 'string') {
+                pushLaw(childValue[candidate]);
+              }
+            }
+          } else if (typeof childValue === 'string') {
+            pushLaw(childValue);
+          }
+        }
+        if (REWRITE_ARRAY_KEYS.has(childKey) && Array.isArray(childValue)) {
+          counts.push(childValue.length);
+        }
+        if (REWRITE_COUNT_KEYS.has(childKey) && typeof childValue === 'number') {
+          counts.push(childValue);
+        }
+        stack.push({ value: childValue, key: childKey, parentKey: key });
       }
     }
   }
+
+  return { laws, rewrites, counts };
 }
 
-function shouldTrackString(sourceKey, parentKey) {
-  if (sourceKey === 'laws' || sourceKey === 'used_laws' || sourceKey === 'rewrites') return true;
-  if (sourceKey === 'law') return true;
-  if ((sourceKey === 'id' || sourceKey === 'name') && (parentKey === 'laws' || parentKey === 'used_laws' || parentKey === 'rewrites')) {
-    return true;
+function resolveRewriteCount(values) {
+  let max = 0;
+  for (const value of values) {
+    if (typeof value !== 'number') continue;
+    if (!Number.isFinite(value)) continue;
+    if (value > max) max = value;
   }
-  return false;
+  return max;
 }
 
 function ensureKnownLaws(laws) {
@@ -243,10 +305,18 @@ function ensureKnownLaws(laws) {
   if (unknown.size > 0) {
     throw new Error(`unknown law(s): ${Array.from(unknown).sort().join(', ')}`);
   }
-  return Array.from(seen).sort();
+  return Array.from(seen).sort((a, b) => a.localeCompare(b));
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
+export { buildPlan };
+
+const invokedDirectly =
+  typeof process.argv[1] === 'string' &&
+  import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
+
+if (invokedDirectly) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  });
+}

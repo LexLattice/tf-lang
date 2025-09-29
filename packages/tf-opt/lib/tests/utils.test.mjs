@@ -32,6 +32,28 @@ test('stableStringify sorts object keys recursively', () => {
   assert.equal(stableStringify(input), expected);
 });
 
+test('stableStringify respects explicit key ordering priorities', () => {
+  const input = {
+    gamma: { beta: 2, alpha: 1 },
+    beta: 1,
+    alpha: 0,
+  };
+  const expected = [
+    '{',
+    '  "beta": 1,',
+    '  "alpha": 0,',
+    '  "gamma": {',
+    '    "alpha": 1,',
+    '    "beta": 2',
+    '  }',
+    '}',
+  ].join('\n');
+  assert.equal(
+    stableStringify(input, { keyOrder: { '': ['beta', 'alpha'], gamma: ['alpha', 'beta'] } }),
+    expected,
+  );
+});
+
 test('normalizeRewriteEntries dedupes and sorts by rewrite then law', () => {
   const entries = [
     { law: COMMUTE_LAW, rewrite: 'swap-hash-emit' },

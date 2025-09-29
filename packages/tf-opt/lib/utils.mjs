@@ -1,21 +1,59 @@
 import { isKnownLaw } from './data.mjs';
 
-function normalizeForStableStringify(value) {
+function defaultKeyComparator(a, b) {
+  return a.localeCompare(b);
+}
+
+function normalizeForStableStringify(value, state, path) {
   if (Array.isArray(value)) {
-    return value.map(normalizeForStableStringify);
+    return value.map((entry) => normalizeForStableStringify(entry, state, path));
   }
   if (value && typeof value === 'object') {
+    const keys = Object.keys(value);
+    const priorityMap = state.keyOrder.get(path || '');
+    keys.sort((a, b) => {
+      const aPriority = priorityMap?.get(a) ?? Number.POSITIVE_INFINITY;
+      const bPriority = priorityMap?.get(b) ?? Number.POSITIVE_INFINITY;
+      if (aPriority !== bPriority) {
+        return aPriority - bPriority;
+      }
+      return state.comparator(a, b);
+    });
     const next = {};
-    for (const key of Object.keys(value).sort()) {
-      next[key] = normalizeForStableStringify(value[key]);
+    for (const key of keys) {
+      const nextPath = path ? `${path}.${key}` : key;
+      next[key] = normalizeForStableStringify(value[key], state, nextPath);
     }
     return next;
   }
   return value;
 }
 
-export function stableStringify(value) {
-  return JSON.stringify(normalizeForStableStringify(value), null, 2);
+export function stableStringify(value, options = {}) {
+  const state = {
+    comparator: typeof options.comparator === 'function' ? options.comparator : defaultKeyComparator,
+    keyOrder: new Map(),
+  };
+
+  if (options.keyOrder && typeof options.keyOrder === 'object') {
+    for (const [path, order] of Object.entries(options.keyOrder)) {
+      if (!order) continue;
+      if (Array.isArray(order)) {
+        const map = new Map();
+        for (let i = 0; i < order.length; i += 1) {
+          const key = order[i];
+          if (typeof key === 'string' && key.length > 0 && !map.has(key)) {
+            map.set(key, i);
+          }
+        }
+        state.keyOrder.set(path, map);
+      } else if (order instanceof Map) {
+        state.keyOrder.set(path, order);
+      }
+    }
+  }
+
+  return JSON.stringify(normalizeForStableStringify(value, state, ''), null, 2);
 }
 
 export function normalizeRewriteEntries(entries = []) {

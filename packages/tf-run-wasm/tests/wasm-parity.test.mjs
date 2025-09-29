@@ -1,3 +1,5 @@
+// @tf-test kind: infra speed: fast deps: node
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { execFile } from 'node:child_process';

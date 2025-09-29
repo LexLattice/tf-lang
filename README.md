@@ -256,6 +256,17 @@ out/0.4/                     # deterministic artifacts (ignored by git)
 
 ---
 
+## Jules 0.5 DX bundle
+
+* Review notes live under `out/0.5/review-jules/` (tracks A–F plus summary/issues).
+* To share as an archive, generate it locally instead of committing the tarball:
+
+  ```bash
+  tar -czf out/0.5/review-jules.tar.gz -C out/0.5 review-jules
+  ```
+
+---
+
 ## Contributing
 
 * PRs must produce **deterministic artifacts** (same seed ⇒ same hashes).

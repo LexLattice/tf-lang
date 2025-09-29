@@ -22,6 +22,7 @@ export function wrapWithAuthorize(src, range = {}) {
   const after = src.slice(safeEnd);
 
   const trailingNewline = /\r?\n$/.test(inside);
+  const sourceHasFinalNewline = /\r?\n$/.test(src);
   const normalizedInside = inside.replace(/\r\n/g, '\n');
   const lines = normalizedInside.split('\n');
 
@@ -39,19 +40,19 @@ export function wrapWithAuthorize(src, range = {}) {
     if (!line.trim()) {
       return '';
     }
-    let normalized;
-    if (baseIndent && line.startsWith(baseIndent)) {
-      normalized = line.slice(baseIndent.length);
-    } else {
-      normalized = line.trimStart();
-    }
-    return `${baseIndent}  ${normalized}`;
+    const indentMatch = line.match(/^(\s*)/);
+    const indent = indentMatch ? indentMatch[1] ?? '' : '';
+    const remainder = line.slice(indent.length);
+    const relative = indent.startsWith(baseIndent) ? indent.slice(baseIndent.length) : '';
+    return `${baseIndent}  ${relative}${remainder}`;
   });
 
   const indentedBody = indentedLines.join('\n');
   const bodySection = indentedBody ? `${indentedBody}\n` : '';
   let newText = `${baseIndent}authorize{ scope: "" } {\n${bodySection}${baseIndent}}`;
-  if (trailingNewline) {
+  const touchesEOF = safeEnd === src.length;
+  const shouldAddFinalNewline = trailingNewline || (touchesEOF && sourceHasFinalNewline);
+  if (shouldAddFinalNewline && !newText.endsWith('\n')) {
     newText += '\n';
   }
 

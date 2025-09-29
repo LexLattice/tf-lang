@@ -37,6 +37,22 @@ const CASES = [
     expectedReplacement:
       '    authorize{ scope: "" } {\n      delta();\n    }',
   },
+  {
+    name: 'keeps file-final newline when wrapping at EOF',
+    before: 'output "example" {\n',
+    selection: '  epsilon();\n',
+    after: '',
+    expectedReplacement:
+      '  authorize{ scope: "" } {\n    epsilon();\n  }\n',
+  },
+  {
+    name: 'does not invent newline when original file lacked one',
+    before: 'output "raw" {\n',
+    selection: '  zeta();',
+    after: '',
+    expectedReplacement:
+      '  authorize{ scope: "" } {\n    zeta();\n  }',
+  },
 ];
 
 for (const { name, before, selection, after, expectedReplacement } of CASES) {

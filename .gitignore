@@ -94,3 +94,4 @@ out
 .github/.secrets
 .github/.vars
 /bin/
+packages/tf-trace/dist/

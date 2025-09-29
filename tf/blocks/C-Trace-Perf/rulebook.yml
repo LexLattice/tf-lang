@@ -1,0 +1,48 @@
+phases:
+  cp1_schema:
+    rules: [trace_validate_ok]
+  cp2_summary:
+    rules: [trace_summary_ok]
+  cp3_budget:
+    rules: [trace_budget_ok]
+  cp4_export:
+    rules: [trace_export_csv_ok]
+  cp5_perf_gate:
+    rules: [trace_perf_gate_ok, banned_tokens_hard]
+rules:
+  trace_validate_ok:
+    kind: process
+    cmd: node packages/tf-trace/bin/trace.mjs validate --in samples/c/trace_small.jsonl
+    expect:
+      code: 0
+      contains: '"ok": true'
+  trace_summary_ok:
+    kind: process
+    cmd: node packages/tf-trace/bin/trace.mjs summary --in samples/c/trace_small.jsonl --out out/0.5/trace/summary.json
+    expect:
+      code: 0
+      contains: '"ok": true'
+  trace_budget_ok:
+    kind: process
+    cmd: node packages/tf-trace/bin/trace.mjs budget --in samples/c/trace_small.jsonl --spec tf/blocks/C-Trace-Perf/budgets.sample.json
+    expect:
+      code: 0
+      contains: '"ok": true'
+  trace_export_csv_ok:
+    kind: process
+    cmd: node packages/tf-trace/bin/trace.mjs export --in samples/c/trace_small.jsonl --csv out/0.5/trace/trace.csv
+    expect:
+      code: 0
+      contains: 'trace.csv'
+  trace_perf_gate_ok:
+    kind: process
+    cmd: node packages/tf-trace/bin/trace.mjs budget --in samples/c/trace_small.jsonl --spec tf/blocks/C-Trace-Perf/budgets.sample.json
+    expect:
+      code: 0
+      contains: '"ok": true'
+  banned_tokens_hard:
+    kind: diff_scan
+    cmd: TF_STRICT=1 cat "$DIFF_PATH" | node tools/tf-checker/scan-diff.mjs --config meta/checker.yml --diff -
+    expect:
+      ok: true
+      contains: '"token_warnings": []'

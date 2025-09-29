@@ -97,13 +97,43 @@ function updateTraceIdsFromWasm(wasm: WasmBindings) {
   }
   try {
     const raw = wasm.default_trace_ids();
-    const values = Array.from(raw as ArrayLike<unknown>, value => String(value));
-    if (values.length > 0) {
-      cachedTraceIds = values;
-    }
+    const normalized = normalizeTraceIds(raw);
+    cachedTraceIds = normalized.length ? normalized : FALLBACK_TRACE_IDS;
   } catch (err) {
     debugWarn('Failed to read default trace ids from WASM', err);
   }
+}
+
+function normalizeTraceIds(raw: unknown): string[] {
+  const values = collectTraceCandidates(raw);
+  const coerced = values
+    .map(value => String(value).trim())
+    .filter(value => value.length > 0);
+  const unique = Array.from(new Set(coerced));
+  return unique.slice(0, 100);
+}
+
+function collectTraceCandidates(raw: unknown): unknown[] {
+  if (raw == null) return [];
+  if (typeof raw === 'string') return [raw];
+  if (Array.isArray(raw)) return raw;
+  if (isIterable(raw)) return Array.from(raw as Iterable<unknown>);
+  if (isArrayLike(raw)) return Array.from(raw as ArrayLike<unknown>);
+  return [];
+}
+
+function isIterable(value: unknown): value is Iterable<unknown> {
+  if (value == null) return false;
+  if (typeof value === 'string') return false;
+  return typeof (value as { [Symbol.iterator]?: unknown })[Symbol.iterator] === 'function';
+}
+
+function isArrayLike(value: unknown): value is ArrayLike<unknown> {
+  if (value == null) return false;
+  if (typeof value === 'function') return false;
+  if (typeof value === 'string') return false;
+  const length = (value as { length?: unknown }).length;
+  return typeof length === 'number' && Number.isFinite(length) && length >= 0;
 }
 
 async function loadWasmEngine(): Promise<Engine | null> {

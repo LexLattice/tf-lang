@@ -1,0 +1,13 @@
+id: F-DevEx-Release
+version: 0.45.0
+scope:
+  allow_paths:
+    - .github/actions/setup-pnpm/**
+    - .github/workflows/release.yml
+    - tools/ci/**
+    - tools/release/**
+    - scripts/docs/**
+    - tf/blocks/F-DevEx-Release/**
+    - docs/release/**
+notes:
+  - Acceptance lives in rulebook.yml phases

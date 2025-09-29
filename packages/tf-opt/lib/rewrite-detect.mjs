@@ -39,18 +39,26 @@ function isEmitMetricHashPair(a, b) {
 }
 
 export async function analyzePrimitiveSequence(seq) {
-  let rewritesApplied = 0;
-  const laws = new Set();
+  const obligations = [];
+  const lawSet = new Set();
 
   for (let i = 1; i < seq.length; i += 1) {
-    if (isEmitMetricHashPair(seq[i - 1], seq[i])) {
-      rewritesApplied += 1;
-      laws.add(COMMUTE_EMIT_METRIC_LAW);
+    const prev = seq[i - 1];
+    const curr = seq[i];
+    if (isEmitMetricHashPair(prev, curr)) {
+      obligations.push({
+        law: COMMUTE_EMIT_METRIC_LAW,
+        span: [i - 1, i],
+        primitives: [prev, curr],
+      });
+      lawSet.add(COMMUTE_EMIT_METRIC_LAW);
     }
   }
 
   return {
-    rewritesApplied,
-    laws: Array.from(laws).sort(),
+    primitives: [...seq],
+    obligations,
+    rewritesApplied: obligations.length,
+    laws: Array.from(lawSet).sort(),
   };
 }

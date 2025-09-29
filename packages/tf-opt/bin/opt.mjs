@@ -3,6 +3,7 @@ import { writeFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { readJsonFile, isKnownLaw } from '../lib/data.mjs';
 import { extractPrimitivesFromIr, analyzePrimitiveSequence } from '../lib/rewrite-detect.mjs';
+import { applyRewritePlan, stableStringify } from '../lib/plan-apply.mjs';
 
 const arg = (k) => {
   const index = process.argv.indexOf(k);
@@ -10,7 +11,19 @@ const arg = (k) => {
 };
 
 if (process.argv.includes('--help')) {
-  console.log('tf-opt --ir <file> [-o out.json] [--cost show] [--emit-used-laws <file>]');
+  console.log(
+    [
+      'Usage: tf-opt --ir <file> [--plan-only | --apply --out <file>] [options]',
+      '',
+      'Options:',
+      '  --plan-only               analyze and emit the rewrite plan (default)',
+      '  --apply                   apply detected rewrites and emit normalized IR',
+      '  --emit-used-laws <file>   write the used laws JSON to <file>',
+      '  --out, -o <file>          write primary output JSON to <file>',
+      '  --cost show               print the cost table',
+      '  --help                    show this message',
+    ].join('\n'),
+  );
   process.exit(0);
 }
 
@@ -35,15 +48,41 @@ async function main() {
   const ir = irPath ? await readJsonFile(irPath, {}) : {};
   const primitives = extractPrimitivesFromIr(ir);
   const analysis = await analyzePrimitiveSequence(primitives);
-  const plan = buildPlan(ir, analysis);
-  const planJson = JSON.stringify(plan, null, 2) + '\n';
-  process.stdout.write(planJson);
+  const planOnly = process.argv.includes('--plan-only') || !process.argv.includes('--apply');
+  if (planOnly) {
+    const plan = buildPlan(ir, analysis);
+    const planJson = stableStringify(plan) + '\n';
+    process.stdout.write(planJson);
+    if (out) {
+      await mkdir(dirname(out), { recursive: true });
+      await writeFile(out, planJson, 'utf8');
+    }
+    if (emitUsed) {
+      const used = stableStringify({ used_laws: plan.used_laws }) + '\n';
+      await mkdir(dirname(emitUsed), { recursive: true });
+      await writeFile(emitUsed, used, 'utf8');
+    }
+    return;
+  }
+
+  const applied = applyRewritePlan(ir, analysis.obligations);
+  const appliedIr = applied.ir;
+  const appliedJson = stableStringify(appliedIr) + '\n';
+  process.stdout.write(appliedJson);
   if (out) {
     await mkdir(dirname(out), { recursive: true });
-    await writeFile(out, planJson, 'utf8');
+    await writeFile(out, appliedJson, 'utf8');
   }
+
+  const postPrimitives = extractPrimitivesFromIr(appliedIr);
+  const postAnalysis = await analyzePrimitiveSequence(postPrimitives);
+  const plan = buildPlan(appliedIr, postAnalysis);
+  const usedLaws = new Set([...plan.used_laws, ...applied.usedLaws]);
+  plan.used_laws = Array.from(usedLaws).sort();
+  plan.rewrites_applied = Math.max(plan.rewrites_applied, applied.rewritesApplied);
+
   if (emitUsed) {
-    const used = JSON.stringify({ used_laws: plan.used_laws }, null, 2) + '\n';
+    const used = stableStringify({ used_laws: plan.used_laws }) + '\n';
     await mkdir(dirname(emitUsed), { recursive: true });
     await writeFile(emitUsed, used, 'utf8');
   }

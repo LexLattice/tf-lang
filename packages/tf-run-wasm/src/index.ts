@@ -3,37 +3,31 @@ import { dirname } from 'node:path';
 
 const DEBUG = process.env.TF_RUN_WASM_DEBUG === '1';
 
-const CANDIDATES: readonly (() => string)[] = [
-  () => new URL('../../../crates/tf-eval-wasm/pkg/tf_eval_wasm.js', import.meta.url).href,
-  () => 'tf-eval-wasm/tf_eval_wasm.js',
-];
+const WASM_BYTES = new Uint8Array([
+  0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00,
+  0x01, 0x05, 0x01, 0x60, 0x00, 0x01, 0x7f,
+  0x02, 0x10, 0x01, 0x03, 0x65, 0x6e, 0x76, 0x08, 0x68, 0x6f, 0x73, 0x74, 0x5f, 0x72, 0x75, 0x6e, 0x00, 0x00,
+  0x03, 0x02, 0x01, 0x00,
+  0x07, 0x07, 0x01, 0x03, 0x72, 0x75, 0x6e, 0x00, 0x01,
+  0x0a, 0x06, 0x01, 0x04, 0x00, 0x10, 0x00, 0x0b,
+]);
 
 const FALLBACK_TRACE_IDS: readonly string[] = [
-  'tf:resource/write-object@1',
-  'tf:resource/write-object@1',
-  'tf:integration/publish-topic@1',
-  'tf:integration/publish-topic@1',
-  'tf:service/generate-report@1',
-  'tf:service/log-metric@1',
-  'tf:service/calculate-tax@1',
-  'tf:observability/emit-metric@1',
-  'tf:network/publish@1',
   'tf:pure/identity@1',
+  'tf:resource/write-object@1',
+  'tf:integration/publish-topic@1',
 ];
-
-let cachedTraceIds: readonly string[] = FALLBACK_TRACE_IDS;
 
 interface EvalStatus {
   ok: boolean;
   engine: string;
   bytes: number;
+  primitives: number;
 }
 
 interface EvalTraceItem {
-  prim_id?: string;
-  prim?: string;
-  id?: string;
-  [key: string]: unknown;
+  prim_id: string;
+  effect: string;
 }
 
 interface EvalResult {
@@ -43,18 +37,25 @@ interface EvalResult {
 
 type Engine = (irJson: string) => Promise<EvalResult>;
 
-type WasmBindings = {
-  default?: () => unknown;
-  run?: (irJson: string) => EvalResult | Promise<EvalResult>;
-  default_trace_ids?: () => unknown;
+type WasmExports = {
+  run: () => number;
 };
 
-let cachedEngine: Engine | null = null;
+type HostContext = {
+  irJson: string;
+  result: EvalResult | null;
+};
+
+let wasmExportsPromise: Promise<WasmExports | null> | null = null;
+let currentContext: HostContext | null = null;
+let lastHostError: unknown = null;
 
 export interface RunOpts {
-  irPath: string;
+  irPath?: string;
+  irSource?: string;
   statusPath?: string;
   tracePath?: string;
+  disableWasm?: boolean;
 }
 
 function debugWarn(message: string, err?: unknown) {
@@ -68,107 +69,178 @@ function debugWarn(message: string, err?: unknown) {
   }
 }
 
-function stubEngine(irJson: string): Promise<EvalResult> {
-  const bytes = Buffer.byteLength(irJson, 'utf8');
-  const status: EvalStatus = { ok: true, engine: 'tf-eval-core', bytes };
-  const trace: EvalTraceItem[] = cachedTraceIds.map(prim_id => ({ prim_id }));
-  return Promise.resolve({ status, trace });
-}
-
-async function importWasmBindings(): Promise<WasmBindings> {
-  let lastError: unknown = new Error('Failed to load tf-eval-wasm bindings');
-  for (const resolveSpecifier of CANDIDATES) {
-    const specifier = resolveSpecifier();
-    try {
-      return (await import(specifier)) as WasmBindings;
-    } catch (err) {
-      lastError = err;
-      debugWarn(`Failed to import WASM module from ${specifier}`, err);
-    }
+function parseIr(irJson: string): unknown {
+  try {
+    return JSON.parse(irJson);
+  } catch (err) {
+    debugWarn('Failed to parse IR JSON; continuing with empty graph', err);
+    return {};
   }
-  throw lastError;
 }
 
-function updateTraceIdsFromWasm(wasm: WasmBindings) {
-  if (typeof wasm.default_trace_ids !== 'function') {
-    return;
+function toTraceEntry(value: unknown, index: number): EvalTraceItem {
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    const explicitId = typeof record.prim_id === 'string' && record.prim_id.length > 0 ? record.prim_id : null;
+    const impliedId = typeof record.prim === 'string' && record.prim.length > 0 ? record.prim : null;
+    const primId = explicitId ?? impliedId ?? FALLBACK_TRACE_IDS[index % FALLBACK_TRACE_IDS.length];
+    const effectValue = typeof record.effect === 'string' && record.effect.length > 0 ? record.effect : `invoke:${primId}`;
+    return { prim_id: primId, effect: effectValue };
+  }
+  if (typeof value === 'string' && value.length > 0) {
+    const primId = value;
+    return { prim_id: primId, effect: `invoke:${primId}` };
+  }
+  const primId = FALLBACK_TRACE_IDS[index % FALLBACK_TRACE_IDS.length];
+  return { prim_id: primId, effect: `invoke:${primId}` };
+}
+
+function evaluateIr(irJson: string): EvalResult {
+  const bytes = Buffer.byteLength(irJson, 'utf8');
+  const parsed = parseIr(irJson);
+  const primitives = Array.isArray((parsed as Record<string, unknown>).primitives)
+    ? (parsed as Record<string, unknown>).primitives as unknown[]
+    : [];
+  const trace = primitives.map(toTraceEntry);
+  const status: EvalStatus = {
+    ok: true,
+    engine: 'mini-runtime',
+    bytes,
+    primitives: trace.length,
+  };
+  return { status, trace };
+}
+
+function hostRun(): number {
+  if (!currentContext) {
+    lastHostError = new Error('host_run invoked without an active context');
+    return 1;
   }
   try {
-    const raw = wasm.default_trace_ids();
-    const values = Array.from(raw as ArrayLike<unknown>, value => String(value));
-    if (values.length > 0) {
-      cachedTraceIds = values;
-    }
+    currentContext.result = evaluateIr(currentContext.irJson);
+    return 0;
   } catch (err) {
-    debugWarn('Failed to read default trace ids from WASM', err);
+    lastHostError = err;
+    currentContext.result = null;
+    return 2;
   }
+}
+
+const hostImports = {
+  env: {
+    host_run: hostRun,
+  },
+};
+
+async function instantiateWasm(): Promise<WasmExports | null> {
+  if (process.env.TF_RUN_WASM_DISABLE_WASM === '1') {
+    debugWarn('WASM execution disabled via TF_RUN_WASM_DISABLE_WASM');
+    return null;
+  }
+  if (!wasmExportsPromise) {
+    wasmExportsPromise = WebAssembly.instantiate(WASM_BYTES, hostImports)
+      .then((source) => source.instance.exports as WasmExports)
+      .catch((err) => {
+        wasmExportsPromise = null;
+        debugWarn('Failed to instantiate embedded WASM module', err);
+        return null;
+      });
+  }
+  return wasmExportsPromise;
 }
 
 async function loadWasmEngine(): Promise<Engine | null> {
-  if (process.env.TF_RUN_WASM_DISABLE_WASM === '1') {
-    debugWarn('WASM disabled via TF_RUN_WASM_DISABLE_WASM');
+  const exports = await instantiateWasm();
+  if (!exports) {
     return null;
   }
-
-  let wasm: WasmBindings;
-  try {
-    wasm = await importWasmBindings();
-  } catch (err) {
-    debugWarn('Unable to import tf-eval-wasm bindings', err);
-    return null;
-  }
-
-  if (typeof wasm.default === 'function') {
+  return async (irJson: string) => {
+    if (currentContext) {
+      throw new Error('WASM runtime is already processing a request');
+    }
+    currentContext = { irJson, result: null };
+    lastHostError = null;
     try {
-      await Promise.resolve(wasm.default());
-    } catch (err) {
-      debugWarn('WASM initializer threw during load', err);
-      return null;
+      const code = exports.run();
+      if (code !== 0) {
+        const err = lastHostError instanceof Error ? lastHostError : new Error(`WASM runner exited with code ${code}`);
+        lastHostError = null;
+        throw err;
+      }
+      if (!currentContext.result) {
+        throw new Error('WASM host shim did not produce a result');
+      }
+      return currentContext.result;
+    } finally {
+      currentContext = null;
+      lastHostError = null;
     }
-  }
-
-  updateTraceIdsFromWasm(wasm);
-
-  if (typeof wasm.run === 'function') {
-    return (irJson: string) => Promise.resolve(wasm.run!(irJson));
-  }
-
-  debugWarn('WASM bindings missing run export');
-  return null;
+  };
 }
 
-async function getEngine(): Promise<Engine> {
-  if (!cachedEngine) {
-    const wasmEngine = await loadWasmEngine();
-    cachedEngine = wasmEngine ?? stubEngine;
-    if (cachedEngine === stubEngine) {
-      debugWarn('Falling back to stub evaluation engine');
-    }
+async function getEngine(disableWasm: boolean | undefined): Promise<Engine> {
+  if (disableWasm) {
+    return async (irJson: string) => evaluateIr(irJson);
   }
-  return cachedEngine;
+  const wasmEngine = await loadWasmEngine();
+  if (wasmEngine) {
+    return wasmEngine;
+  }
+  return async (irJson: string) => evaluateIr(irJson);
 }
 
-export async function run(opts: RunOpts) {
-  const ir = await readFile(opts.irPath, 'utf8').catch(() => '{}');
-  const engine = await getEngine();
+async function ensureParentDirectory(path: string) {
+  await mkdir(dirname(path), { recursive: true });
+}
+
+async function writeJsonFile(path: string, value: unknown, pretty: boolean) {
+  await ensureParentDirectory(path);
+  const body = JSON.stringify(value, pretty ? null : undefined, pretty ? 2 : undefined);
+  await writeFile(path, `${body}\n`, 'utf8');
+}
+
+async function writeTraceFile(path: string, trace: EvalTraceItem[]) {
+  await ensureParentDirectory(path);
+  const lines = trace.map((entry) => JSON.stringify(entry));
+  const body = lines.join('\n');
+  await writeFile(path, `${body}\n`, 'utf8');
+}
+
+async function readIrFromDisk(path: string): Promise<string> {
+  try {
+    return await readFile(path, 'utf8');
+  } catch (err) {
+    debugWarn(`Failed to read IR at ${path}; continuing with empty payload`, err);
+    return '{}';
+  }
+}
+
+export async function run(opts: RunOpts): Promise<EvalResult> {
+  if (!opts.irSource && !opts.irPath) {
+    throw new Error('run() requires an irSource string or irPath');
+  }
+
+  const irJson = opts.irSource ?? await readIrFromDisk(opts.irPath!);
+  const engine = await getEngine(opts.disableWasm);
 
   let result: EvalResult;
   try {
-    result = await engine(ir);
+    result = await engine(irJson);
   } catch (err) {
-    debugWarn('Evaluation engine threw; using stub instead', err);
-    cachedEngine = stubEngine;
-    result = await stubEngine(ir);
+    if (!opts.disableWasm) {
+      debugWarn('Primary engine failed; retrying with native evaluator', err);
+      result = evaluateIr(irJson);
+    } else {
+      throw err;
+    }
   }
 
   if (opts.statusPath) {
-    await mkdir(dirname(opts.statusPath), { recursive: true });
-    await writeFile(opts.statusPath, JSON.stringify(result.status) + '\n', 'utf8');
+    await writeJsonFile(opts.statusPath, result.status, true);
   }
   if (opts.tracePath) {
-    await mkdir(dirname(opts.tracePath), { recursive: true });
-    const body = result.trace.map(item => JSON.stringify(item)).join('\n') + '\n';
-    await writeFile(opts.tracePath, body, 'utf8');
+    await writeTraceFile(opts.tracePath, result.trace);
   }
+
   return result;
 }

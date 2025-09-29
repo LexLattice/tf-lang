@@ -1,8 +1,0 @@
-{"id":"momentum-0","ts":1710000003000,"sym":"BTCUSDT","side":"buy","quantity":"1","price":"65001.5","meta":{"trigger":"breakout","window":3,"rng":0.44829055899754167}}
-{"id":"momentum-1","ts":1710000005000,"sym":"BTCUSDT","side":"sell","quantity":"1","price":"65000.25","meta":{"trigger":"breakdown","window":3,"rng":0.8524657934904099}}
-{"id":"momentum-2","ts":1710000006000,"sym":"BTCUSDT","side":"sell","quantity":"1","price":"65000.15","meta":{"trigger":"breakdown","window":3,"rng":0.6697340414393693}}
-{"id":"momentum-3","ts":1710000007000,"sym":"BTCUSDT","side":"sell","quantity":"1","price":"65000.05","meta":{"trigger":"breakdown","window":3,"rng":0.17481389874592423}}
-{"id":"momentum-4","ts":1710000008000,"sym":"BTCUSDT","side":"sell","quantity":"1","price":"64999.95","meta":{"trigger":"breakdown","window":3,"rng":0.5265925421845168}}
-{"id":"momentum-5","ts":1710000009000,"sym":"BTCUSDT","side":"sell","quantity":"1","price":"64999.85","meta":{"trigger":"breakdown","window":3,"rng":0.2732279943302274}}
-{"id":"momentum-6","ts":1710000010000,"sym":"BTCUSDT","side":"sell","quantity":"1","price":"64999.75","meta":{"trigger":"breakdown","window":3,"rng":0.6247446539346129}}
-{"id":"momentum-7","ts":1710000011000,"sym":"BTCUSDT","side":"sell","quantity":"1","price":"64999.65","meta":{"trigger":"breakdown","window":3,"rng":0.8654746483080089}}

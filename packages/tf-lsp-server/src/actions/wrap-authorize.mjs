@@ -1,3 +1,15 @@
+function getBaseIndent(lines) {
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const match = line.match(/^(\s*)/);
+    if (match) {
+      return match[1] ?? '';
+    }
+    return '';
+  }
+  return '';
+}
+
 export function wrapWithAuthorize(src, range = {}) {
   const start = typeof range?.start === 'number' ? range.start : 0;
   const end = typeof range?.end === 'number' ? range.end : src.length;
@@ -9,25 +21,36 @@ export function wrapWithAuthorize(src, range = {}) {
   const inside = src.slice(safeStart, safeEnd);
   const after = src.slice(safeEnd);
 
-  const lines = inside.split(/\r?\n/);
+  const trailingNewline = /\r?\n$/.test(inside);
+  const normalizedInside = inside.replace(/\r\n/g, '\n');
+  const lines = normalizedInside.split('\n');
+
+  if (trailingNewline && lines[lines.length - 1] === '') {
+    lines.pop();
+  }
+
   while (lines.length && !lines[lines.length - 1].trim()) {
     lines.pop();
   }
 
-  const firstNonEmpty = lines.find(line => line.trim().length > 0);
-  const baseIndent = firstNonEmpty ? (firstNonEmpty.match(/^(\s*)/)?.[1] ?? '') : '';
+  const baseIndent = getBaseIndent(lines);
 
-  const indentedBody = lines
-    .map(line => {
-      if (!line.trim()) return baseIndent;
-      const normalized = line.startsWith(baseIndent) ? line.slice(baseIndent.length) : line.trimStart();
-      return `${baseIndent}  ${normalized}`;
-    })
-    .join('\n');
+  const indentedLines = lines.map(line => {
+    if (!line.trim()) {
+      return '';
+    }
+    let normalized;
+    if (baseIndent && line.startsWith(baseIndent)) {
+      normalized = line.slice(baseIndent.length);
+    } else {
+      normalized = line.trimStart();
+    }
+    return `${baseIndent}  ${normalized}`;
+  });
 
-  const trailingNewline = /\r?\n$/.test(inside);
+  const indentedBody = indentedLines.join('\n');
   const bodySection = indentedBody ? `${indentedBody}\n` : '';
-  let newText = `${baseIndent}Authorize{ scope: "" } {\n${bodySection}${baseIndent}}`;
+  let newText = `${baseIndent}authorize{ scope: "" } {\n${bodySection}${baseIndent}}`;
   if (trailingNewline) {
     newText += '\n';
   }

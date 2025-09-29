@@ -208,7 +208,7 @@ async function computeWrapAuthorizeActions(params: CodeActionParams, doc: TextDo
   };
 
   const action: CodeAction = {
-    title: 'Wrap with Authorize{ scope: "" }',
+    title: 'Wrap with authorize{ scope: "" }',
     kind: CodeActionKind.QuickFix,
     edit: {
       changes: {

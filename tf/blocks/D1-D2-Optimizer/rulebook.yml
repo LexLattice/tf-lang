@@ -1,27 +1,29 @@
-node: D1-D2-Optimizer
+version: 1
+meta: { node: D1-D2-Optimizer }
+
 phases:
-  cp1_cost_model:
+  - id: cp1_cost_model
     rules:
-      scope_guard:
+      - id: scope_guard
         kind: diff_scan
         cmd: cat "$DIFF_PATH" | node tools/tf-checker/scan-diff.mjs --config meta/checker.yml --diff -
         expect: { ok: true }
-      cli_help:
+      - id: cli_help
         kind: process
         cmd: node packages/tf-opt/bin/opt.mjs --help
-        expect: { code: 0, contains: "tf-opt" }
-      cost_show:
+        expect: { code: 0, contains: 'tf-opt' }
+      - id: cost_show
         kind: process
         cmd: node packages/tf-opt/bin/opt.mjs --cost show
         expect: { code: 0, contains: '"Storage.Write"' }
 
-  cp2_rewrites:
+  - id: cp2_rewrites
     rules:
-      run_on_signing:
+      - id: run_on_signing
         kind: process
         cmd: node packages/tf-opt/bin/opt.mjs --ir out/0.4/ir/signing.ir.json -o out/0.5/opt/signing.plan.json
-        expect: { code: 0, contains: '"rewritesApplied":' }
-      manifest_links_laws:
+        expect: { code: 0, contains: '"rewrites_applied":' }
+      - id: manifest_links_laws
         kind: process
         cmd: node packages/tf-opt/bin/opt.mjs --ir out/0.4/ir/signing.ir.json --emit-used-laws out/0.5/proofs/used-laws.json
         expect: { code: 0, contains: '"used_laws":' }

@@ -48,17 +48,17 @@ async function main() {
   const ir = irPath ? await readJsonFile(irPath, {}) : {};
   const primitives = extractPrimitivesFromIr(ir);
   const analysis = await analyzePrimitiveSequence(primitives);
+  const initialPlan = buildPlan(ir, analysis);
   const planOnly = process.argv.includes('--plan-only') || !process.argv.includes('--apply');
   if (planOnly) {
-    const plan = buildPlan(ir, analysis);
-    const planJson = stableStringify(plan) + '\n';
+    const planJson = stableStringify(initialPlan) + '\n';
     process.stdout.write(planJson);
     if (out) {
       await mkdir(dirname(out), { recursive: true });
       await writeFile(out, planJson, 'utf8');
     }
     if (emitUsed) {
-      const used = stableStringify({ used_laws: plan.used_laws }) + '\n';
+      const used = stableStringify({ used_laws: initialPlan.used_laws }) + '\n';
       await mkdir(dirname(emitUsed), { recursive: true });
       await writeFile(emitUsed, used, 'utf8');
     }
@@ -76,37 +76,51 @@ async function main() {
 
   const postPrimitives = extractPrimitivesFromIr(appliedIr);
   const postAnalysis = await analyzePrimitiveSequence(postPrimitives);
-  const plan = buildPlan(appliedIr, postAnalysis);
-  const usedLaws = new Set([...plan.used_laws, ...applied.usedLaws]);
-  plan.used_laws = Array.from(usedLaws).sort();
-  plan.rewrites_applied = Math.max(plan.rewrites_applied, applied.rewritesApplied);
+  const postPlan = buildPlan(appliedIr, postAnalysis);
+  const usedLawUnion = ensureKnownLaws([
+    ...initialPlan.used_laws,
+    ...applied.usedLaws,
+    ...postPlan.used_laws,
+  ]);
 
   if (emitUsed) {
-    const used = stableStringify({ used_laws: plan.used_laws }) + '\n';
+    const used = stableStringify({ used_laws: usedLawUnion }) + '\n';
     await mkdir(dirname(emitUsed), { recursive: true });
     await writeFile(emitUsed, used, 'utf8');
   }
 }
 
-function buildPlan(ir, analysis) {
-  const lawSet = new Set(Array.isArray(analysis.laws) ? analysis.laws : []);
+function buildPlan(ir, analysis = {}) {
   const counts = [];
+  const lawNames = [];
+
+  const trackLaw = (name) => {
+    if (typeof name === 'string') {
+      lawNames.push(name);
+    }
+  };
+
+  if (Array.isArray(analysis.laws)) {
+    for (const law of analysis.laws) {
+      trackLaw(law);
+    }
+  }
+  if (Array.isArray(analysis.obligations)) {
+    for (const obligation of analysis.obligations) {
+      if (obligation && typeof obligation.law === 'string') {
+        trackLaw(obligation.law);
+      }
+    }
+  }
+
+  if (ir && typeof ir === 'object') {
+    collectMetadata({ value: ir, sourceKey: 'root', parentKey: '' }, trackLaw, counts);
+  }
+
   const baseRewrites = Math.max(
     typeof analysis.rewritesApplied === 'number' ? analysis.rewritesApplied : 0,
     Array.isArray(analysis.obligations) ? analysis.obligations.length : 0,
   );
-
-  if (ir && typeof ir === 'object') {
-    if (Object.prototype.hasOwnProperty.call(ir, 'rewrites')) {
-      collectMetadata(ir.rewrites, 'rewrites', lawSet, counts);
-    }
-    if (Object.prototype.hasOwnProperty.call(ir, 'used_laws')) {
-      collectMetadata(ir.used_laws, 'used_laws', lawSet, counts);
-    }
-    if (Object.prototype.hasOwnProperty.call(ir, 'laws')) {
-      collectMetadata(ir.laws, 'laws', lawSet, counts);
-    }
-  }
 
   let rewritesApplied = baseRewrites;
   for (const value of counts) {
@@ -117,95 +131,98 @@ function buildPlan(ir, analysis) {
 
   return {
     rewrites_applied: rewritesApplied,
-    used_laws: Array.from(lawSet).sort(),
+    used_laws: ensureKnownLaws(lawNames),
   };
 }
 
-function collectMetadata(value, sourceKey, lawSet, counts) {
-  const stack = [{ value, sourceKey }];
+function collectMetadata(initialEntry, trackLaw, counts) {
+  const stack = [initialEntry];
   while (stack.length > 0) {
-    const { value: current, sourceKey: contextKey } = stack.pop();
-    if (current == null) {
+    const { value, sourceKey, parentKey } = stack.pop();
+    if (value == null) {
       continue;
     }
-    if (typeof current === 'number') {
-      counts.push(current);
+    if (typeof value === 'number') {
+      counts.push(value);
       continue;
     }
-    if (typeof current === 'string') {
-      maybeAddLaw(current, lawSet);
-      continue;
-    }
-    if (Array.isArray(current)) {
-      if (contextKey === 'rewrites') {
-        counts.push(current.length);
-      }
-      for (let i = current.length - 1; i >= 0; i -= 1) {
-        stack.push({ value: current[i], sourceKey: contextKey });
+    if (typeof value === 'string') {
+      if (shouldTrackString(sourceKey, parentKey)) {
+        trackLaw(value);
       }
       continue;
     }
-    if (typeof current === 'object') {
-      if (typeof current.count === 'number') {
-        counts.push(current.count);
+    if (Array.isArray(value)) {
+      if (sourceKey === 'rewrites') {
+        counts.push(value.length);
       }
-      if (typeof current.rewritesApplied === 'number') {
-        counts.push(current.rewritesApplied);
+      for (let i = value.length - 1; i >= 0; i -= 1) {
+        stack.push({ value: value[i], sourceKey, parentKey: sourceKey });
       }
-      for (const key of ['law', 'id', 'name']) {
-        if (typeof current[key] === 'string') {
-          maybeAddLaw(current[key], lawSet);
+      continue;
+    }
+    if (typeof value === 'object') {
+      if (typeof value.count === 'number') {
+        counts.push(value.count);
+      }
+      if (typeof value.rewritesApplied === 'number') {
+        counts.push(value.rewritesApplied);
+      }
+      if (typeof value.law === 'string') {
+        trackLaw(value.law);
+      }
+      if (sourceKey === 'laws' || sourceKey === 'used_laws' || sourceKey === 'rewrites') {
+        if (typeof value.name === 'string') {
+          trackLaw(value.name);
+        }
+        if (typeof value.id === 'string') {
+          trackLaw(value.id);
         }
       }
-      for (const nextKey of ['laws', 'used_laws', 'rewrites']) {
-        if (Object.prototype.hasOwnProperty.call(current, nextKey)) {
-          stack.push({ value: current[nextKey], sourceKey: nextKey });
-        }
-      }
-      for (const [key, val] of Object.entries(current)) {
-        if (
-          key === 'count' ||
-          key === 'rewritesApplied' ||
-          key === 'law' ||
-          key === 'id' ||
-          key === 'name' ||
-          key === 'laws' ||
-          key === 'used_laws' ||
-          key === 'rewrites'
-        ) {
-          continue;
-        }
-        if (isLikelyLawName(key)) {
-          maybeAddLaw(key, lawSet);
-          if (typeof val === 'number') {
-            counts.push(val);
-            continue;
-          }
-        }
-        stack.push({ value: val, sourceKey: key });
+      for (const [key, next] of Object.entries(value)) {
+        stack.push({ value: next, sourceKey: key, parentKey: sourceKey });
       }
     }
   }
 }
 
-function maybeAddLaw(name, lawSet) {
-  if (typeof name !== 'string') {
-    return;
+function shouldTrackString(sourceKey, parentKey) {
+  if (sourceKey === 'laws' || sourceKey === 'used_laws' || sourceKey === 'rewrites') {
+    return true;
   }
-  const trimmed = name.trim();
-  if (!trimmed) {
-    return;
+  if (sourceKey === 'law') {
+    return true;
   }
-  if (isKnownLaw(trimmed) || trimmed.includes(':')) {
-    lawSet.add(trimmed);
+  if ((sourceKey === 'id' || sourceKey === 'name') && (parentKey === 'laws' || parentKey === 'used_laws' || parentKey === 'rewrites')) {
+    return true;
   }
+  return false;
 }
 
-function isLikelyLawName(name) {
-  return typeof name === 'string' && (isKnownLaw(name) || name.includes(':'));
+function ensureKnownLaws(laws) {
+  const seen = new Set();
+  const unknown = new Set();
+  for (const law of laws || []) {
+    if (typeof law !== 'string') {
+      continue;
+    }
+    const trimmed = law.trim();
+    if (!trimmed) {
+      continue;
+    }
+    if (!isKnownLaw(trimmed)) {
+      unknown.add(trimmed);
+      continue;
+    }
+    seen.add(trimmed);
+  }
+  if (unknown.size > 0) {
+    throw new Error(`unknown law(s): ${Array.from(unknown).sort().join(', ')}`);
+  }
+  return Array.from(seen).sort();
 }
 
 main().catch((error) => {
-  console.error(error);
+  console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
 });

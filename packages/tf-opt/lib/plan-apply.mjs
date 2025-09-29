@@ -74,7 +74,18 @@ function applyCommuteOnce(ir, neighbors) {
       if (!isPrimNode(left) || !isPrimNode(right)) {
         continue;
       }
-      if (canonicalNodeName(left) === COMMUTE_TARGET && neighbors.has(canonicalNodeName(right))) {
+      const leftName = canonicalNodeName(left);
+      if (!leftName) {
+        continue;
+      }
+      if (leftName !== COMMUTE_TARGET) {
+        continue;
+      }
+      const rightName = canonicalNodeName(right);
+      if (!rightName) {
+        continue;
+      }
+      if (neighbors.has(rightName)) {
         arr[i] = right;
         arr[i + 1] = left;
         return true;
@@ -92,7 +103,15 @@ function applyInverseOnce(ir) {
       if (!isPrimNode(left) || !isPrimNode(right)) {
         continue;
       }
-      if (canonicalNodeName(left) === INVERSE_FIRST && canonicalNodeName(right) === INVERSE_SECOND) {
+      const leftName = canonicalNodeName(left);
+      if (!leftName) {
+        continue;
+      }
+      const rightName = canonicalNodeName(right);
+      if (!rightName) {
+        continue;
+      }
+      if (leftName === INVERSE_FIRST && rightName === INVERSE_SECOND) {
         arr.splice(i, 2);
         return true;
       }
@@ -109,7 +128,12 @@ function applyIdempotentOnce(ir) {
       if (!isPrimNode(left) || !isPrimNode(right)) {
         continue;
       }
-      if (canonicalNodeName(left) !== IDEMPOTENT_TARGET || canonicalNodeName(right) !== IDEMPOTENT_TARGET) {
+      const leftName = canonicalNodeName(left);
+      if (leftName !== IDEMPOTENT_TARGET) {
+        continue;
+      }
+      const rightName = canonicalNodeName(right);
+      if (rightName !== IDEMPOTENT_TARGET) {
         continue;
       }
       if (!isDeepStrictEqual(left, right)) {
@@ -140,8 +164,8 @@ export function applyRewritePlan(ir, obligations = []) {
     if (law === COMMUTE_EMIT_METRIC_LAW) {
       hasCommute = true;
       if (Array.isArray(obligation.primitives) && obligation.primitives.length === 2) {
-        const neighbor = canonicalPrimitiveName(obligation.primitives[1]);
-        if (neighbor) {
+        const neighbor = obligation.primitives[1];
+        if (typeof neighbor === 'string' && neighbor) {
           commuteNeighbors.add(neighbor);
         }
       }

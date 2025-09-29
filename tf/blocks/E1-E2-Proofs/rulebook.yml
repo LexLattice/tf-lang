@@ -5,6 +5,7 @@ phases:
     rules:
       - used_laws_present
       - no_missing_laws
+      - smt_law_schema_microtest
 
   cp2_solver_gate:
     rules:
@@ -20,6 +21,11 @@ rules:
     kind: process
     cmd: node scripts/proofs/ci-gate.mjs --check-used out/0.5/proofs/used-laws.json
     expect: { code: 0, contains: '"missing": []' }
+
+  smt_law_schema_microtest:
+    kind: process
+    cmd: node --eval "import('./packages/tf-l0-proofs/src/smt-laws.microtest.mjs')"
+    expect: { code: 0, contains: 'smt-laws validation micro-test passed' }
 
   z3_optional_small:
     kind: process

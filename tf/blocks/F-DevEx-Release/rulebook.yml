@@ -1,0 +1,65 @@
+phases:
+  cp1_workflows:
+    rules:
+      - setup_pnpm_honors_frozen
+      - release_workflow_exists
+  cp2_lock_guard:
+    rules:
+      - lock_guard_ok
+  cp3_pack:
+    rules:
+      - pack_manifest_ok
+  cp4_changelog:
+    rules:
+      - changelog_next_ok
+  cp5_docs_gate:
+    rules:
+      - docs_build_ok
+      - banned_tokens_hard
+rules:
+  setup_pnpm_honors_frozen:
+    kind: process
+    # Ensure the composite action keeps installs frozen by default and only thaws when callers opt-out.
+    cmd: >-
+      bash -lc "node -e \"process.env.CI='true';console.log('ok')\" >/dev/null;
+      grep -En -- \"pnpm install --frozen-lockfile\" .github/actions/setup-pnpm/action.yml &&
+      ! grep -En -- \"frozen.*--no-frozen-lockfile\" .github/actions/setup-pnpm/action.yml &&
+      grep -En -- \"pnpm install --no-frozen-lockfile\" .github/actions/setup-pnpm/action.yml"
+    expect:
+      code: 0
+  release_workflow_exists:
+    kind: process
+    cmd: bash -lc "test -f .github/workflows/release.yml && echo ok"
+    expect:
+      code: 0
+      contains: "ok"
+  lock_guard_ok:
+    kind: process
+    cmd: node tools/ci/lockfile-guard.mjs
+    expect:
+      code: 0
+      contains: '"ok": true'
+  pack_manifest_ok:
+    kind: process
+    cmd: node tools/release/pack-all.mjs
+    expect:
+      code: 0
+      contains: '"ok": true'
+  changelog_next_ok:
+    kind: process
+    cmd: node tools/release/changelog.mjs
+    expect:
+      code: 0
+      contains: 'CHANGELOG.next.md'
+  docs_build_ok:
+    kind: process
+    cmd: node scripts/docs/build.mjs
+    expect:
+      code: 0
+      contains: '"ok": true'
+  banned_tokens_hard:
+    kind: diff_scan
+    cmd: TF_STRICT=1 cat "$DIFF_PATH" | node tools/tf-checker/scan-diff.mjs --config meta/checker.yml --diff -
+    expect:
+      ok: true
+      contains: '"token_warnings": []'

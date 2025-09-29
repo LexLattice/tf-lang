@@ -1,22 +1,45 @@
-name: release
-on:
-  push:
-    tags:
-      - 'v*'
+name: release (dry-run)
 
-permissions:
-  contents: write
+on:
+  workflow_dispatch: {}
+
+concurrency:
+  group: release-dry-run
+  cancel-in-progress: true
 
 jobs:
-  release:
-    runs-on: ubuntu-latest
+  pack:
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        node-version: ['20']
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 # v2
+      - uses: ./.github/actions/setup-pnpm
         with:
-          generate_release_notes: true
-          files: |
-            CHANGELOG.md
-            RELEASE_NOTES_v*.md
+          node-version: ${{ matrix.node-version }}
+          install: 'true'
+          frozen: 'true'
+      - run: |
+          set -euo pipefail
+          node tools/release/pack-all.mjs
+          test -f out/0.5/release/pack.json
+      - if: always()
+        run: |
+          set -euo pipefail
+          node tools/release/changelog.mjs
+          test -f out/0.5/release/CHANGELOG.next.md
+      - if: always()
+        run: |
+          set -euo pipefail
+          node scripts/docs/build.mjs
+          test -f out/0.5/docs/index.json
+      - if: always()
+        run: |
+          set -euo pipefail
+          tmp_log="$(mktemp)"
+          node tools/ci/lockfile-guard.mjs --json | tee "$tmp_log"
+          grep '"ok":true' "$tmp_log"

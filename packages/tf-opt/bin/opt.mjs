@@ -2,6 +2,8 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
+import { analyzePrimitiveSequence, extractPrimitivesFromIr } from '../lib/rewrite-detect.mjs';
+
 const arg = k => { const i = process.argv.indexOf(k); return i>=0 ? process.argv[i+1] : null; };
 if (process.argv.includes('--help')) { console.log('tf-opt --ir <file> [-o out.json] [--cost show] [--emit-used-laws <file>]'); process.exit(0); }
 
@@ -13,23 +15,18 @@ async function loadIR(p){
   try { return JSON.parse(await readFile(p, 'utf8')); } catch { return {}; }
 }
 
-function listPrims(ir, acc = []) {
-  if (!ir || typeof ir !== 'object') return acc;
-  if (ir.node === 'Prim') acc.push((ir.prim || '').toLowerCase());
-  for (const k of Object.keys(ir)) {
-    const v = ir[k];
-    if (Array.isArray(v)) v.forEach(x => listPrims(x, acc));
-    else if (v && typeof v === 'object') listPrims(v, acc);
-  }
-  return acc;
-}
-
-function rewritePlan(ir) {
-  // ultra-minimal: if sequence contains 'hash' then 'emit-metric', mark one rewrite
-  const prims = listPrims(ir);
-  const applied = prims.includes('hash') && prims.includes('emit-metric') ? 1 : 0;
-  const used_laws = applied ? ['commute:emit-metric-with-pure'] : [];
-  return { rewritesApplied: applied, used_laws };
+async function rewritePlan(ir) {
+  const primitives = extractPrimitivesFromIr(ir);
+  const analysis = await analyzePrimitiveSequence(primitives);
+  const summary = analysis.summary ?? { laws: analysis.laws, rewritesApplied: analysis.rewritesApplied };
+  const usedLaws = Array.isArray(summary.laws) ? [...summary.laws] : [];
+  return {
+    primitiveSequence: analysis.primitives,
+    rewrites: analysis.obligations,
+    rewritesApplied: summary.rewritesApplied ?? analysis.rewritesApplied,
+    laws: usedLaws,
+    used_laws: usedLaws,
+  };
 }
 
 async function main(){
@@ -41,9 +38,21 @@ async function main(){
   const out = arg('-o') || arg('--out');
   const emitUsed = arg('--emit-used-laws');
   const ir = irPath ? await loadIR(irPath) : {};
-  const plan = rewritePlan(ir);
-  if (out) { await mkdir(dirname(out), { recursive: true }); await writeFile(out, JSON.stringify(plan, null, 2)+'\n'); }
-  else console.log(JSON.stringify(plan, null, 2));
-  if (emitUsed) { await mkdir(dirname(emitUsed), { recursive: true }); await writeFile(emitUsed, JSON.stringify({ used_laws: plan.used_laws }, null, 2)+'\n'); }
+  const plan = await rewritePlan(ir);
+  const planJson = JSON.stringify(plan, null, 2);
+  console.log(planJson);
+  if (out) {
+    await mkdir(dirname(out), { recursive: true });
+    await writeFile(out, `${planJson}\n`);
+  }
+  if (emitUsed) {
+    const used = {
+      used_laws: plan.used_laws,
+      rewrites: plan.rewrites,
+      laws: plan.laws,
+    };
+    await mkdir(dirname(emitUsed), { recursive: true });
+    await writeFile(emitUsed, JSON.stringify(used, null, 2)+'\n');
+  }
 }
 main().catch(e => { console.error(e); process.exit(1); });

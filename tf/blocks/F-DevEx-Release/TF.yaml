@@ -7,7 +7,9 @@ scope:
     - tools/ci/**
     - tools/release/**
     - scripts/docs/**
+    - scripts/test/**
     - tf/blocks/F-DevEx-Release/**
     - docs/release/**
+    - docs/CONTRIBUTING.md
 notes:
   - Acceptance lives in rulebook.yml phases

@@ -1,0 +1,7 @@
+(declare-sort Bytes 0)
+(declare-sort Val 0)
+(declare-fun D (Bytes) Val)
+(declare-fun S (Val) Bytes)
+(assert (forall ((v Val)) (= (D (S v)) v)))
+(assert (forall ((b Bytes)) (= (S (D b)) b)))
+(check-sat)

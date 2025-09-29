@@ -1,0 +1,20 @@
+node: E3-E4-Proofs
+phases:
+  cp3_artifacts:
+    rules:
+      - used_laws_stubbed
+
+  cp4_docs_coverage:
+    rules:
+      - coverage_green
+
+rules:
+  used_laws_stubbed:
+    kind: process
+    cmd: node scripts/proofs/ci-gate.mjs --check-used out/0.5/proofs/used-laws.json
+    expect: { code: 0, contains: '"ok": true' }
+
+  coverage_green:
+    kind: process
+    cmd: node scripts/proofs/coverage.mjs
+    expect: { code: 0, contains: '"ok": true' }

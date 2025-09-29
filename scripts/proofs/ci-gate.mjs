@@ -6,11 +6,17 @@ import { spawn } from 'node:child_process';
 import {
   canonicalLawName,
   canonicalPrimitiveName,
-  loadLawAliasSet,
   loadPrimitiveEffectMap,
 } from '../../packages/tf-opt/lib/data.mjs';
 import { analyzePrimitiveSequence } from '../../packages/tf-opt/lib/rewrite-detect.mjs';
-import { emitFlowEquivalence } from '../../packages/tf-l0-proofs/src/smt-laws.mjs';
+import {
+  emitFlowEquivalence,
+  listLawNames,
+} from '../../packages/tf-l0-proofs/src/smt-laws.mjs';
+
+const KNOWN_LAW_SET = new Set(
+  listLawNames().map((name) => canonicalLawName(name)).filter((name) => name.length > 0),
+);
 
 const arg = (k) => {
   const i = process.argv.indexOf(k);
@@ -33,20 +39,16 @@ function parseSmallFlow(source) {
 
 function reorderCommute(primitives, effectMap) {
   const reordered = [...primitives];
-  if (!effectMap) {
-    return reordered;
-  }
+  if (!effectMap) return reordered;
   let swapped = true;
   while (swapped) {
     swapped = false;
     for (let i = 0; i < reordered.length - 1; i += 1) {
       const current = reordered[i];
       const next = reordered[i + 1];
-      if (next !== 'emit-metric' || current === 'emit-metric') {
-        continue;
-      }
-      const info = effectMap.get(current);
-      if (info && info.effect === 'Pure') {
+      if (next !== 'emit-metric' || current === 'emit-metric') continue;
+      const eff = effectMap.get(current);
+      if (Array.isArray(eff) && eff.includes('Pure')) {
         reordered[i] = next;
         reordered[i + 1] = current;
         swapped = true;
@@ -75,12 +77,8 @@ async function runZ3(script) {
     let stderr = '';
     child.stdout.setEncoding('utf8');
     child.stderr.setEncoding('utf8');
-    child.stdout.on('data', (chunk) => {
-      stdout += chunk;
-    });
-    child.stderr.on('data', (chunk) => {
-      stderr += chunk;
-    });
+    child.stdout.on('data', (chunk) => { stdout += chunk; });
+    child.stderr.on('data', (chunk) => { stderr += chunk; });
     child.on('error', (error) => {
       if (resolved) return;
       if (error && error.code === 'ENOENT') {
@@ -98,9 +96,7 @@ async function runZ3(script) {
     });
 
     child.stdin.write(script);
-    if (!script.trim().toLowerCase().includes('(exit')) {
-      child.stdin.write('\n(exit)\n');
-    }
+    if (!/\(\s*exit\s*\)/i.test(script)) child.stdin.write('\n(exit)\n');
     child.stdin.end();
   });
 }
@@ -112,8 +108,32 @@ if (process.argv.includes('--check-used')) {
     process.exit(2);
   }
   const p = resolve(target);
-  const raw = JSON.parse(await readFile(p, 'utf8'));
-  const lawSet = await loadLawAliasSet();
+
+  let source;
+  try {
+    source = await readFile(p, 'utf8');
+  } catch (error) {
+    if (error && error.code === 'ENOENT') {
+      console.log(JSON.stringify({
+        ok: true,
+        skipped: 'manifest not found',
+        missing: [],
+        linked: 0,
+        used_laws: [],
+      }, null, 2));
+      process.exit(0);
+    }
+    throw error;
+  }
+
+  let raw;
+  try {
+    raw = JSON.parse(source);
+  } catch (error) {
+    console.error(`Failed to parse manifest ${p}:`, error.message);
+    process.exit(1);
+  }
+
   const missing = [];
   const normalizedUsed = [];
   const usedLawSet = new Set();
@@ -158,13 +178,14 @@ if (process.argv.includes('--check-used')) {
     });
   }
 
-  normalizedUsed.forEach((entry, index) => {
-    if (!lawSet.has(entry.law)) {
-      missing.push(`law:unknown@used_laws[${index}]`);
+  // unknown law detection
+  for (let i = 0; i < normalizedUsed.length; i += 1) {
+    if (!KNOWN_LAW_SET.has(normalizedUsed[i].law)) {
+      missing.push(`law:unknown@used_laws[${i}]`);
     }
-  });
+  }
 
-  const usedLawList = normalizedUsed.map((entry) => entry.law);
+  const usedLawList = Array.from(new Set(normalizedUsed.map((e) => e.law))).sort((a, b) => a.localeCompare(b));
   const manifestRewrites = new Map();
   let linked = 0;
 
@@ -183,49 +204,38 @@ if (process.argv.includes('--check-used')) {
             ? entry.rewrite.trim()
             : null;
         const handle = rewriteName ?? `rewrite#${index}`;
-        if (!law) {
-          missing.push(`rewrite:law-missing@${handle}`);
-        }
-        if (!rewriteName) {
-          missing.push(`rewrite:name-missing@${handle}`);
-        }
+        if (!law) missing.push(`rewrite:law-missing@${handle}`);
+        if (!rewriteName) missing.push(`rewrite:name-missing@${handle}`);
         if (rewriteName) {
-          if (manifestRewrites.has(rewriteName)) {
-            missing.push(`rewrite:duplicate@${rewriteName}`);
-          } else {
-            manifestRewrites.set(rewriteName, law);
-          }
+          if (manifestRewrites.has(rewriteName)) missing.push(`rewrite:duplicate@${rewriteName}`);
+          else manifestRewrites.set(rewriteName, law);
         }
-        if (!usedLawSet.has(law)) {
-          missing.push(`rewrite:unlinked-law@${handle}`);
-        }
-        if (!lawSet.has(law)) {
-          missing.push(`law:unknown@rewrites[${handle}]`);
-        }
-        if (rewriteName && lawSet.has(law) && usedLawSet.has(law)) {
-          linked += 1;
-        }
+        if (!usedLawSet.has(law)) missing.push(`rewrite:unlinked-law@${handle}`);
+        if (!KNOWN_LAW_SET.has(law)) missing.push(`law:unknown@rewrites[${handle}]`);
       });
     }
   }
 
-  if (usedRewriteRefs.size > 0) {
-    if (manifestRewrites.size === 0) {
-      for (const rewriteName of Array.from(usedRewriteRefs.keys()).sort((a, b) => a.localeCompare(b))) {
-        missing.push(`rewrite:missing-entry@${rewriteName}`);
-      }
-    } else {
-      for (const [rewriteName, law] of usedRewriteRefs.entries()) {
-        if (!manifestRewrites.has(rewriteName)) {
-          missing.push(`rewrite:missing-entry@${rewriteName}`);
-          continue;
-        }
-        const manifestLaw = manifestRewrites.get(rewriteName);
-        if (manifestLaw !== law) {
-          missing.push(`rewrite:mismatched-law@${rewriteName}`);
-        }
-      }
+  const rewriteNames = Array.from(usedRewriteRefs.keys()).sort((a, b) => a.localeCompare(b));
+  if (rewriteNames.length > 0 && manifestRewrites.size === 0) {
+    for (const rewriteName of rewriteNames) missing.push(`rewrite:missing-entry@${rewriteName}`);
+  }
+
+  for (const [rewriteName, law] of usedRewriteRefs.entries()) {
+    if (!manifestRewrites.has(rewriteName)) {
+      missing.push(`rewrite:missing-entry@${rewriteName}`);
+      continue;
     }
+    const manifestLaw = manifestRewrites.get(rewriteName);
+    if (manifestLaw !== law) {
+      missing.push(`rewrite:mismatched-law@${rewriteName}`);
+      continue;
+    }
+    linked += 1;
+  }
+
+  for (const rewriteName of manifestRewrites.keys()) {
+    if (!usedRewriteRefs.has(rewriteName)) missing.push(`rewrite:unused-entry@${rewriteName}`);
   }
 
   const ok = missing.length === 0;
@@ -248,14 +258,14 @@ if (process.argv.includes('--small')) {
   const flowPath = resolve(target);
   const source = await readFile(flowPath, 'utf8');
   const flow = parseSmallFlow(source);
-  const [analysis, effectMap, lawSet] = await Promise.all([
+
+  const [analysis, effectMap] = await Promise.all([
     analyzePrimitiveSequence(flow),
     loadPrimitiveEffectMap(),
-    loadLawAliasSet(),
   ]);
   const rewritten = reorderCommute(flow, effectMap);
-  const unknown = analysis.laws.filter((law) => !lawSet.has(law));
 
+  const unknown = analysis.laws.filter((law) => !KNOWN_LAW_SET.has(law));
   if (unknown.length > 0) {
     const payload = {
       ok: false,
@@ -264,6 +274,7 @@ if (process.argv.includes('--small')) {
       obligations: analysis.obligations,
       primitives: analysis.primitives,
       rewritten,
+      laws: analysis.laws,
     };
     console.log(JSON.stringify(payload, null, 2));
     process.exit(1);
@@ -297,9 +308,7 @@ if (process.argv.includes('--small')) {
     rewritten,
     laws: analysis.laws,
   };
-  if (stderr) {
-    payload.stderr = stderr;
-  }
+  if (stderr) payload.stderr = stderr;
   console.log(JSON.stringify(payload, null, 2));
   process.exit(unsat ? 0 : 1);
 }

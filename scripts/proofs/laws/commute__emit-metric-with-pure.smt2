@@ -1,0 +1,5 @@
+(declare-sort Val 0)
+(declare-fun E (Val) Val)
+(declare-fun H (Val) Val)
+(assert (forall ((x Val)) (= (E (H x)) (H (E x)))))
+(check-sat)

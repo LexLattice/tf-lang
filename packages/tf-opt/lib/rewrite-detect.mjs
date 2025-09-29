@@ -1,7 +1,6 @@
 import {
   canonicalLawName,
   canonicalPrimitiveName,
-  loadLawAliasSet,
   loadPrimitiveEffectMap,
 } from './data.mjs';
 
@@ -29,10 +28,7 @@ export function extractPrimitivesFromIr(ir) {
 }
 
 export async function analyzePrimitiveSequence(primitives) {
-  const [lawSet, effectMap] = await Promise.all([
-    loadLawAliasSet(),
-    loadPrimitiveEffectMap(),
-  ]);
+  const effectMap = await loadPrimitiveEffectMap();
   const names = primitives
     .map((name) => canonicalPrimitiveName(name))
     .filter((name) => name.length > 0);
@@ -50,7 +46,6 @@ export async function analyzePrimitiveSequence(primitives) {
       positions: Array.isArray(details.positions) ? [...details.positions] : [],
       primitives: Array.isArray(details.primitives) ? [...details.primitives] : [],
       direction: details.direction ?? null,
-      known: lawSet.has(law),
     };
     obligations.push(entry);
     encounteredLaws.add(law);
@@ -80,10 +75,9 @@ export async function analyzePrimitiveSequence(primitives) {
     }
 
     // Commute: emit-metric with Pure
-    const currentInfo = effectMap.get(current);
-    const nextInfo = effectMap.get(next);
-
-    if (current === 'emit-metric' && nextInfo && nextInfo.includes && nextInfo.includes('Pure')) {
+    const currentEff = effectMap.get(current);   // effects[] or undefined
+    const nextEff = effectMap.get(next);
+    if (current === 'emit-metric' && Array.isArray(nextEff) && nextEff.includes('Pure')) {
       addObligation('commute:emit-metric-with-pure', {
         rewrite: `commute:emit-metric<->${next}@${i}`,
         positions: [i, i + 1],
@@ -91,7 +85,7 @@ export async function analyzePrimitiveSequence(primitives) {
         direction: 'left',
       });
     }
-    if (next === 'emit-metric' && currentInfo && currentInfo.includes && currentInfo.includes('Pure')) {
+    if (next === 'emit-metric' && Array.isArray(currentEff) && currentEff.includes('Pure')) {
       addObligation('commute:emit-metric-with-pure', {
         rewrite: `commute:${current}<->emit-metric@${i}`,
         positions: [i, i + 1],

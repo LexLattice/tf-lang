@@ -1,0 +1,10 @@
+kind,name,count,ms
+total,,6,23.1
+effect,async,1,2.4
+effect,auth,2,3.2
+effect,cache,1,1.1
+effect,storage,2,16.4
+primitive,auth.login,2,
+primitive,cache.hit,1,
+primitive,db.query,2,
+primitive,queue.push,1,

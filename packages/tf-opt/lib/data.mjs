@@ -1,46 +1,69 @@
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { listLawNames } from '../../tf-l0-proofs/src/smt-laws.mjs';
 
-const here = fileURLToPath(new URL('.', import.meta.url));
-const repoRoot = resolve(here, '..', '..', '..');
-const catalogPath = resolve(repoRoot, 'packages/tf-l0-spec/spec/catalog.json');
-const smtModulePath = new URL('../../tf-l0-proofs/src/smt-laws.mjs', import.meta.url);
+const HERE = dirname(fileURLToPath(new URL('.', import.meta.url)));
+const CATALOG_PATH = resolve(HERE, '..', '..', 'tf-l0-spec', 'spec', 'catalog.json');
 
-let lawAliasCache = null;
-let effectMapCache = null;
+const LAW_NAMES = Object.freeze(listLawNames());
+const LAW_NAME_SET = new Set(LAW_NAMES);
 
-export async function loadLawAliasSet() {
-  if (!lawAliasCache) {
-    const mod = await import(smtModulePath);
-    const names = mod.listLawNames ? mod.listLawNames() : [];
-    lawAliasCache = new Set(names.map((name) => canonicalLawName(name)).filter((name) => name.length > 0));
+let primitiveEffectMapPromise;
+let catalogCachePromise;
+
+export async function readJsonFile(path, defaultValue = {}) {
+  try {
+    const raw = await readFile(path, 'utf8');
+    return JSON.parse(raw);
+  } catch (error) {
+    if (error && error.code === 'ENOENT') return defaultValue;
+    throw error;
   }
-  return lawAliasCache;
 }
 
+async function readCatalog() {
+  if (!catalogCachePromise) {
+    catalogCachePromise = readJsonFile(CATALOG_PATH, {});
+  }
+  return catalogCachePromise;
+}
+
+/**
+ * Returns a fresh Map(name -> effects[]) built from the catalog.
+ * Names are lower-cased for canonical matching.
+ */
 export async function loadPrimitiveEffectMap() {
-  if (!effectMapCache) {
-    const raw = await readFile(catalogPath, 'utf8');
-    const catalog = JSON.parse(raw);
-    const map = new Map();
-    for (const entry of Array.isArray(catalog.primitives) ? catalog.primitives : []) {
-      if (!entry || typeof entry.name !== 'string') continue;
-      const name = entry.name.trim().toLowerCase();
-      if (!name) continue;
-      const effect = Array.isArray(entry.effects) && entry.effects.length > 0 ? entry.effects[0] : null;
-      map.set(name, {
-        id: entry.id ?? null,
-        effect,
-        domain: entry.domain ?? null,
-        codomain: entry.codomain ?? null,
-      });
-    }
-    effectMapCache = map;
+  if (!primitiveEffectMapPromise) {
+    primitiveEffectMapPromise = (async () => {
+      const catalog = await readCatalog();
+      const entries = new Map();
+      for (const primitive of catalog.primitives || []) {
+        if (!primitive || typeof primitive !== 'object') continue;
+        const name = typeof primitive.name === 'string' ? primitive.name.toLowerCase().trim() : '';
+        if (!name) continue;
+        const effects = Array.isArray(primitive.effects)
+          ? primitive.effects.map((e) => String(e))
+          : [];
+        entries.set(name, effects);
+      }
+      return entries;
+    })();
   }
-  return effectMapCache;
+  const cached = await primitiveEffectMapPromise;
+  // hand back a copy to keep callers from mutating the cache
+  return new Map(cached);
 }
 
+export function getKnownLawNames() {
+  return LAW_NAMES;
+}
+
+export function isKnownLaw(name) {
+  return typeof name === 'string' && LAW_NAME_SET.has(name);
+}
+
+/* Optional helpers kept for compatibility */
 export function canonicalPrimitiveName(value) {
   if (typeof value !== 'string') return '';
   return value.trim().toLowerCase();

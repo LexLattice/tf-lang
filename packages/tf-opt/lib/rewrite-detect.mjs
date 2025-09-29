@@ -1,7 +1,6 @@
 import {
   canonicalLawName,
   canonicalPrimitiveName,
-  loadLawAliasSet,
   loadPrimitiveEffectMap,
 } from './data.mjs';
 
@@ -15,17 +14,13 @@ export function extractPrimitivesFromIr(ir) {
       return;
     }
     if (Array.isArray(node)) {
-      for (const item of node) {
-        visit(item);
-      }
+      for (const item of node) visit(item);
       return;
     }
     for (const key of Object.keys(node)) {
       if (key === 'node' || key === 'prim') continue;
       const value = node[key];
-      if (value && typeof value === 'object') {
-        visit(value);
-      }
+      if (value && typeof value === 'object') visit(value);
     }
   };
   visit(ir);
@@ -33,21 +28,17 @@ export function extractPrimitivesFromIr(ir) {
 }
 
 export async function analyzePrimitiveSequence(primitives) {
-  const [lawSet, effectMap] = await Promise.all([
-    loadLawAliasSet(),
-    loadPrimitiveEffectMap(),
-  ]);
+  const effectMap = await loadPrimitiveEffectMap();
   const names = primitives
     .map((name) => canonicalPrimitiveName(name))
     .filter((name) => name.length > 0);
+
   const obligations = [];
   const encounteredLaws = new Set();
 
   const addObligation = (rawLaw, details) => {
     const law = canonicalLawName(rawLaw);
-    if (!law) {
-      return;
-    }
+    if (!law) return;
     const rewrite = typeof details.rewrite === 'string' ? details.rewrite : `${law}@${obligations.length}`;
     const entry = {
       law,
@@ -55,7 +46,6 @@ export async function analyzePrimitiveSequence(primitives) {
       positions: Array.isArray(details.positions) ? [...details.positions] : [],
       primitives: Array.isArray(details.primitives) ? [...details.primitives] : [],
       direction: details.direction ?? null,
-      known: lawSet.has(law),
     };
     obligations.push(entry);
     encounteredLaws.add(law);
@@ -64,10 +54,9 @@ export async function analyzePrimitiveSequence(primitives) {
   for (let i = 0; i < names.length; i += 1) {
     const current = names[i];
     const next = names[i + 1];
-    if (!next) {
-      continue;
-    }
+    if (!next) continue;
 
+    // Idempotent: x |> x
     if (current === next) {
       addObligation(`idempotent:${current}`, {
         rewrite: `idempotent:${current}@${i}`,
@@ -76,6 +65,7 @@ export async function analyzePrimitiveSequence(primitives) {
       });
     }
 
+    // Inverse: serialize |> deserialize
     if (current === 'serialize' && next === 'deserialize') {
       addObligation('inverse:serialize-deserialize', {
         rewrite: `inverse:${current}->${next}@${i}`,
@@ -84,10 +74,10 @@ export async function analyzePrimitiveSequence(primitives) {
       });
     }
 
-    const currentInfo = effectMap.get(current);
-    const nextInfo = effectMap.get(next);
-
-    if (current === 'emit-metric' && nextInfo && nextInfo.effect === 'Pure') {
+    // Commute: emit-metric with Pure
+    const currentEff = effectMap.get(current);   // effects[] or undefined
+    const nextEff = effectMap.get(next);
+    if (current === 'emit-metric' && Array.isArray(nextEff) && nextEff.includes('Pure')) {
       addObligation('commute:emit-metric-with-pure', {
         rewrite: `commute:emit-metric<->${next}@${i}`,
         positions: [i, i + 1],
@@ -95,7 +85,7 @@ export async function analyzePrimitiveSequence(primitives) {
         direction: 'left',
       });
     }
-    if (next === 'emit-metric' && currentInfo && currentInfo.effect === 'Pure') {
+    if (next === 'emit-metric' && Array.isArray(currentEff) && currentEff.includes('Pure')) {
       addObligation('commute:emit-metric-with-pure', {
         rewrite: `commute:${current}<->emit-metric@${i}`,
         positions: [i, i + 1],

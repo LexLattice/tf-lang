@@ -1,0 +1,6 @@
+{
+  "primitives": [
+    { "prim_id": "tf:pure/identity@1", "effect": "return identity" },
+    { "prim": "tf:resource/write-object@1", "effect": "persist payload" }
+  ]
+}

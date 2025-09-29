@@ -1,4 +1,5 @@
 node: E1-E2-Proofs
+
 phases:
   cp1_linkage:
     rules:
@@ -22,6 +23,5 @@ rules:
 
   z3_optional_small:
     kind: process
-    cmd: >-
-      bash -lc 'command -v z3 >/dev/null 2>&1 || { echo "{\"ok\": true, \"skipped\": \"z3 not found\"}"; exit 0; }; node scripts/proofs/ci-gate.mjs --small samples/e1/small_flow.tf'
+    cmd: node scripts/proofs/ci-gate.mjs --small samples/e1/small_flow.tf
     expect: { code: 0, contains: '"ok": true' }

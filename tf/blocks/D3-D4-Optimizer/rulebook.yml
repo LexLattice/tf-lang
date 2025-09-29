@@ -1,0 +1,54 @@
+version: 1
+meta: { node: D3-D4-Optimizer }
+
+phases:
+  - id: cp3_plan_apply
+    rules:
+      - id: plan_only_newline
+        kind: process
+        cmd: >
+          bash -lc '
+            set -euo pipefail
+            mkdir -p out/0.5/opt
+            plan_path="out/0.5/opt/signing.plan.json"
+            node packages/tf-opt/bin/opt.mjs --ir out/0.4/ir/signing.ir.json --plan-only > "$plan_path"
+            python -c "import json, pathlib, sys; data = pathlib.Path(\"$plan_path\").read_text(); json.loads(data); sys.exit(\"plan output missing trailing newline\") if not data.endswith(\"\\n\") else None"
+          '
+        expect: { code: 0 }
+      - id: apply_writes_new_ir
+        kind: process
+        cmd: >
+          bash -lc '
+            set -euo pipefail
+            input="out/0.4/ir/signing.ir.json"
+            output="out/0.5/opt/signing.applied.json"
+            had_input=0
+            if [ -f "$input" ]; then
+              had_input=1
+              before=$(cat "$input")
+            fi
+            node packages/tf-opt/bin/opt.mjs --ir "$input" --apply --out "$output"
+            if [ $had_input -eq 1 ]; then
+              after=$(cat "$input")
+              if [ "$before" != "$after" ]; then
+                echo "input IR mutated" >&2
+                exit 1
+              fi
+            elif [ -f "$input" ]; then
+              echo "input IR should remain absent" >&2
+              exit 1
+            fi
+            python -c "import json, pathlib, sys; data = pathlib.Path(\"$output\").read_text(); json.loads(data); sys.exit(\"applied output missing trailing newline\") if not data.endswith(\"\\n\") else None"
+          '
+        expect: { code: 0 }
+
+  - id: cp4_coverage
+    rules:
+      - id: emit_used_laws
+        kind: process
+        cmd: node packages/tf-opt/bin/opt.mjs --ir out/0.4/ir/signing.ir.json --emit-used-laws out/0.5/proofs/used-laws.json
+        expect: { code: 0 }
+      - id: check_used_laws
+        kind: process
+        cmd: node scripts/proofs/ci-gate.mjs --check-used out/0.5/proofs/used-laws.json
+        expect: { ok: true }

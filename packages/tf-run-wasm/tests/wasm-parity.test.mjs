@@ -1,4 +1,4 @@
-// @tf-test kind: infra speed: fast deps: node
+// @tf-test kind=infra area=runtime speed=fast deps=node
 
 import assert from 'node:assert/strict';
 import test from 'node:test';

@@ -91,7 +91,11 @@ function tokenize(src) {
     }
 
     if (src.startsWith('authorize', i)) {
-      const next = src[i + 9] ?? '';
+      let lookahead = i + 9;
+      while (lookahead < src.length && /\s/.test(src[lookahead])) {
+        lookahead += 1;
+      }
+      const next = src[lookahead] ?? '';
       if (next === '{' || next === '(') {
         consumeWord('authorize');
         tokens.push(makeToken('REGION_AUTH', null, start));

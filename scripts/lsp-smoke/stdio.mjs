@@ -136,7 +136,7 @@ async function main() {
     console.log(JSON.stringify({ titles }, null, 2));
     const ok = grep
       ? titles.some(t => t.includes(grep))
-      : titles.some(t => /Authorize/.test(t));
+      : titles.some(t => t.includes('authorize{ scope:'));
     process.exit(ok ? 0 : 2);
   }
 }

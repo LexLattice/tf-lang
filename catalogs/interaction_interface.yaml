@@ -141,7 +141,8 @@
   version: 1.0.0
   abstract: true
 - id: interaction_interface.l2.RequestMacro
-  description: "L2 macro `interaction.request` expanding to publish + correlation-aware"
+  description: >
+    L2 macro `interaction.request` expanding to publish + correlation-aware
     reply routing.
   inputs:
   - endpoint: string

@@ -96,7 +96,8 @@
   version: 1.0.0
   abstract: true
 - id: observability_telemetry.l2.EmitMetricMacro
-  description: "L2 macro `obs.emit_metric` producing a metric publish with deterministic"
+  description: >
+    L2 macro `obs.emit_metric` producing a metric publish with deterministic
     structure.
   inputs:
   - name: string

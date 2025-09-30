@@ -136,7 +136,8 @@
   version: 1.0.0
   abstract: true
 - id: state_identity.l2.DiffMacro
-  description: "L2 macro `state.diff` providing a convenience wrapper over diff"
+  description: >
+    L2 macro `state.diff` providing a convenience wrapper over diff
     transforms.
   inputs:
   - base: object

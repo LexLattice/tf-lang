@@ -10,7 +10,7 @@ test('state_diff detects added, removed, and changed keys', () => {
   const diff = runTransform(op, { base, target });
   assert.deepEqual(diff.added, { c: 4 });
   assert.deepEqual(diff.removed, { a: 1 });
-  assert.deepEqual(diff.changed, { b: { before: 2, after: 3 } });
+  assert.deepEqual(diff.changed, { b: { from: 2, to: 3 } });
 });
 
 test('state_diff recurses through nested objects', () => {
@@ -22,8 +22,8 @@ test('state_diff recurses through nested objects', () => {
   assert.ok('meta' in diff.changed);
   assert.deepEqual(diff.changed.meta.added, {});
   assert.deepEqual(diff.changed.meta.removed, {});
-  assert.deepEqual(diff.changed.meta.changed.version, { before: 1, after: 2 });
-  assert.deepEqual(diff.changed.meta.changed.flags.changed.send, { before: false, after: true });
+  assert.deepEqual(diff.changed.meta.changed.version, { from: 1, to: 2 });
+  assert.deepEqual(diff.changed.meta.changed.flags.changed.send, { from: false, to: true });
 });
 
 test('state_diff is deterministic', () => {

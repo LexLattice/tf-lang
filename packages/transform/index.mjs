@@ -35,41 +35,47 @@ function emptyDiff(diff) {
   );
 }
 
-function diffObjects(base, target) {
+function stateDiff(base, target) {
   const result = {
     added: {},
     removed: {},
     changed: {},
   };
 
-  const baseObj = isPlainObject(base) ? base : {};
-  const targetObj = isPlainObject(target) ? target : {};
+  if (!isPlainObject(base) || !isPlainObject(target)) {
+    // Arrays/scalars are treated as leaf states; when different, the root "" key captures the change.
+    const equal = stableStringify(base) === stableStringify(target);
+    if (!equal) {
+      result.changed[''] = { from: base, to: target };
+    }
+    return result;
+  }
 
-  for (const key of Object.keys(targetObj)) {
-    if (!(key in baseObj)) {
-      result.added[key] = targetObj[key];
+  for (const key of Object.keys(target)) {
+    if (!(key in base)) {
+      result.added[key] = target[key];
     }
   }
 
-  for (const key of Object.keys(baseObj)) {
-    if (!(key in targetObj)) {
-      result.removed[key] = baseObj[key];
+  for (const key of Object.keys(base)) {
+    if (!(key in target)) {
+      result.removed[key] = base[key];
     }
   }
 
-  for (const key of Object.keys(targetObj)) {
-    if (!(key in baseObj)) continue;
-    const left = baseObj[key];
-    const right = targetObj[key];
+  for (const key of Object.keys(target)) {
+    if (!(key in base)) continue;
+    const left = base[key];
+    const right = target[key];
     if (isPlainObject(left) && isPlainObject(right)) {
-      const nested = diffObjects(left, right);
+      const nested = stateDiff(left, right);
       if (!emptyDiff(nested)) {
         result.changed[key] = nested;
       }
       continue;
     }
     if (stableStringify(left) !== stableStringify(right)) {
-      result.changed[key] = { before: left, after: right };
+      result.changed[key] = { from: left, to: right };
     }
   }
 
@@ -116,10 +122,11 @@ export function runTransform(spec, input = {}) {
       return current;
     }
     case 'jsonschema.validate': {
-      // String schema indicates upstream resolution; keep transform pure (no IO).
-      const schema = typeof spec.schema === 'string'
-        ? { type: 'object' }
-        : spec.schema;
+      if (typeof spec.schema === 'string') {
+        // Keep transform pure: resolving string schema IDs would require IO; reject upfront.
+        throw new Error('jsonschema.validate: string schema IDs are not supported in pure Transform; provide an inline object schema.');
+      }
+      const schema = spec.schema;
       const validator = ensureAjvSchema(schema);
       const valid = validator(input.value);
       if (!valid) {
@@ -150,7 +157,7 @@ export function runTransform(spec, input = {}) {
     case 'state_diff': {
       const base = input.base ?? {};
       const target = input.target ?? {};
-      return diffObjects(base, target);
+      return stateDiff(base, target);
     }
     default:
       throw new Error(`Unsupported transform op: ${op}`);

@@ -1,0 +1,42 @@
+# TF-Lang · Insurance Example · Quote → Bind → Issue v2 (L2)
+pipeline: "auto.quote.bind.issue.v2"
+description: >
+  Receive an auto quote request, validate the payload, rate the risk, apply underwriting
+  rules, and return a bindable offer. When the applicant signs, issue the policy, schedule
+  the first payment, and emit operational telemetry.
+inputs:
+  - quote: interaction.receive(endpoint: "api/quote/submit", qos: "at_least_once")
+
+steps:
+  - validate_request: transform.validate(schema: "AutoQuoteRequestV2", input: "@quote.body")
+
+  - rate: transform.model_infer(model: "auto.quote.rate.v2", input: "@quote.body")
+
+  - risk_rules: policy.evaluate(policy: "auto.quote.risk_rules.v2",
+                                input: { quote: "@quote.body", rate: "@rate_out" })
+
+  - offer: transform.compose(template: { quote_id: "@quote.body.quote_id",
+                                          premium: "@rate_out.premium",
+                                          coverages: "@risk_rules_out.coverages",
+                                          terms: "@risk_rules_out.terms" })
+
+  - bind: interaction.request(endpoint: "api/bindings/sign", method: "POST",
+                               body: { quote_id: "@quote.body.quote_id",
+                                       applicant: "@quote.body.applicant",
+                                       offer: "@offer_out" })
+
+  - issue: interaction.request(endpoint: "api/policy/issue", method: "POST",
+                                body: { quote_id: "@quote.body.quote_id",
+                                        binding_id: "@bind.response.binding_id" })
+
+  - schedule_first_payment: interaction.request(endpoint: "api/payments/schedule", method: "POST",
+                                                 body: { policy_id: "@issue.response.policy_id",
+                                                         amount: "@offer_out.premium",
+                                                         due_at: "@issue.response.first_due_at" })
+
+  - metric: obs.emit_metric(name: "quote.bind.issue.completed", value: 1,
+                             tags: { product: "@quote.body.product",
+                                     policy_id: "@issue.response.policy_id" })
+
+outputs:
+  - ack: interaction.reply(to: "@quote", status: "accepted")

@@ -6,6 +6,7 @@ import process from "node:process";
 import { spawnSync, execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import Ajv from "ajv";
+
 import { loadRulebookPlan, rulesForPhaseFromPlan } from "./expand.mjs";
 import { summarizeEffects } from "./lib/effects.mjs";
 import { buildDotGraph } from "./lib/dot.mjs";
@@ -15,7 +16,7 @@ const repoRoot = path.resolve(__dirname, "..", "..");
 
 const schemaPaths = {
   l0: path.join(repoRoot, "schemas", "l0-dag.schema.json"),
-  l2: path.join(repoRoot, "schemas", "l2-pipeline.schema.json"),
+  l2: path.join(repoRoot, "schemas", "l2-pipeline.schema.json")
 };
 
 const ajv = new Ajv({ allErrors: true, strict: false, allowUnionTypes: true });
@@ -35,9 +36,7 @@ function inferKindFromFile(filePath) {
 }
 
 async function ensureValidator(kind) {
-  if (!schemaPaths[kind]) {
-    throw new Error(`unknown schema kind: ${kind}`);
-  }
+  if (!schemaPaths[kind]) throw new Error(`unknown schema kind: ${kind}`);
   if (!validatorCache.has(kind)) {
     const schema = await loadJsonFile(schemaPaths[kind]);
     const validate = ajv.compile(schema);
@@ -52,7 +51,6 @@ async function runValidateCommand(args) {
   if (argv[0] && ["l0", "l2"].includes(argv[0])) {
     explicitKind = argv.shift();
   }
-
   if (argv.length === 0) {
     console.error("usage: tf validate [l0|l2] <FILE...>");
     return 2;
@@ -63,7 +61,7 @@ async function runValidateCommand(args) {
     const kind = explicitKind ?? inferKindFromFile(file);
     if (!kind) {
       console.error(`${file}: unable to infer schema; pass l0 or l2 explicitly`);
-      exitCode = 2;
+      exitCode = 2; // usage error takes precedence
       continue;
     }
 
@@ -86,7 +84,6 @@ async function runValidateCommand(args) {
       console.log(`${file}: OK [${kind}]`);
     }
   }
-
   return exitCode;
 }
 
@@ -107,24 +104,13 @@ async function runEffectsCommand(file) {
 }
 
 async function runGraphCommand(rawArgs) {
-  const argv = Array.isArray(rawArgs)
-    ? [...rawArgs]
-    : rawArgs !== undefined
-    ? [rawArgs]
-    : [];
-
+  const argv = Array.isArray(rawArgs) ? [...rawArgs] : rawArgs !== undefined ? [rawArgs] : [];
   let strictGraph = true;
   const files = [];
 
   for (const arg of argv) {
-    if (arg === "--strict-graph") {
-      strictGraph = true;
-      continue;
-    }
-    if (arg === "--no-strict-graph") {
-      strictGraph = false;
-      continue;
-    }
+    if (arg === "--strict-graph") { strictGraph = true; continue; }
+    if (arg === "--no-strict-graph") { strictGraph = false; continue; }
     const match = /^--strict-graph=(.+)$/u.exec(arg);
     if (match) {
       const value = match[1].toLowerCase();
@@ -160,9 +146,7 @@ function rbPath(node) {
 function resolveRulebookPath(input) {
   if (!input) return null;
   if (input.includes("/") || input.endsWith(".yml") || input.endsWith(".yaml")) {
-    if (!fs.existsSync(input)) {
-      throw new Error(`missing rulebook: ${input}`);
-    }
+    if (!fs.existsSync(input)) throw new Error(`missing rulebook: ${input}`);
     return input;
   }
   return rbPath(input);
@@ -180,7 +164,7 @@ function run(cmd, env) {
     shell: true,
     encoding: "utf8",
     env: { ...process.env, ...env },
-    maxBuffer: 10 * 1024 * 1024,
+    maxBuffer: 10 * 1024 * 1024
   });
   return { code: r.status ?? 99, stdout: (r.stdout || "").trim(), stderr: (r.stderr || "").trim() };
 }
@@ -197,9 +181,7 @@ function check(res, expect) {
     try {
       const j = JSON.parse(res.stdout || "{}");
       if (!!j.ok !== expect.ok) return { ok: false };
-    } catch {
-      return { ok: false };
-    }
+    } catch { return { ok: false }; }
   }
   if (expect.jsonpath_eq) {
     try {
@@ -208,33 +190,25 @@ function check(res, expect) {
       const key = k.replace(/^\$\./, "");
       const want = expect.jsonpath_eq[k];
       if (JSON.stringify(j[key]) !== JSON.stringify(want)) return { ok: false };
-    } catch {
-      return { ok: false };
-    }
+    } catch { return { ok: false }; }
   }
   if (expect.nonempty) {
     try {
       const j = JSON.parse(res.stdout || "{}");
       if (Object.keys(j).length === 0) return { ok: false };
-    } catch {
-      return { ok: false };
-    }
+    } catch { return { ok: false }; }
   }
   return { ok: true };
 }
 
 function explainPlan(plan, targetPhase) {
   const selected = plan.phases.get(targetPhase);
-  if (!selected) {
-    throw new Error(`unknown phase "${targetPhase}"`);
-  }
-
+  if (!selected) throw new Error(`unknown phase "${targetPhase}"`);
   const payload = {
     phase: selected.id,
     inherits: [...selected.inherits],
-    rules: selected.rules.map((rule) => ({ ...rule })),
+    rules: selected.rules.map((rule) => ({ ...rule }))
   };
-
   process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
 }
 
@@ -245,10 +219,7 @@ function usage() {
 
 (async function main() {
   const [cmd, ...argv] = process.argv.slice(2);
-
-  if (!cmd) {
-    usage();
-  }
+  if (!cmd) usage();
 
   if (cmd === "validate") {
     const code = await runValidateCommand(argv);
@@ -267,10 +238,7 @@ function usage() {
 
   if (cmd === "open") {
     const [node] = argv;
-    if (!node) {
-      console.error("usage: tf-lang open <NODE>");
-      process.exit(2);
-    }
+    if (!node) { console.error("usage: tf open <NODE>"); process.exit(2); }
     const plan = loadRulebookPlan(rbPath(node));
     console.log("Node:", node);
     console.log("Phases:", [...plan.phases.keys()].join(", "));
@@ -280,7 +248,7 @@ function usage() {
   if (cmd === "explain") {
     const [rulebookArg, phaseId] = argv;
     if (!rulebookArg || !phaseId) {
-      console.error("usage: tf-lang explain <rulebook.yml|NODE> <PHASE>");
+      console.error("usage: tf explain <rulebook.yml|NODE> <PHASE>");
       process.exit(2);
     }
     const rulebookPath = resolveRulebookPath(rulebookArg);
@@ -292,7 +260,7 @@ function usage() {
   if (cmd === "run") {
     const [node, cp, ...rest] = argv;
     if (!node || !cp) {
-      console.error("usage: tf-lang run <NODE> <CP> [--diff -] [--explain]");
+      console.error("usage: tf run <NODE> <CP> [--diff -] [--explain]");
       process.exit(2);
     }
 
@@ -301,18 +269,13 @@ function usage() {
     if (diffIndex !== -1 && rest[diffIndex + 1] === "-") {
       diff = fs.readFileSync(0, "utf8");
     } else {
-      try {
-        diff = execSync("git diff -U0 --no-color", { encoding: "utf8" });
-      } catch {
-        diff = "";
-      }
+      try { diff = execSync("git diff -U0 --no-color", { encoding: "utf8" }); }
+      catch { diff = ""; }
     }
 
     const diffPath = writeDiff(diff);
     const plan = loadRulebookPlan(rbPath(node));
-    if (rest.includes("--explain")) {
-      explainPlan(plan, cp);
-    }
+    if (rest.includes("--explain")) explainPlan(plan, cp);
     const selected = rulesForPhaseFromPlan(plan, cp);
     const results = {};
     const evidence = [];
@@ -327,10 +290,7 @@ function usage() {
         continue;
       }
       const command = r.cmd || r.command;
-      if (!command) {
-        results[r.id] = { ok: false, reason: "unsupported-kind" };
-        continue;
-      }
+      if (!command) { results[r.id] = { ok: false, reason: "unsupported-kind" }; continue; }
       const res = run(command, { ...(r.env || {}), DIFF_PATH: diffPath });
       const ch = check(res, r.expect || {});
       results[r.id] = { ok: ch.ok, code: res.code, reason: ch.reason || null };
@@ -344,7 +304,7 @@ function usage() {
       checkpoint: cp,
       timestamp: new Date().toISOString(),
       results,
-      evidence,
+      evidence
     };
     fs.mkdirSync("out", { recursive: true });
     fs.writeFileSync("out/TFREPORT.json", JSON.stringify(report, null, 2));

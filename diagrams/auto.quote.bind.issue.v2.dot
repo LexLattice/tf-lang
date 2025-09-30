@@ -1,0 +1,87 @@
+digraph G {
+  rankdir=LR;
+  n0 [label="S_quote_quote
+Subscribe: rpc:req:api/quote/submit"];
+  n1 [label="T_validate_request
+Transform: jsonschema.validate"];
+  n2 [label="T_rate
+Transform: model_infer"];
+  n3 [label="T_risk_rules
+Transform: policy_eval"];
+  n4 [label="T_offer
+Transform: compose"];
+  n5 [label="K_bind
+Keypair: Ed25519"];
+  n6 [label="T_bind_corr
+Transform: hash"];
+  n7 [label="T_bind_reply_to
+Transform: concat"];
+  n8 [label="P_bind_request
+Publish: rpc:req:api/bindings/sign"];
+  n9 [label="S_bind_reply
+Subscribe: @reply_to_bind"];
+  n10 [label="K_issue
+Keypair: Ed25519"];
+  n11 [label="T_issue_corr
+Transform: hash"];
+  n12 [label="T_issue_reply_to
+Transform: concat"];
+  n13 [label="P_issue_request
+Publish: rpc:req:api/policy/issue"];
+  n14 [label="S_issue_reply
+Subscribe: @reply_to_issue"];
+  n15 [label="K_schedule_first_payment
+Keypair: Ed25519"];
+  n16 [label="T_schedule_first_payment_corr
+Transform: hash"];
+  n17 [label="T_schedule_first_payment_reply_to
+Transform: concat"];
+  n18 [label="P_schedule_first_payment_request
+Publish: rpc:req:api/payments/schedule"];
+  n19 [label="S_schedule_first_payment_reply
+Subscribe: @reply_to_schedule_first_payment"];
+  n20 [label="P_metric
+Publish: metric:quote.bind.issue.completed"];
+  n21 [label="P_ack
+Publish: @quote_msg.reply_to"];
+  n0 -> n1;
+  n0 -> n2;
+  n0 -> n3;
+  n2 -> n3;
+  n0 -> n4;
+  n2 -> n4;
+  n3 -> n4;
+  n5 -> n6;
+  n0 -> n6;
+  n4 -> n6;
+  n6 -> n7;
+  n6 -> n8;
+  n7 -> n8;
+  n0 -> n8;
+  n4 -> n8;
+  n7 -> n9;
+  n6 -> n9;
+  n10 -> n11;
+  n0 -> n11;
+  n9 -> n11;
+  n11 -> n12;
+  n11 -> n13;
+  n12 -> n13;
+  n0 -> n13;
+  n9 -> n13;
+  n12 -> n14;
+  n11 -> n14;
+  n15 -> n16;
+  n14 -> n16;
+  n4 -> n16;
+  n16 -> n17;
+  n16 -> n18;
+  n17 -> n18;
+  n14 -> n18;
+  n4 -> n18;
+  n17 -> n19;
+  n16 -> n19;
+  n0 -> n20;
+  n14 -> n20;
+  n0 -> n21;
+}

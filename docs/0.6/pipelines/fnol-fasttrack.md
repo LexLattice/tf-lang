@@ -1,0 +1,107 @@
+# Auto FNOL Fast-Track (v1)
+
+The fast-track flow validates an inbound FNOL submission, retrieves the policy snapshot,
+assesses severity and fraud, and routes the claim directly to payout when the eligibility
+policy allows it. Otherwise, the claim is routed to an adjuster while decisions and
+metrics are recorded for audit.
+
+If generated, open [diagrams/auto.fnol.fasttrack.v1.svg](../../diagrams/auto.fnol.fasttrack.v1.svg)
+for a zoomable view of the graph.
+
+```dot
+digraph G {
+  rankdir=LR;
+  n0 [label="S_receive_fnol
+rpc:req:api/fnol/submit"];
+  n1 [label="T_validate_fnol
+jsonschema.validate"];
+  n0 -> n1;
+  n2 [label="K_get_policy
+Ed25519"];
+  n1 -> n2;
+  n3 [label="T_get_policy_corr
+hash"];
+  n2 -> n3;
+  n4 [label="T_get_policy_reply_to
+concat"];
+  n3 -> n4;
+  n5 [label="P_get_policy_request
+rpc:req:api/policy/snapshot"];
+  n4 -> n5;
+  n6 [label="S_get_policy_reply
+@reply_to_get_policy"];
+  n5 -> n6;
+  n7 [label="T_score_severity
+model_infer"];
+  n6 -> n7;
+  n8 [label="T_score_fraud
+model_infer"];
+  n7 -> n8;
+  n9 [label="T_eligibility
+policy_eval"];
+  n8 -> n9;
+  n10 [label="T_branch_1
+eq"];
+  n9 -> n10;
+  n11 [label="K_consent
+Ed25519"];
+  n10 -> n11;
+  n12 [label="T_consent_corr
+hash"];
+  n11 -> n12;
+  n13 [label="T_consent_reply_to
+concat"];
+  n12 -> n13;
+  n14 [label="P_consent_request
+rpc:req:api/consent/sign"];
+  n13 -> n14;
+  n15 [label="S_consent_reply
+@reply_to_consent"];
+  n14 -> n15;
+  n16 [label="K_payout
+Ed25519"];
+  n15 -> n16;
+  n17 [label="T_payout_corr
+hash"];
+  n16 -> n17;
+  n18 [label="T_payout_reply_to
+concat"];
+  n17 -> n18;
+  n19 [label="P_payout_request
+rpc:req:api/payments/payout"];
+  n18 -> n19;
+  n20 [label="S_payout_reply
+@reply_to_payout"];
+  n19 -> n20;
+  n21 [label="P_emit_metric
+metric:claims.fasttrack.success"];
+  n20 -> n21;
+  n22 [label="K_assign
+Ed25519"];
+  n21 -> n22;
+  n23 [label="T_assign_corr
+hash"];
+  n22 -> n23;
+  n24 [label="T_assign_reply_to
+concat"];
+  n23 -> n24;
+  n25 [label="P_assign_request
+rpc:req:api/adjuster/assign"];
+  n24 -> n25;
+  n26 [label="S_assign_reply
+@reply_to_assign"];
+  n25 -> n26;
+  n27 [label="P_ack
+@fnol_msg.reply_to"];
+  n26 -> n27;
+  n28 [label="T_record_digest
+digest"];
+  n27 -> n28;
+  n29 [label="T_record_id
+encode_base58"];
+  n28 -> n29;
+  n30 [label="P_record
+policy:record"];
+  n29 -> n30;
+}
+```

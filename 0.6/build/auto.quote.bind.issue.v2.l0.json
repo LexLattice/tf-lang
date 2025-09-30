@@ -1,0 +1,307 @@
+{
+  "pipeline_id": "auto.quote.bind.issue.v2",
+  "created_at": "2025-09-30T15:36:45.280Z",
+  "effects": "Outbound+Inbound+Entropy+Pure",
+  "nodes": [
+    {
+      "id": "S_quote_quote",
+      "kind": "Subscribe",
+      "channel": "rpc:req:api/quote/submit",
+      "qos": "at_least_once",
+      "out": {
+        "var": "quote_msg"
+      }
+    },
+    {
+      "id": "T_validate_request",
+      "kind": "Transform",
+      "spec": {
+        "op": "jsonschema.validate",
+        "schema": "AutoQuoteRequestV2"
+      },
+      "in": {
+        "value": "@quote_msg.body"
+      },
+      "out": {
+        "var": "validate_request_value"
+      }
+    },
+    {
+      "id": "T_rate",
+      "kind": "Transform",
+      "spec": {
+        "op": "model_infer",
+        "model": "auto.quote.rate.v2"
+      },
+      "in": {
+        "features": "@quote_msg.body"
+      },
+      "out": {
+        "var": "rate_value"
+      }
+    },
+    {
+      "id": "T_risk_rules",
+      "kind": "Transform",
+      "spec": {
+        "op": "policy_eval",
+        "policy": "auto.quote.risk_rules.v2"
+      },
+      "in": {
+        "input": {
+          "quote": "@quote_msg.body",
+          "rate": "@rate_value"
+        }
+      },
+      "out": {
+        "var": "risk_rules_value"
+      }
+    },
+    {
+      "id": "T_offer",
+      "kind": "Transform",
+      "spec": {
+        "op": "compose",
+        "template": {
+          "quote_id": "@quote_msg.body.quote_id",
+          "premium": "@rate_value.premium",
+          "coverages": "@risk_rules_value.coverages",
+          "terms": "@risk_rules_value.terms"
+        }
+      },
+      "in": {},
+      "out": {
+        "var": "offer_value"
+      }
+    },
+    {
+      "id": "K_bind",
+      "kind": "Keypair",
+      "algorithm": "Ed25519",
+      "out": {
+        "var": "kp_bind"
+      }
+    },
+    {
+      "id": "T_bind_corr",
+      "kind": "Transform",
+      "spec": {
+        "op": "hash",
+        "alg": "blake3"
+      },
+      "in": {
+        "k": "@kp_bind.public_key_pem",
+        "e": "api/bindings/sign",
+        "m": "POST",
+        "b": {
+          "quote_id": "@quote_msg.body.quote_id",
+          "applicant": "@quote_msg.body.applicant",
+          "offer": "@offer_value"
+        }
+      },
+      "out": {
+        "var": "corr_bind"
+      }
+    },
+    {
+      "id": "T_bind_reply_to",
+      "kind": "Transform",
+      "spec": {
+        "op": "concat"
+      },
+      "in": {
+        "a": "rpc:reply:",
+        "b": "@corr_bind"
+      },
+      "out": {
+        "var": "reply_to_bind"
+      }
+    },
+    {
+      "id": "P_bind_request",
+      "kind": "Publish",
+      "channel": "rpc:req:api/bindings/sign",
+      "qos": "at_least_once",
+      "payload": {
+        "method": "POST",
+        "corr": "@corr_bind",
+        "reply_to": "@reply_to_bind",
+        "body": {
+          "quote_id": "@quote_msg.body.quote_id",
+          "applicant": "@quote_msg.body.applicant",
+          "offer": "@offer_value"
+        }
+      }
+    },
+    {
+      "id": "S_bind_reply",
+      "kind": "Subscribe",
+      "channel": "@reply_to_bind",
+      "qos": "at_least_once",
+      "filter": "@corr_bind",
+      "out": {
+        "var": "bind_reply"
+      }
+    },
+    {
+      "id": "K_issue",
+      "kind": "Keypair",
+      "algorithm": "Ed25519",
+      "out": {
+        "var": "kp_issue"
+      }
+    },
+    {
+      "id": "T_issue_corr",
+      "kind": "Transform",
+      "spec": {
+        "op": "hash",
+        "alg": "blake3"
+      },
+      "in": {
+        "k": "@kp_issue.public_key_pem",
+        "e": "api/policy/issue",
+        "m": "POST",
+        "b": {
+          "quote_id": "@quote_msg.body.quote_id",
+          "binding_id": "@bind_reply.response.binding_id"
+        }
+      },
+      "out": {
+        "var": "corr_issue"
+      }
+    },
+    {
+      "id": "T_issue_reply_to",
+      "kind": "Transform",
+      "spec": {
+        "op": "concat"
+      },
+      "in": {
+        "a": "rpc:reply:",
+        "b": "@corr_issue"
+      },
+      "out": {
+        "var": "reply_to_issue"
+      }
+    },
+    {
+      "id": "P_issue_request",
+      "kind": "Publish",
+      "channel": "rpc:req:api/policy/issue",
+      "qos": "at_least_once",
+      "payload": {
+        "method": "POST",
+        "corr": "@corr_issue",
+        "reply_to": "@reply_to_issue",
+        "body": {
+          "quote_id": "@quote_msg.body.quote_id",
+          "binding_id": "@bind_reply.response.binding_id"
+        }
+      }
+    },
+    {
+      "id": "S_issue_reply",
+      "kind": "Subscribe",
+      "channel": "@reply_to_issue",
+      "qos": "at_least_once",
+      "filter": "@corr_issue",
+      "out": {
+        "var": "issue_reply"
+      }
+    },
+    {
+      "id": "K_schedule_first_payment",
+      "kind": "Keypair",
+      "algorithm": "Ed25519",
+      "out": {
+        "var": "kp_schedule_first_payment"
+      }
+    },
+    {
+      "id": "T_schedule_first_payment_corr",
+      "kind": "Transform",
+      "spec": {
+        "op": "hash",
+        "alg": "blake3"
+      },
+      "in": {
+        "k": "@kp_schedule_first_payment.public_key_pem",
+        "e": "api/payments/schedule",
+        "m": "POST",
+        "b": {
+          "policy_id": "@issue_reply.response.policy_id",
+          "amount": "@offer_value.premium",
+          "due_at": "@issue_reply.response.first_due_at"
+        }
+      },
+      "out": {
+        "var": "corr_schedule_first_payment"
+      }
+    },
+    {
+      "id": "T_schedule_first_payment_reply_to",
+      "kind": "Transform",
+      "spec": {
+        "op": "concat"
+      },
+      "in": {
+        "a": "rpc:reply:",
+        "b": "@corr_schedule_first_payment"
+      },
+      "out": {
+        "var": "reply_to_schedule_first_payment"
+      }
+    },
+    {
+      "id": "P_schedule_first_payment_request",
+      "kind": "Publish",
+      "channel": "rpc:req:api/payments/schedule",
+      "qos": "at_least_once",
+      "payload": {
+        "method": "POST",
+        "corr": "@corr_schedule_first_payment",
+        "reply_to": "@reply_to_schedule_first_payment",
+        "body": {
+          "policy_id": "@issue_reply.response.policy_id",
+          "amount": "@offer_value.premium",
+          "due_at": "@issue_reply.response.first_due_at"
+        }
+      }
+    },
+    {
+      "id": "S_schedule_first_payment_reply",
+      "kind": "Subscribe",
+      "channel": "@reply_to_schedule_first_payment",
+      "qos": "at_least_once",
+      "filter": "@corr_schedule_first_payment",
+      "out": {
+        "var": "schedule_first_payment_reply"
+      }
+    },
+    {
+      "id": "P_metric",
+      "kind": "Publish",
+      "channel": "metric:quote.bind.issue.completed",
+      "qos": "at_least_once",
+      "payload": {
+        "value": 1,
+        "unit": "count",
+        "tags": {
+          "product": "@quote_msg.body.product",
+          "policy_id": "@issue_reply.response.policy_id"
+        }
+      }
+    },
+    {
+      "id": "P_ack",
+      "kind": "Publish",
+      "channel": "@quote_msg.reply_to",
+      "qos": "at_least_once",
+      "payload": {
+        "corr": "@quote_msg.corr",
+        "status": "accepted"
+      }
+    }
+  ]
+}

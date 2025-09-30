@@ -1,0 +1,146 @@
+digraph G {
+  rankdir=LR;
+  n0 [label="S_receive_fnol
+Subscribe: rpc:req:api/fnol/submit"];
+  n1 [label="T_validate_fnol
+Transform: jsonschema.validate"];
+  n2 [label="K_get_policy
+Keypair: Ed25519"];
+  n3 [label="T_get_policy_corr
+Transform: hash"];
+  n4 [label="T_get_policy_reply_to
+Transform: concat"];
+  n5 [label="P_get_policy_request
+Publish: rpc:req:api/policy/snapshot"];
+  n6 [label="S_get_policy_reply
+Subscribe: @reply_to_get_policy"];
+  n7 [label="T_score_severity
+Transform: model_infer"];
+  n8 [label="T_score_fraud
+Transform: model_infer"];
+  n9 [label="T_eligibility
+Transform: policy_eval"];
+  n10 [label="T_branch_1
+Transform: eq"];
+  n11 [label="K_consent
+Keypair: Ed25519
+when: @branch_1_value"];
+  n12 [label="T_consent_corr
+Transform: hash
+when: @branch_1_value"];
+  n13 [label="T_consent_reply_to
+Transform: concat
+when: @branch_1_value"];
+  n14 [label="P_consent_request
+Publish: rpc:req:api/consent/sign
+when: @branch_1_value"];
+  n15 [label="S_consent_reply
+Subscribe: @reply_to_consent
+when: @branch_1_value"];
+  n16 [label="K_payout
+Keypair: Ed25519
+when: @branch_1_value"];
+  n17 [label="T_payout_corr
+Transform: hash
+when: @branch_1_value"];
+  n18 [label="T_payout_reply_to
+Transform: concat
+when: @branch_1_value"];
+  n19 [label="P_payout_request
+Publish: rpc:req:api/payments/payout
+when: @branch_1_value"];
+  n20 [label="S_payout_reply
+Subscribe: @reply_to_payout
+when: @branch_1_value"];
+  n21 [label="P_emit_metric
+Publish: metric:claims.fasttrack.success
+when: @branch_1_value"];
+  n22 [label="K_assign
+Keypair: Ed25519
+when: ¬branch_1_value"];
+  n23 [label="T_assign_corr
+Transform: hash
+when: ¬branch_1_value"];
+  n24 [label="T_assign_reply_to
+Transform: concat
+when: ¬branch_1_value"];
+  n25 [label="P_assign_request
+Publish: rpc:req:api/adjuster/assign
+when: ¬branch_1_value"];
+  n26 [label="S_assign_reply
+Subscribe: @reply_to_assign
+when: ¬branch_1_value"];
+  n27 [label="P_ack
+Publish: @fnol_msg.reply_to"];
+  n28 [label="T_record_digest
+Transform: digest"];
+  n29 [label="T_record_id
+Transform: encode_base58"];
+  n30 [label="P_record
+Publish: policy:record"];
+  n0 -> n1;
+  n2 -> n3;
+  n0 -> n3;
+  n3 -> n4;
+  n3 -> n5;
+  n4 -> n5;
+  n0 -> n5;
+  n4 -> n6;
+  n3 -> n6;
+  n0 -> n7;
+  n0 -> n8;
+  n7 -> n9;
+  n8 -> n9;
+  n6 -> n9;
+  n9 -> n10;
+  n10 -> n11 [style=dashed];
+  n11 -> n12;
+  n0 -> n12;
+  n10 -> n12 [style=dashed];
+  n12 -> n13;
+  n10 -> n13 [style=dashed];
+  n12 -> n14;
+  n13 -> n14;
+  n0 -> n14;
+  n10 -> n14 [style=dashed];
+  n13 -> n15;
+  n12 -> n15;
+  n10 -> n15 [style=dashed];
+  n10 -> n16 [style=dashed];
+  n16 -> n17;
+  n0 -> n17;
+  n9 -> n17;
+  n10 -> n17 [style=dashed];
+  n17 -> n18;
+  n10 -> n18 [style=dashed];
+  n17 -> n19;
+  n18 -> n19;
+  n0 -> n19;
+  n9 -> n19;
+  n10 -> n19 [style=dashed];
+  n18 -> n20;
+  n17 -> n20;
+  n10 -> n20 [style=dashed];
+  n6 -> n21;
+  n10 -> n21 [style=dashed];
+  n10 -> n22 [style=dashed];
+  n22 -> n23;
+  n0 -> n23;
+  n7 -> n23;
+  n10 -> n23 [style=dashed];
+  n23 -> n24;
+  n10 -> n24 [style=dashed];
+  n23 -> n25;
+  n24 -> n25;
+  n0 -> n25;
+  n7 -> n25;
+  n10 -> n25 [style=dashed];
+  n24 -> n26;
+  n23 -> n26;
+  n10 -> n26 [style=dashed];
+  n0 -> n27;
+  n9 -> n28;
+  n28 -> n29;
+  n29 -> n30;
+  n9 -> n30;
+}

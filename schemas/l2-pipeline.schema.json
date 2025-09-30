@@ -1,0 +1,196 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://tf-lang.dev/schemas/l2-pipeline.schema.json",
+  "title": "TF-Lang L2 Pipeline",
+  "type": "object",
+  "required": ["pipeline", "steps"],
+  "additionalProperties": false,
+  "properties": {
+    "pipeline": {
+      "$ref": "#/$defs/identifier"
+    },
+    "description": {
+      "type": "string"
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ioEntry"
+      }
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/step"
+      }
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ioEntry"
+      }
+    },
+    "slas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "ensures": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/data"
+      }
+    }
+  },
+  "$defs": {
+    "data": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/data"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/data"
+          }
+        }
+      ]
+    },
+    "identifier": {
+      "type": "string",
+      "minLength": 1
+    },
+    "ioEntry": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 1,
+      "patternProperties": {
+        "^[A-Za-z_][A-Za-z0-9_.-]*$": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "object",
+              "minProperties": 1,
+              "additionalProperties": {
+                "$ref": "#/$defs/data"
+              }
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "stepDetail": {
+      "type": "object",
+      "properties": {
+        "when": {
+          "type": "string",
+          "minLength": 1
+        },
+        "with": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/data"
+          }
+        },
+        "input": {
+          "$ref": "#/$defs/data"
+        },
+        "output": {
+          "$ref": "#/$defs/data"
+        },
+        "using": {
+          "$ref": "#/$defs/data"
+        }
+      },
+      "additionalProperties": true
+    },
+    "branchStep": {
+      "type": "object",
+      "required": ["when", "then"],
+      "properties": {
+        "when": {
+          "type": "string",
+          "minLength": 1
+        },
+        "then": {
+          "$ref": "#/$defs/stepList"
+        },
+        "else": {
+          "$ref": "#/$defs/stepList"
+        }
+      },
+      "additionalProperties": false
+    },
+    "step": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 1,
+      "patternProperties": {
+        "^[A-Za-z_][A-Za-z0-9_.-]*$": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "$ref": "#/$defs/stepDetail"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "required": ["branch"]
+          },
+          "then": {
+            "properties": {
+              "branch": {
+                "$ref": "#/$defs/branchStep"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "stepList": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/step"
+      }
+    }
+  }
+}

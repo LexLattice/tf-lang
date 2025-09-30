@@ -14,6 +14,8 @@
 
 Version: **v0.4**
 
+See the [0.5 Overview](docs/0.5/overview.md) for per-track guides, commands, and troubleshooting.
+
 ---
 
 ## What’s in 0.4
@@ -63,21 +65,18 @@ Version: **v0.4**
 
 ---
 
-## Quickstart
-
-### A) Standard developer setup
+## Getting Started
 
 ```bash
 pnpm -v && node -v
-pnpm -w -r install
+pnpm -w -r install --frozen-lockfile
 pnpm -w -r build
+pnpm run test:fast
+pnpm run proofs:coverage
+pnpm run pilot:build-run
 ```
 
-### B) Codex Cloud setup (one‑liner)
-
-```bash
-bash -lc "./scripts/codex/setup.sh"
-```
+Additional quickstarts (tracks A–F, optimizer, traces, proofs, release tooling) live under [`docs/0.5/quickstarts/`](docs/0.5/quickstarts/) and are linked from the [0.5 Overview](docs/0.5/overview.md).
 
 ---
 

@@ -93,6 +93,40 @@ phases:
 
 The examples above reuse the `test` rule definition while overriding `expect`.
 
+Inline overrides inherit every field from the base rule unless explicitly
+overridden. Only the changed fields need to be written in the phase definition.
+
+```yaml
+rules:
+  lint:
+    kind: shell
+    cmd: echo lint
+    expect: pass
+
+phases:
+  check:
+    rules:
+      - id: lint
+        expect: ok
+```
+
+```yaml
+rules:
+  lint:
+    kind: shell
+    cmd: echo lint
+    expect: pass
+
+phases:
+  check:
+    rules:
+      lint:
+        expect: ok
+```
+
+Both snippets expand to a rule with `kind: shell` and `cmd: echo lint` while
+overriding only `expect: ok` in the phase.
+
 ## Deterministic expansion
 
 When expanding a phase the CLI performs a depth-first traversal of inherited
@@ -105,14 +139,16 @@ schema uses arrays or maps.
 The CLI reports helpful errors when rulebooks are malformed:
 
 - `unknown phase "id"` – referenced phase is not defined.
-- `invalid inherits reference "id"` – a phase inherits from an unknown id.
-- `cycle detected via "a -> b -> a"` – inheritance forms a cycle.
+- `cycle detected in phase inheritance: "a" -> "b" -> "a"` – inheritance forms
+  a cycle.
 - `unknown rule "id"` – rule id is not defined and no inline object is
   provided.
-- `invalid rule entry at phase "phase"` – phase rules contain an invalid entry
-  (missing `id` or unsupported type).
-- `inherits for phase "phase" must be an array` – inheritance list is not an
-  array.
+- `inline rule entry in phase "phase" missing "id"` – an inline object omits
+  its identifier.
+- `rule entry in phase "phase" must be a string id or an object with "id"` –
+  phase rules contain an unsupported entry type.
+- `phase "phase" has non-array inherits` – inheritance list is not an array.
+- `phase "phase" has non-array rules` – rule list is not an array or mapping.
 - `rulebook phases must be an array or object` – invalid `phases` value.
 - `rule definitions must be an array or object` – invalid top-level `rules`
   shape.

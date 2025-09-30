@@ -40,7 +40,8 @@ function normalizeRulebook(rb) {
     if (stack.includes(phaseId)) {
       const start = stack.indexOf(phaseId);
       const cycle = [...stack.slice(start), phaseId];
-      throw new Error(`cycle detected via "${cycle.join(" -> ")}"`);
+      const formatted = cycle.map((id) => `"${id}"`).join(" -> ");
+      throw new Error(`cycle detected in phase inheritance: ${formatted}`);
     }
 
     stack.push(phaseId);
@@ -49,7 +50,7 @@ function normalizeRulebook(rb) {
 
     for (const inherited of phase.inherits) {
       if (!phases.has(inherited)) {
-        throw new Error(`invalid inherits reference "${inherited}"`);
+        throw new Error(`unknown phase "${inherited}"`);
       }
       const inheritedRules = expandPhase(inherited);
       for (const rule of inheritedRules) {
@@ -177,13 +178,11 @@ function toRuleMap(rulesNode) {
 function normalizeInherits(value, phaseId) {
   if (value === undefined) return [];
   if (!Array.isArray(value)) {
-    throw new Error(`inherits for phase "${phaseId}" must be an array`);
+    throw new Error(`phase "${phaseId}" has non-array inherits`);
   }
   return value.map((entry, index) => {
     if (typeof entry !== "string" || entry.length === 0) {
-      throw new Error(
-        `inherits for phase "${phaseId}" must contain only phase ids (invalid entry at index ${index})`,
-      );
+      throw new Error(`inherits entry ${index} in phase "${phaseId}" must be a string`);
     }
     return entry;
   });
@@ -206,7 +205,7 @@ function normalizePhaseRules(value, phaseId) {
     });
   }
 
-  throw new Error(`invalid rule entry at phase "${phaseId}"`);
+  throw new Error(`phase "${phaseId}" has non-array rules`);
 }
 
 function normalizeRuleReference(entry, phaseId) {
@@ -216,12 +215,12 @@ function normalizeRuleReference(entry, phaseId) {
 
   if (entry && typeof entry === "object" && !Array.isArray(entry)) {
     if (typeof entry.id !== "string" || entry.id.length === 0) {
-      throw new Error(`invalid rule entry at phase "${phaseId}"`);
+      throw new Error(`inline rule entry in phase "${phaseId}" missing "id"`);
     }
     return { ...entry, id: entry.id };
   }
 
-  throw new Error(`invalid rule entry at phase "${phaseId}"`);
+  throw new Error(`rule entry in phase "${phaseId}" must be a string id or an object with "id"`);
 }
 
 function resolveRuleEntry(entry, ruleMap) {

@@ -76,35 +76,19 @@ function check(res, expect) {
   return { ok: true };
 }
 
-function summarizeRule(rule) {
-  const kind = rule.kind ? `kind=${rule.kind}` : null;
-  const command = rule.cmd || rule.command;
-  const trimmedCmd = command ? command.split("\n")[0] : null;
-  const parts = [kind, trimmedCmd ? `cmd=${trimmedCmd}` : null].filter(Boolean);
-  return parts.length ? ` — ${parts.join(", ")}` : "";
-}
-
 function explainPlan(plan, targetPhase) {
-  const phaseIds = [...plan.phases.keys()];
-  console.log("Phases:");
-  for (const id of phaseIds) {
-    const phase = plan.phases.get(id);
-    const marker = id === targetPhase ? "*" : "-";
-    const title = phase.title ? ` — ${phase.title}` : "";
-    const inherits = phase.inherits.length ? ` (inherits: ${phase.inherits.join(", ")})` : "";
-    console.log(` ${marker} ${id}${title}${inherits}`);
-  }
-
   const selected = plan.phases.get(targetPhase);
   if (!selected) {
     throw new Error(`unknown phase "${targetPhase}"`);
   }
 
-  console.log("\nExpanded rules:");
-  selected.rules.forEach((rule, idx) => {
-    console.log(` ${idx + 1}. ${rule.id}${summarizeRule(rule)}`);
-  });
-  console.log("");
+  const payload = {
+    phase: selected.id,
+    inherits: [...selected.inherits],
+    rules: selected.rules.map((rule) => ({ ...rule })),
+  };
+
+  process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
 }
 
 function usage() {

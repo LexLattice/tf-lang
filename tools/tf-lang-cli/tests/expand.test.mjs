@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import os from "node:os";
@@ -134,7 +135,7 @@ phases:
       - ghost
 `);
 
-  assert.throws(() => rulesForPhase(rulebookPath, "child"), /invalid inherits reference "ghost"/);
+  assert.throws(() => rulesForPhase(rulebookPath, "child"), /unknown phase "ghost"/);
 });
 
 test("errors on unknown rule id", () => {
@@ -158,7 +159,21 @@ phases:
 
   assert.throws(
     () => rulesForPhase(rulebookPath, "only"),
-    /invalid rule entry at phase "only"/
+    /inline rule entry in phase "only" missing "id"/
+  );
+});
+
+test("errors when inherits is not an array", () => {
+  const rulebookPath = writeRulebook(`
+phases:
+  child:
+    inherits: parent
+    rules: []
+`);
+
+  assert.throws(
+    () => rulesForPhase(rulebookPath, "child"),
+    /phase "child" has non-array inherits/
   );
 });
 
@@ -205,6 +220,19 @@ rules:
   ]);
 });
 
+test("errors when rules is not array or object", () => {
+  const rulebookPath = writeRulebook(`
+phases:
+  build:
+    rules: lint
+`);
+
+  assert.throws(
+    () => rulesForPhase(rulebookPath, "build"),
+    /phase "build" has non-array rules/
+  );
+});
+
 test("errors on invalid rule entry type", () => {
   const rulebookPath = writeRulebook(`
 phases:
@@ -213,7 +241,10 @@ phases:
       - 5
 `);
 
-  assert.throws(() => rulesForPhase(rulebookPath, "build"), /invalid rule entry at phase "build"/);
+  assert.throws(
+    () => rulesForPhase(rulebookPath, "build"),
+    /rule entry in phase "build" must be a string id or an object with "id"/
+  );
 });
 
 test("detects inherits cycles", () => {
@@ -225,7 +256,36 @@ phases:
     inherits: [a]
 `);
 
-  assert.throws(() => rulesForPhase(rulebookPath, "a"), /cycle detected via "a -> b -> a"/);
+  assert.throws(
+    () => rulesForPhase(rulebookPath, "a"),
+    /cycle detected in phase inheritance: "a" -> "b" -> "a"/
+  );
+});
+
+test("inline overrides inherit fields from rule map", () => {
+  const rulebookPath = writeRulebook(`
+phases:
+  deploy:
+    rules:
+      - id: lint
+        expect: override
+      - id: custom
+        expect: { code: 0 }
+rules:
+  lint:
+    kind: shell
+    cmd: echo lint
+    expect: base
+  custom:
+    kind: shell
+    cmd: echo custom
+`);
+
+  const expanded = rulesForPhase(rulebookPath, "deploy");
+  assert.deepStrictEqual(expanded, [
+    { id: "lint", kind: "shell", cmd: "echo lint", expect: "override" },
+    { id: "custom", kind: "shell", cmd: "echo custom", expect: { code: 0 } },
+  ]);
 });
 
 test("normalizeRulebook exposes expanded rules per phase", () => {
@@ -258,4 +318,47 @@ rules:
       { id: "format", kind: "shell", cmd: "echo format" },
     ],
   );
+});
+
+test("cli explain emits stable json payload", () => {
+  const rulebookPath = writeRulebook(`
+phases:
+  build:
+    inherits: [setup]
+    rules:
+      - lint
+      - id: test
+        expect: ok
+  setup:
+    rules:
+      - prep
+rules:
+  lint:
+    kind: shell
+    cmd: echo lint
+  test:
+    kind: shell
+    cmd: echo test
+  prep:
+    kind: shell
+    cmd: echo prep
+`);
+
+  const cliPath = join(process.cwd(), "tools", "tf-lang-cli", "index.mjs");
+  const result = spawnSync(process.execPath, [cliPath, "explain", rulebookPath, "build"], {
+    encoding: "utf8",
+  });
+
+  assert.strictEqual(result.status, 0, result.stderr);
+  assert.ok(result.stdout.endsWith("\n"));
+  const payload = JSON.parse(result.stdout);
+  assert.deepStrictEqual(payload, {
+    phase: "build",
+    inherits: ["setup"],
+    rules: [
+      { id: "prep", kind: "shell", cmd: "echo prep" },
+      { id: "lint", kind: "shell", cmd: "echo lint" },
+      { id: "test", kind: "shell", cmd: "echo test", expect: "ok" },
+    ],
+  });
 });

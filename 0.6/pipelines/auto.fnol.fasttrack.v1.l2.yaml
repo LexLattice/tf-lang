@@ -1,0 +1,46 @@
+# TF-Lang · Insurance Example · Auto FNOL Fast-Track v1 (L2)
+# Status: draft demo
+pipeline: "auto.fnol.fasttrack.v1"
+description: >
+  Intake Auto FNOL, validate, score severity and fraud, evaluate fast-track policy.
+  If eligible: collect e-consent and payout within 24h; else assign adjuster.
+  Record decisions and emit metrics. All steps are built from L1 macros that expand to L0.
+inputs:
+  - receive: interaction.receive(endpoint: "api/fnol/submit", qos: "at_least_once")
+
+steps:
+  - validate_fnol: transform.validate(schema: "FnolV1", input: "@receive.body")
+
+  - get_policy: interaction.request(endpoint: "api/policy/snapshot", method: "GET",
+                                    query: { policy_id: "@receive.body.policy_id" })
+
+  - score_severity: transform.model_infer(model: "auto.severity.v3", input: "@receive.body")
+  - score_fraud:    transform.model_infer(model: "fraud.v7",         input: "@receive.body")
+
+  - eligibility: policy.evaluate(policy: "fasttrack.policy.v1",
+                                 input: { severity: "@score_severity",
+                                          fraud:    "@score_fraud",
+                                          policy:   "@get_policy.response" })
+
+  - branch:
+      when: "@eligibility.decision == 'allow'"
+      then:
+        - consent: interaction.request(endpoint: "api/consent/sign", method: "POST",
+                                       body: { doc: "fasttrack.pdf", claimant: "@receive.body.party" })
+        - payout: interaction.request(endpoint: "api/payments/payout", method: "POST",
+                                      body: { claim: "@receive.body.claim_id",
+                                              amount: "@eligibility.amount",
+                                              channel: "SEPA" })
+        - emit_metric: obs.emit_metric(name: "claims.fasttrack.success", value: 1,
+                                       tags: { region: "@get_policy.response.region" })
+      else:
+        - assign: interaction.request(endpoint: "api/adjuster/assign", method: "POST",
+                                      body: { claim: "@receive.body.claim_id",
+                                              priority: "@score_severity.bucket" })
+
+outputs:
+  - ack: interaction.reply(to: "@receive", status: "accepted")
+  - record: policy.record_decision(kind: "fasttrack.route", payload: "@eligibility")
+slas:
+  - name: "fasttrack-24h"
+    ensures: "payout within 24h when eligibility=allow"

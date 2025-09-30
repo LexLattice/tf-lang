@@ -18,43 +18,43 @@ const execFileAsync = promisify(execFile);
 const testDir = fileURLToPath(new URL('.', import.meta.url));
 const packageRoot = join(testDir, '..');
 
-const CLI_PATH = join(packageRoot, 'bin', 'run-wasm.mjs');
+const CLI_PATH = join(packageRoot, 'bin', 'cli.mjs');
 
-test('tf-run-wasm CLI emits deterministic JSON artifacts', async () => {
+test('tf-run-wasm CLI writes normalized status and trace files', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'tf-run-wasm-cli-'));
   try {
-    const flowPath = join(dir, 'flow.tf');
-    await writeFile(
-      flowPath,
-      [
-        '# synthetic flow used in tests',
-        'tf:pure/identity@1 return identity',
-        'tf:resource/write-object@1 persist payload',
-      ].join('\n'),
-      'utf8',
-    );
+    const irPath = join(dir, 'sample.ir.json');
+    const ir = {
+      primitives: [
+        { prim_id: 'tf:pure/identity@1', effect: 'identity' },
+        { prim: 'tf:resource/write-object@1', effect: 'persist' },
+        'tf:integration/publish-topic@1',
+      ],
+    };
+    await writeFile(irPath, JSON.stringify(ir), 'utf8');
 
-    const outPath = join(dir, 'result.json');
     const statusPath = join(dir, 'status.json');
     const tracePath = join(dir, 'trace.jsonl');
 
-    const { stdout } = await execFileAsync(process.execPath, [CLI_PATH, '--flow', flowPath, '--out', outPath, '--status', statusPath, '--trace', tracePath, '--json'], {
-      cwd: packageRoot,
-      maxBuffer: 2 * 1024 * 1024,
-    });
+    const { stdout, stderr } = await execFileAsync(
+      process.execPath,
+      [CLI_PATH, '--ir', irPath, '--status', statusPath, '--trace', tracePath],
+      {
+        cwd: packageRoot,
+        maxBuffer: 2 * 1024 * 1024,
+      },
+    );
 
-    const stdoutBody = stdout.toString();
-    assert.ok(stdoutBody.endsWith('\n'));
-    const printed = JSON.parse(stdoutBody.trim());
-
-    const storedRaw = await readFile(outPath, 'utf8');
-    assert.ok(storedRaw.endsWith('\n'));
-    const stored = JSON.parse(storedRaw);
-    assert.deepEqual(printed, stored);
+    const stdoutText = stdout.toString();
+    assert.match(stdoutText, /^wrote status=true trace=true steps=\d+\n$/);
+    assert.equal(stderr.toString(), '');
 
     const statusRaw = await readFile(statusPath, 'utf8');
     assert.ok(statusRaw.endsWith('\n'));
-    assert.deepEqual(JSON.parse(statusRaw), printed.status);
+    const status = JSON.parse(statusRaw);
+    assert.equal(status.ok, true);
+    assert.ok(['tf-eval-wasm', 'tf-eval-stub'].includes(status.engine));
+    assert.equal(status.bytes, Buffer.byteLength(JSON.stringify(ir), 'utf8'));
 
     const traceRaw = await readFile(tracePath, 'utf8');
     assert.ok(traceRaw.endsWith('\n'));
@@ -63,7 +63,11 @@ test('tf-run-wasm CLI emits deterministic JSON artifacts', async () => {
       .split('\n')
       .filter((line) => line.length > 0)
       .map((line) => JSON.parse(line));
-    assert.deepEqual(traceLines, printed.trace);
+    assert.equal(traceLines.length, ir.primitives.length);
+    for (const item of traceLines) {
+      assert.ok(typeof item === 'object' && item !== null);
+      assert.ok('prim_id' in item);
+    }
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

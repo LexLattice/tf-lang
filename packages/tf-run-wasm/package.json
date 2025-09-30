@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "type": "module",
   "private": true,
-  "bin": { "tf-run-wasm": "./bin/cli.mjs" },
+  "bin": {
+    "tf-run-wasm": "./bin/cli.mjs"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

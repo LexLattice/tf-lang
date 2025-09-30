@@ -23,20 +23,19 @@ const FALLBACK_TRACE_IDS: readonly string[] = [
 
 let cachedTraceIds: readonly string[] = FALLBACK_TRACE_IDS;
 
-interface EvalStatus {
+export interface EvalStatus {
   ok: boolean;
   engine: string;
   bytes: number;
 }
 
-interface EvalTraceItem {
+export interface EvalTraceItem {
   prim_id?: string;
-  prim?: string;
-  id?: string;
+  effect?: string;
   [key: string]: unknown;
 }
 
-interface EvalResult {
+export interface EvalResult {
   status: EvalStatus;
   trace: EvalTraceItem[];
 }
@@ -70,10 +69,104 @@ function debugWarn(message: string, err?: unknown) {
   }
 }
 
+function coerceString(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function coerceBoolean(value: unknown): boolean {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'number') {
+    return Number.isFinite(value) && value !== 0;
+  }
+  if (typeof value === 'string') {
+    const lowered = value.trim().toLowerCase();
+    if (lowered === 'false' || lowered === '0' || lowered === 'no') {
+      return false;
+    }
+    if (lowered === 'true' || lowered === '1' || lowered === 'yes') {
+      return true;
+    }
+    return lowered.length > 0;
+  }
+  return Boolean(value);
+}
+
+function normalizeTraceEntry(raw: unknown, index: number): EvalTraceItem {
+  if (typeof raw === 'string') {
+    const primId = coerceString(raw) ?? `tf:stub/primitive@${index + 1}`;
+    return primId ? { prim_id: primId } : {};
+  }
+
+  if (raw && typeof raw === 'object') {
+    const record = raw as Record<string, unknown>;
+    const primId =
+      coerceString(record.prim_id) ??
+      coerceString(record.prim) ??
+      `tf:stub/primitive@${index + 1}`;
+    const effect = coerceString(record.effect);
+
+    const item: EvalTraceItem = {};
+    if (primId) item.prim_id = primId;
+    if (effect) item.effect = effect;
+    for (const [key, value] of Object.entries(record)) {
+      if (key === 'prim_id' || key === 'prim' || key === 'effect') {
+        continue;
+      }
+      item[key] = value;
+    }
+    return item;
+  }
+
+  return { prim_id: `tf:stub/primitive@${index + 1}` };
+}
+
+function normalizeTrace(raw: unknown): EvalTraceItem[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  return raw.map((entry, index) => normalizeTraceEntry(entry, index));
+}
+
+function extractPrimitiveEntries(irJson: string): unknown[] {
+  try {
+    const parsed = JSON.parse(irJson) as unknown;
+    if (parsed && typeof parsed === 'object' && Array.isArray((parsed as { primitives?: unknown }).primitives)) {
+      return (parsed as { primitives: unknown[] }).primitives;
+    }
+  } catch {
+    // Swallow JSON errors; fall back to cached trace ids below.
+  }
+  return [];
+}
+
+function normalizeStatus(raw: unknown, irJson: string, fallbackEngine: string): EvalStatus {
+  const bytes = Buffer.byteLength(irJson, 'utf8');
+  if (raw && typeof raw === 'object') {
+    const record = raw as Record<string, unknown>;
+    const okValue = record.ok;
+    const engineValue = record.engine;
+    const bytesValue = record.bytes;
+    return {
+      ok: coerceBoolean(okValue),
+      engine: coerceString(engineValue) ?? fallbackEngine,
+      bytes: typeof bytesValue === 'number' && Number.isFinite(bytesValue) ? bytesValue : bytes,
+    };
+  }
+  return { ok: false, engine: fallbackEngine, bytes };
+}
+
 function stubEngine(irJson: string): Promise<EvalResult> {
   const bytes = Buffer.byteLength(irJson, 'utf8');
-  const status: EvalStatus = { ok: true, engine: 'tf-eval-core', bytes };
-  const trace: EvalTraceItem[] = cachedTraceIds.map(prim_id => ({ prim_id }));
+  const status: EvalStatus = { ok: true, engine: 'tf-eval-stub', bytes };
+  const primitives = extractPrimitiveEntries(irJson);
+  const traceSource = primitives.length > 0 ? primitives : cachedTraceIds;
+  const trace: EvalTraceItem[] = normalizeTrace(traceSource);
   return Promise.resolve({ status, trace });
 }
 
@@ -192,6 +285,7 @@ export async function run(opts: RunOpts) {
     : await readFile(String(opts.irPath), 'utf8').catch(() => '{}');
 
   const engine = await getEngine(opts.disableWasm);
+  let usedStub = engine === stubEngine;
 
   let result: EvalResult;
   try {
@@ -199,17 +293,25 @@ export async function run(opts: RunOpts) {
   } catch (err) {
     debugWarn('Evaluation engine threw; using stub instead', err);
     cachedEngine = stubEngine;
+    usedStub = true;
     result = await stubEngine(irJson);
   }
 
+  const normalizedTrace = normalizeTrace(result.trace);
+  const normalizedStatus = normalizeStatus(result.status, irJson, usedStub ? 'tf-eval-stub' : 'tf-eval-wasm');
+  const normalizedResult: EvalResult = {
+    status: normalizedStatus,
+    trace: normalizedTrace,
+  };
+
   if (opts.statusPath) {
     await ensureParentDirectory(opts.statusPath);
-    await writeFile(opts.statusPath, JSON.stringify(result.status) + '\n', 'utf8');
+    await writeFile(opts.statusPath, JSON.stringify(normalizedResult.status, null, 2) + '\n', 'utf8');
   }
   if (opts.tracePath) {
     await ensureParentDirectory(opts.tracePath);
-    const body = result.trace.map(item => JSON.stringify(item)).join('\n') + '\n';
+    const body = normalizedResult.trace.map(item => JSON.stringify(item)).join('\n') + '\n';
     await writeFile(opts.tracePath, body, 'utf8');
   }
-  return result;
+  return normalizedResult;
 }

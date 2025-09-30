@@ -27,31 +27,40 @@ async function walk(dir, results) {
   }
 }
 
-function parseKeyValuePairs(source, file) {
-  const pairs = source.trim().split(/\s+/).filter(Boolean);
+function parseKeyValueSegments(source, file) {
   const meta = {};
-  for (const pair of pairs) {
-    const [key, value] = pair.split('=');
-    if (!key || value === undefined) {
-      throw new Error(`Invalid metadata pair "${pair}" in ${file}`);
+  const lines = source.split(/\r?\n/);
+  for (const rawLine of lines) {
+    let line = rawLine.trim();
+    if (!line) continue;
+    while (line.length > 0) {
+      const match = line.match(/^([A-Za-z0-9_-]+)\s*[:=]\s*(.*)$/u);
+      if (!match) {
+        throw new Error(`Invalid metadata token "${line}" in ${file}`);
+      }
+      const [, key, remainder] = match;
+      if (!remainder || remainder.trim().length === 0) {
+        throw new Error(`Missing value for ${key} in ${file}`);
+      }
+      const nextKeyIndex = remainder.search(/\s+[A-Za-z0-9_-]+\s*[:=]/u);
+      if (nextKeyIndex === -1) {
+        meta[key] = remainder.trim();
+        line = '';
+      } else {
+        const value = remainder.slice(0, nextKeyIndex).trim();
+        if (!value) {
+          throw new Error(`Missing value for ${key} in ${file}`);
+        }
+        meta[key] = value;
+        line = remainder.slice(nextKeyIndex).trim();
+      }
     }
-    meta[key] = value;
   }
   return meta;
 }
 
 function parseMetaLines(lines, file) {
-  const meta = {};
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    const [key, value] = trimmed.split('=');
-    if (!key || value === undefined) {
-      throw new Error(`Invalid metadata line "${line}" in ${file}`);
-    }
-    meta[key] = value;
-  }
-  return meta;
+  return parseKeyValueSegments(lines.join('\n'), file);
 }
 
 function normalizeDeps(value) {
@@ -64,7 +73,7 @@ function normalizeDeps(value) {
 }
 
 function ensureMetadata(meta, file) {
-  const required = ['kind', 'area', 'speed', 'deps'];
+  const required = ['kind', 'speed', 'deps'];
   for (const key of required) {
     if (!meta[key]) {
       throw new Error(`Missing ${key} metadata in ${file}`);
@@ -72,21 +81,80 @@ function ensureMetadata(meta, file) {
   }
   return {
     kind: meta.kind,
-    area: meta.area,
+    area: meta.area ?? 'misc',
     speed: meta.speed,
     deps: normalizeDeps(meta.deps),
   };
+}
+
+function extractLeadingComment(contents, file) {
+  let index = 0;
+  if (contents.startsWith('#!')) {
+    const newlineIndex = contents.indexOf('\n');
+    if (newlineIndex === -1) {
+      return null;
+    }
+    index = newlineIndex + 1;
+  }
+  while (index < contents.length) {
+    const char = contents[index];
+    if (/\s/u.test(char)) {
+      index += 1;
+      continue;
+    }
+    if (char === '/' && contents[index + 1] === '/') {
+      const lines = [];
+      while (index < contents.length && contents[index] === '/' && contents[index + 1] === '/') {
+        let lineStart = index + 2;
+        let lineEnd = lineStart;
+        while (lineEnd < contents.length && contents[lineEnd] !== '\n' && contents[lineEnd] !== '\r') {
+          lineEnd += 1;
+        }
+        lines.push(contents.slice(lineStart, lineEnd));
+        index = lineEnd;
+        if (contents[index] === '\r') index += 1;
+        if (contents[index] === '\n') index += 1;
+      }
+      return { type: 'line', text: lines.join('\n') };
+    }
+    if (char === '/' && contents[index + 1] === '*') {
+      const endIndex = contents.indexOf('*/', index + 2);
+      if (endIndex === -1) {
+        throw new Error(`Unterminated block comment in ${file}`);
+      }
+      const inside = contents.slice(index + 2, endIndex);
+      return { type: 'block', text: inside };
+    }
+    break;
+  }
+  return null;
+}
+
+function parseHeaderMetadata(contents, file) {
+  const comment = extractLeadingComment(contents, file);
+  if (!comment) {
+    throw new Error(`Missing @tf-test header in ${file}`);
+  }
+  let text = comment.text;
+  if (comment.type === 'block') {
+    text = text
+      .split(/\r?\n/)
+      .map((line) => line.replace(/^\s*\*/u, '').trim())
+      .join('\n');
+  }
+  const markerIndex = text.indexOf('@tf-test');
+  if (markerIndex === -1) {
+    throw new Error(`Missing @tf-test header in ${file}`);
+  }
+  const metaSource = text.slice(markerIndex + '@tf-test'.length);
+  return parseKeyValueSegments(metaSource, file);
 }
 
 async function parseJsTsTest(file) {
   const abs = path.join(ROOT, file);
   const contents = await readFile(abs, 'utf8');
   const lines = contents.split(/\r?\n/);
-  const header = lines.find((line) => line.trim() !== '');
-  if (!header || !header.trim().startsWith('// @tf-test ')) {
-    throw new Error(`Missing @tf-test header in ${file}`);
-  }
-  const meta = parseKeyValuePairs(header.trim().slice('// @tf-test '.length), file);
+  const meta = parseHeaderMetadata(contents, file);
   const baseMeta = ensureMetadata(meta, file);
   const ext = path.extname(file);
   if (ext === '.mjs' || ext === '.js') {

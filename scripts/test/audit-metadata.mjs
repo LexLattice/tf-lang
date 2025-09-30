@@ -34,6 +34,64 @@ async function walk(dir) {
   }
 }
 
+function extractLeadingComment(contents, file) {
+  let index = 0;
+  if (contents.startsWith('#!')) {
+    const newlineIndex = contents.indexOf('\n');
+    if (newlineIndex === -1) {
+      return null;
+    }
+    index = newlineIndex + 1;
+  }
+  while (index < contents.length) {
+    const char = contents[index];
+    if (/\s/u.test(char)) {
+      index += 1;
+      continue;
+    }
+    if (char === '/' && contents[index + 1] === '/') {
+      const lines = [];
+      while (index < contents.length && contents[index] === '/' && contents[index + 1] === '/') {
+        let lineStart = index + 2;
+        let lineEnd = lineStart;
+        while (lineEnd < contents.length && contents[lineEnd] !== '\n' && contents[lineEnd] !== '\r') {
+          lineEnd += 1;
+        }
+        lines.push(contents.slice(lineStart, lineEnd));
+        index = lineEnd;
+        if (contents[index] === '\r') index += 1;
+        if (contents[index] === '\n') index += 1;
+      }
+      return { type: 'line', text: lines.join('\n') };
+    }
+    if (char === '/' && contents[index + 1] === '*') {
+      const endIndex = contents.indexOf('*/', index + 2);
+      if (endIndex === -1) {
+        throw new Error(`Unterminated block comment in ${file}`);
+      }
+      const inside = contents.slice(index + 2, endIndex);
+      return { type: 'block', text: inside };
+    }
+    break;
+  }
+  return null;
+}
+
+function hasTfTestHeader(contents, file) {
+  const comment = extractLeadingComment(contents, file);
+  if (!comment) {
+    return false;
+  }
+  let text = comment.text;
+  if (comment.type === 'block') {
+    text = text
+      .split(/\r?\n/)
+      .map((line) => line.replace(/^\s*\*/u, '').trim())
+      .join('\n');
+  }
+  return text.includes('@tf-test');
+}
+
 async function handleFile(absPath) {
   const rel = toPosix(path.relative(ROOT, absPath));
   if (rel.endsWith('.meta')) {
@@ -51,9 +109,7 @@ async function handleFile(absPath) {
   if (!rel.includes('.test.')) return;
 
   const contents = await readFile(absPath, 'utf8');
-  const lines = contents.split(/\r?\n/);
-  const header = lines.find((line) => line.trim() !== '');
-  if (!header || !header.trim().startsWith('// @tf-test ')) {
+  if (!hasTfTestHeader(contents, rel)) {
     missingHeaders.push(rel);
   }
 }
@@ -85,6 +141,7 @@ async function main() {
   };
 
   const target = path.join(OUT_DIR, 'metadata-report.json');
+  console.log(JSON.stringify(report));
   await writeJsonCanonical(target, report);
 
   if (!report.ok) {

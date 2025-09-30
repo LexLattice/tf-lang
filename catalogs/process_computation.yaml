@@ -141,3 +141,20 @@
   - workflow
   version: 1.0.0
   abstract: true
+- id: process_computation.l2.ScheduleMacro
+  description: "L2 macro `process.schedule` that registers a scheduled task with"
+    defaults for in-memory runtime.
+  inputs:
+  - task: string
+  - run_at: datetime
+  outputs:
+  - schedule_id: string
+  meta:
+    expands_to:
+    - process_computation.l0.Schedule
+    deterministic: true
+  tags:
+  - process
+  - scheduling
+  - macro
+  version: 0.6.0

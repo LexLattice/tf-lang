@@ -16,7 +16,7 @@ OUT=out/0.5/pilot-l0
 PILOT_OUT_DIR="$OUT" pnpm run pilot:build-run
 jq '{ok, ops, effects}' "$OUT/status.json"
 head -n 1 "$OUT/trace.jsonl"
-node scripts/validate-trace.mjs --require-meta \
+pnpm run traces:validate --require-meta \
   --ir "$(jq -r .provenance.ir_hash "$OUT/status.json")" \
   --manifest "$(jq -r .provenance.manifest_hash "$OUT/status.json")" \
   --catalog "$(jq -r .provenance.catalog_hash "$OUT/status.json")" \
@@ -42,5 +42,5 @@ node scripts/validate-trace.mjs --require-meta \
 > **Troubleshooting**
 >
 > - `tf run.mjs: no capabilities provided` – the pilot helper injects caps automatically. If you run `run.mjs` manually, pass `--caps tests/fixtures/caps-pilot.json`.
-> - `node scripts/validate-trace.mjs …` exits non-zero – confirm you passed the hashes from the fresh `status.json`; stale IR/catalog hashes cause schema mismatches.
+> - `pnpm run traces:validate --require-meta …` exits non-zero – confirm you passed the hashes from the fresh `status.json`; stale IR/catalog hashes cause schema mismatches.
 > - Permission denied under `out/0.5/pilot-l0` – remove or `chmod` existing directories created by another user before re-running the helper.

@@ -13,16 +13,16 @@ Sweep repo health: audits, determinism probes, and doc link checks that gate rel
 ```bash
 OUT=out/0.5/devex
 mkdir -p "$OUT"
-node scripts/audit/run.mjs > "$OUT/audit.json"
+pnpm run audit > "$OUT/audit.json"
 pnpm run determinism > "$OUT/determinism.log"
-npx -y markdown-link-check docs/0.5/overview.md > "$OUT/link-check.txt"
+pnpm run docs:check -- docs/0.5/overview.md > "$OUT/link-check.txt"
 tail -n 5 "$OUT/link-check.txt"
 ```
 
 ## Expected output
 
 ```
-{ "ok": false, "determinism": { "ok": false, "issues": ["missing_newline", ...] } }
+{ "ok": true, "determinism": { "ok": true, "issues": [] } }
 Determinism OK
   [✓] quickstarts/track-e-proofs.md
   [✓] quickstarts/track-f-release-devex.md
@@ -39,6 +39,6 @@ Determinism OK
 
 > **Troubleshooting**
 >
-> - `node scripts/audit/run.mjs` exits non-zero – inspect the JSON under `determinism.issues`; rerun after fixing newline/exec flags.
-> - `npx markdown-link-check …` reports broken quickstart links – ensure every target exists and uses relative paths (`../` for parent dirs).
+> - `pnpm run audit` exits non-zero – inspect the JSON under `determinism.issues`; rerun after fixing newline/exec flags.
+> - `pnpm run docs:check -- docs/0.5/overview.md` reports broken quickstart links – ensure every target exists and uses relative paths (`../` for parent dirs).
 > - Determinism probe fails – rerun `pnpm run a0` manually; uncommitted changes in `out/**` often cause mismatched digests.

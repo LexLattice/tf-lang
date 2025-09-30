@@ -16,7 +16,7 @@ OUT=out/0.5/a-track
 pnpm run a1
 pnpm run tf -- parse "$FLOW" -o "$OUT/signing.ir.json"
 pnpm run tf -- canon "$FLOW" -o "$OUT/signing.canon.json"
-node packages/tf-compose/bin/tf.mjs fmt "$FLOW" | tee "$OUT/signing.fmt.tf"
+pnpm run tf -- fmt "$FLOW" | tee "$OUT/signing.fmt.tf"
 jq -c '.children[0]' "$OUT/signing.ir.json"
 ```
 

@@ -14,9 +14,10 @@ Emit the Alloy/SMT suite and sync manifests so the optimizer coverage gate stays
 OUT=out/0.5/proofs
 pnpm run proofs:emit
 mkdir -p "$OUT"
+# Temporary shim: proofs:emit still targets out/0.4; copy forward until the emitter writes to 0.5 directly.
 cp -R out/0.4/proofs/. "$OUT"/
 head -n 5 "$OUT/storage_ok.smt2"
-node scripts/proofs/coverage.mjs --out out
+pnpm run proofs:coverage
 ```
 
 ## Expected output
@@ -45,4 +46,4 @@ wrote /workspace/tf-lang/out/0.4/proofs/storage_ok.smt2
 >
 > - `Error: spawn z3 ENOENT` – the emit scripts succeed without Z3; install it only if you need solver validation locally.
 > - Copy step complains about missing `out/0.4/proofs` – rerun `pnpm run proofs:emit`; it creates the source directory.
-> - Coverage reports missing laws – ensure optimizer manifests (Track D) were copied into `out/0.5/proofs/` before invoking the gate.
+> - Coverage reports missing laws – ensure optimizer manifests (Track D) were copied into `out/0.5/proofs/` before invoking `pnpm run proofs:coverage`.

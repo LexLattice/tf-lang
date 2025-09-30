@@ -42,7 +42,7 @@ test('discoverTests enforces @tf-test headers', async () => {
       (err) => {
         assert.equal(
           err.message,
-          `Missing @tf-test header in ${missingHeaderRel} (add: "@tf-test kind:<...> speed:<...> deps:<...>")`,
+          `Missing @tf-test header in ${missingHeaderRel}`,
         );
         return true;
       },

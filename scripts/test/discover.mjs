@@ -27,48 +27,40 @@ async function walk(dir, results) {
   }
 }
 
-function parseKeyValuePairs(source, file) {
-  const tokens = source.trim().split(/\s+/).filter(Boolean);
+function parseKeyValueSegments(source, file) {
   const meta = {};
-  for (let i = 0; i < tokens.length; i += 1) {
-    const token = tokens[i];
-    const eqIndex = token.indexOf('=');
-    if (eqIndex !== -1) {
-      const key = token.slice(0, eqIndex);
-      const value = token.slice(eqIndex + 1);
-      if (!key || value.length === 0) {
-        throw new Error(`Invalid metadata pair "${token}" in ${file}`);
+  const lines = source.split(/\r?\n/);
+  for (const rawLine of lines) {
+    let line = rawLine.trim();
+    if (!line) continue;
+    while (line.length > 0) {
+      const match = line.match(/^([A-Za-z0-9_-]+)\s*[:=]\s*(.*)$/u);
+      if (!match) {
+        throw new Error(`Invalid metadata token "${line}" in ${file}`);
       }
-      meta[key] = value;
-      continue;
-    }
-    if (token.endsWith(':')) {
-      const key = token.slice(0, -1);
-      const value = tokens[i + 1];
-      if (!key || value === undefined) {
-        throw new Error(`Invalid metadata pair "${token}" in ${file}`);
+      const [, key, remainder] = match;
+      if (!remainder || remainder.trim().length === 0) {
+        throw new Error(`Missing value for ${key} in ${file}`);
       }
-      meta[key] = value;
-      i += 1;
-      continue;
+      const nextKeyIndex = remainder.search(/\s+[A-Za-z0-9_-]+\s*[:=]/u);
+      if (nextKeyIndex === -1) {
+        meta[key] = remainder.trim();
+        line = '';
+      } else {
+        const value = remainder.slice(0, nextKeyIndex).trim();
+        if (!value) {
+          throw new Error(`Missing value for ${key} in ${file}`);
+        }
+        meta[key] = value;
+        line = remainder.slice(nextKeyIndex).trim();
+      }
     }
-    throw new Error(`Invalid metadata token "${token}" in ${file}`);
   }
   return meta;
 }
 
 function parseMetaLines(lines, file) {
-  const meta = {};
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    const [key, value] = trimmed.split('=');
-    if (!key || value === undefined) {
-      throw new Error(`Invalid metadata line "${line}" in ${file}`);
-    }
-    meta[key] = value;
-  }
-  return meta;
+  return parseKeyValueSegments(lines.join('\n'), file);
 }
 
 function normalizeDeps(value) {
@@ -89,61 +81,73 @@ function ensureMetadata(meta, file) {
   }
   return {
     kind: meta.kind,
-    area: meta.area,
+    area: meta.area ?? 'misc',
     speed: meta.speed,
     deps: normalizeDeps(meta.deps),
   };
 }
 
-function parseHeaderMetadata(contents, file) {
-  const trimmed = contents.trimStart();
-  if (trimmed.startsWith('//')) {
-    const [firstLine] = trimmed.split(/\r?\n/);
-    const markerIndex = firstLine.indexOf('@tf-test');
-    if (markerIndex === -1) {
-      throw new Error(
-        `Missing @tf-test header in ${file} (add: "@tf-test kind:<...> speed:<...> deps:<...>")`,
-      );
+function extractLeadingComment(contents, file) {
+  let index = 0;
+  if (contents.startsWith('#!')) {
+    const newlineIndex = contents.indexOf('\n');
+    if (newlineIndex === -1) {
+      return null;
     }
-    const metaSource = firstLine.slice(markerIndex + '@tf-test'.length);
-    return parseKeyValuePairs(metaSource, file);
+    index = newlineIndex + 1;
   }
-  if (trimmed.startsWith('/*')) {
-    const endIndex = trimmed.indexOf('*/');
-    if (endIndex === -1) {
-      throw new Error(`Unterminated @tf-test block comment in ${file}`);
+  while (index < contents.length) {
+    const char = contents[index];
+    if (/\s/u.test(char)) {
+      index += 1;
+      continue;
     }
-    const inside = trimmed.slice(2, endIndex);
-    const lines = inside
+    if (char === '/' && contents[index + 1] === '/') {
+      const lines = [];
+      while (index < contents.length && contents[index] === '/' && contents[index + 1] === '/') {
+        let lineStart = index + 2;
+        let lineEnd = lineStart;
+        while (lineEnd < contents.length && contents[lineEnd] !== '\n' && contents[lineEnd] !== '\r') {
+          lineEnd += 1;
+        }
+        lines.push(contents.slice(lineStart, lineEnd));
+        index = lineEnd;
+        if (contents[index] === '\r') index += 1;
+        if (contents[index] === '\n') index += 1;
+      }
+      return { type: 'line', text: lines.join('\n') };
+    }
+    if (char === '/' && contents[index + 1] === '*') {
+      const endIndex = contents.indexOf('*/', index + 2);
+      if (endIndex === -1) {
+        throw new Error(`Unterminated block comment in ${file}`);
+      }
+      const inside = contents.slice(index + 2, endIndex);
+      return { type: 'block', text: inside };
+    }
+    break;
+  }
+  return null;
+}
+
+function parseHeaderMetadata(contents, file) {
+  const comment = extractLeadingComment(contents, file);
+  if (!comment) {
+    throw new Error(`Missing @tf-test header in ${file}`);
+  }
+  let text = comment.text;
+  if (comment.type === 'block') {
+    text = text
       .split(/\r?\n/)
       .map((line) => line.replace(/^\s*\*/u, '').trim())
-      .filter((line) => line.length > 0);
-    if (!lines.length) {
-      throw new Error(
-        `Missing @tf-test header in ${file} (add: "@tf-test kind:<...> speed:<...> deps:<...>")`,
-      );
-    }
-    const markerIndex = lines.findIndex((line) => line.startsWith('@tf-test'));
-    if (markerIndex === -1) {
-      throw new Error(
-        `Missing @tf-test header in ${file} (add: "@tf-test kind:<...> speed:<...> deps:<...>")`,
-      );
-    }
-    const segments = [];
-    const firstLine = lines[markerIndex];
-    const remainder = firstLine.slice('@tf-test'.length).trim();
-    if (remainder) {
-      segments.push(remainder);
-    }
-    for (const line of lines.slice(markerIndex + 1)) {
-      segments.push(line);
-    }
-    const metaSource = segments.join(' ');
-    return parseKeyValuePairs(metaSource, file);
+      .join('\n');
   }
-  throw new Error(
-    `Missing @tf-test header in ${file} (add: "@tf-test kind:<...> speed:<...> deps:<...>")`,
-  );
+  const markerIndex = text.indexOf('@tf-test');
+  if (markerIndex === -1) {
+    throw new Error(`Missing @tf-test header in ${file}`);
+  }
+  const metaSource = text.slice(markerIndex + '@tf-test'.length);
+  return parseKeyValueSegments(metaSource, file);
 }
 
 async function parseJsTsTest(file) {

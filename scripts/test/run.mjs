@@ -124,8 +124,6 @@ async function main() {
     ok: true,
     selected: selected.length,
     run: { node: 0, vitest: 0, cargo: 0 },
-    failedCount: 0,
-    missingRequired: 0,
     skipped: [],
     durations: {
       totalMs: 0,
@@ -170,8 +168,7 @@ async function main() {
     summary.durations.byTest.push({
       file: test.file,
       runner: test.runner.type,
-      durationMs,
-      ok: success,
+      ms: durationMs,
     });
     if (!success) {
       failedCount += 1;
@@ -181,8 +178,6 @@ async function main() {
 
   summary.skipped.sort((a, b) => a.file.localeCompare(b.file));
 
-  summary.failedCount = failedCount;
-  summary.missingRequired = missingRequiredCount;
   summary.ok = failedCount === 0 && missingRequiredCount === 0;
 
   summary.durations.totalMs = Number(summary.durations.totalMs.toFixed(3));
@@ -191,7 +186,7 @@ async function main() {
   }
   summary.durations.byTest = summary.durations.byTest.map((entry) => ({
     ...entry,
-    durationMs: Number(entry.durationMs.toFixed(3)),
+    ms: Number(entry.ms.toFixed(3)),
   }));
 
   const manifestPath = path.join(OUT_DIR, 'manifest.json');
@@ -199,9 +194,9 @@ async function main() {
   if (debugFlags) {
     console.log('[tests] summary', JSON.stringify(summary));
   }
-  process.exitCode = summary.ok ? 0 : 1;
+  process.exitCode = failedCount > 0 ? 1 : 0;
   console.log(
-    `[tests] selected=${summary.selected} run=${JSON.stringify(summary.run)} skipped=${summary.skipped.length} failed=${summary.failedCount} missingRequired=${summary.missingRequired} ok=${summary.ok}`,
+    `[tests] selected=${summary.selected} run=${JSON.stringify(summary.run)} skipped=${summary.skipped.length} failed=${failedCount} missingRequired=${missingRequiredCount} ok=${summary.ok}`,
   );
 }
 

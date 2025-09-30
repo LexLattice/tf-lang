@@ -1,69 +1,38 @@
-For any task `NODE_ID` and phase `CHECKPOINT`:
+# AGENTS · TF-Lang v0.6 (Canonical)
 
-1. **Edit only inside allowed paths**
-   See `meta/checker.yml` and `tf/blocks/<NODE_ID>/TF.yaml`. The checker will hard-fail if you touch files outside scope.&#x20;
-   ⚠️ **cp1 lockfile exception**: when a task adds a new package, run `pnpm -w install --lockfile-only` and commit `pnpm-lock.yaml` in the same checkpoint. From cp2 onward the lockfile stays frozen.
-
-2. **After each change, run the checkpoint with a stable, staged diff** *(the one habit)*
-
-   * Stage your changes (or the minimal subset you want to validate):
-
-     ```bash
-     git add -A
-     ```
-   * Pipe the **staged** diff (exclude build artifacts) into the checker:
-
-     ```bash
-     git diff --cached -U0 --no-color -- . ':(exclude)dist/**' \
-       | node tools/tf-lang-cli/index.mjs run "$NODE_ID" "$CHECKPOINT" --diff -
-     ```
-
-   > Why staged? It makes the diff deterministic, avoids empty-diff edge cases, and keeps token/scope checks crisp.
-
-   Fixtures policy: samples/a1/** and scripts/lsp-smoke/** are read-only after cp1. If you need a different sample, propose it in a meta PR. The checker enforces this in cp2+.
-
-3. **Act only on failing rules, then re-run step 2**
-
-   * Open `out/TFREPORT.json`; fix **only** the rules where `.results[rule].ok == false`.
-   * If you hit the token rule with **no code changes** showing up, re-stage (empty diffs are blocked by design).
-
-4. **When GREEN, commit and move to the next checkpoint**
-   Suggested message:
-
-   ```
-   chore(<NODE_ID>/<CHECKPOINT>): green
-   ```
-
-
-
-5. **If opening a PR, use this title**
-
-   ```
-   node:<NODE_ID> cp:<CHECKPOINT>
-   ```
-
-   CI will replay the same checkpoint deterministically.&#x20;
+**Purpose.** Build **conceptual depth as code**: human intent (L3) → L2 catalog pipelines → L1 macros → **immutable L0 formula** (the 4-primitive kernel). Code binds *after* L0.
 
 ---
 
-## Helper (optional)
+## Roles
+- **Designer** – authors L2 pipelines (domain catalog, human-readable).
+- **Expander** – compiles L2 → L1 → L0 (macro expansion). Deterministic, no side effects.
+- **Prover** – checks effects & capabilities; runs attached *laws*; emits `out/TFREPORT.json`.
+- **Runtime** – executes/simulates L0 with in-memory drivers (no real I/O yet).
+- **Driverist** – maps sub-kinds to concrete instances later (Kafka/HTTP/KMS).
+- **Auditor** – replays traces and verifies they match L0.
 
-Add this shell helper to iterate quickly:
-
-```bash
-run_checkpoint() {
-  local CP="$1"
-  git add -A >/dev/null 2>&1 || true
-  git diff --cached -U0 --no-color -- . ':(exclude)dist/**' \
-    | node tools/tf-lang-cli/index.mjs run "$NODE_ID" "$CP" --diff - \
-    || { echo "RED — failing rules:"; jq -r '.results|to_entries[]|select(.value.ok==false)|.key' out/TFREPORT.json; cat out/TFREPORT.json; return 3; }
-}
-```
+> **Truth lives at L0.** L3→L0 is reasoning; L0→L-3 is implementation. L0 must not be hand-edited.
 
 ---
 
-**Notes**
+## Quality Gates (each change)
+1. **Explainability.** L2/L1 diff summarized in ≤3 sentences.
+2. **Reproducibility.** L0 DAG is regenerated from macros (no manual edits).
+3. **Soundness.** Effects & capabilities **GREEN** (`tf check`).
+4. **Laws.** Attached laws pass (e.g., RPC idempotency by `corr`; CRDT merge laws when selected).
+5. **Smoke tests only.** Minimal goldens for key paths (avoid heavy loops now).
+6. **Docs.** Update docs when public L2 signatures or laws change.
 
-* You don’t need to remember policies; the checkpoint contract encodes them. Just **run the checkpoint** and fix what it reports.
-* If you truly need to adjust the rulebook or TF.yaml for the node, do it in the **meta** phase (when available) or as a separate meta change—otherwise scope guard will block.
-* VS Code client builds: the extension's `dist/` output is blocked by the checker. Build VSIX packages via scripts, but never stage `clients/vscode-tf/dist/**`.
+---
+
+## Checkpoint Routine (mandatory)
+- **Edit only inside allowed paths.** Scope guard will hard-fail otherwise.
+- **Run checkpoint with a stable, staged diff** after each change (the one habit).
+- **Act only on failing rules;** re-run until GREEN, then commit.
+- **cp1 lockfile exception:** if a task adds a package, run:
+  ```bash
+  pnpm -w install --lockfile-only   and commit pnpm-lock.yaml in cp1 only. From cp2 onward, lockfile stays frozen.
+  ```
+
+agents.md tweak for 0.6 version

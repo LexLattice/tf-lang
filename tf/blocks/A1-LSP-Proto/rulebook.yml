@@ -1,6 +1,8 @@
 version: 1
 meta: { node: A1-LSP-Proto, title: "A1 — LSP prototype (v3 hardened)" }
 
+# Tip: `tf-lang run A1-LSP-Proto cp3_hover --explain` prints the normalized plan.
+
 phases:
   cp1_baseline:
     title: "Scoped build + scope + hygiene (soft)"

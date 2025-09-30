@@ -1,0 +1,28 @@
+version: 1
+meta: { node: docs-sample }
+
+# Quick reference rulebook for docs/dev/rulebook.md
+# Inspect via: node tools/tf-lang-cli/index.mjs explain tf/blocks/_docs-sample/rulebook.yml cp2
+phases:
+  cp1:
+    title: "Baseline"
+    rules:
+      - setup
+  cp2:
+    title: "Tests"
+    inherits: [cp1]
+    rules:
+      lint:
+        expect:
+          code: 0
+      test: {}
+rules:
+  setup:
+    kind: shell
+    cmd: echo setup
+  lint:
+    kind: shell
+    cmd: echo lint
+  test:
+    kind: shell
+    cmd: echo test

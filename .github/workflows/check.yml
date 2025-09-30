@@ -1,0 +1,106 @@
+name: check
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**/*.l0.json'
+      - '**/*.l0.yaml'
+      - '**/*.l0.yml'
+      - '**/*.l2.json'
+      - '**/*.l2.yaml'
+      - '**/*.l2.yml'
+      - 'schemas/**'
+      - 'tools/tf-lang-cli/**'
+      - 'spec/v0.6/**'
+  pull_request:
+    paths:
+      - '**/*.l0.json'
+      - '**/*.l0.yaml'
+      - '**/*.l0.yml'
+      - '**/*.l2.json'
+      - '**/*.l2.yaml'
+      - '**/*.l2.yml'
+      - 'schemas/**'
+      - 'tools/tf-lang-cli/**'
+      - 'spec/v0.6/**'
+  workflow_dispatch:
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          corepack enable
+          pnpm install --frozen-lockfile
+
+      - name: Detect impacted artifacts
+        id: changes
+        run: |
+          set -euo pipefail
+          BASE_REF="${{ github.event.pull_request.base.ref || github.ref_name }}"
+          git fetch origin "$BASE_REF" --depth=1
+          BASE_SHA="origin/${BASE_REF}"
+          MERGE_BASE=$(git merge-base HEAD "$BASE_SHA")
+
+          L0_CHANGED=$(git diff --name-only "$MERGE_BASE"...HEAD -- '*.l0.json' '*.l0.yaml' '*.l0.yml')
+          L2_CHANGED=$(git diff --name-only "$MERGE_BASE"...HEAD -- '*.l2.json' '*.l2.yaml' '*.l2.yml')
+          TOUCH_SCHEMA=$(git diff --name-only "$MERGE_BASE"...HEAD -- 'schemas/**' 'tools/tf-lang-cli/**' 'spec/v0.6/**')
+
+          if [ -n "$TOUCH_SCHEMA" ]; then
+            L0_TARGETS=$(git ls-files '*.l0.json' '*.l0.yaml' '*.l0.yml')
+            L2_TARGETS=$(git ls-files '*.l2.json' '*.l2.yaml' '*.l2.yml')
+          else
+            L0_TARGETS="$L0_CHANGED"
+            L2_TARGETS="$L2_CHANGED"
+          fi
+
+          {
+            printf 'l0_changed<<EOF\n%s\nEOF\n' "$L0_CHANGED"
+            printf 'l2_changed<<EOF\n%s\nEOF\n' "$L2_CHANGED"
+            printf 'l0_targets<<EOF\n%s\nEOF\n' "$L0_TARGETS"
+            printf 'l2_targets<<EOF\n%s\nEOF\n' "$L2_TARGETS"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Validate L0 schemas
+        if: steps.changes.outputs.l0_targets != ''
+        env:
+          L0_FILES: ${{ steps.changes.outputs.l0_targets }}
+        run: |
+          set -euo pipefail
+          pnpm -w run validate:l0 $(printf '%s\n' "$L0_FILES")
+
+      - name: Validate L2 schemas
+        if: steps.changes.outputs.l2_targets != ''
+        env:
+          L2_FILES: ${{ steps.changes.outputs.l2_targets }}
+        run: |
+          set -euo pipefail
+          pnpm -w run validate:l2 $(printf '%s\n' "$L2_FILES")
+
+      - name: Replay effects summary
+        if: steps.changes.outputs.l0_changed != ''
+        env:
+          L0_CHANGED: ${{ steps.changes.outputs.l0_changed }}
+        run: |
+          set -euo pipefail
+          printf '%s\n' "$L0_CHANGED" | while IFS= read -r file; do
+            [ -n "$file" ] || continue
+            echo "::group::effects $file"
+            node tools/tf-lang-cli/index.mjs effects "$file"
+            echo "::endgroup::"
+          done

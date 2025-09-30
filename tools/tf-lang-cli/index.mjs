@@ -1,8 +1,126 @@
 #!/usr/bin/env node
-import fs from "fs";
-import path from "path";
-import { spawnSync, execSync } from "child_process";
+import fs from "node:fs";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import process from "node:process";
+import { spawnSync, execSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import Ajv from "ajv";
 import { loadRulebookPlan, rulesForPhaseFromPlan } from "./expand.mjs";
+import { summarizeEffects } from "./lib/effects.mjs";
+import { buildDotGraph } from "./lib/dot.mjs";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(__dirname, "..", "..");
+
+const schemaPaths = {
+  l0: path.join(repoRoot, "schemas", "l0-dag.schema.json"),
+  l2: path.join(repoRoot, "schemas", "l2-pipeline.schema.json"),
+};
+
+const ajv = new Ajv({ allErrors: true, strict: false, allowUnionTypes: true });
+ajv.addFormat("date-time", true);
+const validatorCache = new Map();
+
+async function loadJsonFile(targetPath) {
+  const filePath = path.resolve(targetPath);
+  const content = await readFile(filePath, "utf8");
+  return JSON.parse(content);
+}
+
+function inferKindFromFile(filePath) {
+  if (filePath.endsWith(".l0.json")) return "l0";
+  if (filePath.endsWith(".l2.json")) return "l2";
+  return null;
+}
+
+async function ensureValidator(kind) {
+  if (!schemaPaths[kind]) {
+    throw new Error(`unknown schema kind: ${kind}`);
+  }
+  if (!validatorCache.has(kind)) {
+    const schema = await loadJsonFile(schemaPaths[kind]);
+    const validate = ajv.compile(schema);
+    validatorCache.set(kind, validate);
+  }
+  return validatorCache.get(kind);
+}
+
+async function runValidateCommand(args) {
+  const argv = [...args];
+  let explicitKind = null;
+  if (argv[0] && ["l0", "l2"].includes(argv[0])) {
+    explicitKind = argv.shift();
+  }
+
+  if (argv.length === 0) {
+    console.error("usage: tf validate [l0|l2] <FILE...>");
+    return 2;
+  }
+
+  let exitCode = 0;
+  for (const file of argv) {
+    const kind = explicitKind ?? inferKindFromFile(file);
+    if (!kind) {
+      console.error(`${file}: unable to infer schema; pass l0 or l2 explicitly`);
+      exitCode = exitCode === 0 ? 2 : exitCode;
+      continue;
+    }
+
+    let doc;
+    try {
+      doc = await loadJsonFile(file);
+    } catch (err) {
+      console.error(`${file}: ${err?.message ?? err}`);
+      exitCode = 1;
+      continue;
+    }
+
+    const validate = await ensureValidator(kind);
+    const valid = validate(doc);
+    if (!valid) {
+      const message = ajv.errorsText(validate.errors, { separator: "\n  - " });
+      console.error(`${file}: validation failed [${kind}]\n  - ${message}`);
+      exitCode = 1;
+    } else {
+      console.log(`${file}: OK [${kind}]`);
+    }
+  }
+
+  return exitCode;
+}
+
+async function runEffectsCommand(file) {
+  if (!file) {
+    console.error("usage: tf effects <FILE>");
+    return 2;
+  }
+  try {
+    const doc = await loadJsonFile(file);
+    const summary = summarizeEffects(doc);
+    console.log(summary);
+    return 0;
+  } catch (err) {
+    console.error(`${file}: ${err?.message ?? err}`);
+    return 1;
+  }
+}
+
+async function runGraphCommand(file) {
+  if (!file) {
+    console.error("usage: tf graph <FILE>");
+    return 2;
+  }
+  try {
+    const doc = await loadJsonFile(file);
+    const dot = buildDotGraph(doc);
+    console.log(dot);
+    return 0;
+  } catch (err) {
+    console.error(`${file}: ${err?.message ?? err}`);
+    return 1;
+  }
+}
 
 function rbPath(node) {
   const p = path.join("tf", "blocks", node, "rulebook.yml");
@@ -92,7 +210,7 @@ function explainPlan(plan, targetPhase) {
 }
 
 function usage() {
-  console.log("usage: tf-lang <open|run|explain> ...");
+  console.log("usage: tf <validate|effects|graph|open|run|explain> ...");
   process.exit(2);
 }
 
@@ -101,6 +219,21 @@ function usage() {
 
   if (!cmd) {
     usage();
+  }
+
+  if (cmd === "validate") {
+    const code = await runValidateCommand(argv);
+    process.exit(code);
+  }
+
+  if (cmd === "effects") {
+    const code = await runEffectsCommand(argv[0]);
+    process.exit(code);
+  }
+
+  if (cmd === "graph") {
+    const code = await runGraphCommand(argv[0]);
+    process.exit(code);
   }
 
   if (cmd === "open") {

@@ -2,6 +2,7 @@ import {
   canonicalLawName,
   canonicalPrimitiveName,
   loadPrimitiveEffectMap,
+  isKnownLaw,
 } from './data.mjs';
 
 export function extractPrimitivesFromIr(ir) {
@@ -56,13 +57,16 @@ export async function analyzePrimitiveSequence(primitives) {
     const next = names[i + 1];
     if (!next) continue;
 
-    // Idempotent: x |> x
+    // Idempotent: x |> x (only for known idempotent laws)
     if (current === next) {
-      addObligation(`idempotent:${current}`, {
-        rewrite: `idempotent:${current}@${i}`,
-        positions: [i, i + 1],
-        primitives: [current, next],
-      });
+      const candidate = `idempotent:${current}`;
+      if (isKnownLaw(candidate)) {
+        addObligation(candidate, {
+          rewrite: `${candidate}@${i}`,
+          positions: [i, i + 1],
+          primitives: [current, next],
+        });
+      }
     }
 
     // Inverse: serialize |> deserialize
@@ -85,14 +89,8 @@ export async function analyzePrimitiveSequence(primitives) {
         direction: 'left',
       });
     }
-    if (next === 'emit-metric' && Array.isArray(currentEff) && currentEff.includes('Pure')) {
-      addObligation('commute:emit-metric-with-pure', {
-        rewrite: `commute:${current}<->emit-metric@${i}`,
-        positions: [i, i + 1],
-        primitives: [current, next],
-        direction: 'right',
-      });
-    }
+    // Only emit the LEFT-direction obligation to avoid reintroducing
+    // commute obligations after applying a swap.
   }
 
   const laws = Array.from(encounteredLaws).sort((a, b) => a.localeCompare(b));

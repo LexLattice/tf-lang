@@ -36,6 +36,8 @@ jobs:
 
       - name: Build TS kernel
         run: pnpm -C packages/tf-lang-l0-ts build
+      - name: Build tf-trace (required by fast tests)
+        run: pnpm -C packages/tf-trace build
 
       - name: Parity tests
         run: pnpm run test:parity

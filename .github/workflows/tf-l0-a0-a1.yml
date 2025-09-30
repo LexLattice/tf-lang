@@ -63,6 +63,8 @@ jobs:
 
       - name: Build workspace packages
         run: pnpm -w -r build
+      - name: Build tf-trace (required by fast tests)
+        run: pnpm -C packages/tf-trace build
 
       - name: Ensure ripgrep is available
         run: |

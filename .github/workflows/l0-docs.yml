@@ -27,6 +27,7 @@ jobs:
           pnpm run a0
           pnpm run a1
           pnpm -w -r build
+          pnpm -C packages/tf-trace build
 
       - name: Fast tests
         run: pnpm run test:fast

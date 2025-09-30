@@ -15,13 +15,14 @@ function assertSingleLaw(result, expectedLaw) {
   assert.equal(result.obligations[0].law, expectedLaw);
 }
 
-test('hash followed by emit-metric counts as commute', async () => {
+test('hash followed by emit-metric does not create a commute obligation (normalized to left)', async () => {
   const result = await analyzePrimitiveSequence(['hash', 'emit-metric']);
   assert.deepEqual(result.primitives, ['hash', 'emit-metric']);
-  assertSingleLaw(result, COMMUTE_LAW);
+  assert.equal(result.rewritesApplied, 0);
+  assert.deepEqual(result.laws, []);
 });
 
-test('emit-metric followed by hash also counts as commute', async () => {
+test('emit-metric followed by hash counts as commute (left case)', async () => {
   const result = await analyzePrimitiveSequence(['emit-metric', 'hash']);
   assert.deepEqual(result.primitives, ['emit-metric', 'hash']);
   assertSingleLaw(result, COMMUTE_LAW);

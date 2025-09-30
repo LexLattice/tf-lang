@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from 'node:util';
-import { canonicalPrimitiveName } from './rewrite-detect.mjs';
+import { canonicalPrimitiveName } from './data.mjs';
 
 const COMMUTE_EMIT_METRIC_LAW = 'commute:emit-metric-with-pure';
 const INVERSE_SERIALIZE_DESERIALIZE_LAW = 'inverse:serialize-deserialize';

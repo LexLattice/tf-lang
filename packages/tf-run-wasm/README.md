@@ -1,74 +1,42 @@
 # @tf-lang/tf-run-wasm
 
-The `tf-run-wasm` package provides a miniature runtime that executes a lightweight
-IR payload inside a bundled WebAssembly module. The module delegates control back
-to a Node.js host shim so the native and WASM evaluators share the same logic and
-can be exercised side-by-side in tests and samples.
+`@tf-lang/tf-run-wasm` dynamically loads the `tf-eval-wasm` bindings when they are
+available and falls back to a deterministic stub evaluator otherwise. The stub is
+also used when the environment variable `TF_RUN_WASM_DISABLE_WASM=1` is set.
 
-## CLI usage
+`run(opts)` returns a status summary and a normalized trace:
 
-The package ships with a CLI:
-
-```bash
-node packages/tf-run-wasm/bin/run-wasm.mjs --help
+```ts
+interface EvalStatus { ok: boolean; engine: string; bytes: number; }
+interface EvalTraceItem { prim_id?: string; effect?: string; }
+interface EvalResult { status: EvalStatus; trace: EvalTraceItem[]; }
 ```
 
-### Flags
+Status JSON files are formatted with two-space indentation and a trailing newline.
+Trace files are emitted as newline-terminated JSONL where every trace entry is
+written on its own line.
 
-- `--ir <file.ir.json>` – run a JSON IR artifact such as
-  [`samples/b3/minimal.ir.json`](../../samples/b3/minimal.ir.json).
-- `--flow <file.tf>` – compile a toy flow file like
-  [`samples/b3/minimal.tf`](../../samples/b3/minimal.tf) into IR before execution.
-- `--json` – print the aggregate JSON result to stdout (always newline-terminated).
-- `--out <file>` – write the aggregate JSON result to disk (also newline-terminated).
-  Parent directories are created automatically.
+## CLI
 
-The CLI exits with code `0` on success and a non-zero code on argument or runtime
-errors. All JSON outputs are emitted with a trailing newline and stable key order
-so the artifacts are deterministic.
-
-### Examples
-
-Run an existing IR artifact and stream the aggregate JSON result to stdout with a
-trailing newline:
+The package ships with a thin CLI wrapper that operates on IR JSON files. A
+minimal example creates a temporary directory, writes a tiny IR file, and runs
+the CLI to produce status and trace artifacts:
 
 ```bash
-$ node packages/tf-run-wasm/bin/run-wasm.mjs --ir samples/b3/minimal.ir.json --json
-{"status":{"ok":true,"engine":"mini-runtime","bytes":170,"primitives":2},"trace":[{"prim_id":"tf:pure/identity@1","effect":"return identity"},{"prim_id":"tf:resource/write-object@1","effect":"persist payload"}]}
+TMP_DIR="$(mktemp -d)"
+cat <<'JSON' > "$TMP_DIR/sample.ir.json"
+{ "primitives": ["tf:pure/identity@1"] }
+JSON
+
+tf-run-wasm --ir "$TMP_DIR/sample.ir.json" \
+  --status "$TMP_DIR/status.json" \
+  --trace "$TMP_DIR/trace.jsonl"
+
+cat "$TMP_DIR/status.json"
+cat "$TMP_DIR/trace.jsonl"
 ```
 
-Compile the sample flow, emit a deterministic summary on stdout, and capture the
-aggregate JSON payload on disk (directories are created automatically):
-
-```bash
-$ node packages/tf-run-wasm/bin/run-wasm.mjs --flow samples/b3/minimal.tf --out out/mini/result.json
-ok engine=mini-runtime primitives=2 bytes=138
-$ cat out/mini/result.json
-{
-  "status": {
-    "ok": true,
-    "engine": "mini-runtime",
-    "bytes": 138,
-    "primitives": 2
-  },
-  "trace": [
-    {
-      "prim_id": "tf:pure/identity@1",
-      "effect": "return identity"
-    },
-    {
-      "prim_id": "tf:resource/write-object@1",
-      "effect": "persist payload"
-    }
-  ]
-}
-```
-
-The CLI also accepts optional `--status <file>` and `--trace <file>` flags to emit
-newline-terminated JSON and JSONL artifacts that mirror the native runtime.
-
-## Programmatic API
-
-The CLI is powered by the `run(opts)` helper exported from the package. Tests can
-reuse it to evaluate a pre-parsed IR string or a file on disk while opting into
-WASM or native execution explicitly.
+The command exits with `0` when evaluation succeeds. It writes the optional status
+and trace files when the corresponding flags are provided and reports argument or
+runtime errors on stderr. Set `TF_RUN_WASM_DISABLE_WASM=1` to force the stub
+evaluator even when the WebAssembly bindings are available.

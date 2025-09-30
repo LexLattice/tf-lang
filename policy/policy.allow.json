@@ -8,5 +8,8 @@
   "subscribe": [
     "rpc:req:*",
     "rpc:reply:*"
+  ],
+  "capabilities": [
+    "cap:keypair:Ed25519"
   ]
 }

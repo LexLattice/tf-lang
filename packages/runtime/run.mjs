@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { blake3 } from '@noble/hashes/blake3.js';
+import { deepClone } from '../util/clone.mjs';
 import createMemoryBus from './bus.memory.mjs';
 
 export const DETERMINISTIC_TRANSFORMS = new Set([
@@ -13,20 +14,6 @@ export const DETERMINISTIC_TRANSFORMS = new Set([
   'model_infer',
   'policy_eval',
 ]);
-
-function deepClone(value) {
-  if (value === null || typeof value !== 'object') {
-    return value;
-  }
-  if (Array.isArray(value)) {
-    return value.map((item) => deepClone(item));
-  }
-  const out = {};
-  for (const [key, val] of Object.entries(value)) {
-    out[key] = deepClone(val);
-  }
-  return out;
-}
 
 export function stableStringify(value) {
   if (value === null || typeof value !== 'object') {

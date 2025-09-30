@@ -1,18 +1,5 @@
 import { randomUUID } from 'node:crypto';
-
-function clone(value) {
-  if (value === null || typeof value !== 'object') {
-    return value;
-  }
-  if (Array.isArray(value)) {
-    return value.map((item) => clone(item));
-  }
-  const out = {};
-  for (const [key, val] of Object.entries(value)) {
-    out[key] = clone(val);
-  }
-  return out;
-}
+import { deepClone } from '../util/clone.mjs';
 
 function escapePattern(pattern) {
   return pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -87,17 +74,18 @@ function matches(patterns, topic) {
   return patterns.some((pattern) => pattern.regex.test(topic));
 }
 
-function makeEntry(topic, message, meta, attempt) {
+function makeEntry(topic, message, meta, attempt, retain) {
   return {
     id: meta?.id ?? randomUUID(),
     topic,
-    message: clone(message),
+    message: deepClone(message),
     meta: {
-      ...clone(meta ?? {}),
+      ...deepClone(meta ?? {}),
       attempt,
       duplicate: attempt > 1,
       timestamp: Date.now(),
     },
+    retain: Boolean(retain),
   };
 }
 
@@ -129,7 +117,10 @@ export function createMemoryBus(options = {}) {
           continue;
         }
         entries.splice(index, 1);
-        return clone(candidate);
+        if (entries.length === 0) {
+          queues.delete(topic);
+        }
+        return deepClone(candidate);
       }
     }
     return null;
@@ -140,6 +131,7 @@ export function createMemoryBus(options = {}) {
       return;
     }
     const resolved = [];
+    let delivered = false;
     for (const [id, waiter] of waiters.entries()) {
       if (!matches(waiter.patterns, entry.topic)) {
         continue;
@@ -148,7 +140,21 @@ export function createMemoryBus(options = {}) {
         continue;
       }
       resolved.push(id);
-      waiter.resolve(clone(entry));
+      delivered = true;
+      waiter.resolve(deepClone(entry));
+      break;
+    }
+    if (delivered && !entry.retain) {
+      const queue = queues.get(entry.topic);
+      if (queue) {
+        const index = queue.findIndex((candidate) => candidate.id === entry.id);
+        if (index !== -1) {
+          queue.splice(index, 1);
+        }
+        if (queue.length === 0) {
+          queues.delete(entry.topic);
+        }
+      }
     }
     for (const id of resolved) {
       const waiter = waiters.get(id);
@@ -163,7 +169,12 @@ export function createMemoryBus(options = {}) {
     if (typeof channel !== 'string' || channel.length === 0) {
       throw new Error('publish requires a non-empty channel string');
     }
-    const { qos = 'at_least_once', duplicates = defaultDuplicates, meta = {} } = opts ?? {};
+    const {
+      qos = 'at_least_once',
+      duplicates = defaultDuplicates,
+      meta = {},
+      retain = false,
+    } = opts ?? {};
     const totalDuplicates = typeof duplicates === 'number'
       ? Math.max(0, Math.floor(duplicates))
       : duplicates
@@ -171,10 +182,10 @@ export function createMemoryBus(options = {}) {
         : 0;
     const deliveries = [];
     for (let attempt = 1; attempt <= totalDuplicates + 1; attempt += 1) {
-      const entry = makeEntry(channel, message, { ...meta, qos }, attempt);
+      const entry = makeEntry(channel, message, { ...meta, qos }, attempt, retain);
       enqueue(entry);
       notify(entry);
-      deliveries.push(clone(entry));
+      deliveries.push(deepClone(entry));
     }
     return deliveries;
   }
@@ -205,7 +216,7 @@ export function createMemoryBus(options = {}) {
     if (channel === undefined) {
       const state = {};
       for (const [topic, entries] of queues.entries()) {
-        state[topic] = entries.map((entry) => clone(entry));
+        state[topic] = entries.map((entry) => deepClone(entry));
       }
       return state;
     }
@@ -215,7 +226,7 @@ export function createMemoryBus(options = {}) {
       if (!matches(patterns, topic)) {
         continue;
       }
-      state[topic] = entries.map((entry) => clone(entry));
+      state[topic] = entries.map((entry) => deepClone(entry));
     }
     if (typeof channel === 'string' && !channel.includes('*') && !Array.isArray(channel)) {
       return state[channel] ?? [];

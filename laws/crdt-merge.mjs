@@ -3,7 +3,7 @@ function normalizeSet(values = []) {
 }
 
 function mergeSets(a = [], b = []) {
-  return normalizeSet([...(a ?? []), ...(b ?? [])]);
+  return normalizeSet([...a, ...b]);
 }
 
 export function checkSampleCrdtMerge() {

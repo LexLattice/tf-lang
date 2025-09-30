@@ -152,7 +152,7 @@ function analyzePipeline(l0) {
         const outVar = node.out?.var;
         if (outVar) {
           const refs = collectVarRefs(node.in);
-          const depsStable = refs.every((ref) => (varMeta.get(ref)?.stable ?? true));
+          const depsStable = refs.every((ref) => (varMeta.get(ref)?.stable ?? false));
           const deterministic = DETERMINISTIC_TRANSFORMS.has(node.spec?.op);
           const stable = deterministic && depsStable;
           varMeta.set(outVar, {
@@ -228,7 +228,10 @@ function analyzePipeline(l0) {
             deps: [],
           });
         }
-        capabilities.add(`cap:keypair:${(node.algorithm ?? 'keypair').toLowerCase()}`);
+        const algorithm = typeof node.algorithm === 'string' && node.algorithm.length > 0
+          ? node.algorithm
+          : 'keypair';
+        capabilities.add(`cap:keypair:${algorithm}`);
         break;
       }
       default:
@@ -270,7 +273,41 @@ function analyzePipeline(l0) {
   };
 }
 
-async function runChecks(l0, options) {
+function resolvePolicyPath(policyPath) {
+  return policyPath
+    ? path.resolve(policyPath)
+    : path.resolve(__dirname, '../../policy/policy.allow.json');
+}
+
+async function loadCapabilities(capsPath) {
+  if (!capsPath) {
+    return [];
+  }
+  try {
+    const content = await fs.readFile(capsPath, 'utf8');
+    const parsed = JSON.parse(content);
+    if (Array.isArray(parsed)) {
+      return parsed.map((value) => String(value));
+    }
+    if (parsed && Array.isArray(parsed.capabilities)) {
+      return parsed.capabilities.map((value) => String(value));
+    }
+    return [];
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      return [];
+    }
+    const err = new Error(`failed to load capabilities allow list: ${error.message}`);
+    err.cause = error;
+    throw err;
+  }
+}
+
+async function runChecks(l0, options = {}) {
+  const policyPath = resolvePolicyPath(options.policyPath);
+  const capsPath = options.capsPath
+    ? path.resolve(options.capsPath)
+    : policyPath;
   const analysis = analyzePipeline(l0);
 
   const declaredEffects = normalizeEffects(l0.effects);
@@ -287,7 +324,7 @@ async function runChecks(l0, options) {
     ok: missingCritical.length === 0 && extra.length === 0,
   };
 
-  const policyAllow = await loadPolicy(options.policyPath);
+  const policyAllow = await loadPolicy(policyPath);
   const publishPolicy = compilePolicy(policyAllow.publish ?? []);
   const subscribePolicy = compilePolicy(policyAllow.subscribe ?? []);
 
@@ -321,10 +358,13 @@ async function runChecks(l0, options) {
   policy.publish.ok = policy.publish.violations.length === 0;
   policy.subscribe.ok = policy.subscribe.violations.length === 0;
 
+  const requiredCapabilities = Array.from(analysis.capabilities).sort();
+  const providedCapabilities = new Set(await loadCapabilities(capsPath));
+  const missingCapabilities = requiredCapabilities.filter((cap) => !providedCapabilities.has(cap));
   const capabilities = {
-    required: Array.from(analysis.capabilities).sort(),
-    missing: [],
-    ok: true,
+    required: requiredCapabilities,
+    missing: missingCapabilities,
+    ok: missingCapabilities.length === 0,
   };
 
   const laws = {
@@ -386,27 +426,33 @@ async function runChecks(l0, options) {
 }
 
 export async function checkL0(filePath, options = {}) {
-  const policyPath = options.policyPath
-    ?? path.resolve(__dirname, '../../policy/policy.allow.json');
+  const policyPath = resolvePolicyPath(options.policyPath);
+  const capsPath = options.capsPath
+    ? path.resolve(options.capsPath)
+    : policyPath;
   const absolutePath = path.resolve(process.cwd(), filePath);
   const content = await fs.readFile(absolutePath, 'utf8');
   const l0 = JSON.parse(content);
-  return runChecks(l0, { policyPath });
+  return runChecks(l0, { policyPath, capsPath });
 }
 
 function parseArgs(argv) {
   const args = argv.slice(2);
   if (args.length === 0) {
-    throw new Error('usage: node packages/checker/check.mjs <pipeline.l0.json> [--policy path] [--out path]');
+    throw new Error('usage: node packages/checker/check.mjs <pipeline.l0.json> [--policy path] [--caps path] [--out path]');
   }
   const file = args[0];
   let policyPath = path.resolve(__dirname, '../../policy/policy.allow.json');
   let outPath = path.resolve(__dirname, '../../out/TFREPORT.json');
+  let capsPath = policyPath;
 
   for (let i = 1; i < args.length; i += 1) {
     const arg = args[i];
     if (arg === '--policy') {
       policyPath = path.resolve(process.cwd(), args[i + 1]);
+      i += 1;
+    } else if (arg === '--caps') {
+      capsPath = path.resolve(process.cwd(), args[i + 1]);
       i += 1;
     } else if (arg === '--out') {
       outPath = path.resolve(process.cwd(), args[i + 1]);
@@ -414,13 +460,15 @@ function parseArgs(argv) {
     }
   }
 
-  return { file: path.resolve(process.cwd(), file), policyPath, outPath };
+  return { file: path.resolve(process.cwd(), file), policyPath, capsPath, outPath };
 }
 
 async function main() {
   let exitCode = 0;
+  let outPath = path.resolve(__dirname, '../../out/TFREPORT.json');
   try {
     const args = parseArgs(process.argv);
+    outPath = args.outPath;
     const content = await fs.readFile(args.file, 'utf8');
     const l0 = JSON.parse(content);
     const report = await runChecks(l0, args);
@@ -436,7 +484,6 @@ async function main() {
       timestamp: new Date().toISOString(),
       error: error.message,
     };
-    const outPath = path.resolve(__dirname, '../../out/TFREPORT.json');
     await fs.mkdir(path.dirname(outPath), { recursive: true });
     await fs.writeFile(outPath, `${JSON.stringify(fallback, null, 2)}\n`);
     console.error(error.message);

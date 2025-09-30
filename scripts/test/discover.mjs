@@ -28,14 +28,31 @@ async function walk(dir, results) {
 }
 
 function parseKeyValuePairs(source, file) {
-  const pairs = source.trim().split(/\s+/).filter(Boolean);
+  const tokens = source.trim().split(/\s+/).filter(Boolean);
   const meta = {};
-  for (const pair of pairs) {
-    const [key, value] = pair.split('=');
-    if (!key || value === undefined) {
-      throw new Error(`Invalid metadata pair "${pair}" in ${file}`);
+  for (let i = 0; i < tokens.length; i += 1) {
+    const token = tokens[i];
+    const eqIndex = token.indexOf('=');
+    if (eqIndex !== -1) {
+      const key = token.slice(0, eqIndex);
+      const value = token.slice(eqIndex + 1);
+      if (!key || value.length === 0) {
+        throw new Error(`Invalid metadata pair "${token}" in ${file}`);
+      }
+      meta[key] = value;
+      continue;
     }
-    meta[key] = value;
+    if (token.endsWith(':')) {
+      const key = token.slice(0, -1);
+      const value = tokens[i + 1];
+      if (!key || value === undefined) {
+        throw new Error(`Invalid metadata pair "${token}" in ${file}`);
+      }
+      meta[key] = value;
+      i += 1;
+      continue;
+    }
+    throw new Error(`Invalid metadata token "${token}" in ${file}`);
   }
   return meta;
 }
@@ -64,7 +81,7 @@ function normalizeDeps(value) {
 }
 
 function ensureMetadata(meta, file) {
-  const required = ['kind', 'area', 'speed', 'deps'];
+  const required = ['kind', 'speed', 'deps'];
   for (const key of required) {
     if (!meta[key]) {
       throw new Error(`Missing ${key} metadata in ${file}`);
@@ -78,15 +95,62 @@ function ensureMetadata(meta, file) {
   };
 }
 
+function parseHeaderMetadata(contents, file) {
+  const trimmed = contents.trimStart();
+  if (trimmed.startsWith('//')) {
+    const [firstLine] = trimmed.split(/\r?\n/);
+    const markerIndex = firstLine.indexOf('@tf-test');
+    if (markerIndex === -1) {
+      throw new Error(
+        `Missing @tf-test header in ${file} (add: "@tf-test kind:<...> speed:<...> deps:<...>")`,
+      );
+    }
+    const metaSource = firstLine.slice(markerIndex + '@tf-test'.length);
+    return parseKeyValuePairs(metaSource, file);
+  }
+  if (trimmed.startsWith('/*')) {
+    const endIndex = trimmed.indexOf('*/');
+    if (endIndex === -1) {
+      throw new Error(`Unterminated @tf-test block comment in ${file}`);
+    }
+    const inside = trimmed.slice(2, endIndex);
+    const lines = inside
+      .split(/\r?\n/)
+      .map((line) => line.replace(/^\s*\*/u, '').trim())
+      .filter((line) => line.length > 0);
+    if (!lines.length) {
+      throw new Error(
+        `Missing @tf-test header in ${file} (add: "@tf-test kind:<...> speed:<...> deps:<...>")`,
+      );
+    }
+    const markerIndex = lines.findIndex((line) => line.startsWith('@tf-test'));
+    if (markerIndex === -1) {
+      throw new Error(
+        `Missing @tf-test header in ${file} (add: "@tf-test kind:<...> speed:<...> deps:<...>")`,
+      );
+    }
+    const segments = [];
+    const firstLine = lines[markerIndex];
+    const remainder = firstLine.slice('@tf-test'.length).trim();
+    if (remainder) {
+      segments.push(remainder);
+    }
+    for (const line of lines.slice(markerIndex + 1)) {
+      segments.push(line);
+    }
+    const metaSource = segments.join(' ');
+    return parseKeyValuePairs(metaSource, file);
+  }
+  throw new Error(
+    `Missing @tf-test header in ${file} (add: "@tf-test kind:<...> speed:<...> deps:<...>")`,
+  );
+}
+
 async function parseJsTsTest(file) {
   const abs = path.join(ROOT, file);
   const contents = await readFile(abs, 'utf8');
   const lines = contents.split(/\r?\n/);
-  const header = lines.find((line) => line.trim() !== '');
-  if (!header || !header.trim().startsWith('// @tf-test ')) {
-    throw new Error(`Missing @tf-test header in ${file}`);
-  }
-  const meta = parseKeyValuePairs(header.trim().slice('// @tf-test '.length), file);
+  const meta = parseHeaderMetadata(contents, file);
   const baseMeta = ensureMetadata(meta, file);
   const ext = path.extname(file);
   if (ext === '.mjs' || ext === '.js') {

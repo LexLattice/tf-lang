@@ -5,17 +5,10 @@ import process from 'node:process';
 
 import { run } from '../dist/index.js';
 
+const USAGE = 'tf-run-wasm --ir <file.ir.json> [--status <status.json>] [--trace <trace.jsonl>] [--json]';
+
 function printUsage() {
-  console.log(
-    [
-      'Usage: tf-run-wasm --ir <file.ir.json> [options]',
-      '',
-      'Options:',
-      '  --status <file.json>   Write the status JSON document to disk',
-      '  --trace <file.jsonl>   Write the trace JSONL document to disk',
-      '  --help                 Show this message',
-    ].join('\n'),
-  );
+  console.log(USAGE);
 }
 
 function takeValue(argv, index, flag) {
@@ -32,6 +25,7 @@ function parseArgs(argv) {
     irPath: null,
     statusPath: null,
     tracePath: null,
+    json: false,
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -52,6 +46,9 @@ function parseArgs(argv) {
       case '--trace':
         options.tracePath = takeValue(argv, i, '--trace');
         i += 1;
+        break;
+      case '--json':
+        options.json = true;
         break;
       default:
         if (arg.startsWith('-')) {
@@ -88,15 +85,37 @@ async function main(argv) {
     return;
   }
 
+  const statusPath = options.statusPath ? resolve(options.statusPath) : undefined;
+  const tracePath = options.tracePath ? resolve(options.tracePath) : undefined;
+
   try {
     const irPath = resolve(options.irPath);
     const irSource = await readFile(irPath, 'utf8');
-
-    await run({
+    const result = await run({
       irSource,
-      statusPath: options.statusPath ? resolve(options.statusPath) : undefined,
-      tracePath: options.tracePath ? resolve(options.tracePath) : undefined,
+      statusPath,
+      tracePath,
     });
+
+    const statusWritten = Boolean(statusPath);
+    const traceWritten = Boolean(tracePath);
+    const steps = Array.isArray(result.trace) ? result.trace.length : 0;
+    const shouldPrintJson = options.json || (!statusWritten && !traceWritten);
+
+    if (statusWritten || traceWritten) {
+      const wroteLine = `wrote status=${statusWritten} trace=${traceWritten} steps=${steps}`;
+      console.log(wroteLine);
+    }
+
+    if (shouldPrintJson) {
+      const summary = {
+        ok: Boolean(result.status?.ok),
+        status_written: statusWritten,
+        trace_written: traceWritten,
+        steps,
+      };
+      process.stdout.write(`${JSON.stringify(summary)}\n`);
+    }
   } catch (err) {
     const message = err instanceof Error && typeof err.message === 'string' ? err.message : String(err);
     console.error(`Runtime error: ${message}`);

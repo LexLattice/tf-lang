@@ -45,7 +45,8 @@ test('tf-run-wasm CLI writes normalized status and trace files', async () => {
       },
     );
 
-    assert.equal(stdout.toString(), '');
+    const stdoutText = stdout.toString();
+    assert.match(stdoutText, /^wrote status=true trace=true steps=\d+\n$/);
     assert.equal(stderr.toString(), '');
 
     const statusRaw = await readFile(statusPath, 'utf8');

@@ -19,24 +19,26 @@ written on its own line.
 ## CLI
 
 The package ships with a thin CLI wrapper that operates on IR JSON files. A
-minimal example creates a temporary directory, writes a tiny IR file, and runs
-the CLI to produce status and trace artifacts:
+minimal example writes a small IR file, runs the CLI, and inspects the outputs:
 
 ```bash
-TMP_DIR="$(mktemp -d)"
-cat <<'JSON' > "$TMP_DIR/sample.ir.json"
-{ "primitives": ["tf:pure/identity@1"] }
-JSON
-
-tf-run-wasm --ir "$TMP_DIR/sample.ir.json" \
-  --status "$TMP_DIR/status.json" \
-  --trace "$TMP_DIR/trace.jsonl"
-
-cat "$TMP_DIR/status.json"
-cat "$TMP_DIR/trace.jsonl"
+echo '{"primitives":[{"prim_id":"tf:pure/identity@1"}]}' > /tmp/run.ir.json
+tf-run-wasm --ir /tmp/run.ir.json --status /tmp/status.json --trace /tmp/trace.jsonl
+cat /tmp/status.json
+cat /tmp/trace.jsonl
 ```
 
-The command exits with `0` when evaluation succeeds. It writes the optional status
-and trace files when the corresponding flags are provided and reports argument or
-runtime errors on stderr. Set `TF_RUN_WASM_DISABLE_WASM=1` to force the stub
-evaluator even when the WebAssembly bindings are available.
+When files are written the CLI emits a deterministic `wrote …` line such as
+`wrote status=true trace=true steps=1`. Passing `--json` (or omitting file
+targets) prints a single-line JSON summary with the execution result:
+
+```bash
+tf-run-wasm --ir /tmp/run.ir.json --json
+# {"ok":true,"status_written":false,"trace_written":false,"steps":1}
+```
+
+Environment flags:
+
+* `TF_RUN_WASM_DISABLE_WASM=1` — force the stub evaluator even when the
+  WebAssembly bindings are available.
+* `TF_RUN_WASM_DEBUG=1` — emit debug warnings to stderr (never stdout).

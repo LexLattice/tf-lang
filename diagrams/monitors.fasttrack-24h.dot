@@ -3,56 +3,86 @@ digraph G {
   subgraph cluster_0 {
     label="fasttrack.sla.start.v1";
     m0_n0 [label="S_fasttrack_sla_start_v1_event
-Subscribe"];
+Subscribe: claims.eligibility"];
     m0_n1 [label="T_fasttrack_sla_start_v1_when_cond_1
-Transform"];
-    m0_n0 -> m0_n1;
+Transform: eq"];
     m0_n2 [label="K_schedule
-Keypair"];
-    m0_n1 -> m0_n2;
+Keypair: Ed25519
+when: @fasttrack_sla_start_v1_when_1_value"];
     m0_n3 [label="T_schedule_corr
-Transform"];
-    m0_n2 -> m0_n3;
+Transform: hash
+when: @fasttrack_sla_start_v1_when_1_value"];
     m0_n4 [label="T_schedule_reply_to
-Transform"];
-    m0_n3 -> m0_n4;
+Transform: concat
+when: @fasttrack_sla_start_v1_when_1_value"];
     m0_n5 [label="P_schedule_request
-Publish"];
-    m0_n4 -> m0_n5;
+Publish: rpc:req:scheduler.request
+when: @fasttrack_sla_start_v1_when_1_value"];
     m0_n6 [label="S_schedule_reply
-Subscribe"];
-    m0_n5 -> m0_n6;
+Subscribe: @reply_to_schedule
+when: @fasttrack_sla_start_v1_when_1_value"];
+    m0_n0 -> m0_n1;
+    m0_n1 -> m0_n2 [style=dashed];
+    m0_n2 -> m0_n3;
+    m0_n0 -> m0_n3;
+    m0_n1 -> m0_n3 [style=dashed];
+    m0_n3 -> m0_n4;
+    m0_n1 -> m0_n4 [style=dashed];
+    m0_n0 -> m0_n5;
+    m0_n3 -> m0_n5;
+    m0_n4 -> m0_n5;
+    m0_n1 -> m0_n5 [style=dashed];
+    m0_n4 -> m0_n6;
+    m0_n3 -> m0_n6;
+    m0_n1 -> m0_n6 [style=dashed];
   }
   subgraph cluster_1 {
     label="fasttrack.sla.check.v1";
     m1_n0 [label="S_fasttrack_sla_check_v1_event
-Subscribe"];
+Subscribe: process:event:sla.fasttrack.deadline"];
     m1_n1 [label="T_lookup
-Transform"];
-    m1_n0 -> m1_n1;
+Transform: lookup"];
     m1_n2 [label="T_branch_1_cond_1
-Transform"];
-    m1_n1 -> m1_n2;
+Transform: identity"];
     m1_n3 [label="P_breach_metric
-Publish"];
-    m1_n2 -> m1_n3;
+Publish: metric:claims.fasttrack.breach
+when: @branch_1_1_value"];
     m1_n4 [label="K_alert
-Keypair"];
-    m1_n3 -> m1_n4;
+Keypair: Ed25519
+when: @branch_1_1_value"];
     m1_n5 [label="T_alert_corr
-Transform"];
-    m1_n4 -> m1_n5;
+Transform: hash
+when: @branch_1_1_value"];
     m1_n6 [label="T_alert_reply_to
-Transform"];
-    m1_n5 -> m1_n6;
+Transform: concat
+when: @branch_1_1_value"];
     m1_n7 [label="P_alert_request
-Publish"];
-    m1_n6 -> m1_n7;
+Publish: rpc:req:api/alerts/create
+when: @branch_1_1_value"];
     m1_n8 [label="S_alert_reply
-Subscribe"];
-    m1_n7 -> m1_n8;
+Subscribe: @reply_to_alert
+when: @branch_1_1_value"];
     m1_n9 [label="P_on_time_metric
-Publish"];
-    m1_n8 -> m1_n9;
+Publish: metric:claims.fasttrack.on_time
+when: ¬branch_1_1_value"];
+    m1_n0 -> m1_n1;
+    m1_n1 -> m1_n2;
+    m1_n0 -> m1_n3;
+    m1_n2 -> m1_n3 [style=dashed];
+    m1_n2 -> m1_n4 [style=dashed];
+    m1_n4 -> m1_n5;
+    m1_n0 -> m1_n5;
+    m1_n2 -> m1_n5 [style=dashed];
+    m1_n5 -> m1_n6;
+    m1_n2 -> m1_n6 [style=dashed];
+    m1_n5 -> m1_n7;
+    m1_n6 -> m1_n7;
+    m1_n0 -> m1_n7;
+    m1_n2 -> m1_n7 [style=dashed];
+    m1_n6 -> m1_n8;
+    m1_n5 -> m1_n8;
+    m1_n2 -> m1_n8 [style=dashed];
+    m1_n0 -> m1_n9;
+    m1_n2 -> m1_n9 [style=dashed];
   }
 }

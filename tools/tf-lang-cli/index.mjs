@@ -3,65 +3,7 @@ import fs from "fs";
 import path from "path";
 import { spawnSync, execSync } from "child_process";
 import { loadRulebookPlan, rulesForPhaseFromPlan } from "./expand.mjs";
-
-function graphLabel(value) {
-  return String(value).replace(/"/g, "\\\"");
-}
-
-function renderPipelineGraph(doc) {
-  const nodes = doc.nodes ?? [];
-  const lines = [];
-  lines.push("digraph G {");
-  lines.push("  rankdir=LR;");
-  nodes.forEach((node, idx) => {
-    let label;
-    switch (node.kind) {
-      case "Subscribe":
-      case "Publish":
-        label = `${node.id}\n${node.channel}`;
-        break;
-      case "Transform":
-        label = `${node.id}\n${node.spec?.op ?? ""}`;
-        break;
-      case "Keypair":
-        label = `${node.id}\n${node.algorithm}`;
-        break;
-      default:
-        label = node.id;
-    }
-    lines.push(`  n${idx} [label="${graphLabel(label)}"];`);
-    if (idx > 0) {
-      lines.push(`  n${idx - 1} -> n${idx};`);
-    }
-  });
-  lines.push("}");
-  return lines.join("\n");
-}
-
-function renderMonitorGraph(doc) {
-  const lines = [];
-  const monitors = doc.monitors ?? [];
-  lines.push("digraph G {");
-  lines.push("  rankdir=LR;");
-  monitors.forEach((monitor, monitorIndex) => {
-    const clusterName = `cluster_${monitorIndex}`;
-    lines.push(`  subgraph ${clusterName} {`);
-    lines.push(`    label="${graphLabel(monitor.monitor_id ?? `monitor_${monitorIndex}`)}";`);
-    let prevName = null;
-    (monitor.nodes ?? []).forEach((node, nodeIndex) => {
-      const nodeName = `m${monitorIndex}_n${nodeIndex}`;
-      const label = `${node.id}\n${node.kind}`;
-      lines.push(`    ${nodeName} [label="${graphLabel(label)}"];`);
-      if (prevName) {
-        lines.push(`    ${prevName} -> ${nodeName};`);
-      }
-      prevName = nodeName;
-    });
-    lines.push("  }");
-  });
-  lines.push("}");
-  return lines.join("\n");
-}
+import { renderPipelineGraph, renderMonitorGraph } from "./lib/dot.mjs";
 
 function collectKernelNodes(doc) {
   if (Array.isArray(doc.nodes)) return doc.nodes;
@@ -220,16 +162,27 @@ function usage() {
   }
 
   if (cmd === "graph") {
-    const [inputPath] = argv;
+    let showWhenEdges = true;
+    const positional = [];
+    argv.forEach((arg) => {
+      if (arg.startsWith("--show-when=")) {
+        const [, raw] = arg.split("=", 2);
+        showWhenEdges = raw !== "false";
+      } else {
+        positional.push(arg);
+      }
+    });
+    const [inputPath] = positional;
     if (!inputPath) {
-      console.error("usage: tf-lang graph <pipeline-or-monitor.l0.json>");
+      console.error("usage: tf-lang graph [--show-when=true|false] <pipeline-or-monitor.l0.json>");
       process.exit(2);
     }
     const doc = JSON.parse(fs.readFileSync(inputPath, "utf8"));
+    const options = { showWhenEdges };
     if (Array.isArray(doc.nodes)) {
-      console.log(renderPipelineGraph(doc));
+      console.log(renderPipelineGraph(doc, options));
     } else if (Array.isArray(doc.monitors)) {
-      console.log(renderMonitorGraph(doc));
+      console.log(renderMonitorGraph(doc, options));
     } else {
       throw new Error("unsupported graph document shape");
     }

@@ -2,87 +2,24 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { parse as parseYaml } from 'yaml';
+import {
+  quoteCalls,
+  parseCall,
+  slug,
+  nodeId,
+  computeEffects,
+} from '../packages/expander/common.mjs';
+
+function prefixedId(prefix, name) {
+  return `${prefix}_${slug(name)}`;
+}
 
 function usage() {
   console.error('usage: monitor-expand <input.l2.yaml> <output.l0.json>');
   process.exit(2);
 }
 
-function quoteCalls(src) {
-  const lines = src.split(/\r?\n/);
-  const out = [];
-  for (let i = 0; i < lines.length; i += 1) {
-    const line = lines[i];
-    const match = line.match(/^(\s*(?:-\s+)?[A-Za-z0-9_]+:\s*)([A-Za-z0-9_.]+\()(.*)$/);
-    if (match) {
-      let call = match[2] + match[3];
-      let depth = (match[2].match(/\(/g) || []).length - (match[2].match(/\)/g) || []).length;
-      depth += (match[3].match(/\(/g) || []).length - (match[3].match(/\)/g) || []).length;
-      while (depth > 0 && i + 1 < lines.length) {
-        const next = lines[++i];
-        call += `\n${next.trim()}`;
-        depth += (next.match(/\(/g) || []).length - (next.match(/\)/g) || []).length;
-      }
-      call = call.replace(/\s*\n\s*/g, ' ');
-      call = call.replace(/"/g, '\\"');
-      out.push(`${match[1]}"${call}"`);
-      continue;
-    }
-    out.push(line);
-  }
-  return out.join('\n');
-}
-
-function parseCall(str) {
-  const match = str.match(/^([A-Za-z0-9_.]+)\((.*)\)$/);
-  if (!match) throw new Error(`invalid call syntax: ${str}`);
-  const [, macro, argsRaw] = match;
-  const trimmed = argsRaw.trim();
-  if (!trimmed) return { macro, args: {} };
-  if (trimmed.includes(':')) return { macro, args: parseYaml(`{ ${trimmed} }`) };
-  const positional = parseYaml(`[${trimmed}]`);
-  return { macro, args: { __args: positional } };
-}
-
-function slug(value) {
-  return String(value)
-    .replace(/[^A-Za-z0-9_]+/g, '_')
-    .replace(/_{2,}/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .toLowerCase();
-}
-
-function id(prefix, name) {
-  return `${prefix}_${slug(name)}`;
-}
-
 const ALLOWED_KINDS = new Set(['Transform', 'Publish', 'Subscribe', 'Keypair']);
-
-function computeEffects(nodes) {
-  const seen = new Set();
-  for (const node of nodes) {
-    switch (node.kind) {
-      case 'Publish':
-        seen.add('Outbound');
-        break;
-      case 'Subscribe':
-        seen.add('Inbound');
-        break;
-      case 'Keypair':
-        seen.add('Entropy');
-        break;
-      case 'Transform':
-        seen.add('Pure');
-        break;
-      default:
-        throw new Error(`unsupported kernel kind: ${node.kind}`);
-    }
-  }
-  const order = ['Outbound', 'Inbound', 'Entropy', 'Pure'];
-  const values = order.filter((effect) => seen.has(effect));
-  if (values.length === 0) return 'Pure';
-  return values.join('+');
-}
 
 class MonitorCompiler {
   constructor(definition, outputPath) {
@@ -142,7 +79,7 @@ class MonitorCompiler {
       const leftExpr = this.resolveRef(`@${eqMatch[1]}`, refs);
       const rightValue = eqMatch[2];
       this.addNode(nodes, {
-        id: id('T', `${label}_cond_${this.conditionIndex}`),
+        id: nodeId(`T_${slug(label)}_cond`, this.conditionIndex),
         kind: 'Transform',
         spec: { op: 'eq' },
         in: { left: leftExpr, right: rightValue },
@@ -151,7 +88,7 @@ class MonitorCompiler {
     } else {
       const valueExpr = this.resolveRef(condition, refs);
       this.addNode(nodes, {
-        id: id('T', `${label}_cond_${this.conditionIndex}`),
+        id: nodeId(`T_${slug(label)}_cond`, this.conditionIndex),
         kind: 'Transform',
         spec: { op: 'identity' },
         in: { value: valueExpr },
@@ -170,14 +107,14 @@ class MonitorCompiler {
     const trigger = this.resolveValue(call.args.trigger ?? {}, refs);
     const kpVar = `kp_${slug(name)}`;
     this.addNode(nodes, {
-      id: id('K', name),
+      id: prefixedId('K', name),
       kind: 'Keypair',
       algorithm: 'Ed25519',
       out: { var: kpVar },
     }, whenClause);
     const corrVar = `corr_${slug(name)}`;
     this.addNode(nodes, {
-      id: `${id('T', name)}_corr`,
+      id: `${prefixedId('T', name)}_corr`,
       kind: 'Transform',
       spec: { op: 'hash', alg: 'blake3' },
       in: { k: `@${kpVar}.public_key_pem`, task_ref: taskRef, trigger },
@@ -185,14 +122,14 @@ class MonitorCompiler {
     }, whenClause);
     const replyToVar = `reply_to_${slug(name)}`;
     this.addNode(nodes, {
-      id: `${id('T', name)}_reply_to`,
+      id: `${prefixedId('T', name)}_reply_to`,
       kind: 'Transform',
       spec: { op: 'concat' },
       in: { a: 'rpc:reply:', b: `@${corrVar}` },
       out: { var: replyToVar },
     }, whenClause);
     this.addNode(nodes, {
-      id: id('P', `${name}_request`),
+      id: prefixedId('P', `${name}_request`),
       kind: 'Publish',
       channel: 'rpc:req:scheduler.request',
       qos: 'at_least_once',
@@ -205,7 +142,7 @@ class MonitorCompiler {
     }, whenClause);
     const replyMsgVar = `${slug(name)}_reply`;
     this.addNode(nodes, {
-      id: id('S', `${name}_reply`),
+      id: prefixedId('S', `${name}_reply`),
       kind: 'Subscribe',
       channel: `@${replyToVar}`,
       qos: 'at_least_once',
@@ -221,7 +158,7 @@ class MonitorCompiler {
     const keyValue = this.resolveValue(call.args.key, refs);
     const outVar = `${slug(name)}_value`;
     this.addNode(nodes, {
-      id: id('T', name),
+      id: prefixedId('T', name),
       kind: 'Transform',
       spec: { op: 'lookup', entity, field },
       in: { key: keyValue },
@@ -235,7 +172,7 @@ class MonitorCompiler {
     const value = this.resolveValue(call.args.value ?? 1, refs);
     const tags = this.resolveValue(call.args.tags ?? {}, refs);
     this.addNode(nodes, {
-      id: id('P', name),
+      id: prefixedId('P', name),
       kind: 'Publish',
       channel: `metric:${metricName}`,
       qos: 'at_least_once',
@@ -250,7 +187,7 @@ class MonitorCompiler {
     const query = call.args.query ? this.resolveValue(call.args.query, refs) : undefined;
     const kpVar = `kp_${slug(name)}`;
     this.addNode(nodes, {
-      id: id('K', name),
+      id: prefixedId('K', name),
       kind: 'Keypair',
       algorithm: 'Ed25519',
       out: { var: kpVar },
@@ -260,7 +197,7 @@ class MonitorCompiler {
     if (body !== undefined) corrInput.b = body;
     if (query !== undefined) corrInput.q = query;
     this.addNode(nodes, {
-      id: `${id('T', name)}_corr`,
+      id: `${prefixedId('T', name)}_corr`,
       kind: 'Transform',
       spec: { op: 'hash', alg: 'blake3' },
       in: corrInput,
@@ -268,7 +205,7 @@ class MonitorCompiler {
     }, whenClause);
     const replyToVar = `reply_to_${slug(name)}`;
     this.addNode(nodes, {
-      id: `${id('T', name)}_reply_to`,
+      id: `${prefixedId('T', name)}_reply_to`,
       kind: 'Transform',
       spec: { op: 'concat' },
       in: { a: 'rpc:reply:', b: `@${corrVar}` },
@@ -278,7 +215,7 @@ class MonitorCompiler {
     if (body !== undefined) payload.body = body;
     if (query !== undefined) payload.query = query;
     this.addNode(nodes, {
-      id: id('P', `${name}_request`),
+      id: prefixedId('P', `${name}_request`),
       kind: 'Publish',
       channel: `rpc:req:${endpoint}`,
       qos: 'at_least_once',
@@ -286,7 +223,7 @@ class MonitorCompiler {
     }, whenClause);
     const replyMsgVar = `${slug(name)}_reply`;
     this.addNode(nodes, {
-      id: id('S', `${name}_reply`),
+      id: prefixedId('S', `${name}_reply`),
       kind: 'Subscribe',
       channel: `@${replyToVar}`,
       qos: 'at_least_once',
@@ -355,7 +292,7 @@ class MonitorCompiler {
     }
     const eventVar = 'event_msg';
     this.addNode(nodes, {
-      id: id('S', `${monitorId}_event`),
+      id: prefixedId('S', `${monitorId}_event`),
       kind: 'Subscribe',
       channel,
       qos: 'at_least_once',

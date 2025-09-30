@@ -1,95 +1,146 @@
 digraph G {
   rankdir=LR;
   n0 [label="S_receive_fnol
-rpc:req:api/fnol/submit"];
+Subscribe: rpc:req:api/fnol/submit"];
   n1 [label="T_validate_fnol
-jsonschema.validate"];
-  n0 -> n1;
+Transform: jsonschema.validate"];
   n2 [label="K_get_policy
-Ed25519"];
-  n1 -> n2;
+Keypair: Ed25519"];
   n3 [label="T_get_policy_corr
-hash"];
-  n2 -> n3;
+Transform: hash"];
   n4 [label="T_get_policy_reply_to
-concat"];
-  n3 -> n4;
+Transform: concat"];
   n5 [label="P_get_policy_request
-rpc:req:api/policy/snapshot"];
-  n4 -> n5;
+Publish: rpc:req:api/policy/snapshot"];
   n6 [label="S_get_policy_reply
-@reply_to_get_policy"];
-  n5 -> n6;
+Subscribe: @reply_to_get_policy"];
   n7 [label="T_score_severity
-model_infer"];
-  n6 -> n7;
+Transform: model_infer"];
   n8 [label="T_score_fraud
-model_infer"];
-  n7 -> n8;
+Transform: model_infer"];
   n9 [label="T_eligibility
-policy_eval"];
-  n8 -> n9;
+Transform: policy_eval"];
   n10 [label="T_branch_1
-eq"];
-  n9 -> n10;
+Transform: eq"];
   n11 [label="K_consent
-Ed25519"];
-  n10 -> n11;
+Keypair: Ed25519
+when: @branch_1_value"];
   n12 [label="T_consent_corr
-hash"];
-  n11 -> n12;
+Transform: hash
+when: @branch_1_value"];
   n13 [label="T_consent_reply_to
-concat"];
-  n12 -> n13;
+Transform: concat
+when: @branch_1_value"];
   n14 [label="P_consent_request
-rpc:req:api/consent/sign"];
-  n13 -> n14;
+Publish: rpc:req:api/consent/sign
+when: @branch_1_value"];
   n15 [label="S_consent_reply
-@reply_to_consent"];
-  n14 -> n15;
+Subscribe: @reply_to_consent
+when: @branch_1_value"];
   n16 [label="K_payout
-Ed25519"];
-  n15 -> n16;
+Keypair: Ed25519
+when: @branch_1_value"];
   n17 [label="T_payout_corr
-hash"];
-  n16 -> n17;
+Transform: hash
+when: @branch_1_value"];
   n18 [label="T_payout_reply_to
-concat"];
-  n17 -> n18;
+Transform: concat
+when: @branch_1_value"];
   n19 [label="P_payout_request
-rpc:req:api/payments/payout"];
-  n18 -> n19;
+Publish: rpc:req:api/payments/payout
+when: @branch_1_value"];
   n20 [label="S_payout_reply
-@reply_to_payout"];
-  n19 -> n20;
+Subscribe: @reply_to_payout
+when: @branch_1_value"];
   n21 [label="P_emit_metric
-metric:claims.fasttrack.success"];
-  n20 -> n21;
+Publish: metric:claims.fasttrack.success
+when: @branch_1_value"];
   n22 [label="K_assign
-Ed25519"];
-  n21 -> n22;
+Keypair: Ed25519
+when: ¬branch_1_value"];
   n23 [label="T_assign_corr
-hash"];
-  n22 -> n23;
+Transform: hash
+when: ¬branch_1_value"];
   n24 [label="T_assign_reply_to
-concat"];
-  n23 -> n24;
+Transform: concat
+when: ¬branch_1_value"];
   n25 [label="P_assign_request
-rpc:req:api/adjuster/assign"];
-  n24 -> n25;
+Publish: rpc:req:api/adjuster/assign
+when: ¬branch_1_value"];
   n26 [label="S_assign_reply
-@reply_to_assign"];
-  n25 -> n26;
+Subscribe: @reply_to_assign
+when: ¬branch_1_value"];
   n27 [label="P_ack
-@fnol_msg.reply_to"];
-  n26 -> n27;
+Publish: @fnol_msg.reply_to"];
   n28 [label="T_record_digest
-digest"];
-  n27 -> n28;
+Transform: digest"];
   n29 [label="T_record_id
-encode_base58"];
-  n28 -> n29;
+Transform: encode_base58"];
   n30 [label="P_record
-policy:record"];
+Publish: policy:record"];
+  n0 -> n1;
+  n2 -> n3;
+  n0 -> n3;
+  n3 -> n4;
+  n3 -> n5;
+  n4 -> n5;
+  n0 -> n5;
+  n4 -> n6;
+  n3 -> n6;
+  n0 -> n7;
+  n0 -> n8;
+  n7 -> n9;
+  n8 -> n9;
+  n6 -> n9;
+  n9 -> n10;
+  n10 -> n11 [style=dashed];
+  n11 -> n12;
+  n0 -> n12;
+  n10 -> n12 [style=dashed];
+  n12 -> n13;
+  n10 -> n13 [style=dashed];
+  n12 -> n14;
+  n13 -> n14;
+  n0 -> n14;
+  n10 -> n14 [style=dashed];
+  n13 -> n15;
+  n12 -> n15;
+  n10 -> n15 [style=dashed];
+  n10 -> n16 [style=dashed];
+  n16 -> n17;
+  n0 -> n17;
+  n9 -> n17;
+  n10 -> n17 [style=dashed];
+  n17 -> n18;
+  n10 -> n18 [style=dashed];
+  n17 -> n19;
+  n18 -> n19;
+  n0 -> n19;
+  n9 -> n19;
+  n10 -> n19 [style=dashed];
+  n18 -> n20;
+  n17 -> n20;
+  n10 -> n20 [style=dashed];
+  n6 -> n21;
+  n10 -> n21 [style=dashed];
+  n10 -> n22 [style=dashed];
+  n22 -> n23;
+  n0 -> n23;
+  n7 -> n23;
+  n10 -> n23 [style=dashed];
+  n23 -> n24;
+  n10 -> n24 [style=dashed];
+  n23 -> n25;
+  n24 -> n25;
+  n0 -> n25;
+  n7 -> n25;
+  n10 -> n25 [style=dashed];
+  n24 -> n26;
+  n23 -> n26;
+  n10 -> n26 [style=dashed];
+  n0 -> n27;
+  n9 -> n28;
+  n28 -> n29;
   n29 -> n30;
+  n9 -> n30;
 }

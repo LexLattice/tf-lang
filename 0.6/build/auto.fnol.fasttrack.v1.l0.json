@@ -1,7 +1,7 @@
 {
   "pipeline_id": "auto.fnol.fasttrack.v1",
   "created_at": "2025-09-30T11:37:59.839401Z",
-  "effects": "Outbound+Inbound",
+  "effects": "Outbound+Inbound+Entropy+Pure",
   "nodes": [
     {
       "id": "S_receive_fnol",
@@ -23,90 +23,76 @@
         "value": "@fnol_msg.body"
       },
       "out": {
-        "var": "fnol_valid"
+        "var": "validate_fnol_value"
       }
     },
     {
-      "id": "T_extract_policy_id",
-      "kind": "Transform",
-      "spec": {
-        "op": "get",
-        "path": "policy_id"
-      },
-      "in": {
-        "value": "@fnol_msg.body"
-      },
-      "out": {
-        "var": "policy_id"
-      }
-    },
-    {
-      "id": "K_policy",
+      "id": "K_get_policy",
       "kind": "Keypair",
       "algorithm": "Ed25519",
       "out": {
-        "var": "kp_policy"
+        "var": "kp_get_policy"
       }
     },
     {
-      "id": "T_policy_corr",
+      "id": "T_get_policy_corr",
       "kind": "Transform",
       "spec": {
         "op": "hash",
         "alg": "blake3"
       },
       "in": {
-        "k": "@kp_policy.public_key_pem",
+        "k": "@kp_get_policy.public_key_pem",
         "e": "api/policy/snapshot",
         "m": "GET",
         "q": {
-          "policy_id": "@policy_id"
+          "policy_id": "@fnol_msg.body.policy_id"
         }
       },
       "out": {
-        "var": "corr_policy"
+        "var": "corr_get_policy"
       }
     },
     {
-      "id": "T_policy_reply_to",
+      "id": "T_get_policy_reply_to",
       "kind": "Transform",
       "spec": {
         "op": "concat"
       },
       "in": {
         "a": "rpc:reply:",
-        "b": "@corr_policy"
+        "b": "@corr_get_policy"
       },
       "out": {
-        "var": "reply_to_policy"
+        "var": "reply_to_get_policy"
       }
     },
     {
-      "id": "P_policy_request",
+      "id": "P_get_policy_request",
       "kind": "Publish",
       "channel": "rpc:req:api/policy/snapshot",
       "qos": "at_least_once",
       "payload": {
         "method": "GET",
+        "corr": "@corr_get_policy",
+        "reply_to": "@reply_to_get_policy",
         "query": {
-          "policy_id": "@policy_id"
-        },
-        "corr": "@corr_policy",
-        "reply_to": "@reply_to_policy"
+          "policy_id": "@fnol_msg.body.policy_id"
+        }
       }
     },
     {
-      "id": "S_policy_reply",
+      "id": "S_get_policy_reply",
       "kind": "Subscribe",
-      "channel": "@reply_to_policy",
+      "channel": "@reply_to_get_policy",
       "qos": "at_least_once",
-      "filter": "@corr_policy",
+      "filter": "@corr_get_policy",
       "out": {
-        "var": "policy_snapshot"
+        "var": "get_policy_reply"
       }
     },
     {
-      "id": "T_severity",
+      "id": "T_score_severity",
       "kind": "Transform",
       "spec": {
         "op": "model_infer",
@@ -116,11 +102,11 @@
         "features": "@fnol_msg.body"
       },
       "out": {
-        "var": "sev_score"
+        "var": "score_severity_value"
       }
     },
     {
-      "id": "T_fraud",
+      "id": "T_score_fraud",
       "kind": "Transform",
       "spec": {
         "op": "model_infer",
@@ -130,7 +116,7 @@
         "features": "@fnol_msg.body"
       },
       "out": {
-        "var": "fraud_score"
+        "var": "score_fraud_value"
       }
     },
     {
@@ -142,27 +128,27 @@
       },
       "in": {
         "input": {
-          "severity": "@sev_score",
-          "fraud": "@fraud_score",
-          "policy": "@policy_snapshot.response"
+          "severity": "@score_severity_value",
+          "fraud": "@score_fraud_value",
+          "policy": "@get_policy_reply.response"
         }
       },
       "out": {
-        "var": "eligibility"
+        "var": "eligibility_value"
       }
     },
     {
-      "id": "T_branch_cond",
+      "id": "T_branch_1",
       "kind": "Transform",
       "spec": {
         "op": "eq"
       },
       "in": {
-        "left": "@eligibility.decision",
+        "left": "@eligibility_value.decision",
         "right": "allow"
       },
       "out": {
-        "var": "is_allow"
+        "var": "branch_1_value"
       }
     },
     {
@@ -172,7 +158,7 @@
       "out": {
         "var": "kp_consent"
       },
-      "when": "@is_allow"
+      "when": "@branch_1_value"
     },
     {
       "id": "T_consent_corr",
@@ -193,7 +179,7 @@
       "out": {
         "var": "corr_consent"
       },
-      "when": "@is_allow"
+      "when": "@branch_1_value"
     },
     {
       "id": "T_consent_reply_to",
@@ -208,26 +194,26 @@
       "out": {
         "var": "reply_to_consent"
       },
-      "when": "@is_allow"
+      "when": "@branch_1_value"
     },
     {
-      "id": "P_consent",
+      "id": "P_consent_request",
       "kind": "Publish",
       "channel": "rpc:req:api/consent/sign",
       "qos": "at_least_once",
       "payload": {
         "method": "POST",
+        "corr": "@corr_consent",
+        "reply_to": "@reply_to_consent",
         "body": {
           "doc": "fasttrack.pdf",
           "claimant": "@fnol_msg.body.party"
-        },
-        "corr": "@corr_consent",
-        "reply_to": "@reply_to_consent"
+        }
       },
-      "when": "@is_allow"
+      "when": "@branch_1_value"
     },
     {
-      "id": "S_consent",
+      "id": "S_consent_reply",
       "kind": "Subscribe",
       "channel": "@reply_to_consent",
       "qos": "at_least_once",
@@ -235,7 +221,7 @@
       "out": {
         "var": "consent_reply"
       },
-      "when": "@is_allow"
+      "when": "@branch_1_value"
     },
     {
       "id": "K_payout",
@@ -244,7 +230,7 @@
       "out": {
         "var": "kp_payout"
       },
-      "when": "@is_allow"
+      "when": "@branch_1_value"
     },
     {
       "id": "T_payout_corr",
@@ -259,14 +245,14 @@
         "m": "POST",
         "b": {
           "claim": "@fnol_msg.body.claim_id",
-          "amount": "@eligibility.amount",
+          "amount": "@eligibility_value.amount",
           "channel": "SEPA"
         }
       },
       "out": {
         "var": "corr_payout"
       },
-      "when": "@is_allow"
+      "when": "@branch_1_value"
     },
     {
       "id": "T_payout_reply_to",
@@ -281,27 +267,27 @@
       "out": {
         "var": "reply_to_payout"
       },
-      "when": "@is_allow"
+      "when": "@branch_1_value"
     },
     {
-      "id": "P_payout",
+      "id": "P_payout_request",
       "kind": "Publish",
       "channel": "rpc:req:api/payments/payout",
       "qos": "at_least_once",
       "payload": {
         "method": "POST",
+        "corr": "@corr_payout",
+        "reply_to": "@reply_to_payout",
         "body": {
           "claim": "@fnol_msg.body.claim_id",
-          "amount": "@eligibility.amount",
+          "amount": "@eligibility_value.amount",
           "channel": "SEPA"
-        },
-        "corr": "@corr_payout",
-        "reply_to": "@reply_to_payout"
+        }
       },
-      "when": "@is_allow"
+      "when": "@branch_1_value"
     },
     {
-      "id": "S_payout",
+      "id": "S_payout_reply",
       "kind": "Subscribe",
       "channel": "@reply_to_payout",
       "qos": "at_least_once",
@@ -309,10 +295,10 @@
       "out": {
         "var": "payout_reply"
       },
-      "when": "@is_allow"
+      "when": "@branch_1_value"
     },
     {
-      "id": "P_metric_success",
+      "id": "P_emit_metric",
       "kind": "Publish",
       "channel": "metric:claims.fasttrack.success",
       "qos": "at_least_once",
@@ -320,10 +306,10 @@
         "value": 1,
         "unit": "count",
         "tags": {
-          "region": "@policy_snapshot.response.region"
+          "region": "@get_policy_reply.response.region"
         }
       },
-      "when": "@is_allow"
+      "when": "@branch_1_value"
     },
     {
       "id": "K_assign",
@@ -334,7 +320,7 @@
       },
       "when": {
         "op": "not",
-        "var": "is_allow"
+        "var": "branch_1_value"
       }
     },
     {
@@ -350,7 +336,7 @@
         "m": "POST",
         "b": {
           "claim": "@fnol_msg.body.claim_id",
-          "priority": "@sev_score.bucket"
+          "priority": "@score_severity_value.bucket"
         }
       },
       "out": {
@@ -358,7 +344,7 @@
       },
       "when": {
         "op": "not",
-        "var": "is_allow"
+        "var": "branch_1_value"
       }
     },
     {
@@ -376,30 +362,30 @@
       },
       "when": {
         "op": "not",
-        "var": "is_allow"
+        "var": "branch_1_value"
       }
     },
     {
-      "id": "P_assign",
+      "id": "P_assign_request",
       "kind": "Publish",
       "channel": "rpc:req:api/adjuster/assign",
       "qos": "at_least_once",
       "payload": {
         "method": "POST",
+        "corr": "@corr_assign",
+        "reply_to": "@reply_to_assign",
         "body": {
           "claim": "@fnol_msg.body.claim_id",
-          "priority": "@sev_score.bucket"
-        },
-        "corr": "@corr_assign",
-        "reply_to": "@reply_to_assign"
+          "priority": "@score_severity_value.bucket"
+        }
       },
       "when": {
         "op": "not",
-        "var": "is_allow"
+        "var": "branch_1_value"
       }
     },
     {
-      "id": "S_assign",
+      "id": "S_assign_reply",
       "kind": "Subscribe",
       "channel": "@reply_to_assign",
       "qos": "at_least_once",
@@ -409,7 +395,7 @@
       },
       "when": {
         "op": "not",
-        "var": "is_allow"
+        "var": "branch_1_value"
       }
     },
     {
@@ -431,11 +417,11 @@
       },
       "in": {
         "kind": "fasttrack.route",
-        "payload": "@eligibility",
+        "payload": "@eligibility_value",
         "ts": "2025-09-30T11:37:59.839401Z"
       },
       "out": {
-        "var": "record_digest"
+        "var": "record_digest_value"
       }
     },
     {
@@ -445,10 +431,10 @@
         "op": "encode_base58"
       },
       "in": {
-        "value": "@record_digest"
+        "value": "@record_digest_value"
       },
       "out": {
-        "var": "record_id"
+        "var": "record_id_value"
       }
     },
     {
@@ -457,9 +443,9 @@
       "channel": "policy:record",
       "qos": "at_least_once",
       "payload": {
-        "record_id": "@record_id",
+        "record_id": "@record_id_value",
         "kind": "fasttrack.route",
-        "payload": "@eligibility",
+        "payload": "@eligibility_value",
         "ts": "2025-09-30T11:37:59.839401Z"
       }
     }

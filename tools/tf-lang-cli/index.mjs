@@ -4,6 +4,98 @@ import path from "path";
 import { spawnSync, execSync } from "child_process";
 import { loadRulebookPlan, rulesForPhaseFromPlan } from "./expand.mjs";
 
+function graphLabel(value) {
+  return String(value).replace(/"/g, "\\\"");
+}
+
+function renderPipelineGraph(doc) {
+  const nodes = doc.nodes ?? [];
+  const lines = [];
+  lines.push("digraph G {");
+  lines.push("  rankdir=LR;");
+  nodes.forEach((node, idx) => {
+    let label;
+    switch (node.kind) {
+      case "Subscribe":
+      case "Publish":
+        label = `${node.id}\n${node.channel}`;
+        break;
+      case "Transform":
+        label = `${node.id}\n${node.spec?.op ?? ""}`;
+        break;
+      case "Keypair":
+        label = `${node.id}\n${node.algorithm}`;
+        break;
+      default:
+        label = node.id;
+    }
+    lines.push(`  n${idx} [label="${graphLabel(label)}"];`);
+    if (idx > 0) {
+      lines.push(`  n${idx - 1} -> n${idx};`);
+    }
+  });
+  lines.push("}");
+  return lines.join("\n");
+}
+
+function renderMonitorGraph(doc) {
+  const lines = [];
+  const monitors = doc.monitors ?? [];
+  lines.push("digraph G {");
+  lines.push("  rankdir=LR;");
+  monitors.forEach((monitor, monitorIndex) => {
+    const clusterName = `cluster_${monitorIndex}`;
+    lines.push(`  subgraph ${clusterName} {`);
+    lines.push(`    label="${graphLabel(monitor.monitor_id ?? `monitor_${monitorIndex}`)}";`);
+    let prevName = null;
+    (monitor.nodes ?? []).forEach((node, nodeIndex) => {
+      const nodeName = `m${monitorIndex}_n${nodeIndex}`;
+      const label = `${node.id}\n${node.kind}`;
+      lines.push(`    ${nodeName} [label="${graphLabel(label)}"];`);
+      if (prevName) {
+        lines.push(`    ${prevName} -> ${nodeName};`);
+      }
+      prevName = nodeName;
+    });
+    lines.push("  }");
+  });
+  lines.push("}");
+  return lines.join("\n");
+}
+
+function collectKernelNodes(doc) {
+  if (Array.isArray(doc.nodes)) return doc.nodes;
+  if (Array.isArray(doc.monitors)) return doc.monitors.flatMap((m) => m.nodes ?? []);
+  throw new Error("unsupported document for effects");
+}
+
+function summarizeEffects(doc) {
+  const nodes = collectKernelNodes(doc);
+  const seen = new Set();
+  nodes.forEach((node) => {
+    switch (node.kind) {
+      case "Publish":
+        seen.add("Outbound");
+        break;
+      case "Subscribe":
+        seen.add("Inbound");
+        break;
+      case "Keypair":
+        seen.add("Entropy");
+        break;
+      case "Transform":
+        seen.add("Pure");
+        break;
+      default:
+        throw new Error(`unsupported kernel kind: ${node.kind}`);
+    }
+  });
+  const order = ["Outbound", "Inbound", "Entropy", "Pure"];
+  const parts = order.filter((item) => seen.has(item));
+  if (parts.length === 0) return "Pure";
+  return parts.join("+");
+}
+
 function rbPath(node) {
   const p = path.join("tf", "blocks", node, "rulebook.yml");
   if (!fs.existsSync(p)) throw new Error(`missing rulebook: ${p}`);
@@ -124,6 +216,34 @@ function usage() {
     const rulebookPath = resolveRulebookPath(rulebookArg);
     const plan = loadRulebookPlan(rulebookPath);
     explainPlan(plan, phaseId);
+    process.exit(0);
+  }
+
+  if (cmd === "graph") {
+    const [inputPath] = argv;
+    if (!inputPath) {
+      console.error("usage: tf-lang graph <pipeline-or-monitor.l0.json>");
+      process.exit(2);
+    }
+    const doc = JSON.parse(fs.readFileSync(inputPath, "utf8"));
+    if (Array.isArray(doc.nodes)) {
+      console.log(renderPipelineGraph(doc));
+    } else if (Array.isArray(doc.monitors)) {
+      console.log(renderMonitorGraph(doc));
+    } else {
+      throw new Error("unsupported graph document shape");
+    }
+    process.exit(0);
+  }
+
+  if (cmd === "effects") {
+    const [inputPath] = argv;
+    if (!inputPath) {
+      console.error("usage: tf-lang effects <pipeline-or-monitor.l0.json>");
+      process.exit(2);
+    }
+    const doc = JSON.parse(fs.readFileSync(inputPath, "utf8"));
+    console.log(summarizeEffects(doc));
     process.exit(0);
   }
 

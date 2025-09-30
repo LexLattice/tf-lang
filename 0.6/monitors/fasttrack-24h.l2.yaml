@@ -1,0 +1,23 @@
+# TF-Lang · Monitors · Fast-Track 24h SLA (L2)
+monitors:
+  - monitor: "fasttrack.sla.start.v1"
+    on: obs.stream("claims.eligibility")
+    when: "@event.decision == 'allow'"
+    then:
+      - schedule: process.schedule(task_ref: "sla.fasttrack.deadline",
+                                   trigger: { in_hours: 24, corr: "@event.corr" })
+
+  - monitor: "fasttrack.sla.check.v1"
+    on: process.event("sla.fasttrack.deadline")
+    then:
+      - lookup: transform.lookup(entity: "claim", key: "@event.corr", field: "payout_ack")
+      - branch:
+          when: "@lookup.missing"
+          then:
+            - breach_metric: obs.emit_metric(name: "claims.fasttrack.breach", value: 1,
+                                            tags: { corr: "@event.corr" })
+            - alert: interaction.request(endpoint: "api/alerts/create", method: "POST",
+                                         body: { kind: "SLA_BREACH", corr: "@event.corr" })
+          else:
+            - on_time_metric: obs.emit_metric(name: "claims.fasttrack.on_time", value: 1,
+                                              tags: { corr: "@event.corr" })

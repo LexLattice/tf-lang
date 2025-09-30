@@ -15,10 +15,23 @@ const SCHEMAS = {
 };
 
 function usage() {
-  console.error("usage: validate <l0|l2> <file...>");
+  console.error("usage: validate <l0|l2> <file...> [--strict-yaml]");
   process.exit(2);
 }
 
+/**
+ * YAML macro sanitizer.
+ *
+ * Some catalog YAML embeds macro invocations inline inside list items, e.g.
+ *
+ *   - id: thing
+ *     expr: @macro(foo(bar: baz))
+ *
+ * These confuse the YAML parser because they look like nested mappings after
+ * the initial dash. We wrap such trailing scalars in quotes until parentheses
+ * balance so they survive parsing. The sanitizer is intentionally narrow and
+ * only activates on list items with inline macro calls.
+ */
 function sanitiseMacroScalars(text) {
   const lines = text.split(/\r?\n/);
   const result = [];
@@ -74,7 +87,18 @@ function sanitiseMacroScalars(text) {
   return result.join("\n");
 }
 
-function parseYamlDocument(raw) {
+function parseYamlDocument(raw, { strictYaml } = {}) {
+  if (strictYaml) {
+    try {
+      return parseYaml(raw);
+    } catch (error) {
+      if (error?.message) {
+        error.message = `${error.message}\nYAML parsing failed under --strict-yaml. Use block scalars (| or >) or quotes for complex macro lines.`;
+      }
+      throw error;
+    }
+  }
+
   try {
     return parseYaml(raw);
   } catch (error) {
@@ -89,10 +113,10 @@ function parseYamlDocument(raw) {
   }
 }
 
-function parseDocument(targetPath, raw) {
+function parseDocument(targetPath, raw, { strictYaml } = {}) {
   const ext = path.extname(targetPath).toLowerCase();
   if (ext === ".yaml" || ext === ".yml") {
-    return parseYamlDocument(raw);
+    return parseYamlDocument(raw, { strictYaml });
   }
 
   try {
@@ -119,7 +143,17 @@ async function main() {
     args = args.slice(1);
   }
 
-  const [schemaKey, ...targets] = args;
+  let strictYaml = false;
+  const filteredArgs = [];
+  for (const arg of args) {
+    if (arg === "--strict-yaml") {
+      strictYaml = true;
+      continue;
+    }
+    filteredArgs.push(arg);
+  }
+
+  const [schemaKey, ...targets] = filteredArgs;
   if (!schemaKey || targets.length === 0) {
     usage();
   }
@@ -134,7 +168,7 @@ async function main() {
     try {
       const resolved = path.resolve(target);
       const raw = await readFile(resolved, "utf8");
-      const document = parseDocument(target, raw);
+      const document = parseDocument(target, raw, { strictYaml });
       const valid = validate(document);
       if (valid) {
         console.log(`${target}: OK`);

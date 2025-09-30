@@ -52,29 +52,58 @@ jobs:
         id: changes
         run: |
           set -euo pipefail
-          BASE_REF="${{ github.event.pull_request.base.ref || github.ref_name }}"
-          git fetch origin "$BASE_REF" --depth=1
-          BASE_SHA="origin/${BASE_REF}"
-          MERGE_BASE=$(git merge-base HEAD "$BASE_SHA")
 
-          L0_CHANGED=$(git diff --name-only "$MERGE_BASE"...HEAD -- '*.l0.json' '*.l0.yaml' '*.l0.yml')
-          L2_CHANGED=$(git diff --name-only "$MERGE_BASE"...HEAD -- '*.l2.json' '*.l2.yaml' '*.l2.yml')
-          TOUCH_SCHEMA=$(git diff --name-only "$MERGE_BASE"...HEAD -- 'schemas/**' 'tools/tf-lang-cli/**' 'spec/v0.6/**')
-
-          if [ -n "$TOUCH_SCHEMA" ]; then
-            L0_TARGETS=$(git ls-files '*.l0.json' '*.l0.yaml' '*.l0.yml')
-            L2_TARGETS=$(git ls-files '*.l2.json' '*.l2.yaml' '*.l2.yml')
+          # Determine diff range
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BASE_REF="${{ github.event.pull_request.base.ref }}"
+            git fetch --no-tags --prune --depth=1 origin "${BASE_REF}"
+            BASE_SHA="origin/${BASE_REF}"
+            MERGE_BASE="$(git merge-base "${GITHUB_SHA}" "${BASE_SHA}")"
+            DIFF_FROM="${MERGE_BASE}"
+            DIFF_TO="${GITHUB_SHA}"
           else
-            L0_TARGETS="$L0_CHANGED"
-            L2_TARGETS="$L2_CHANGED"
+            # push event
+            DIFF_FROM="${{ github.event.before }}"
+            DIFF_TO="${GITHUB_SHA}"
           fi
 
-          {
-            printf 'l0_changed<<EOF\n%s\nEOF\n' "$L0_CHANGED"
-            printf 'l2_changed<<EOF\n%s\nEOF\n' "$L2_CHANGED"
-            printf 'l0_targets<<EOF\n%s\nEOF\n' "$L0_TARGETS"
-            printf 'l2_targets<<EOF\n%s\nEOF\n' "$L2_TARGETS"
-          } >> "$GITHUB_OUTPUT"
+          # Collect changed files
+          CHANGED="$(git diff --name-only "${DIFF_FROM}" "${DIFF_TO}")"
+
+          # Derive targets
+          L0_CHANGED="$(echo "${CHANGED}" | grep -E '\.l0\.(json|ya?ml)$' || true)"
+          L2_CHANGED="$(echo "${CHANGED}" | grep -E '\.l2\.(json|ya?ml)$' || true)"
+          SCHEMA_CHANGED="$(echo "${CHANGED}" | grep -E '^schemas/|^tools/tf-lang-cli/|^spec/v0\.6/' || true)"
+
+          L0_TARGETS="${L0_CHANGED}"
+          L2_TARGETS="${L2_CHANGED}"
+
+          if [[ -n "${SCHEMA_CHANGED}" ]]; then
+            L0_TARGETS="$(git ls-files '**/*.l0.json' '**/*.l0.yaml' '**/*.l0.yml' || true)"
+            L2_TARGETS="$(git ls-files '**/*.l2.json' '**/*.l2.yaml' '**/*.l2.yml' || true)"
+          fi
+
+          # If push with empty diff (edge), fallback to validating all tracked L0/L2
+          if [[ -z "${L0_TARGETS}${L2_TARGETS}${SCHEMA_CHANGED}" && "${{ github.event_name }}" == "push" ]]; then
+            L0_TARGETS="$(git ls-files '**/*.l0.json' '**/*.l0.yaml' '**/*.l0.yml' || true)"
+            L2_TARGETS="$(git ls-files '**/*.l2.json' '**/*.l2.yaml' '**/*.l2.yml' || true)"
+          fi
+
+          echo "l0_changed<<EOF" >> "$GITHUB_OUTPUT"
+          echo "${L0_CHANGED}" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+          echo "l2_changed<<EOF" >> "$GITHUB_OUTPUT"
+          echo "${L2_CHANGED}" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+          echo "l0_targets<<EOF" >> "$GITHUB_OUTPUT"
+          echo "${L0_TARGETS}" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+          echo "l2_targets<<EOF" >> "$GITHUB_OUTPUT"
+          echo "${L2_TARGETS}" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Validate L0 schemas
         if: steps.changes.outputs.l0_targets != ''

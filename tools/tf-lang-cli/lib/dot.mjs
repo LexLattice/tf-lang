@@ -68,7 +68,8 @@ function collectDependencies(node) {
   return refs;
 }
 
-export function buildDotGraph(doc = {}) {
+export function buildDotGraph(doc = {}, options = {}) {
+  const { strict = true } = options ?? {};
   const nodes = Array.isArray(doc?.nodes) ? doc.nodes : [];
   const pipelineId = doc?.pipeline_id || doc?.pipeline || "pipeline";
   const lines = [];
@@ -86,9 +87,13 @@ export function buildDotGraph(doc = {}) {
     const label = kind ? `${nodeId} (${kind})` : nodeId;
     lines.push(`  ${quote(nodeId)} [label=${quote(label)}];`);
     for (const output of collectOutputs(node)) {
-      if (!varToNode.has(output)) {
-        varToNode.set(output, nodeId);
+      if (varToNode.has(output)) {
+        const existing = varToNode.get(output);
+        throw new Error(
+          `Output variable "${output}" defined by multiple nodes: "${existing}" and "${nodeId}"`,
+        );
       }
+      varToNode.set(output, nodeId);
     }
   }
 
@@ -107,6 +112,14 @@ export function buildDotGraph(doc = {}) {
         edges.add(`  ${quote(`@${dep}`)} -> ${quote(nodeId)};`);
       }
     }
+  }
+
+  if (externals.size > 0 && strict) {
+    const sorted = [...externals].sort();
+    const formatted = sorted.map((name) => `"${name}"`).join(", ");
+    throw new Error(
+      `Unresolved input variable(s): ${formatted}. Ensure each variable is produced before use or rerun with --strict-graph=false to allow externals.`,
+    );
   }
 
   if (externals.size > 0) {

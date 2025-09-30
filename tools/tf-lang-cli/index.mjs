@@ -63,7 +63,7 @@ async function runValidateCommand(args) {
     const kind = explicitKind ?? inferKindFromFile(file);
     if (!kind) {
       console.error(`${file}: unable to infer schema; pass l0 or l2 explicitly`);
-      exitCode = exitCode === 0 ? 2 : exitCode;
+      exitCode = 2;
       continue;
     }
 
@@ -72,7 +72,7 @@ async function runValidateCommand(args) {
       doc = await loadJsonFile(file);
     } catch (err) {
       console.error(`${file}: ${err?.message ?? err}`);
-      exitCode = 1;
+      if (exitCode === 0) exitCode = 1;
       continue;
     }
 
@@ -81,7 +81,7 @@ async function runValidateCommand(args) {
     if (!valid) {
       const message = ajv.errorsText(validate.errors, { separator: "\n  - " });
       console.error(`${file}: validation failed [${kind}]\n  - ${message}`);
-      exitCode = 1;
+      if (exitCode === 0) exitCode = 1;
     } else {
       console.log(`${file}: OK [${kind}]`);
     }
@@ -106,14 +106,43 @@ async function runEffectsCommand(file) {
   }
 }
 
-async function runGraphCommand(file) {
-  if (!file) {
-    console.error("usage: tf graph <FILE>");
+async function runGraphCommand(rawArgs) {
+  const argv = Array.isArray(rawArgs)
+    ? [...rawArgs]
+    : rawArgs !== undefined
+    ? [rawArgs]
+    : [];
+
+  let strictGraph = true;
+  const files = [];
+
+  for (const arg of argv) {
+    if (arg === "--strict-graph") {
+      strictGraph = true;
+      continue;
+    }
+    if (arg === "--no-strict-graph") {
+      strictGraph = false;
+      continue;
+    }
+    const match = /^--strict-graph=(.+)$/u.exec(arg);
+    if (match) {
+      const value = match[1].toLowerCase();
+      strictGraph = !["false", "0", "no", "off"].includes(value);
+      continue;
+    }
+    files.push(arg);
+  }
+
+  if (files.length !== 1) {
+    console.error("usage: tf graph [--strict-graph[=true|false]] <FILE>");
     return 2;
   }
+
+  const [file] = files;
   try {
     const doc = await loadJsonFile(file);
-    const dot = buildDotGraph(doc);
+    const dot = buildDotGraph(doc, { strict: strictGraph });
     console.log(dot);
     return 0;
   } catch (err) {
@@ -232,7 +261,7 @@ function usage() {
   }
 
   if (cmd === "graph") {
-    const code = await runGraphCommand(argv[0]);
+    const code = await runGraphCommand(argv);
     process.exit(code);
   }
 

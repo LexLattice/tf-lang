@@ -1,4 +1,4 @@
-# TF‑Lang (v0.4) — True Functions, Algebra & Deterministic Pipelines
+# TF‑Lang (v0.5) — True Functions, Algebra & Deterministic Pipelines
 
 [![Pages](https://github.com/LexLattice/tf-lang/actions/workflows/pages.yml/badge.svg?branch=main)](https://github.com/LexLattice/tf-lang/actions/workflows/pages.yml)
 
@@ -12,9 +12,9 @@
 [CI: L0 Proofs (Emit)](.github/workflows/l0-proofs.yml) •
 [CI: L0 Audit](.github/workflows/l0-audit.yml)
 
-Version: **v0.4**
+Version: **v0.5**
 
-See the [0.5 Overview](docs/0.5/overview.md) for per-track guides, commands, and troubleshooting.
+See the [0.5 Overview](docs/0.5/overview.md#quickstarts) for per-track guides, commands, and troubleshooting.
 
 ---
 
@@ -76,7 +76,7 @@ pnpm run proofs:coverage
 pnpm run pilot:build-run
 ```
 
-Additional quickstarts (tracks A–F, optimizer, traces, proofs, release tooling) live under [`docs/0.5/quickstarts/`](docs/0.5/quickstarts/) and are linked from the [0.5 Overview](docs/0.5/overview.md).
+Additional quickstarts (tracks A–F, optimizer, traces, proofs, release tooling) live under [`docs/0.5/quickstarts/`](docs/0.5/quickstarts/) and are linked from the [0.5 Overview](docs/0.5/overview.md#quickstarts).
 
 ---
 

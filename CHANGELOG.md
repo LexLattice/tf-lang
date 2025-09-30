@@ -6,16 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.0] - TBD
 ### Added
-- Authored `docs/0.5/overview.md` plus `docs/0.5/quickstarts/track-*.md` covering tracks A–F with commands, expected outputs, and `used_laws`/`rewrites` guidance.
+- 0.5 overview and per-track quickstarts (A–F) with commands and expected outputs.
 
 ### Changed
-- Root README now links to the 0.5 overview/quickstarts and refreshes the pnpm-based Getting Started workflow.
-
-### Fixed
-- Documented remedies for frozen installs and missing optional dependencies in fast test runs.
+- README links to the 0.5 overview/quickstarts and reflects the pinned pnpm workflow.
 
 ### Infra
-- Documented the doc link-check workflow so contributors can run `markdown-link-check` locally.
+- Docs link-check notes for running `markdown-link-check` locally.
 
 ## [0.1.0] - 2025-09-09
 ### Added
@@ -38,4 +35,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 - Demo CORS policy is permissive by design. Harden before production.
-

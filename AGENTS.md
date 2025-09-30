@@ -32,7 +32,8 @@
 - **Act only on failing rules;** re-run until GREEN, then commit.
 - **cp1 lockfile exception:** if a task adds a package, run:
   ```bash
-  pnpm -w install --lockfile-only   and commit pnpm-lock.yaml in cp1 only. From cp2 onward, lockfile stays frozen.
+  pnpm -w install --lockfile-only
   ```
+- **commit pnpm-lock.yaml in cp1 only.** From cp2 onward, lockfile stays frozen.
 
 agents.md tweak for 0.6 version

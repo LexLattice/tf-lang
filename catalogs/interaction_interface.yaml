@@ -140,3 +140,24 @@
   - notification
   version: 1.0.0
   abstract: true
+- id: interaction_interface.l2.RequestMacro
+  description: >
+    L2 macro `interaction.request` expanding to publish + correlation-aware
+    reply routing.
+  inputs:
+  - endpoint: string
+  - method: enum ["GET", "POST", "PUT", "DELETE"]
+  - body: any
+  - query: object
+  outputs:
+  - response: object
+  - corr: string
+  meta:
+    expands_to:
+    - interaction_interface.l0.Publish
+    - interaction_interface.l0.Subscribe
+    deterministic: true
+  tags:
+  - macro
+  - request-response
+  version: 0.6.0

@@ -1,0 +1,11 @@
+{
+  "default": "@Memory",
+  "domains": {
+    "interaction": "@Memory",
+    "transform": "@Memory",
+    "policy": "@Memory",
+    "obs": "@Memory",
+    "state": "@Memory",
+    "process": "@Memory"
+  }
+}

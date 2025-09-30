@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.0.2",
   "packageManager": "pnpm@10.16.1",
+  "dependencies": {
+    "@noble/hashes": "^1.4.0"
+  },
   "scripts": {
     "build": "pnpm run --recursive build",
     "preinstall": "corepack enable pnpm",
@@ -76,7 +79,8 @@
     "ajv": "^8.17.1",
     "picomatch": "^4.0.3",
     "typescript": "5.9.2",
-    "yaml": "^2.8.1"
+    "yaml": "^2.8.1",
+    "z3-solver": "^4.12.4"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

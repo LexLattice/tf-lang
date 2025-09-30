@@ -46,6 +46,16 @@ async function run() {
   }
   const out = arg('-o') || arg('--out');
 
+  if (cmd === 'check' && file.endsWith('.l0.json')) {
+    const { checkL0 } = await import('../../checker/check.mjs');
+    const report = await checkL0(file);
+    const target = out || 'out/TFREPORT.json';
+    await mkdir(dirname(target), { recursive: true });
+    await writeFile(target, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+    console.log(`wrote ${target} (${report.status})`);
+    process.exit(report.status === 'GREEN' ? 0 : 1);
+  }
+
   const src = await readFile(file, 'utf8');
   const ir = parseDSL(src);
 

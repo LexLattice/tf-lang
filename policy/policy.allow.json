@@ -1,0 +1,12 @@
+{
+  "publish": [
+    "rpc:req:*",
+    "rpc:reply:*",
+    "metric:*",
+    "policy:*"
+  ],
+  "subscribe": [
+    "rpc:req:*",
+    "rpc:reply:*"
+  ]
+}

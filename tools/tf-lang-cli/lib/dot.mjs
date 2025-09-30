@@ -1,160 +1,191 @@
-function graphLabel(value) {
-  return String(value).replace(/"/g, '\\"');
+function quote(value) {
+  const text = String(value ?? "");
+  return `"${text.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 }
 
-function formatWhenClause(when) {
-  if (when == null) return null;
-  if (typeof when === 'string') return when;
-  if (typeof when === 'object') {
-    if (when.op === 'not' && typeof when.var === 'string') return `¬${when.var}`;
-    if (typeof when.var === 'string') {
-      return when.var.startsWith('@') ? when.var : `@${when.var}`;
+function extractVar(ref) {
+  if (typeof ref !== "string") return null;
+  if (!ref.startsWith("@")) return null;
+  const body = ref.slice(1);
+  const match = body.match(/^[A-Za-z0-9_]+/);
+  return match ? match[0] : null;
+}
+
+function collectOutputs(node) {
+  const outputs = new Set();
+  const out = node?.out;
+  if (typeof out === "string") {
+    outputs.add(out);
+  } else if (out && typeof out === "object") {
+    if (typeof out.var === "string") outputs.add(out.var);
+    if (Array.isArray(out.vars)) {
+      for (const v of out.vars) if (typeof v === "string") outputs.add(v);
     }
   }
-  return JSON.stringify(when);
+  return outputs;
 }
 
-function extractWhenVars(when) {
-  if (when == null) return [];
-  if (typeof when === 'string') {
-    const match = when.match(/^@([A-Za-z0-9_]+)/);
-    return match ? [match[1]] : [];
-  }
-  if (typeof when === 'object') {
-    if (typeof when.var === 'string') return [when.var.replace(/^@/, '')];
-    if (when.op === 'not' && typeof when.var === 'string') return [when.var.replace(/^@/, '')];
-  }
-  return [];
-}
-
-function formatNodeLabel(node) {
-  const parts = [node.id];
-  switch (node.kind) {
-    case 'Publish':
-      parts.push(`Publish: ${node.channel ?? ''}`);
-      break;
-    case 'Subscribe':
-      parts.push(`Subscribe: ${node.channel ?? ''}`);
-      break;
-    case 'Transform':
-      parts.push(`Transform: ${node.spec?.op ?? ''}`);
-      break;
-    case 'Keypair':
-      parts.push(`Keypair: ${node.algorithm ?? ''}`);
-      break;
-    default:
-      parts.push(node.kind ?? '');
-      break;
-  }
-  const whenText = formatWhenClause(node.when);
-  if (whenText) parts.push(`when: ${whenText}`);
-  return parts.filter(Boolean).join('\n');
-}
-
-function collectVarProducers(nodes) {
-  const map = new Map();
-  nodes.forEach((node, idx) => {
-    const outVar = node.out?.var;
-    if (typeof outVar === 'string') {
-      map.set(outVar, idx);
-    }
-  });
-  return map;
-}
-
-function collectRefs(value, acc) {
-  if (value == null) return;
-  if (typeof value === 'string') {
-    if (value.startsWith('@')) {
-      const match = value.slice(1).match(/^([A-Za-z0-9_]+)/);
-      if (match) acc.add(match[1]);
-    }
-    return;
-  }
-  if (Array.isArray(value)) {
-    value.forEach((item) => collectRefs(item, acc));
-    return;
-  }
-  if (typeof value === 'object') {
-    Object.values(value).forEach((item) => collectRefs(item, acc));
-  }
-}
-
-function collectNodeRefs(node) {
+function collectDependencies(node) {
   const refs = new Set();
-  const skip = new Set(['id', 'kind', 'out', 'when', 'monitor_id', 'pipeline_id', 'description', 'created_at', 'effects']);
-  for (const [key, value] of Object.entries(node)) {
-    if (skip.has(key)) continue;
-    collectRefs(value, refs);
+
+  function visit(value, key = "") {
+    if (key === "out" || value === null || value === undefined) return;
+    if (typeof value === "string") {
+      const found = extractVar(value);
+      if (found) refs.add(found);
+      return;
+    }
+    if (Array.isArray(value)) { for (const item of value) visit(item); return; }
+    if (typeof value === "object") {
+      if (typeof value.var === "string") refs.add(value.var);
+      for (const [childKey, childValue] of Object.entries(value)) visit(childValue, childKey);
+    }
   }
+
+  for (const [key, val] of Object.entries(node ?? {})) visit(val, key);
   return refs;
 }
 
-function buildGraphElements(nodes, { prefix, indent, showWhenEdges }) {
-  const lines = [];
-  const edges = [];
-  const seen = new Set();
-  const producers = collectVarProducers(nodes);
+/** Format a human label for the node, including when guard if present. */
+function nodeLabel(node) {
+  const parts = [node.id];
+  const kind = node.kind ? String(node.kind) : "";
+  const op = node?.spec?.op ? `:${node.spec.op}` : "";
+  if (kind) parts.push(kind + op);
+  const when = node?.when;
+  if (when !== undefined && when !== null) {
+    let whenText;
+    if (typeof when === "string") {
+      whenText = when;
+    } else if (typeof when === "object") {
+      if (when.op === "not" && typeof when.var === "string") whenText = `¬${when.var}`;
+      else if (typeof when.var === "string") whenText = when.var.startsWith("@") ? when.var : `@${when.var}`;
+      else whenText = JSON.stringify(when);
+    } else {
+      whenText = String(when);
+    }
+    parts.push(`when: ${whenText}`);
+  }
+  return parts.join("\n");
+}
 
-  nodes.forEach((node, idx) => {
-    const nodeName = `${prefix}${idx}`;
-    const label = graphLabel(formatNodeLabel(node));
-    lines.push(`${indent}${nodeName} [label="${label}"];`);
-    const refs = collectNodeRefs(node);
-    refs.forEach((ref) => {
-      const srcIdx = producers.get(ref);
-      if (srcIdx == null || srcIdx === idx) return;
-      const edge = `${indent}${prefix}${srcIdx} -> ${nodeName};`;
-      if (!seen.has(edge)) {
-        seen.add(edge);
-        edges.push(edge);
+/** Optionally add dashed edges from guard variable producers to guarded nodes. */
+function collectWhenGuardDeps(node) {
+  const guards = new Set();
+  const when = node?.when;
+  if (when == null) return guards;
+  if (typeof when === "string") {
+    const v = extractVar(when);
+    if (v) guards.add(v);
+  } else if (typeof when === "object") {
+    if (typeof when.var === "string") guards.add(when.var.replace(/^@/, ""));
+    else if (when.op === "not" && typeof when.var === "string") guards.add(when.var.replace(/^@/, ""));
+  }
+  return guards;
+}
+
+function buildDotFromNodes(nodes = [], { title = "pipeline", strict = true } = {}) {
+  const lines = [];
+  lines.push(`digraph ${quote(title)} {`);
+  lines.push("  rankdir=LR;");
+  lines.push("  node [shape=box, style=rounded];");
+
+  const varToNode = new Map();
+
+  // Declare nodes and collect producers
+  nodes.forEach((node) => {
+    if (!node || typeof node !== "object" || !node.id) return;
+    const label = nodeLabel(node);
+    lines.push(`  ${quote(node.id)} [label=${quote(label)}];`);
+
+    for (const output of collectOutputs(node)) {
+      if (varToNode.has(output)) {
+        const existing = varToNode.get(output);
+        throw new Error(
+          `Output variable "${output}" defined by multiple nodes: "${existing}" and "${node.id}"`
+        );
       }
-    });
-    if (showWhenEdges) {
-      const guardVars = extractWhenVars(node.when);
-      guardVars.forEach((varName) => {
-        const srcIdx = producers.get(varName);
-        if (srcIdx == null || srcIdx === idx) return;
-        const edge = `${indent}${prefix}${srcIdx} -> ${nodeName} [style=dashed];`;
-        if (!seen.has(edge)) {
-          seen.add(edge);
-          edges.push(edge);
-        }
-      });
+      varToNode.set(output, node.id);
     }
   });
 
-  return { nodeLines: lines, edgeLines: edges };
-}
+  const edges = new Set();
+  const externals = new Set();
 
-export function renderPipelineGraph(doc, options = {}) {
-  const showWhenEdges = options.showWhenEdges !== false;
-  const nodes = Array.isArray(doc.nodes) ? doc.nodes : [];
-  const { nodeLines, edgeLines } = buildGraphElements(nodes, {
-    prefix: 'n',
-    indent: '  ',
-    showWhenEdges,
+  // Data-flow edges
+  nodes.forEach((node) => {
+    if (!node || typeof node !== "object" || !node.id) return;
+    const nodeId = node.id;
+
+    for (const dep of collectDependencies(node)) {
+      const src = varToNode.get(dep);
+      if (src) {
+        edges.add(`  ${quote(src)} -> ${quote(nodeId)};`);
+      } else {
+        externals.add(dep);
+        edges.add(`  ${quote(`@${dep}`)} -> ${quote(nodeId)};`);
+      }
+    }
+
+    // Guard edges (dashed)
+    for (const g of collectWhenGuardDeps(node)) {
+      const src = varToNode.get(g);
+      if (src && src !== nodeId) {
+        edges.add(`  ${quote(src)} -> ${quote(nodeId)} [style=dashed];`);
+      }
+    }
   });
-  return ['digraph G {', '  rankdir=LR;', ...nodeLines, ...edgeLines, '}'].join('\n');
+
+  if (externals.size > 0 && strict) {
+    const sorted = [...externals].sort();
+    const formatted = sorted.map((name) => `"${name}"`).join(", ");
+    throw new Error(
+      `Unresolved input variable(s): ${formatted}. Ensure each variable is produced before use or rerun with --strict-graph=false to allow externals.`
+    );
+  }
+
+  if (externals.size > 0) {
+    lines.push("  node [shape=ellipse, style=dashed];");
+    for (const ext of externals) lines.push(`  ${quote(`@${ext}`)};`);
+    lines.push("  node [shape=box, style=rounded];");
+  }
+
+  for (const e of edges) lines.push(e);
+  lines.push("}");
+  return lines.join("\n");
 }
 
-export function renderMonitorGraph(doc, options = {}) {
-  const showWhenEdges = options.showWhenEdges !== false;
-  const monitors = Array.isArray(doc.monitors) ? doc.monitors : [];
-  const lines = ['digraph G {', '  rankdir=LR;'];
-  monitors.forEach((monitor, monitorIdx) => {
-    const clusterName = `cluster_${monitorIdx}`;
-    lines.push(`  subgraph ${clusterName} {`);
-    lines.push(`    label="${graphLabel(monitor.monitor_id ?? `monitor_${monitorIdx}`)}";`);
-    const { nodeLines, edgeLines } = buildGraphElements(monitor.nodes ?? [], {
-      prefix: `m${monitorIdx}_n`,
-      indent: '    ',
-      showWhenEdges,
+/**
+ * Build DOT for a pipeline (doc.nodes) or a monitor bundle (doc.monitors with nodes per monitor).
+ * - strict: if true, unresolved inputs fail; if false, render externals as dashed ellipses.
+ */
+export function buildDotGraph(doc = {}, options = {}) {
+  const { strict = true } = options ?? {};
+  if (Array.isArray(doc?.nodes)) {
+    return buildDotFromNodes(doc.nodes, { title: doc.pipeline_id || doc.pipeline || "pipeline", strict });
+  }
+  if (Array.isArray(doc?.monitors)) {
+    const lines = [];
+    const title = doc.bundle_id || "monitors";
+    lines.push(`digraph ${quote(title)} {`);
+    lines.push("  rankdir=LR;");
+
+    doc.monitors.forEach((mon, i) => {
+      const cluster = `cluster_${i}`;
+      const label = mon.monitor_id || `monitor_${i}`;
+      lines.push(`  subgraph ${cluster} {`);
+      lines.push(`    label=${quote(label)};`);
+      const sub = buildDotFromNodes(mon.nodes || [], { title: label, strict });
+      // Extract lines between braces
+      const inner = sub.split("\n").slice(2, -1).map((l) => "    " + l);
+      lines.push(...inner);
+      lines.push("  }");
     });
-    lines.push(...nodeLines);
-    lines.push(...edgeLines);
-    lines.push('  }');
-  });
-  lines.push('}');
-  return lines.join('\n');
+
+    lines.push("}");
+    return lines.join("\n");
+  }
+
+  // Fallback
+  return buildDotFromNodes([], { title: "pipeline", strict });
 }

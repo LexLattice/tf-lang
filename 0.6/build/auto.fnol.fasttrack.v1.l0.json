@@ -1,200 +1,134 @@
 {
   "pipeline_id": "auto.fnol.fasttrack.v1",
-  "created_at": "2025-09-30T11:37:59.839401Z",
+  "created_at": "2025-09-30T20:43:20.338Z",
   "effects": "Outbound+Inbound+Entropy+Pure",
   "nodes": [
     {
-      "id": "S_receive_fnol",
+      "id": "S_receive",
       "kind": "Subscribe",
       "channel": "rpc:req:api/fnol/submit",
       "qos": "at_least_once",
-      "out": {
-        "var": "fnol_msg"
-      }
+      "out": { "var": "receive" },
+      "runtime": { "instance": "@Memory", "domain": "interaction" }
     },
     {
       "id": "T_validate_fnol",
       "kind": "Transform",
-      "spec": {
-        "op": "jsonschema.validate",
-        "schema": "FnolV1"
-      },
-      "in": {
-        "value": "@fnol_msg.body"
-      },
-      "out": {
-        "var": "validate_fnol_value"
-      }
+      "spec": { "op": "jsonschema.validate", "schema": "FnolV1" },
+      "in": { "value": "@receive.body" },
+      "out": { "var": "validate_fnol" },
+      "runtime": { "instance": "@Memory", "domain": "transform" }
     },
     {
-      "id": "K_get_policy",
+      "id": "K_get_policy_identity",
       "kind": "Keypair",
       "algorithm": "Ed25519",
-      "out": {
-        "var": "kp_get_policy"
-      }
+      "out": { "var": "get_policy_identity" },
+      "runtime": { "instance": "@Memory", "domain": "interaction" }
     },
     {
       "id": "T_get_policy_corr",
       "kind": "Transform",
-      "spec": {
-        "op": "hash",
-        "alg": "blake3"
-      },
+      "spec": { "op": "hash", "alg": "blake3" },
       "in": {
-        "k": "@kp_get_policy.public_key_pem",
+        "k": "@get_policy_identity.public_key_pem",
         "e": "api/policy/snapshot",
         "m": "GET",
-        "q": {
-          "policy_id": "@fnol_msg.body.policy_id"
-        }
+        "query": { "policy_id": "@receive.body.policy_id" }
       },
-      "out": {
-        "var": "corr_get_policy"
-      }
+      "out": { "var": "get_policy_corr" },
+      "runtime": { "instance": "@Memory", "domain": "interaction" }
     },
     {
       "id": "T_get_policy_reply_to",
       "kind": "Transform",
-      "spec": {
-        "op": "concat"
-      },
-      "in": {
-        "a": "rpc:reply:",
-        "b": "@corr_get_policy"
-      },
-      "out": {
-        "var": "reply_to_get_policy"
-      }
+      "spec": { "op": "concat" },
+      "in": [ "rpc:reply:", "@get_policy_corr" ],
+      "out": { "var": "get_policy_reply_to" },
+      "runtime": { "instance": "@Memory", "domain": "interaction" }
     },
     {
-      "id": "P_get_policy_request",
+      "id": "P_get_policy",
       "kind": "Publish",
       "channel": "rpc:req:api/policy/snapshot",
       "qos": "at_least_once",
       "payload": {
         "method": "GET",
-        "corr": "@corr_get_policy",
-        "reply_to": "@reply_to_get_policy",
-        "query": {
-          "policy_id": "@fnol_msg.body.policy_id"
-        }
-      }
+        "corr": "@get_policy_corr",
+        "reply_to": "@get_policy_reply_to",
+        "query": { "policy_id": "@receive.body.policy_id" }
+      },
+      "runtime": { "instance": "@Memory", "domain": "interaction" }
     },
     {
-      "id": "S_get_policy_reply",
+      "id": "S_get_policy",
       "kind": "Subscribe",
-      "channel": "@reply_to_get_policy",
+      "channel": "@get_policy_reply_to",
       "qos": "at_least_once",
-      "filter": "@corr_get_policy",
-      "out": {
-        "var": "get_policy_reply"
-      }
+      "filter": "@get_policy_corr",
+      "out": { "var": "get_policy" },
+      "runtime": { "instance": "@Memory", "domain": "interaction" }
     },
     {
       "id": "T_score_severity",
       "kind": "Transform",
-      "spec": {
-        "op": "model_infer",
-        "model": "auto.severity.v3"
-      },
-      "in": {
-        "features": "@fnol_msg.body"
-      },
-      "out": {
-        "var": "score_severity_value"
-      }
+      "spec": { "op": "model_infer", "model": "auto.severity.v3" },
+      "in": { "features": "@receive.body" },
+      "out": { "var": "score_severity" },
+      "runtime": { "instance": "@Memory", "domain": "transform" }
     },
     {
       "id": "T_score_fraud",
       "kind": "Transform",
-      "spec": {
-        "op": "model_infer",
-        "model": "fraud.v7"
-      },
-      "in": {
-        "features": "@fnol_msg.body"
-      },
-      "out": {
-        "var": "score_fraud_value"
-      }
+      "spec": { "op": "model_infer", "model": "fraud.v7" },
+      "in": { "features": "@receive.body" },
+      "out": { "var": "score_fraud" },
+      "runtime": { "instance": "@Memory", "domain": "transform" }
     },
     {
       "id": "T_eligibility",
       "kind": "Transform",
-      "spec": {
-        "op": "policy_eval",
-        "policy": "fasttrack.policy.v1"
-      },
+      "spec": { "op": "policy_eval", "policy": "fasttrack.policy.v1" },
       "in": {
         "input": {
-          "severity": "@score_severity_value",
-          "fraud": "@score_fraud_value",
-          "policy": "@get_policy_reply.response"
+          "severity": "@score_severity",
+          "fraud": "@score_fraud",
+          "policy": "@get_policy.response"
         }
       },
-      "out": {
-        "var": "eligibility_value"
-      }
+      "out": { "var": "eligibility" },
+      "runtime": { "instance": "@Memory", "domain": "policy" }
     },
     {
-      "id": "T_branch_1",
-      "kind": "Transform",
-      "spec": {
-        "op": "eq"
-      },
-      "in": {
-        "left": "@eligibility_value.decision",
-        "right": "allow"
-      },
-      "out": {
-        "var": "branch_1_value"
-      }
-    },
-    {
-      "id": "K_consent",
+      "id": "K_consent_identity",
       "kind": "Keypair",
       "algorithm": "Ed25519",
-      "out": {
-        "var": "kp_consent"
-      },
-      "when": "@branch_1_value"
+      "out": { "var": "consent_identity" },
+      "when": "@eligibility.decision == 'allow'",
+      "runtime": { "instance": "@Memory", "domain": "interaction" }
     },
     {
       "id": "T_consent_corr",
       "kind": "Transform",
-      "spec": {
-        "op": "hash",
-        "alg": "blake3"
-      },
+      "spec": { "op": "hash", "alg": "blake3" },
       "in": {
-        "k": "@kp_consent.public_key_pem",
+        "k": "@consent_identity.public_key_pem",
         "e": "api/consent/sign",
         "m": "POST",
-        "b": {
-          "doc": "fasttrack.pdf",
-          "claimant": "@fnol_msg.body.party"
-        }
+        "body": { "doc": "fasttrack.pdf", "claimant": "@receive.body.party" }
       },
-      "out": {
-        "var": "corr_consent"
-      },
-      "when": "@branch_1_value"
+      "out": { "var": "consent_corr" },
+      "when": "@eligibility.decision == 'allow'",
+      "runtime": { "instance": "@Memory", "domain": "interaction" }
     },
     {
       "id": "T_consent_reply_to",
       "kind": "Transform",
-      "spec": {
-        "op": "concat"
-      },
-      "in": {
-        "a": "rpc:reply:",
-        "b": "@corr_consent"
-      },
-      "out": {
-        "var": "reply_to_consent"
-      },
-      "when": "@branch_1_value"
+      "spec": { "op": "concat" },
+      "in": [ "rpc:reply:", "@consent_corr" ],
+      "out": { "var": "consent_reply_to" },
+      "when": "@eligibility.decision == 'allow'",
+      "runtime": { "instance": "@Memory", "domain": "interaction" }
     },
     {
       "id": "P_consent_request",
@@ -203,71 +137,57 @@
       "qos": "at_least_once",
       "payload": {
         "method": "POST",
-        "corr": "@corr_consent",
-        "reply_to": "@reply_to_consent",
-        "body": {
-          "doc": "fasttrack.pdf",
-          "claimant": "@fnol_msg.body.party"
-        }
+        "corr": "@consent_corr",
+        "reply_to": "@consent_reply_to",
+        "body": { "doc": "fasttrack.pdf", "claimant": "@receive.body.party" }
       },
-      "when": "@branch_1_value"
+      "when": "@eligibility.decision == 'allow'",
+      "runtime": { "instance": "@Memory", "domain": "interaction" }
     },
     {
       "id": "S_consent_reply",
       "kind": "Subscribe",
-      "channel": "@reply_to_consent",
+      "channel": "@consent_reply_to",
       "qos": "at_least_once",
-      "filter": "@corr_consent",
-      "out": {
-        "var": "consent_reply"
-      },
-      "when": "@branch_1_value"
+      "filter": "@consent_corr",
+      "out": { "var": "consent" },
+      "when": "@eligibility.decision == 'allow'",
+      "runtime": { "instance": "@Memory", "domain": "interaction" }
     },
     {
-      "id": "K_payout",
+      "id": "K_payout_identity",
       "kind": "Keypair",
       "algorithm": "Ed25519",
-      "out": {
-        "var": "kp_payout"
-      },
-      "when": "@branch_1_value"
+      "out": { "var": "payout_identity" },
+      "when": "@eligibility.decision == 'allow'",
+      "runtime": { "instance": "@Memory", "domain": "interaction" }
     },
     {
       "id": "T_payout_corr",
       "kind": "Transform",
-      "spec": {
-        "op": "hash",
-        "alg": "blake3"
-      },
+      "spec": { "op": "hash", "alg": "blake3" },
       "in": {
-        "k": "@kp_payout.public_key_pem",
+        "k": "@payout_identity.public_key_pem",
         "e": "api/payments/payout",
         "m": "POST",
-        "b": {
-          "claim": "@fnol_msg.body.claim_id",
-          "amount": "@eligibility_value.amount",
+        "body": {
+          "claim": "@receive.body.claim_id",
+          "amount": "@eligibility.amount",
           "channel": "SEPA"
         }
       },
-      "out": {
-        "var": "corr_payout"
-      },
-      "when": "@branch_1_value"
+      "out": { "var": "payout_corr" },
+      "when": "@eligibility.decision == 'allow'",
+      "runtime": { "instance": "@Memory", "domain": "interaction" }
     },
     {
       "id": "T_payout_reply_to",
       "kind": "Transform",
-      "spec": {
-        "op": "concat"
-      },
-      "in": {
-        "a": "rpc:reply:",
-        "b": "@corr_payout"
-      },
-      "out": {
-        "var": "reply_to_payout"
-      },
-      "when": "@branch_1_value"
+      "spec": { "op": "concat" },
+      "in": [ "rpc:reply:", "@payout_corr" ],
+      "out": { "var": "payout_reply_to" },
+      "when": "@eligibility.decision == 'allow'",
+      "runtime": { "instance": "@Memory", "domain": "interaction" }
     },
     {
       "id": "P_payout_request",
@@ -276,26 +196,26 @@
       "qos": "at_least_once",
       "payload": {
         "method": "POST",
-        "corr": "@corr_payout",
-        "reply_to": "@reply_to_payout",
+        "corr": "@payout_corr",
+        "reply_to": "@payout_reply_to",
         "body": {
-          "claim": "@fnol_msg.body.claim_id",
-          "amount": "@eligibility_value.amount",
+          "claim": "@receive.body.claim_id",
+          "amount": "@eligibility.amount",
           "channel": "SEPA"
         }
       },
-      "when": "@branch_1_value"
+      "when": "@eligibility.decision == 'allow'",
+      "runtime": { "instance": "@Memory", "domain": "interaction" }
     },
     {
       "id": "S_payout_reply",
       "kind": "Subscribe",
-      "channel": "@reply_to_payout",
+      "channel": "@payout_reply_to",
       "qos": "at_least_once",
-      "filter": "@corr_payout",
-      "out": {
-        "var": "payout_reply"
-      },
-      "when": "@branch_1_value"
+      "filter": "@payout_corr",
+      "out": { "var": "payout" },
+      "when": "@eligibility.decision == 'allow'",
+      "runtime": { "instance": "@Memory", "domain": "interaction" }
     },
     {
       "id": "P_emit_metric",
@@ -305,65 +225,44 @@
       "payload": {
         "value": 1,
         "unit": "count",
-        "tags": {
-          "region": "@get_policy_reply.response.region"
-        }
+        "tags": { "region": "@get_policy.response.region" }
       },
-      "when": "@branch_1_value"
+      "when": "@eligibility.decision == 'allow'",
+      "runtime": { "instance": "@Memory", "domain": "obs" }
     },
     {
-      "id": "K_assign",
+      "id": "K_assign_identity",
       "kind": "Keypair",
       "algorithm": "Ed25519",
-      "out": {
-        "var": "kp_assign"
-      },
-      "when": {
-        "op": "not",
-        "var": "branch_1_value"
-      }
+      "out": { "var": "assign_identity" },
+      "when": "!(@eligibility.decision == 'allow')",
+      "runtime": { "instance": "@Memory", "domain": "interaction" }
     },
     {
       "id": "T_assign_corr",
       "kind": "Transform",
-      "spec": {
-        "op": "hash",
-        "alg": "blake3"
-      },
+      "spec": { "op": "hash", "alg": "blake3" },
       "in": {
-        "k": "@kp_assign.public_key_pem",
+        "k": "@assign_identity.public_key_pem",
         "e": "api/adjuster/assign",
         "m": "POST",
-        "b": {
-          "claim": "@fnol_msg.body.claim_id",
-          "priority": "@score_severity_value.bucket"
+        "body": {
+          "claim": "@receive.body.claim_id",
+          "priority": "@score_severity.bucket"
         }
       },
-      "out": {
-        "var": "corr_assign"
-      },
-      "when": {
-        "op": "not",
-        "var": "branch_1_value"
-      }
+      "out": { "var": "assign_corr" },
+      "when": "!(@eligibility.decision == 'allow')",
+      "runtime": { "instance": "@Memory", "domain": "interaction" }
     },
     {
       "id": "T_assign_reply_to",
       "kind": "Transform",
-      "spec": {
-        "op": "concat"
-      },
-      "in": {
-        "a": "rpc:reply:",
-        "b": "@corr_assign"
-      },
-      "out": {
-        "var": "reply_to_assign"
-      },
-      "when": {
-        "op": "not",
-        "var": "branch_1_value"
-      }
+      "spec": { "op": "concat" },
+      "in": [ "rpc:reply:", "@assign_corr" ],
+      "out": { "var": "assign_reply_to" },
+      "when": "!(@eligibility.decision == 'allow')",
+      "runtime": { "instance": "@Memory", "domain": "interaction" }
     },
     {
       "id": "P_assign_request",
@@ -372,70 +271,53 @@
       "qos": "at_least_once",
       "payload": {
         "method": "POST",
-        "corr": "@corr_assign",
-        "reply_to": "@reply_to_assign",
+        "corr": "@assign_corr",
+        "reply_to": "@assign_reply_to",
         "body": {
-          "claim": "@fnol_msg.body.claim_id",
-          "priority": "@score_severity_value.bucket"
+          "claim": "@receive.body.claim_id",
+          "priority": "@score_severity.bucket"
         }
       },
-      "when": {
-        "op": "not",
-        "var": "branch_1_value"
-      }
+      "when": "!(@eligibility.decision == 'allow')",
+      "runtime": { "instance": "@Memory", "domain": "interaction" }
     },
     {
       "id": "S_assign_reply",
       "kind": "Subscribe",
-      "channel": "@reply_to_assign",
+      "channel": "@assign_reply_to",
       "qos": "at_least_once",
-      "filter": "@corr_assign",
-      "out": {
-        "var": "assign_reply"
-      },
-      "when": {
-        "op": "not",
-        "var": "branch_1_value"
-      }
+      "filter": "@assign_corr",
+      "out": { "var": "assign" },
+      "when": "!(@eligibility.decision == 'allow')",
+      "runtime": { "instance": "@Memory", "domain": "interaction" }
     },
     {
       "id": "P_ack",
       "kind": "Publish",
-      "channel": "@fnol_msg.reply_to",
+      "channel": "@receive.reply_to",
       "qos": "at_least_once",
-      "payload": {
-        "corr": "@fnol_msg.corr",
-        "status": "accepted"
-      }
+      "payload": { "corr": "@receive.corr", "status": "accepted" },
+      "runtime": { "instance": "@Memory", "domain": "interaction" }
     },
     {
       "id": "T_record_digest",
       "kind": "Transform",
-      "spec": {
-        "op": "digest",
-        "alg": "blake3"
-      },
+      "spec": { "op": "digest", "alg": "blake3" },
       "in": {
         "kind": "fasttrack.route",
-        "payload": "@eligibility_value",
-        "ts": "2025-09-30T11:37:59.839401Z"
+        "payload": "@eligibility",
+        "ts": "2025-09-30T20:43:20.338Z"
       },
-      "out": {
-        "var": "record_digest_value"
-      }
+      "out": { "var": "record_digest" },
+      "runtime": { "instance": "@Memory", "domain": "policy" }
     },
     {
       "id": "T_record_id",
       "kind": "Transform",
-      "spec": {
-        "op": "encode_base58"
-      },
-      "in": {
-        "value": "@record_digest_value"
-      },
-      "out": {
-        "var": "record_id_value"
-      }
+      "spec": { "op": "encode_base58" },
+      "in": { "value": "@record_digest" },
+      "out": { "var": "record_id" },
+      "runtime": { "instance": "@Memory", "domain": "policy" }
     },
     {
       "id": "P_record",
@@ -443,11 +325,12 @@
       "channel": "policy:record",
       "qos": "at_least_once",
       "payload": {
-        "record_id": "@record_id_value",
+        "record_id": "@record_id",
         "kind": "fasttrack.route",
-        "payload": "@eligibility_value",
-        "ts": "2025-09-30T11:37:59.839401Z"
-      }
+        "payload": "@eligibility",
+        "ts": "2025-09-30T20:43:20.338Z"
+      },
+      "runtime": { "instance": "@Memory", "domain": "policy" }
     }
   ]
 }

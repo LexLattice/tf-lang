@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.0.2",
   "packageManager": "pnpm@10.16.1",
+  "dependencies": {
+    "@noble/hashes": "^1.4.0"
+  },
   "scripts": {
     "build": "pnpm run --recursive build",
     "preinstall": "corepack enable pnpm",
@@ -37,6 +40,8 @@
     "proofs:coverage:docs": "node scripts/proofs/coverage.mjs --docs docs/l0-proof-coverage.md",
     "proofs:emit-missing": "node scripts/proofs/emit-missing-laws.mjs",
     "tf": "node packages/tf-compose/bin/tf.mjs",
+    "validate:l0": "node tools/tf-lang-cli/scripts/validate.mjs l0",
+    "validate:l2": "node tools/tf-lang-cli/scripts/validate.mjs l2",
     "codegen:rs:signing": "node scripts/generate-rs-run.mjs out/0.4/ir/signing.ir.json -o out/0.4/codegen-rs/signing",
     "parity:ts-rs:signing": "node scripts/cross-parity-ts-rs.mjs --ir out/0.4/ir/signing.ir.json",
     "trace:filter": "node packages/tf-l0-tools/trace-filter.mjs",
@@ -74,7 +79,8 @@
     "ajv": "^8.17.1",
     "picomatch": "^4.0.3",
     "typescript": "5.9.2",
-    "yaml": "^2.8.1"
+    "yaml": "^2.8.1",
+    "z3-solver": "^4.12.4"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

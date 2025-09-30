@@ -113,3 +113,20 @@
   - feature_flag
   version: 1.0.0
   abstract: true
+- id: policy_governance.l2.RecordDecisionMacro
+  description: >
+    L2 macro `policy.record_decision` that emits immutable decision records
+    using digest + base58 id.
+  inputs:
+  - kind: string
+  - payload: object
+  outputs:
+  - record_id: string
+  meta:
+    expands_to:
+    - policy_governance.l0.RecordDecision
+    deterministic: true
+  tags:
+  - macro
+  - audit
+  version: 0.6.0

@@ -1,41 +1,140 @@
 #!/usr/bin/env node
-import fs from "fs";
-import path from "path";
-import { spawnSync, execSync } from "child_process";
-import { loadRulebookPlan, rulesForPhaseFromPlan } from "./expand.mjs";
-import { renderPipelineGraph, renderMonitorGraph } from "./lib/dot.mjs";
+import fs from "node:fs";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import process from "node:process";
+import { spawnSync, execSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import Ajv from "ajv";
 
-function collectKernelNodes(doc) {
-  if (Array.isArray(doc.nodes)) return doc.nodes;
-  if (Array.isArray(doc.monitors)) return doc.monitors.flatMap((m) => m.nodes ?? []);
-  throw new Error("unsupported document for effects");
+import { loadRulebookPlan, rulesForPhaseFromPlan } from "./expand.mjs";
+import { summarizeEffects } from "./lib/effects.mjs";
+import { buildDotGraph } from "./lib/dot.mjs";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(__dirname, "..", "..");
+
+const schemaPaths = {
+  l0: path.join(repoRoot, "schemas", "l0-dag.schema.json"),
+  l2: path.join(repoRoot, "schemas", "l2-pipeline.schema.json")
+};
+
+const ajv = new Ajv({ allErrors: true, strict: false, allowUnionTypes: true });
+ajv.addFormat("date-time", true);
+const validatorCache = new Map();
+
+async function loadJsonFile(targetPath) {
+  const filePath = path.resolve(targetPath);
+  const content = await readFile(filePath, "utf8");
+  return JSON.parse(content);
 }
 
-function summarizeEffects(doc) {
-  const nodes = collectKernelNodes(doc);
-  const seen = new Set();
-  nodes.forEach((node) => {
-    switch (node.kind) {
-      case "Publish":
-        seen.add("Outbound");
-        break;
-      case "Subscribe":
-        seen.add("Inbound");
-        break;
-      case "Keypair":
-        seen.add("Entropy");
-        break;
-      case "Transform":
-        seen.add("Pure");
-        break;
-      default:
-        throw new Error(`unsupported kernel kind: ${node.kind}`);
+function inferKindFromFile(filePath) {
+  if (filePath.endsWith(".l0.json")) return "l0";
+  if (filePath.endsWith(".l2.json")) return "l2";
+  return null;
+}
+
+async function ensureValidator(kind) {
+  if (!schemaPaths[kind]) throw new Error(`unknown schema kind: ${kind}`);
+  if (!validatorCache.has(kind)) {
+    const schema = await loadJsonFile(schemaPaths[kind]);
+    const validate = ajv.compile(schema);
+    validatorCache.set(kind, validate);
+  }
+  return validatorCache.get(kind);
+}
+
+async function runValidateCommand(args) {
+  const argv = [...args];
+  let explicitKind = null;
+  if (argv[0] && ["l0", "l2"].includes(argv[0])) {
+    explicitKind = argv.shift();
+  }
+  if (argv.length === 0) {
+    console.error("usage: tf validate [l0|l2] <FILE...>");
+    return 2;
+  }
+
+  let exitCode = 0;
+  for (const file of argv) {
+    const kind = explicitKind ?? inferKindFromFile(file);
+    if (!kind) {
+      console.error(`${file}: unable to infer schema; pass l0 or l2 explicitly`);
+      exitCode = 2; // usage error takes precedence
+      continue;
     }
-  });
-  const order = ["Outbound", "Inbound", "Entropy", "Pure"];
-  const parts = order.filter((item) => seen.has(item));
-  if (parts.length === 0) return "Pure";
-  return parts.join("+");
+
+    let doc;
+    try {
+      doc = await loadJsonFile(file);
+    } catch (err) {
+      console.error(`${file}: ${err?.message ?? err}`);
+      if (exitCode === 0) exitCode = 1;
+      continue;
+    }
+
+    const validate = await ensureValidator(kind);
+    const valid = validate(doc);
+    if (!valid) {
+      const message = ajv.errorsText(validate.errors, { separator: "\n  - " });
+      console.error(`${file}: validation failed [${kind}]\n  - ${message}`);
+      if (exitCode === 0) exitCode = 1;
+    } else {
+      console.log(`${file}: OK [${kind}]`);
+    }
+  }
+  return exitCode;
+}
+
+async function runEffectsCommand(file) {
+  if (!file) {
+    console.error("usage: tf effects <FILE>");
+    return 2;
+  }
+  try {
+    const doc = await loadJsonFile(file);
+    const summary = summarizeEffects(doc);
+    console.log(summary);
+    return 0;
+  } catch (err) {
+    console.error(`${file}: ${err?.message ?? err}`);
+    return 1;
+  }
+}
+
+async function runGraphCommand(rawArgs) {
+  const argv = Array.isArray(rawArgs) ? [...rawArgs] : rawArgs !== undefined ? [rawArgs] : [];
+  let strictGraph = true;
+  const files = [];
+
+  for (const arg of argv) {
+    if (arg === "--strict-graph") { strictGraph = true; continue; }
+    if (arg === "--no-strict-graph") { strictGraph = false; continue; }
+    const match = /^--strict-graph=(.+)$/u.exec(arg);
+    if (match) {
+      const value = match[1].toLowerCase();
+      strictGraph = !["false", "0", "no", "off"].includes(value);
+      continue;
+    }
+    files.push(arg);
+  }
+
+  if (files.length !== 1) {
+    console.error("usage: tf graph [--strict-graph[=true|false]] <FILE>");
+    return 2;
+  }
+
+  const [file] = files;
+  try {
+    const doc = await loadJsonFile(file);
+    const dot = buildDotGraph(doc, { strict: strictGraph });
+    console.log(dot);
+    return 0;
+  } catch (err) {
+    console.error(`${file}: ${err?.message ?? err}`);
+    return 1;
+  }
 }
 
 function rbPath(node) {
@@ -47,9 +146,7 @@ function rbPath(node) {
 function resolveRulebookPath(input) {
   if (!input) return null;
   if (input.includes("/") || input.endsWith(".yml") || input.endsWith(".yaml")) {
-    if (!fs.existsSync(input)) {
-      throw new Error(`missing rulebook: ${input}`);
-    }
+    if (!fs.existsSync(input)) throw new Error(`missing rulebook: ${input}`);
     return input;
   }
   return rbPath(input);
@@ -67,7 +164,7 @@ function run(cmd, env) {
     shell: true,
     encoding: "utf8",
     env: { ...process.env, ...env },
-    maxBuffer: 10 * 1024 * 1024,
+    maxBuffer: 10 * 1024 * 1024
   });
   return { code: r.status ?? 99, stdout: (r.stdout || "").trim(), stderr: (r.stderr || "").trim() };
 }
@@ -84,9 +181,7 @@ function check(res, expect) {
     try {
       const j = JSON.parse(res.stdout || "{}");
       if (!!j.ok !== expect.ok) return { ok: false };
-    } catch {
-      return { ok: false };
-    }
+    } catch { return { ok: false }; }
   }
   if (expect.jsonpath_eq) {
     try {
@@ -95,54 +190,55 @@ function check(res, expect) {
       const key = k.replace(/^\$\./, "");
       const want = expect.jsonpath_eq[k];
       if (JSON.stringify(j[key]) !== JSON.stringify(want)) return { ok: false };
-    } catch {
-      return { ok: false };
-    }
+    } catch { return { ok: false }; }
   }
   if (expect.nonempty) {
     try {
       const j = JSON.parse(res.stdout || "{}");
       if (Object.keys(j).length === 0) return { ok: false };
-    } catch {
-      return { ok: false };
-    }
+    } catch { return { ok: false }; }
   }
   return { ok: true };
 }
 
 function explainPlan(plan, targetPhase) {
   const selected = plan.phases.get(targetPhase);
-  if (!selected) {
-    throw new Error(`unknown phase "${targetPhase}"`);
-  }
-
+  if (!selected) throw new Error(`unknown phase "${targetPhase}"`);
   const payload = {
     phase: selected.id,
     inherits: [...selected.inherits],
-    rules: selected.rules.map((rule) => ({ ...rule })),
+    rules: selected.rules.map((rule) => ({ ...rule }))
   };
-
   process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
 }
 
 function usage() {
-  console.log("usage: tf-lang <open|run|explain> ...");
+  console.log("usage: tf <validate|effects|graph|open|run|explain> ...");
   process.exit(2);
 }
 
 (async function main() {
   const [cmd, ...argv] = process.argv.slice(2);
+  if (!cmd) usage();
 
-  if (!cmd) {
-    usage();
+  if (cmd === "validate") {
+    const code = await runValidateCommand(argv);
+    process.exit(code);
+  }
+
+  if (cmd === "effects") {
+    const code = await runEffectsCommand(argv[0]);
+    process.exit(code);
+  }
+
+  if (cmd === "graph") {
+    const code = await runGraphCommand(argv);
+    process.exit(code);
   }
 
   if (cmd === "open") {
     const [node] = argv;
-    if (!node) {
-      console.error("usage: tf-lang open <NODE>");
-      process.exit(2);
-    }
+    if (!node) { console.error("usage: tf open <NODE>"); process.exit(2); }
     const plan = loadRulebookPlan(rbPath(node));
     console.log("Node:", node);
     console.log("Phases:", [...plan.phases.keys()].join(", "));
@@ -152,7 +248,7 @@ function usage() {
   if (cmd === "explain") {
     const [rulebookArg, phaseId] = argv;
     if (!rulebookArg || !phaseId) {
-      console.error("usage: tf-lang explain <rulebook.yml|NODE> <PHASE>");
+      console.error("usage: tf explain <rulebook.yml|NODE> <PHASE>");
       process.exit(2);
     }
     const rulebookPath = resolveRulebookPath(rulebookArg);
@@ -161,49 +257,10 @@ function usage() {
     process.exit(0);
   }
 
-  if (cmd === "graph") {
-    let showWhenEdges = true;
-    const positional = [];
-    argv.forEach((arg) => {
-      if (arg.startsWith("--show-when=")) {
-        const [, raw] = arg.split("=", 2);
-        showWhenEdges = raw !== "false";
-      } else {
-        positional.push(arg);
-      }
-    });
-    const [inputPath] = positional;
-    if (!inputPath) {
-      console.error("usage: tf-lang graph [--show-when=true|false] <pipeline-or-monitor.l0.json>");
-      process.exit(2);
-    }
-    const doc = JSON.parse(fs.readFileSync(inputPath, "utf8"));
-    const options = { showWhenEdges };
-    if (Array.isArray(doc.nodes)) {
-      console.log(renderPipelineGraph(doc, options));
-    } else if (Array.isArray(doc.monitors)) {
-      console.log(renderMonitorGraph(doc, options));
-    } else {
-      throw new Error("unsupported graph document shape");
-    }
-    process.exit(0);
-  }
-
-  if (cmd === "effects") {
-    const [inputPath] = argv;
-    if (!inputPath) {
-      console.error("usage: tf-lang effects <pipeline-or-monitor.l0.json>");
-      process.exit(2);
-    }
-    const doc = JSON.parse(fs.readFileSync(inputPath, "utf8"));
-    console.log(summarizeEffects(doc));
-    process.exit(0);
-  }
-
   if (cmd === "run") {
     const [node, cp, ...rest] = argv;
     if (!node || !cp) {
-      console.error("usage: tf-lang run <NODE> <CP> [--diff -] [--explain]");
+      console.error("usage: tf run <NODE> <CP> [--diff -] [--explain]");
       process.exit(2);
     }
 
@@ -212,18 +269,13 @@ function usage() {
     if (diffIndex !== -1 && rest[diffIndex + 1] === "-") {
       diff = fs.readFileSync(0, "utf8");
     } else {
-      try {
-        diff = execSync("git diff -U0 --no-color", { encoding: "utf8" });
-      } catch {
-        diff = "";
-      }
+      try { diff = execSync("git diff -U0 --no-color", { encoding: "utf8" }); }
+      catch { diff = ""; }
     }
 
     const diffPath = writeDiff(diff);
     const plan = loadRulebookPlan(rbPath(node));
-    if (rest.includes("--explain")) {
-      explainPlan(plan, cp);
-    }
+    if (rest.includes("--explain")) explainPlan(plan, cp);
     const selected = rulesForPhaseFromPlan(plan, cp);
     const results = {};
     const evidence = [];
@@ -238,10 +290,7 @@ function usage() {
         continue;
       }
       const command = r.cmd || r.command;
-      if (!command) {
-        results[r.id] = { ok: false, reason: "unsupported-kind" };
-        continue;
-      }
+      if (!command) { results[r.id] = { ok: false, reason: "unsupported-kind" }; continue; }
       const res = run(command, { ...(r.env || {}), DIFF_PATH: diffPath });
       const ch = check(res, r.expect || {});
       results[r.id] = { ok: ch.ok, code: res.code, reason: ch.reason || null };
@@ -255,7 +304,7 @@ function usage() {
       checkpoint: cp,
       timestamp: new Date().toISOString(),
       results,
-      evidence,
+      evidence
     };
     fs.mkdirSync("out", { recursive: true });
     fs.writeFileSync("out/TFREPORT.json", JSON.stringify(report, null, 2));

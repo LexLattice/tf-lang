@@ -135,3 +135,21 @@
   - deletion
   version: 1.0.0
   abstract: true
+- id: state_identity.l2.DiffMacro
+  description: >
+    L2 macro `state.diff` providing a convenience wrapper over diff
+    transforms.
+  inputs:
+  - base: object
+  - target: object
+  outputs:
+  - delta: object
+  meta:
+    expands_to:
+    - state_identity.l0.Diff
+    deterministic: true
+  tags:
+  - state
+  - diff
+  - macro
+  version: 0.6.0

@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - TBD
+### Added
+- Authored `docs/0.5/overview.md` plus `docs/0.5/quickstarts/track-*.md` covering tracks A–F with commands, expected outputs, and `used_laws`/`rewrites` guidance.
+
+### Changed
+- Root README now links to the 0.5 overview/quickstarts and refreshes the pnpm-based Getting Started workflow.
+
+### Fixed
+- Documented remedies for frozen installs and missing optional dependencies in fast test runs.
+
+### Infra
+- Documented the doc link-check workflow so contributors can run `markdown-link-check` locally.
+
 ## [0.1.0] - 2025-09-09
 ### Added
 - **L0 runtimes:** TypeScript and Rust VMs with SSA bytecode, `ASSERT` opcode, and property-like tests for the law `rewind ∘ apply = id`.

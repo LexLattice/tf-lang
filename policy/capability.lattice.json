@@ -1,0 +1,19 @@
+{
+  "publish": [
+    { "pattern": "rpc:req:*", "capability": "cap:publish:rpc:req:*" },
+    { "pattern": "rpc:reply:*", "capability": "cap:publish:rpc:reply:*" }
+  ],
+  "subscribe": [
+    { "pattern": "rpc:req:*", "capability": "cap:subscribe:rpc:req:*" },
+    { "pattern": "rpc:reply:*", "capability": "cap:subscribe:rpc:reply:*" }
+  ],
+  "keypair": {
+    "Ed25519": "cap:keypair:Ed25519",
+    "RSA": "cap:keypair:RSA",
+    "EC_P256": "cap:keypair:EC_P256",
+    "EC_P384": "cap:keypair:EC_P384",
+    "EC_P521": "cap:keypair:EC_P521",
+    "X25519": "cap:keypair:X25519",
+    "*": "cap:keypair:*"
+  }
+}

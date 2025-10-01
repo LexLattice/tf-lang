@@ -10,6 +10,7 @@ import Ajv from "ajv";
 import { loadRulebookPlan, rulesForPhaseFromPlan } from "./expand.mjs";
 import { summarizeEffects } from "./lib/effects.mjs";
 import { buildDotGraph } from "./lib/dot.mjs";
+import { typecheckFile, formatPortPath } from "../../packages/typechecker/typecheck.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..", "..");
@@ -27,6 +28,93 @@ async function loadJsonFile(targetPath) {
   const filePath = path.resolve(targetPath);
   const content = await readFile(filePath, "utf8");
   return JSON.parse(content);
+}
+
+function defaultAdapterRegistry() {
+  return path.join(repoRoot, "adapters", "registry.json");
+}
+
+function portLabelOf(mismatch) {
+  const portName = mismatch.port
+    ?? (Array.isArray(mismatch.portPath) ? formatPortPath(mismatch.portPath) : null);
+  if (portName && portName !== "default") {
+    return `${mismatch.nodeId}.${portName}`;
+  }
+  return `${mismatch.nodeId}`;
+}
+
+function formatMismatchLine(mismatch, describe) {
+  const base = ` - ${portLabelOf(mismatch)}: ${mismatch.sourceVar} (${describe(mismatch.actual)}) → ${describe(mismatch.expected)}`;
+  return mismatch.adapter
+    ? `${base} via Transform(op: ${mismatch.adapter.op})`
+    : base;
+}
+
+async function runTypecheckCommand(rawArgs) {
+  const argv = Array.isArray(rawArgs) ? [...rawArgs] : rawArgs ? [rawArgs] : [];
+  let registryPath = defaultAdapterRegistry();
+  const files = [];
+
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === "--adapters") {
+      const next = argv[i + 1];
+      if (!next) {
+        console.error("usage: tf typecheck <L0_FILE> [--adapters <registry.json>]");
+        return 2;
+      }
+      registryPath = next;
+      i += 1;
+      continue;
+    }
+    const match = /^--adapters=(.+)$/u.exec(arg);
+    if (match) {
+      registryPath = match[1];
+      continue;
+    }
+    files.push(arg);
+  }
+
+  if (files.length !== 1) {
+    console.error("usage: tf typecheck <L0_FILE> [--adapters <registry.json>]");
+    return 2;
+  }
+
+  const [file] = files;
+
+  let report;
+  try {
+    report = await typecheckFile(file, { registryPath });
+  } catch (error) {
+    console.error(`${file}: ${error?.message ?? error}`);
+    return 1;
+  }
+
+  const describe = typeof report.describe === "function"
+    ? report.describe
+    : () => "unknown";
+
+  if (report.status === "ok" && report.mismatches.length === 0) {
+    console.log("OK");
+    return 0;
+  }
+
+  if (report.status === "needs-adapter") {
+    const suggestions = report.suggestions ?? report.mismatches ?? [];
+    const count = suggestions.length;
+    console.log(`OK with ${count} suggestion(s)`);
+    for (const mismatch of suggestions) {
+      console.log(formatMismatchLine(mismatch, describe));
+    }
+    return 0;
+  }
+
+  const mismatches = report.mismatches ?? [];
+  console.log(`FAILED with ${mismatches.length} mismatch(es)`);
+  for (const mismatch of mismatches) {
+    console.log(formatMismatchLine(mismatch, describe));
+  }
+  return 1;
 }
 
 function inferKindFromFile(filePath) {
@@ -213,7 +301,7 @@ function explainPlan(plan, targetPhase) {
 }
 
 function usage() {
-  console.log("usage: tf <validate|effects|graph|open|run|explain> ...");
+  console.log("usage: tf <validate|effects|graph|typecheck|open|run|explain> ...");
   process.exit(2);
 }
 
@@ -233,6 +321,11 @@ function usage() {
 
   if (cmd === "graph") {
     const code = await runGraphCommand(argv);
+    process.exit(code);
+  }
+
+  if (cmd === "typecheck") {
+    const code = await runTypecheckCommand(argv);
     process.exit(code);
   }
 

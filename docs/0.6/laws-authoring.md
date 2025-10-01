@@ -4,7 +4,11 @@ The law system keeps the checker, prover harness, and documentation in lockstep.
 
 ## 1. Discover the current surface area
 
-* Run `tf laws --list-goals` to see the canonical goal identifiers, their human-readable names, and a short description.
+* List the canonical goal identifiers along with human-readable descriptions:
+
+  ```bash
+  pnpm tf laws --list-goals
+  ```
 * Each goal maps to an entry in `packages/checker/law-goals.mjs`. Extend that list when you introduce a new goal so both the checker and CLI stay in sync.
 * Existing implementations live under `laws/*.mjs` and are wired into the checker via `packages/checker/check.mjs`.
 
@@ -27,7 +31,11 @@ The law system keeps the checker, prover harness, and documentation in lockstep.
 
 ## 5. Extend the CLI
 
-* `tf laws --check <file.l0.json> [--goal <id>] [--verbose]` now prints all registered goals and surfaces evidence paths when verbose mode is active.
+* Print all registered goals and surface evidence paths when verbose mode is active:
+
+  ```bash
+  pnpm tf laws --check <file.l0.json> [--goal <id>] [--verbose]
+  ```
 * Update `tools/tf-lang-cli/tests/` to cover any new command line permutations or JSON output changes.
 
 ## 6. Document the workflow

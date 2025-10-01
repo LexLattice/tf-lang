@@ -150,13 +150,17 @@ registerBuiltin('eq', (spec, input) => {
   return left === right;
 });
 
-registerBuiltin('get', (spec, input) => {
-  const path = spec.path;
+registerBuiltin('get', (spec, input = {}) => {
+  const path = spec.path ?? spec.key;
   if (typeof path !== 'string' || !path) {
     throw new Error('get requires a string path');
   }
   const segments = path.split('.');
-  let current = input.value;
+  const source =
+    (input && typeof input === 'object'
+      ? input.value ?? input.source ?? input.obj ?? input.from
+      : undefined) ?? input;
+  let current = source;
   for (const seg of segments) {
     if (current == null) return undefined;
     current = current[seg];

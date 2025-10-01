@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DETERMINISTIC_TRANSFORMS } from '../transform/index.mjs';
+import { collectVarRefsArray } from '../shared/ast.mjs';
 import { checkIdempotency } from '../../laws/idempotency.mjs';
 import checkBranchExclusive from '../../laws/branch_exclusive.mjs';
 import checkMonotonicLog from '../../laws/monotonic_log.mjs';
@@ -49,28 +50,6 @@ function withGoalMetadata(key, report = {}) {
 const LAWS_OUTPUT_ROOT = path.resolve(__dirname, '../../out/laws');
 
 /* --------------------------- small analysis utils ------------------------- */
-
-function collectVarRefs(value) {
-  const refs = new Set();
-  const visit = (input) => {
-    if (typeof input === 'string' && input.startsWith('@')) {
-      const ref = input.slice(1);
-      if (ref.length > 0) {
-        refs.add(ref.split('.')[0]);
-      }
-      return;
-    }
-    if (Array.isArray(input)) {
-      for (const item of input) visit(item);
-      return;
-    }
-    if (input && typeof input === 'object') {
-      for (const v of Object.values(input)) visit(v);
-    }
-  };
-  visit(value);
-  return Array.from(refs);
-}
 
 function dependsOnKeypair(varName, varMeta, seen = new Set()) {
   if (!varName || seen.has(varName)) return false;
@@ -278,7 +257,7 @@ function analyzePipeline(l0, capabilityLattice = { publish: [], subscribe: [], k
         effectsPresent.add('Pure');
         const outVar = node.out?.var;
         if (outVar) {
-          const refs = collectVarRefs(node.in);
+        const refs = collectVarRefsArray(node.in);
           const depsStable = refs.every((ref) => (varMeta.get(ref)?.stable ?? false));
           const deterministic = DETERMINISTIC_TRANSFORMS.has(node.spec?.op);
           const stable = deterministic && depsStable;
@@ -299,7 +278,7 @@ function analyzePipeline(l0, capabilityLattice = { publish: [], subscribe: [], k
         if (outVar) {
           varMeta.set(outVar, { id: node.id, kind: node.kind, stable: true, deterministic: false, deps: [] });
         }
-        const filterRefs = collectVarRefs(node.filter);
+        const filterRefs = collectVarRefsArray(node.filter);
         let channelVar = null;
         if (typeof node.channel === 'string' && node.channel.startsWith('@')) {
           const candidate = node.channel.slice(1);
@@ -324,8 +303,8 @@ function analyzePipeline(l0, capabilityLattice = { publish: [], subscribe: [], k
         }
         const corrValue = node.payload?.corr;
         const hasCorrField = Object.prototype.hasOwnProperty.call(node.payload ?? {}, 'corr');
-        const corrRefs = hasCorrField ? collectVarRefs(corrValue) : [];
-        const replyRefs = collectVarRefs(node.payload?.reply_to);
+        const corrRefs = hasCorrField ? collectVarRefsArray(corrValue) : [];
+        const replyRefs = collectVarRefsArray(node.payload?.reply_to);
         const corrStable = hasCorrField
           ? (corrRefs.length === 0
             ? true

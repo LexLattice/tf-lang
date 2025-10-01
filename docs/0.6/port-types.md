@@ -68,9 +68,19 @@ For outputs, the checker starts with `metadata.port_types.out` and then merges a
 
 ## CLI integration
 
-- `pnpm tf typecheck <L0>` reads port metadata to compare producer and consumer descriptors. Matching types keep the report `OK`.
-- When a mismatch occurs, the checker searches the adapter registry for a bridge between the actual and expected descriptors. Suggested adapters appear in the CLI summary and can be scaffolded with `--emit-adapters`.
-- Missing descriptors simply skip validation. Add `metadata.port_types` to tighten contracts and unlock adapter hints.
+Read port metadata and compare producer/consumer descriptors:
+
+```bash
+pnpm tf typecheck <L0>
+```
+
+When a mismatch occurs, the checker searches the adapter registry for a bridge between the actual and expected descriptors. Suggested adapters appear in the CLI summary and can be scaffolded:
+
+```bash
+pnpm tf typecheck <L0> --emit-adapters <dir>
+```
+
+Missing descriptors simply skip validation. Add `metadata.port_types` to tighten contracts and unlock adapter hints.
 
 ## Authoring tips
 

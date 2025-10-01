@@ -76,19 +76,11 @@ async function runTypecheckCommand(rawArgs) {
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
-    if (arg === "--adapters") {
-      const next = argv[i + 1];
-      if (!next) {
-        console.error("usage: tf typecheck <L0_FILE> [--adapters <registry.json>]");
-        return 2;
-      }
-      registryPath = next;
-      i += 1;
-      continue;
-    }
-    const match = /^--adapters=(.+)$/u.exec(arg);
-    if (match) {
-      registryPath = match[1];
+    const adaptersHit = consumeFlagWithValue(argv, i, "adapters");
+    if (adaptersHit) {
+      if (adaptersHit.err) return adaptersHit.err;
+      registryPath = adaptersHit.value;
+      i = adaptersHit.i;
       continue;
     }
     if (arg === "--emit-adapters") {
@@ -907,14 +899,19 @@ function consumeFlagWithValue(argv, i, long) {
   const arg = argv[i];
   if (arg === `--${long}`) {
     const value = argv[i + 1];
-    if (value === undefined) {
+    if (value === undefined || value.startsWith('--')) {
       console.error(`missing value for --${long}`);
       return { i, err: 2 };
     }
     return { i: i + 1, value };
   }
   if (typeof arg === "string" && arg.startsWith(`--${long}=`)) {
-    return { i, value: arg.slice(long.length + 3) };
+    const raw = arg.slice(long.length + 3);
+    if (!raw || raw.startsWith("--")) {
+      console.error(`missing value for --${long}`);
+      return { i, err: 2 };
+    }
+    return { i, value: raw };
   }
   return null;
 }
@@ -1034,36 +1031,49 @@ async function runLawsCommand(rawArgs) {
     const report = await checkL0(file, options);
     const lawReports = report?.laws ?? {};
     const lawsList = [];
-    let overallGreen = true;
 
     for (const goal of LAW_GOALS) {
       const source = lawReports[goal.key];
       const snapshot = source ? { ...source } : { ok: true, results: [] };
-      snapshot.results = Array.isArray(snapshot.results) ? snapshot.results : [];
+      const results = Array.isArray(snapshot.results) ? [...snapshot.results] : [];
+      const goalOk = results.every((entry) => entry && entry.ok !== false && entry.status !== "ERROR");
+      snapshot.results = results;
       if (!snapshot.goal) snapshot.goal = goal.id;
       if (!snapshot.name) snapshot.name = goal.name;
       if (!snapshot.key) snapshot.key = goal.key;
-      const errorEntry = snapshot.results.some((entry) => entry?.status === "ERROR");
-      if (snapshot.ok === undefined) snapshot.ok = !errorEntry;
-      if (snapshot.ok === false || errorEntry) overallGreen = false;
+      if (snapshot.ok === undefined) {
+        snapshot.ok = goalOk;
+      } else if (snapshot.ok !== false) {
+        snapshot.ok = goalOk;
+      }
       lawsList.push({ meta: goal, report: snapshot });
     }
 
     for (const [rawKey, source] of Object.entries(lawReports)) {
       if (LAW_GOALS_BY_KEY.has(rawKey)) continue;
       const snapshot = source ? { ...source } : { ok: true, results: [] };
-      snapshot.results = Array.isArray(snapshot.results) ? snapshot.results : [];
+      const results = Array.isArray(snapshot.results) ? [...snapshot.results] : [];
+      const goalOk = results.every((entry) => entry && entry.ok !== false && entry.status !== "ERROR");
+      snapshot.results = results;
       if (snapshot.ok === undefined) {
-        const hasError = snapshot.results.some((entry) => entry?.status === "ERROR");
-        snapshot.ok = !hasError;
+        snapshot.ok = goalOk;
+      } else if (snapshot.ok !== false) {
+        snapshot.ok = goalOk;
       }
-      if (snapshot.ok === false || snapshot.results.some((entry) => entry?.status === "ERROR")) overallGreen = false;
       const meta = { id: rawKey, key: rawKey, name: rawKey, description: rawKey };
       if (!snapshot.goal) snapshot.goal = meta.id;
       if (!snapshot.name) snapshot.name = meta.name;
       if (!snapshot.key) snapshot.key = meta.key;
       lawsList.push({ meta, report: snapshot });
     }
+
+    const overallGreen = lawsList.every((entry) => {
+      const reportEntry = entry?.report ?? {};
+      const results = Array.isArray(reportEntry.results) ? reportEntry.results : [];
+      const goalOk = results.every((item) => item && item.ok !== false && item.status !== "ERROR");
+      if (reportEntry.ok === false) return false;
+      return goalOk;
+    });
 
     const status = overallGreen ? "GREEN" : "RED";
 

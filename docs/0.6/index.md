@@ -14,4 +14,14 @@
 
 ---
 
+## Macro laws
+
+- `state.merge@jsonpatch` – order-sensitive; no algebraic laws; root ops unsupported by design.
+- `state.merge@crdt.gcounter` – associative, commutative, idempotent (reported per-node).
+- `process.retry` – retry-safe when the wrapped RPC produces a stable `corr` (idempotent-by-corr).
+
+Auth tokens are minted as `base58(blake3 bytes)` of the canonical payload (secret + claims + alg).
+
+---
+
 [Back to top](#tf-lang-v06-specification)

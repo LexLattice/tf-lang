@@ -69,6 +69,10 @@ export function digestBlake3(value) {
   return blake3(toBytes(value));
 }
 
+export function blake3DigestBytes(value) {
+  return digestBlake3(value);
+}
+
 export function encodeBase58(input) {
   const bytes = input instanceof Uint8Array ? input : toBytes(input);
   if (bytes.length === 0) return '';

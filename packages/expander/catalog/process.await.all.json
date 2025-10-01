@@ -1,0 +1,13 @@
+{
+  "macro": "process.await.all",
+  "domain": "process",
+  "summary": "Wait for all reply_to channels and aggregate their messages in order.",
+  "expansion": {
+    "pattern": "pure+subscribe",
+    "nodes": ["Subscribe*", "Transform(await.all)"]
+  },
+  "laws": [],
+  "notes": [
+    "Deterministic aggregation; transform returns array aligned with source ordering."
+  ]
+}

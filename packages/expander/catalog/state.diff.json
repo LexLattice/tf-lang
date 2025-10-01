@@ -1,0 +1,15 @@
+{
+  "macro": "state.diff",
+  "domain": "state",
+  "summary": "Pure transform that computes {added, removed, changed} between two state objects.",
+  "expansion": {
+    "pattern": "pure-transform",
+    "transform": "state_diff",
+    "inputs": ["base|left", "target|right"],
+    "output": "diff object"
+  },
+  "laws": [],
+  "notes": [
+    "No IO performed; arrays/scalars treated as atomic leaves with fallback change entry."
+  ]
+}

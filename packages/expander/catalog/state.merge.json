@@ -1,0 +1,25 @@
+{
+  "macro": "state.merge",
+  "domain": "state",
+  "summary": "Merge patches into base state using either jsonpatch or CRDT g-counter semantics.",
+  "strategies": {
+    "jsonpatch": {
+      "transform": "jsonpatch.apply",
+      "laws": [],
+      "notes": [
+        "Order-sensitive patch application over plain objects only; no algebraic guarantees."
+      ]
+    },
+    "crdt.gcounter": {
+      "transform": "crdt.gcounter.merge",
+      "laws": [
+        { "kind": "associative" },
+        { "kind": "commutative" },
+        { "kind": "idempotent" }
+      ],
+      "notes": [
+        "Element-wise max merge for grow-only counters; total derived from component maxima."
+      ]
+    }
+  }
+}

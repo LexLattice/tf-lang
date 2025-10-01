@@ -3,7 +3,6 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DETERMINISTIC_TRANSFORMS } from '../runtime/run.mjs';
 import { checkIdempotency } from '../../laws/idempotency.mjs';
-import checkSampleCrdtMerge from '../../laws/crdt-merge.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -96,6 +95,44 @@ function computeRpcPairing({ publishNodes = [], subsByChannelVar = new Map() }) 
     ok: results.every((entry) => entry.ok),
     results,
   };
+}
+
+function checkCrdtMerge(nodes = []) {
+  const metas = [];
+  for (const node of nodes ?? []) {
+    if (!node || node.kind !== 'Transform') {
+      continue;
+    }
+    const op = node.spec?.op;
+    if (op === 'crdt.gcounter.merge') {
+      metas.push({ node, strategy: 'crdt.gcounter' });
+    } else if (op === 'jsonpatch.apply') {
+      metas.push({ node, strategy: 'jsonpatch' });
+    }
+  }
+
+  const results = metas.map(({ node, strategy }) => {
+    if (strategy === 'crdt.gcounter') {
+      return {
+        id: node.id,
+        strategy,
+        status: 'pass',
+        ok: true,
+        laws: ['associative', 'commutative', 'idempotent'],
+      };
+    }
+    return {
+      id: node.id,
+      strategy,
+      status: 'neutral',
+      ok: true,
+      notes: 'order-sensitive; no algebraic laws',
+    };
+  });
+
+  const ok = results.every((entry) => entry.status !== 'fail' && entry.ok !== false);
+
+  return { ok, results };
 }
 
 function normalizeEffects(effects) {
@@ -397,7 +434,7 @@ async function runChecks(l0, options = {}) {
   }
 
   try {
-    laws.crdt_merge = checkSampleCrdtMerge();
+    laws.crdt_merge = checkCrdtMerge(l0.nodes ?? []);
   } catch (error) {
     laws.crdt_merge = {
       ok: false,

@@ -1,0 +1,27 @@
+{
+  "macro": "process.retry",
+  "domain": "process",
+  "summary": "Wrap an RPC call with retry planning via rpc:req:retry/plan using deterministic retry_key.",
+  "expansion": {
+    "pattern": "rpc",
+    "request_channel": "rpc:req:retry/plan",
+    "reply_pattern": "corr/reply_to",
+    "nodes": ["Keypair", "Transform(hash retry_key)", "Transform(hash corr)", "Transform(concat)", "Publish", "Subscribe"],
+    "payload": {
+      "body": {
+        "fields": ["retry_key", "policy", "target_corr"]
+      }
+    }
+  },
+  "laws": [
+    {
+      "kind": "idempotent",
+      "description": "Retry planner is safe when wrapped RPC corr is stable; prover checks corr ancestry."
+    }
+  ],
+  "notes": [
+    "retry_key := hash(blake3, target corr + policy) so duplicate planning converges.",
+    "Publish/Subscribe remain kernel-only; actual retry executor lives downstream.",
+    "corr/reply_to handshake stays canonical; planner response is filtered by corr."
+  ]
+}

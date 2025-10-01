@@ -1,0 +1,17 @@
+{
+  "macro": "policy.enforce",
+  "domain": "policy",
+  "summary": "Deterministically evaluate policy_eval and publish a policy:enforce audit.",
+  "expansion": {
+    "pattern": "transform+publish",
+    "nodes": ["Transform(policy_eval)", "Publish"],
+    "publish": {
+      "channel": "policy:enforce",
+      "payload": ["decision", "inputs"],
+      "effects": ["Pure", "Outbound"]
+    }
+  },
+  "notes": [
+    "policy_eval stub is deterministic and pure (no IO); publish emits decision + original inputs for audit."
+  ]
+}

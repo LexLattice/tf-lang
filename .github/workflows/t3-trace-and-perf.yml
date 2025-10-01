@@ -18,11 +18,7 @@ jobs:
           install: 'true'
           frozen: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'merge_group' }}
           cache-dependency-path: '**/pnpm-lock.yaml'
-
-      # Build tf-check + its local deps + the TS runtime used by defaultCommand()
-      - run: pnpm --filter '@tf-lang/utils' -w run build
-      - run: pnpm --filter '@tf-lang/tf-check' -w run build
-      - run: pnpm --filter tf-lang-l0 -w run build
+          prepare: 'true'
 
       - name: Make trace dir
         run: mkdir -p out/t3/trace
@@ -50,8 +46,7 @@ jobs:
           install: 'true'
           frozen: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'merge_group' }}
           cache-dependency-path: '**/pnpm-lock.yaml'
-      - run: pnpm --filter '@tf-lang/utils' -w run build
-      - run: pnpm --filter tf-lang-l0 -w run build
+          prepare: 'true'
 
       - name: TS perf OFF
         run: DEV_PROOFS=0 node packages/tf-lang-l0-ts/scripts/measure-dev-proofs.js

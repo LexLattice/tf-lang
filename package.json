@@ -16,6 +16,7 @@
     "preinstall": "corepack enable pnpm",
     "verify:dist": "node scripts/verify-dist.mjs",
     "install:fresh": "node scripts/install-fresh.mjs && pnpm install",
+    "ci:prepare": "pnpm run a0 && pnpm run a1 && pnpm -w -r build && pnpm -C packages/tf-trace build",
     "check:fixtures": "tsx .codex/scripts/check-fixtures-json.ts",
     "audit": "node scripts/audit/run.mjs",
     "t5:build": "pnpm -w -r build",

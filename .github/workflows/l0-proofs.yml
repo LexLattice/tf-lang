@@ -26,12 +26,7 @@ jobs:
           cache-dependency-path: |
             pnpm-lock.yaml
             **/pnpm-lock.yaml
-
-      - name: A0/A1 + build
-        run: |
-          pnpm run a0
-          pnpm run a1
-          pnpm -w -r build
+          prepare: 'true'
 
       - name: Emit proof artifacts
         run: node scripts/proofs-emit-all.mjs

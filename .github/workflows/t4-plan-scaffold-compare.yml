@@ -14,8 +14,7 @@ jobs:
           node-version: '20'
           install: 'true'
           frozen: 'false'
-      - name: Build packages
-        run: pnpm -r build
+          prepare: 'true'
       - name: Prepare plan directory
         run: mkdir -p out/t4/plan
       - name: Enumerate plan (first pass)
@@ -43,8 +42,7 @@ jobs:
           node-version: '20'
           install: 'true'
           frozen: 'false'
-      - name: Build packages
-        run: pnpm -r build
+          prepare: 'true'
       - name: Prepare scaffold directory
         run: mkdir -p out/t4/scaffold
       - name: Download plan
@@ -72,8 +70,7 @@ jobs:
           node-version: '20'
           install: 'true'
           frozen: 'false'
-      - name: Build packages
-        run: pnpm -r build
+          prepare: 'true'
       - name: Prepare compare directory
         run: mkdir -p out/t4/compare
       - name: Download plan

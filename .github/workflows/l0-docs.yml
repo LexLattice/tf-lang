@@ -34,16 +34,10 @@ jobs:
           node-version: '20'
           install: 'true'
           frozen: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'merge_group' }}
+          prepare: 'true'
 
       - name: Install ripgrep (needed by sqlite.test.ts)
         run: sudo apt-get update && sudo apt-get install -y ripgrep
-
-      - name: Build (for lattice import)
-        run: |
-          pnpm run a0
-          pnpm run a1
-          pnpm -w -r build
-          pnpm -C packages/tf-trace build
 
       - name: Fast tests
         run: pnpm run test:fast

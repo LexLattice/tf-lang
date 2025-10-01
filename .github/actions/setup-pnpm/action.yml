@@ -23,6 +23,10 @@ inputs:
     description: Glob(s) to pnpm-lock.yaml for caching (supports globs)
     required: false
     default: '**/pnpm-lock.yaml'
+  prepare:
+    description: Run "pnpm run ci:prepare" after installation
+    required: false
+    default: 'false'
 
 runs:
   using: "composite"
@@ -70,3 +74,11 @@ runs:
           # IMPORTANT: CI defaults to frozen; force a thaw when callers opt out.
           pnpm install --no-frozen-lockfile
         fi
+
+    - name: Prepare workspace
+      if: ${{ inputs.prepare == 'true' }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        set -euxo pipefail
+        pnpm run ci:prepare

@@ -16,7 +16,7 @@
     "preinstall": "corepack enable pnpm",
     "verify:dist": "node scripts/verify-dist.mjs",
     "install:fresh": "node scripts/install-fresh.mjs && pnpm install",
-    "ci:prepare": "pnpm run a0 && pnpm run a1 && pnpm -w -r build && pnpm -C packages/tf-trace build",
+    "ci:prepare": "pnpm run a0 && pnpm run a1 && pnpm --filter '@tf-lang/tf-plan*' run build && pnpm --filter @tf-lang/tf-check run build && pnpm --filter @tf-lang/trace2tags run build && pnpm --filter @tf-lang/coverage-generator run build && pnpm --filter @tf-lang/adapter-execution-ts run build && pnpm --filter @tf-lang/utils run build && pnpm --filter ./packages/tf-trace run build && pnpm --filter ./packages/tf-lang-l0-ts run build && node -e \"try{require('node:fs').rmSync('apps/tf-studio/.next',{recursive:true,force:true});}catch(err){if(err?.code!=='ENOENT') throw err;}\"",
     "check:fixtures": "tsx .codex/scripts/check-fixtures-json.ts",
     "audit": "node scripts/audit/run.mjs",
     "t5:build": "pnpm -w -r build",

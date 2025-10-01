@@ -38,7 +38,10 @@ assert(dot.includes("P_else_path") && dot.includes("when: ¬branch_1_value"), "e
 
 const guardEdges = lines.filter((line) => line.includes("[style=dashed]"));
 assert.strictEqual(guardEdges.length, 2, "expected dashed guard edges for both branches");
-assert(guardEdges.every((line) => line.includes("n0 ->")), "guard edges should originate from the condition var producer");
+assert(
+  guardEdges.every((line) => line.includes('"T_branch_1" ->')),
+  "guard edges should originate from the condition var producer"
+);
 
 const dotNoGuards = renderPipelineGraph(doc, { showWhenEdges: false });
 assert(!dotNoGuards.includes("[style=dashed]"), "suppressed guard edges should not render dashed edges");

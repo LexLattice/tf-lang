@@ -189,3 +189,15 @@ export function buildDotGraph(doc = {}, options = {}) {
   // Fallback
   return buildDotFromNodes([], { title: "pipeline", strict });
 }
+
+export function renderPipelineGraph(doc, options = {}) {
+  const { showWhenEdges = true, strict = false, ...rest } = options ?? {};
+  let dot = buildDotGraph(doc, { strict, ...rest });
+  if (!showWhenEdges) {
+    dot = dot
+      .split("\n")
+      .filter((line) => !(line.includes("->") && line.includes("[style=dashed]")))
+      .join("\n");
+  }
+  return dot;
+}

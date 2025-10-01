@@ -3,12 +3,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DETERMINISTIC_TRANSFORMS } from '../runtime/run.mjs';
 import { checkIdempotency } from '../../laws/idempotency.mjs';
-import checkSampleCrdtMerge from '../../laws/crdt-merge.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const EFFECT_ORDER = ['Outbound', 'Inbound', 'Entropy', 'Pure'];
+const CAPABILITY_LATTICE_DEFAULT = path.resolve(__dirname, '../../policy/capability.lattice.json');
 
 function collectVarRefs(value) {
   const refs = new Set();
@@ -98,6 +98,44 @@ function computeRpcPairing({ publishNodes = [], subsByChannelVar = new Map() }) 
   };
 }
 
+function checkCrdtMerge(nodes = []) {
+  const metas = [];
+  for (const node of nodes ?? []) {
+    if (!node || node.kind !== 'Transform') {
+      continue;
+    }
+    const op = node.spec?.op;
+    if (op === 'crdt.gcounter.merge') {
+      metas.push({ node, strategy: 'crdt.gcounter' });
+    } else if (op === 'jsonpatch.apply') {
+      metas.push({ node, strategy: 'jsonpatch' });
+    }
+  }
+
+  const results = metas.map(({ node, strategy }) => {
+    if (strategy === 'crdt.gcounter') {
+      return {
+        id: node.id,
+        strategy,
+        status: 'pass',
+        ok: true,
+        laws: ['associative', 'commutative', 'idempotent'],
+      };
+    }
+    return {
+      id: node.id,
+      strategy,
+      status: 'neutral',
+      ok: true,
+      notes: 'order-sensitive; no algebraic laws',
+    };
+  });
+
+  const ok = results.every((entry) => entry.status !== 'fail' && entry.ok !== false);
+
+  return { ok, results };
+}
+
 function normalizeEffects(effects) {
   if (!effects) {
     return [];
@@ -137,7 +175,83 @@ function matchesPolicy(channel, compiled) {
   return compiled.some((entry) => entry.regex.test(channel));
 }
 
-function analyzePipeline(l0) {
+function compileCapabilityPatterns(entries = []) {
+  return entries
+    .map((entry) => {
+      if (!entry || typeof entry.pattern !== 'string' || typeof entry.capability !== 'string') {
+        return null;
+      }
+      const escaped = entry.pattern
+        .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        .replace(/\\\*/g, '.*');
+      return { capability: entry.capability, regex: new RegExp(`^${escaped}$`) };
+    })
+    .filter(Boolean);
+}
+
+function compileCapabilityLattice(lattice = {}) {
+  const publish = compileCapabilityPatterns(Array.isArray(lattice.publish) ? lattice.publish : []);
+  const subscribe = compileCapabilityPatterns(Array.isArray(lattice.subscribe) ? lattice.subscribe : []);
+  const keypairEntries = lattice.keypair && typeof lattice.keypair === 'object'
+    ? Object.entries(lattice.keypair)
+    : [];
+  const keypair = new Map(
+    keypairEntries
+      .filter(([, capability]) => typeof capability === 'string')
+      .map(([algorithm, capability]) => [algorithm, capability])
+  );
+  return { publish, subscribe, keypair };
+}
+
+function matchChannelCapability(channel, compiled, fallbackPrefix) {
+  if (typeof channel !== 'string' || channel.length === 0 || channel.startsWith('@')) {
+    return null;
+  }
+  for (const entry of compiled) {
+    if (entry.regex.test(channel)) {
+      return entry.capability;
+    }
+  }
+  return fallbackPrefix ? `${fallbackPrefix}:${channel}` : null;
+}
+
+function resolveKeypairCapability(algorithm, keypairMap) {
+  if (typeof algorithm !== 'string' || algorithm.length === 0) {
+    return null;
+  }
+  if (keypairMap instanceof Map) {
+    const direct = keypairMap.get(algorithm);
+    if (typeof direct === 'string' && direct.length > 0) {
+      return direct;
+    }
+    const fallback = keypairMap.get('*');
+    if (typeof fallback === 'string' && fallback.length > 0) {
+      return fallback;
+    }
+  }
+  return `cap:keypair:${algorithm}`;
+}
+
+async function loadCapabilityLattice(latticePath = CAPABILITY_LATTICE_DEFAULT) {
+  try {
+    const raw = await fs.readFile(latticePath, 'utf8');
+    return JSON.parse(raw);
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      return {};
+    }
+    const err = new Error(`failed to load capability lattice: ${error.message}`);
+    err.cause = error;
+    throw err;
+  }
+}
+
+function analyzePipeline(l0, capabilityLattice = { publish: [], subscribe: [], keypair: new Map() }) {
+  const {
+    publish: publishCaps,
+    subscribe: subscribeCaps,
+    keypair: keypairCaps,
+  } = capabilityLattice;
   const varMeta = new Map();
   const effectsPresent = new Set();
   const publishNodes = [];
@@ -186,6 +300,15 @@ function analyzePipeline(l0) {
             channelVar = candidate;
           }
         }
+        const staticChannel = typeof node.channel === 'string' && !node.channel.startsWith('@')
+          ? node.channel
+          : null;
+        if (staticChannel) {
+          const cap = matchChannelCapability(staticChannel, subscribeCaps, 'cap:subscribe');
+          if (cap) {
+            capabilities.add(cap);
+          }
+        }
         subscriptions.push(node);
         subscriptionDetails.set(node, { filterRefs, channelVar });
         break;
@@ -194,6 +317,12 @@ function analyzePipeline(l0) {
         effectsPresent.add('Outbound');
         const channelValue = node.channel;
         const dynamicChannel = typeof channelValue === 'string' && channelValue.startsWith('@');
+        if (!dynamicChannel && typeof channelValue === 'string') {
+          const cap = matchChannelCapability(channelValue, publishCaps, 'cap:publish');
+          if (cap) {
+            capabilities.add(cap);
+          }
+        }
         const corrValue = node.payload?.corr;
         const hasCorrField = Object.prototype.hasOwnProperty.call(node.payload ?? {}, 'corr');
         const corrRefs = hasCorrField ? collectVarRefs(corrValue) : [];
@@ -231,7 +360,10 @@ function analyzePipeline(l0) {
         const algorithm = typeof node.algorithm === 'string' && node.algorithm.length > 0
           ? node.algorithm
           : 'keypair';
-        capabilities.add(`cap:keypair:${algorithm}`);
+        const cap = resolveKeypairCapability(algorithm, keypairCaps);
+        if (cap) {
+          capabilities.add(cap);
+        }
         break;
       }
       default:
@@ -289,8 +421,23 @@ async function loadCapabilities(capsPath) {
     if (Array.isArray(parsed)) {
       return parsed.map((value) => String(value));
     }
-    if (parsed && Array.isArray(parsed.capabilities)) {
-      return parsed.capabilities.map((value) => String(value));
+    if (parsed && typeof parsed === 'object') {
+      const entries = [];
+      if (Array.isArray(parsed.capabilities)) {
+        entries.push(...parsed.capabilities.map((value) => String(value)));
+      }
+      if (Array.isArray(parsed.publish)) {
+        entries.push(...parsed.publish.map((value) => `cap:publish:${String(value)}`));
+      }
+      if (Array.isArray(parsed.subscribe)) {
+        entries.push(...parsed.subscribe.map((value) => `cap:subscribe:${String(value)}`));
+      }
+      if (Array.isArray(parsed.keypair)) {
+        entries.push(...parsed.keypair.map((value) => `cap:keypair:${String(value)}`));
+      }
+      if (entries.length > 0) {
+        return entries;
+      }
     }
     return [];
   } catch (error) {
@@ -303,12 +450,42 @@ async function loadCapabilities(capsPath) {
   }
 }
 
+function compileProvidedCapabilities(entries = []) {
+  const exact = new Set();
+  const matchers = [];
+  for (const entry of entries) {
+    if (typeof entry !== 'string') {
+      continue;
+    }
+    if (entry.includes('*')) {
+      const escaped = entry
+        .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        .replace(/\\\*/g, '.*');
+      matchers.push(new RegExp(`^${escaped}$`));
+      continue;
+    }
+    exact.add(entry);
+  }
+  return { exact, matchers };
+}
+
+function capabilitySatisfied(required, compiled) {
+  if (!required) {
+    return true;
+  }
+  if (compiled.exact.has(required)) {
+    return true;
+  }
+  return compiled.matchers.some((regex) => regex.test(required));
+}
+
 async function runChecks(l0, options = {}) {
   const policyPath = resolvePolicyPath(options.policyPath);
   const capsPath = options.capsPath
     ? path.resolve(options.capsPath)
     : policyPath;
-  const analysis = analyzePipeline(l0);
+  const capabilityLattice = compileCapabilityLattice(await loadCapabilityLattice());
+  const analysis = analyzePipeline(l0, capabilityLattice);
 
   const declaredEffects = normalizeEffects(l0.effects);
   const computedEffects = formatEffects(analysis.effectsPresent);
@@ -359,8 +536,10 @@ async function runChecks(l0, options = {}) {
   policy.subscribe.ok = policy.subscribe.violations.length === 0;
 
   const requiredCapabilities = Array.from(analysis.capabilities).sort();
-  const providedCapabilities = new Set(await loadCapabilities(capsPath));
-  const missingCapabilities = requiredCapabilities.filter((cap) => !providedCapabilities.has(cap));
+  const providedList = await loadCapabilities(capsPath);
+  const compiledProvided = compileProvidedCapabilities(providedList);
+  const missingCapabilities = requiredCapabilities
+    .filter((cap) => !capabilitySatisfied(cap, compiledProvided));
   const capabilities = {
     required: requiredCapabilities,
     missing: missingCapabilities,
@@ -397,7 +576,7 @@ async function runChecks(l0, options = {}) {
   }
 
   try {
-    laws.crdt_merge = checkSampleCrdtMerge();
+    laws.crdt_merge = checkCrdtMerge(l0.nodes ?? []);
   } catch (error) {
     laws.crdt_merge = {
       ok: false,

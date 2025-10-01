@@ -10,7 +10,16 @@ import Ajv from "ajv";
 import { loadRulebookPlan, rulesForPhaseFromPlan } from "./expand.mjs";
 import { summarizeEffects } from "./lib/effects.mjs";
 import { buildDotGraph } from "./lib/dot.mjs";
+
+// Track G (instances)
 import annotateInstances, { normalizeChannel } from "../../packages/expander/resolve.mjs";
+
+// Track F (typecheck)
+import { typecheckFile, formatPortPath } from "../../packages/typechecker/typecheck.mjs";
+
+// Track H (laws)
+import { checkL0 } from "../../packages/checker/check.mjs";
+import { findCounterexample } from "../../packages/prover/counterexample.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..", "..");
@@ -29,6 +38,98 @@ async function loadJsonFile(targetPath) {
   const content = await readFile(filePath, "utf8");
   return JSON.parse(content);
 }
+
+/* ----------------------- Track F: typecheck helpers ----------------------- */
+
+function defaultAdapterRegistry() {
+  return path.join(repoRoot, "adapters", "registry.json");
+}
+
+function portLabelOf(mismatch) {
+  const portName =
+    mismatch.port ??
+    (Array.isArray(mismatch.portPath) ? formatPortPath(mismatch.portPath) : null);
+  if (portName && portName !== "default") {
+    return `${mismatch.nodeId}.${portName}`;
+  }
+  return `${mismatch.nodeId}`;
+}
+
+function formatMismatchLine(mismatch, describe) {
+  const base = ` - ${portLabelOf(mismatch)}: ${mismatch.sourceVar} (${describe(
+    mismatch.actual
+  )}) → ${describe(mismatch.expected)}`;
+  return mismatch.adapter
+    ? `${base} via Transform(op: ${mismatch.adapter.op})`
+    : base;
+}
+
+async function runTypecheckCommand(rawArgs) {
+  const argv = Array.isArray(rawArgs) ? [...rawArgs] : rawArgs ? [rawArgs] : [];
+  let registryPath = defaultAdapterRegistry();
+  const files = [];
+
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === "--adapters") {
+      const next = argv[i + 1];
+      if (!next) {
+        console.error("usage: tf typecheck <L0_FILE> [--adapters <registry.json>]");
+        return 2;
+      }
+      registryPath = next;
+      i += 1;
+      continue;
+    }
+    const match = /^--adapters=(.+)$/u.exec(arg);
+    if (match) {
+      registryPath = match[1];
+      continue;
+    }
+    files.push(arg);
+  }
+
+  if (files.length !== 1) {
+    console.error("usage: tf typecheck <L0_FILE> [--adapters <registry.json>]");
+    return 2;
+  }
+
+  const [file] = files;
+
+  let report;
+  try {
+    report = await typecheckFile(file, { registryPath });
+  } catch (error) {
+    console.error(`${file}: ${error?.message ?? error}`);
+    return 1;
+  }
+
+  const describe = typeof report.describe === "function" ? report.describe : () => "unknown";
+
+  if (report.status === "ok" && report.mismatches.length === 0) {
+    console.log("OK");
+    return 0;
+  }
+
+  if (report.status === "needs-adapter") {
+    const suggestions = report.suggestions ?? report.mismatches ?? [];
+    const count = suggestions.length;
+    console.log(`OK with ${count} suggestion(s)`);
+    for (const mismatch of suggestions) {
+      console.log(formatMismatchLine(mismatch, describe));
+    }
+    return 0;
+  }
+
+  const mismatches = report.mismatches ?? [];
+  console.log(`FAILED with ${mismatches.length} mismatch(es)`);
+  for (const mismatch of mismatches) {
+    console.log(formatMismatchLine(mismatch, describe));
+  }
+  return 1;
+}
+
+/* -------------------------- Shared schema helpers ------------------------- */
 
 function inferKindFromFile(filePath) {
   if (filePath.endsWith(".l0.json")) return "l0";
@@ -88,6 +189,8 @@ async function runValidateCommand(args) {
   return exitCode;
 }
 
+/* ------------------------------ Effects / DOT ----------------------------- */
+
 async function runEffectsCommand(file) {
   if (!file) {
     console.error("usage: tf effects <FILE>");
@@ -110,8 +213,14 @@ async function runGraphCommand(rawArgs) {
   const files = [];
 
   for (const arg of argv) {
-    if (arg === "--strict-graph") { strictGraph = true; continue; }
-    if (arg === "--no-strict-graph") { strictGraph = false; continue; }
+    if (arg === "--strict-graph") {
+      strictGraph = true;
+      continue;
+    }
+    if (arg === "--no-strict-graph") {
+      strictGraph = false;
+      continue;
+    }
     const match = /^--strict-graph=(.+)$/u.exec(arg);
     if (match) {
       const value = match[1].toLowerCase();
@@ -137,6 +246,8 @@ async function runGraphCommand(rawArgs) {
     return 1;
   }
 }
+
+/* --------------------------- Rulebook / Checkpoint ------------------------ */
 
 function rbPath(node) {
   const p = path.join("tf", "blocks", node, "rulebook.yml");
@@ -167,7 +278,11 @@ function run(cmd, env) {
     env: { ...process.env, ...env },
     maxBuffer: 10 * 1024 * 1024
   });
-  return { code: r.status ?? 99, stdout: (r.stdout || "").trim(), stderr: (r.stderr || "").trim() };
+  return {
+    code: r.status ?? 99,
+    stdout: (r.stdout || "").trim(),
+    stderr: (r.stderr || "").trim()
+  };
 }
 
 function check(res, expect) {
@@ -182,7 +297,9 @@ function check(res, expect) {
     try {
       const j = JSON.parse(res.stdout || "{}");
       if (!!j.ok !== expect.ok) return { ok: false };
-    } catch { return { ok: false }; }
+    } catch {
+      return { ok: false };
+    }
   }
   if (expect.jsonpath_eq) {
     try {
@@ -191,13 +308,17 @@ function check(res, expect) {
       const key = k.replace(/^\$\./, "");
       const want = expect.jsonpath_eq[k];
       if (JSON.stringify(j[key]) !== JSON.stringify(want)) return { ok: false };
-    } catch { return { ok: false }; }
+    } catch {
+      return { ok: false };
+    }
   }
   if (expect.nonempty) {
     try {
       const j = JSON.parse(res.stdout || "{}");
       if (Object.keys(j).length === 0) return { ok: false };
-    } catch { return { ok: false }; }
+    } catch {
+      return { ok: false };
+    }
   }
   return { ok: true };
 }
@@ -212,6 +333,8 @@ function explainPlan(plan, targetPhase) {
   };
   process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
 }
+
+/* ------------------------ Track G: plan-instances CLI --------------------- */
 
 function channelScheme(channel) {
   const value = normalizeChannel(channel);
@@ -353,11 +476,326 @@ async function runPlanInstancesCommand(rawArgs) {
   }
 }
 
+/* --------------------------- Track H: laws CLI ---------------------------- */
+
+function summarizeLawStatus(report) {
+  if (!report) return "NEUTRAL";
+  const entries = Array.isArray(report.results) ? report.results : [];
+  if (entries.some((entry) => entry.status === "ERROR")) return "RED";
+  if (entries.some((entry) => entry.status === "WARN")) return "WARN";
+  if (entries.some((entry) => entry.status === "PASS")) return "PASS";
+  if (entries.length === 0) return report.ok === false ? "RED" : "NEUTRAL";
+  return entries[0]?.status ?? "NEUTRAL";
+}
+
+function printBranchEntry(entry) {
+  const label = entry.branch || entry.guardVar || "(branch)";
+  const parts = [`  - ${label}: ${entry.status}`];
+  if (entry.guard) parts.push(`guard=${entry.guard}`);
+  if (entry.proved === true) parts.push("proved=true");
+  else if (entry.proved === false) parts.push("proved=false");
+  if (entry.reason) parts.push(`reason=${entry.reason}`);
+  console.log(parts.join(" "));
+}
+
+function printMonotonicEntry(entry) {
+  const parts = [`  - ${entry.id ?? "(node)"}: ${entry.status}`];
+  if (entry.assumption) parts.push(`assumption=${entry.assumption}`);
+  if (entry.reason) parts.push(`reason=${entry.reason}`);
+  console.log(parts.join(" "));
+}
+
+function printConfidentialEntry(entry) {
+  const parts = [`  - ${entry.id ?? "(node)"}: ${entry.status}`];
+  if (entry.reason) parts.push(`reason=${entry.reason}`);
+  if (entry.satisfied === true) parts.push("satisfied=true");
+  else if (entry.satisfied === false) parts.push("satisfied=false");
+  console.log(parts.join(" "));
+}
+
+function formatAssignment(assignment) {
+  if (!assignment || typeof assignment !== "object") {
+    return "(none)";
+  }
+  const keys = Object.keys(assignment).sort();
+  if (keys.length === 0) {
+    return "(empty)";
+  }
+  return keys.map((key) => `${key}=${assignment[key] ? "true" : "false"}`).join(", ");
+}
+
+function collectBranchVariables(entry) {
+  const variables = new Set();
+  const add = (items = []) => {
+    for (const item of items) {
+      const name = item?.guard?.var;
+      if (typeof name === "string") {
+        variables.add(name);
+      }
+    }
+  };
+  add(entry?.positive);
+  add(entry?.negative);
+  return Array.from(variables).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+}
+
+function sortBranchResults(entries = []) {
+  return [...entries].sort((a, b) => {
+    const aKey = a.branch ?? a.guardVar ?? "";
+    const bKey = b.branch ?? b.guardVar ?? "";
+    if (aKey < bKey) return -1;
+    if (aKey > bKey) return 1;
+    return 0;
+  });
+}
+
+function sortNodeResults(entries = []) {
+  return [...entries].sort((a, b) => {
+    const aId = a.id ?? "";
+    const bId = b.id ?? "";
+    if (aId < bId) return -1;
+    if (aId > bId) return 1;
+    const aChannel = a.channel ?? "";
+    const bChannel = b.channel ?? "";
+    if (aChannel < bChannel) return -1;
+    if (aChannel > bChannel) return 1;
+    return 0;
+  });
+}
+
+function consumeFlagWithValue(argv, i, long) {
+  const arg = argv[i];
+  if (arg === `--${long}`) {
+    const value = argv[i + 1];
+    if (value === undefined) {
+      console.error(`missing value for --${long}`);
+      return { i, err: 2 };
+    }
+    return { i: i + 1, value };
+  }
+  if (typeof arg === "string" && arg.startsWith(`--${long}=`)) {
+    return { i, value: arg.slice(long.length + 3) };
+  }
+  return null;
+}
+
+function evaluateGuard(guard, assignment) {
+  if (!guard || guard.kind !== "var" || typeof guard.var !== "string") {
+    return false;
+  }
+  const value = Boolean(assignment[guard.var]);
+  return guard.negated ? !value : value;
+}
+
+function evaluateBranchEntry(entry, assignment) {
+  const positives = Array.isArray(entry?.positive) ? entry.positive : [];
+  const negatives = Array.isArray(entry?.negative) ? entry.negative : [];
+  const positiveActive = positives.some((item) => evaluateGuard(item.guard, assignment));
+  const negativeActive = negatives.some((item) => evaluateGuard(item.guard, assignment));
+  return !(positiveActive && negativeActive);
+}
+
+async function runLawsCommand(rawArgs) {
+  const argv = Array.isArray(rawArgs) ? [...rawArgs] : [];
+  if (argv[0] !== "--check" || !argv[1]) {
+    console.error(
+      "usage: tf laws --check <L0_FILE> [--goal branch-exclusive] [--max-bools N] [--json] [--policy <path>] [--caps <path>]"
+    );
+    return 2;
+  }
+
+  const file = argv[1];
+  let goal = null;
+  let maxBools = 8;
+  let jsonMode = false;
+  let policyPath;
+  let capsPath;
+
+  for (let i = 2; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (!arg) continue;
+
+    const goalHit = consumeFlagWithValue(argv, i, "goal");
+    if (goalHit) {
+      if (goalHit.err) return goalHit.err;
+      goal = goalHit.value;
+      i = goalHit.i;
+      continue;
+    }
+
+    const maxBoolsHit = consumeFlagWithValue(argv, i, "max-bools");
+    if (maxBoolsHit) {
+      if (maxBoolsHit.err) return maxBoolsHit.err;
+      maxBools = Number(maxBoolsHit.value);
+      i = maxBoolsHit.i;
+      continue;
+    }
+
+    if (arg === "--json") {
+      jsonMode = true;
+      continue;
+    }
+
+    const policyHit = consumeFlagWithValue(argv, i, "policy");
+    if (policyHit) {
+      if (policyHit.err) return policyHit.err;
+      policyPath = policyHit.value;
+      i = policyHit.i;
+      continue;
+    }
+
+    const capsHit = consumeFlagWithValue(argv, i, "caps");
+    if (capsHit) {
+      if (capsHit.err) return capsHit.err;
+      capsPath = capsHit.value;
+      i = capsHit.i;
+      continue;
+    }
+
+    console.error(`unknown option: ${arg}`);
+    return 2;
+  }
+
+  if (goal && goal !== "branch-exclusive") {
+    console.error(`unknown goal: ${goal}`);
+    return 2;
+  }
+  if (!Number.isInteger(maxBools) || Number.isNaN(maxBools) || maxBools < 1) {
+    console.error("invalid --max-bools value");
+    return 2;
+  }
+
+  try {
+    const options = {};
+    if (policyPath) options.policyPath = policyPath;
+    if (capsPath) options.capsPath = capsPath;
+
+    const report = await checkL0(file, options);
+    const lawReports = report?.laws ?? {};
+    const order = ["branch_exclusive", "monotonic_log", "confidential_envelope"];
+    const normalized = {};
+    let overallGreen = true;
+
+    for (const name of order) {
+      const source = lawReports[name];
+      const snapshot = source ? { ...source } : { ok: true, results: [] };
+      snapshot.results = Array.isArray(snapshot.results) ? snapshot.results : [];
+      const errorEntry = snapshot.results.some((entry) => entry?.status === "ERROR");
+      if (snapshot.ok === undefined) snapshot.ok = !errorEntry;
+      if (snapshot.ok === false || errorEntry) overallGreen = false;
+      normalized[name] = snapshot;
+    }
+
+    const status = overallGreen ? "GREEN" : "RED";
+
+    let counterexample = null;
+    if (!overallGreen && goal === "branch-exclusive") {
+      const branchReport = normalized.branch_exclusive;
+      const failing = branchReport?.results?.find((entry) => entry.status === "ERROR");
+      if (failing) {
+        const variables = collectBranchVariables(failing);
+        try {
+          counterexample = findCounterexample({
+            goal: "branch-exclusive",
+            guard: failing.guard ?? null,
+            reason: failing.reason ?? "overlap",
+            variables,
+            positive: failing.positive,
+            negative: failing.negative,
+            predicate: (candidate) => evaluateBranchEntry(failing, candidate),
+            maxBools
+          });
+        } catch (error) {
+          if (!jsonMode) {
+            console.error(`counterexample search failed: ${error?.message ?? error}`);
+          }
+          return 1;
+        }
+      }
+    }
+
+    if (jsonMode) {
+      const output = {
+        status,
+        laws: {}
+      };
+      for (const name of order) output.laws[name] = normalized[name];
+      if (status === "RED" && goal === "branch-exclusive" && counterexample) {
+        output.counterexample = counterexample;
+      }
+      console.log(JSON.stringify(output, null, 2));
+    } else {
+      console.log(`Laws for ${file}:`);
+      console.log(`status: ${status}`);
+      for (const name of order) {
+        const law = normalized[name];
+        const summary = summarizeLawStatus(law);
+        console.log(`${name}: ${summary}`);
+        const entries = Array.isArray(law.results) ? law.results : [];
+        if (entries.length === 0) {
+          console.log("  (no matches)");
+          continue;
+        }
+        let sorted = entries;
+        if (name === "branch_exclusive") sorted = sortBranchResults(entries);
+        else sorted = sortNodeResults(entries);
+
+        for (const entry of sorted) {
+          if (name === "branch_exclusive") printBranchEntry(entry);
+          else if (name === "monotonic_log") printMonotonicEntry(entry);
+          else if (name === "confidential_envelope") printConfidentialEntry(entry);
+          else console.log(`  - ${JSON.stringify(entry)}`);
+        }
+      }
+
+      if (status === "RED" && goal === "branch-exclusive") {
+        if (counterexample) {
+          const guardText = counterexample.guard ? ` guard=${counterexample.guard}` : "";
+          console.log(
+            `Counterexample: ${formatAssignment(counterexample.assignment)} reason=${counterexample.reason}${guardText}`
+          );
+          const triggered = counterexample.triggered ?? {};
+          const positive =
+            Array.isArray(triggered.positive) && triggered.positive.length > 0
+              ? triggered.positive.join(", ")
+              : "(none)";
+          const negative =
+            Array.isArray(triggered.negative) && triggered.negative.length > 0
+              ? triggered.negative.join(", ")
+              : "(none)";
+          console.log(`  positive: ${positive}`);
+          console.log(`  negative: ${negative}`);
+        } else {
+          console.log("Counterexample: none found within bounds");
+        }
+      }
+    }
+
+    return overallGreen ? 0 : 1;
+  } catch (error) {
+    console.error(error?.message ?? error);
+    return 1;
+  }
+}
+
+/* --------------------------------- Usage ---------------------------------- */
+
 function usage() {
-  console.log("usage: tf <validate|effects|graph|open|run|explain|plan-instances> ...");
+  console.log(
+    "usage: tf <validate|effects|graph|typecheck|plan-instances|laws|open|run|explain> ..."
+  );
+  console.log("       tf validate [l0|l2] <FILE...>");
+  console.log("       tf effects <FILE>");
+  console.log("       tf graph [--strict-graph[=true|false]] <FILE>");
+  console.log("       tf typecheck <L0_FILE> [--adapters <registry.json>]");
   console.log("       tf plan-instances [--registry <path>] [--group-by domain|scheme] <FILE>");
+  console.log(
+    "       tf laws --check <L0_FILE> [--goal branch-exclusive] [--max-bools N] [--json] [--policy <path>] [--caps <path>]"
+  );
   process.exit(2);
 }
+
+/* --------------------------------- Main ----------------------------------- */
 
 (async function main() {
   const [cmd, ...argv] = process.argv.slice(2);
@@ -378,14 +816,27 @@ function usage() {
     process.exit(code);
   }
 
+  if (cmd === "typecheck") {
+    const code = await runTypecheckCommand(argv);
+    process.exit(code);
+  }
+
   if (cmd === "plan-instances") {
     const code = await runPlanInstancesCommand(argv);
     process.exit(code);
   }
 
+  if (cmd === "laws") {
+    const code = await runLawsCommand(argv);
+    process.exit(code);
+  }
+
   if (cmd === "open") {
     const [node] = argv;
-    if (!node) { console.error("usage: tf open <NODE>"); process.exit(2); }
+    if (!node) {
+      console.error("usage: tf open <NODE>");
+      process.exit(2);
+    }
     const plan = loadRulebookPlan(rbPath(node));
     console.log("Node:", node);
     console.log("Phases:", [...plan.phases.keys()].join(", "));
@@ -416,8 +867,11 @@ function usage() {
     if (diffIndex !== -1 && rest[diffIndex + 1] === "-") {
       diff = fs.readFileSync(0, "utf8");
     } else {
-      try { diff = execSync("git diff -U0 --no-color", { encoding: "utf8" }); }
-      catch { diff = ""; }
+      try {
+        diff = execSync("git diff -U0 --no-color", { encoding: "utf8" });
+      } catch {
+        diff = "";
+      }
     }
 
     const diffPath = writeDiff(diff);
@@ -432,16 +886,29 @@ function usage() {
         const missing = (r.files || []).filter((f) => !fs.existsSync(f));
         const ok = missing.length === 0;
         results[r.id] = { ok, reason: ok ? null : `missing:${missing.join(",")}` };
-        evidence.push({ id: r.id, cmd: "fs", code: ok ? 0 : 1, out: JSON.stringify({ missing }) });
+        evidence.push({
+          id: r.id,
+          cmd: "fs",
+          code: ok ? 0 : 1,
+          out: JSON.stringify({ missing })
+        });
         if (!ok) console.error(`[FAIL] ${r.id} — missing ${missing.join(", ")}`);
         continue;
       }
       const command = r.cmd || r.command;
-      if (!command) { results[r.id] = { ok: false, reason: "unsupported-kind" }; continue; }
+      if (!command) {
+        results[r.id] = { ok: false, reason: "unsupported-kind" };
+        continue;
+      }
       const res = run(command, { ...(r.env || {}), DIFF_PATH: diffPath });
       const ch = check(res, r.expect || {});
       results[r.id] = { ok: ch.ok, code: res.code, reason: ch.reason || null };
-      evidence.push({ id: r.id, cmd: command, code: res.code, out: (res.stdout || "").slice(0, 2000) });
+      evidence.push({
+        id: r.id,
+        cmd: command,
+        code: res.code,
+        out: (res.stdout || "").slice(0, 2000)
+      });
       if (!ch.ok) console.error(`[FAIL] ${r.id} — ${command}`);
     }
 

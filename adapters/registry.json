@@ -1,0 +1,25 @@
+{
+  "adapters": [
+    {
+      "id": "csv_to_json",
+      "op": "adapter.csv_to_json",
+      "description": "Convert OrderV1 CSV payloads into JSON documents",
+      "from": { "schemaRef": "OrderV1", "format": "csv" },
+      "to": { "schemaRef": "OrderV1", "format": "json" }
+    },
+    {
+      "id": "json_to_avro",
+      "op": "adapter.json_to_avro",
+      "description": "Convert OrderV1 JSON payloads into Avro records",
+      "from": { "schemaRef": "OrderV1", "format": "json" },
+      "to": { "schemaRef": "OrderV1", "format": "avro" }
+    },
+    {
+      "id": "fnol_csv_to_json",
+      "op": "adapter.fnol_csv_to_json",
+      "description": "Normalize FNOL submissions from CSV to JSON",
+      "from": { "schemaRef": "FnolV1", "format": "csv" },
+      "to": { "schemaRef": "FnolV1", "format": "json" }
+    }
+  ]
+}

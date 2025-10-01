@@ -151,6 +151,36 @@ function expandPolicyEvaluate(ctx, alias, args, when) {
   pushNode(ctx, node, when);
 }
 
+function expandPolicyEnforce(ctx, alias, args, when) {
+  if (!('input' in args)) {
+    throw new Error('policy.enforce requires input');
+  }
+  const decisionVar = `enf_${alias}`;
+  pushNode(ctx, {
+    id: `T_${alias}`,
+    kind: 'Transform',
+    spec: {
+      op: 'policy_eval',
+      policy: args.policy,
+    },
+    in: {
+      input: args.input,
+    },
+    out: { var: decisionVar },
+  }, when);
+
+  pushNode(ctx, {
+    id: `P_${alias}`,
+    kind: 'Publish',
+    channel: 'policy:enforce',
+    qos: args.qos || 'at_least_once',
+    payload: {
+      decision: `@${decisionVar}`,
+      inputs: args.input,
+    },
+  }, when);
+}
+
 function buildCanonicalRequestObject(identityVar, args, method) {
   const canonical = {
     k: `@${identityVar}.public_key_pem`,
@@ -164,6 +194,66 @@ function buildCanonicalRequestObject(identityVar, args, method) {
     canonical.body = args.body;
   }
   return canonical;
+}
+
+function expandRpc(ctx, alias, { endpoint, method = 'POST', query, body, qos, response_qos }, when) {
+  const idVar = `${alias}_identity`;
+  const corrVar = `${alias}_corr`;
+  const repVar = `${alias}_reply_to`;
+
+  pushNode(ctx, {
+    id: `K_${alias}_identity`,
+    kind: 'Keypair',
+    algorithm: 'Ed25519',
+    out: { var: idVar },
+  }, when);
+
+  pushNode(ctx, {
+    id: `T_${alias}_corr`,
+    kind: 'Transform',
+    spec: { op: 'hash', alg: 'blake3' },
+    in: buildCanonicalRequestObject(idVar, { endpoint, query, body }, method),
+    out: { var: corrVar },
+  }, when);
+
+  pushNode(ctx, {
+    id: `T_${alias}_reply_to`,
+    kind: 'Transform',
+    spec: { op: 'concat' },
+    in: ['rpc:reply:', `@${corrVar}`],
+    out: { var: repVar },
+  }, when);
+
+  const payload = {
+    method,
+    corr: `@${corrVar}`,
+    reply_to: `@${repVar}`,
+  };
+  if (query !== undefined) {
+    payload.query = query;
+  }
+  if (body !== undefined) {
+    payload.body = body;
+  }
+
+  pushNode(ctx, {
+    id: `P_${alias}`,
+    kind: 'Publish',
+    channel: `rpc:req:${endpoint}`,
+    qos: qos || 'at_least_once',
+    payload,
+  }, when);
+
+  pushNode(ctx, {
+    id: `S_${alias}`,
+    kind: 'Subscribe',
+    channel: `@${repVar}`,
+    qos: response_qos || 'at_least_once',
+    filter: `@${corrVar}`,
+    out: { var: alias },
+  }, when);
+
+  return { idVar, corrVar, repVar };
 }
 
 function expandInteractionRequest(ctx, alias, args, when) {
@@ -293,11 +383,225 @@ function expandPolicyRecordDecision(ctx, alias, args, when) {
 }
 
 function expandStateDiff(ctx, alias, args, when) {
+  const base = args.base ?? args.left ?? {};
+  const target = args.target ?? args.right ?? {};
   pushNode(ctx, {
     id: `T_${alias}`,
     kind: 'Transform',
     spec: { op: 'state_diff' },
-    in: { base: args.base, target: args.target },
+    in: { base, target },
+    out: { var: alias },
+  }, when);
+}
+
+function expandStateSnapshot(ctx, alias, args, when) {
+  if (!('entity_id' in args)) {
+    throw new Error('state.snapshot requires entity_id');
+  }
+  const body = { entity_id: args.entity_id };
+  expandRpc(
+    ctx,
+    alias,
+    {
+      endpoint: 'state/snapshot',
+      method: 'POST',
+      body,
+      qos: args.qos,
+      response_qos: args.response_qos,
+    },
+    when,
+  );
+}
+
+function expandStateVersion(ctx, alias, args, when) {
+  if (!('entity_id' in args)) {
+    throw new Error('state.version requires entity_id');
+  }
+  const body = {
+    entity_id: args.entity_id,
+    changeset: args.changeset ?? {},
+  };
+  expandRpc(
+    ctx,
+    alias,
+    {
+      endpoint: 'state/version',
+      method: 'POST',
+      body,
+      qos: args.qos,
+      response_qos: args.response_qos,
+    },
+    when,
+  );
+}
+
+function expandStateMerge(ctx, alias, args, when) {
+  const strategy = args.strategy || 'jsonpatch';
+  const base = args.base ?? {};
+  const patch = args.patch ?? {};
+  const node = {
+    id: `T_${alias}`,
+    kind: 'Transform',
+    in: { base, patch },
+    out: { var: alias },
+  };
+
+  if (strategy === 'jsonpatch') {
+    node.spec = { op: 'jsonpatch.apply' };
+    node.notes = ['order-sensitive patch application (no algebraic laws)'];
+  } else if (strategy === 'crdt.gcounter') {
+    node.spec = { op: 'crdt.gcounter.merge' };
+    node.laws = [
+      { id: 'law:merge-associative', kind: 'associative' },
+      { id: 'law:merge-commutative', kind: 'commutative' },
+      { id: 'law:merge-idempotent', kind: 'idempotent' },
+    ];
+  } else {
+    throw new Error(`state.merge: unsupported strategy ${strategy}`);
+  }
+
+  node.meta = { ...(node.meta || {}), strategy };
+  pushNode(ctx, node, when);
+}
+
+function expandProcessRetry(ctx, alias, args, when) {
+  const targetVar = refToVar(args.req);
+  if (!targetVar) {
+    throw new Error('process.retry requires req to reference a target request');
+  }
+  const retryKeyVar = `${alias}_retry_key`;
+  const policy = args.policy ?? {};
+
+  pushNode(ctx, {
+    id: `T_${alias}_retry_key`,
+    kind: 'Transform',
+    spec: { op: 'hash', alg: 'blake3' },
+    in: { target_corr: `@${targetVar}.corr`, policy },
+    out: { var: retryKeyVar },
+  }, when);
+  expandRpc(
+    ctx,
+    alias,
+    {
+      endpoint: 'retry/plan',
+      method: 'POST',
+      body: {
+        retry_key: `@${retryKeyVar}`,
+        policy,
+        target_corr: `@${targetVar}.corr`,
+      },
+      qos: args.qos,
+      response_qos: args.response_qos,
+    },
+    when,
+  );
+}
+
+function normalizeAwaitSources(alias, raw) {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    throw new Error(`${alias}: requires a non-empty sources array`);
+  }
+  return raw.map((entry, index) => {
+    if (typeof entry === 'string') {
+      return { channel: entry, index };
+    }
+    if (entry && typeof entry === 'object') {
+      const channel = entry.channel || entry.reply_to || entry.value;
+      if (!channel) {
+        throw new Error(`${alias}: source ${index} is missing channel`);
+      }
+      const filter = entry.filter || entry.corr || null;
+      return { channel, filter, index };
+    }
+    throw new Error(`${alias}: unsupported source at index ${index}`);
+  });
+}
+
+function expandProcessAwaitAny(ctx, alias, args, when) {
+  const sources = normalizeAwaitSources('process.await.any', args.sources || args.targets || args.inputs);
+  const vars = [];
+
+  sources.forEach((source, index) => {
+    const varName = `${alias}_${index}`;
+    vars.push(varName);
+    pushNode(ctx, {
+      id: `S_${alias}_${index}`,
+      kind: 'Subscribe',
+      channel: source.channel,
+      qos: args.qos || 'at_least_once',
+      filter: source.filter || undefined,
+      out: { var: varName },
+    }, when);
+  });
+
+  pushNode(ctx, {
+    id: `T_${alias}`,
+    kind: 'Transform',
+    spec: { op: 'await.any' },
+    in: { events: vars.map((name) => `@${name}`) },
+    out: { var: alias },
+  }, when);
+}
+
+function expandProcessAwaitAll(ctx, alias, args, when) {
+  const sources = normalizeAwaitSources('process.await.all', args.sources || args.targets || args.inputs);
+  const vars = [];
+
+  sources.forEach((source, index) => {
+    const varName = `${alias}_${index}`;
+    vars.push(varName);
+    pushNode(ctx, {
+      id: `S_${alias}_${index}`,
+      kind: 'Subscribe',
+      channel: source.channel,
+      qos: args.qos || 'at_least_once',
+      filter: source.filter || undefined,
+      out: { var: varName },
+    }, when);
+  });
+
+  pushNode(ctx, {
+    id: `T_${alias}`,
+    kind: 'Transform',
+    spec: { op: 'await.all' },
+    in: { events: vars.map((name) => `@${name}`) },
+    out: { var: alias },
+  }, when);
+}
+
+function expandProcessTimeout(ctx, alias, args, when) {
+  if (!('ms' in args)) {
+    throw new Error('process.timeout requires ms');
+  }
+  const body = {
+    trigger: {
+      kind: 'timeout',
+      ms: args.ms,
+      reply_to: args.reply_to,
+    },
+  };
+  expandRpc(
+    ctx,
+    alias,
+    {
+      endpoint: 'scheduler.request',
+      method: 'POST',
+      body,
+      qos: args.qos,
+      response_qos: args.response_qos,
+    },
+    when,
+  );
+}
+
+function expandProcessSaga(ctx, alias, args, when) {
+  const steps = Array.isArray(args.steps) ? args.steps : [];
+  const compensations = Array.isArray(args.compensations) ? args.compensations : [];
+  pushNode(ctx, {
+    id: `T_${alias}`,
+    kind: 'Transform',
+    spec: { op: 'process.saga.plan' },
+    in: { steps, compensations },
     out: { var: alias },
   }, when);
 }
@@ -367,11 +671,20 @@ const MACROS = {
   'transform.validate': expandTransformValidate,
   'transform.model_infer': expandTransformModelInfer,
   'policy.evaluate': expandPolicyEvaluate,
+  'policy.enforce': expandPolicyEnforce,
   'interaction.request': expandInteractionRequest,
   'interaction.reply': expandInteractionReply,
   'obs.emit_metric': expandObsEmitMetric,
   'policy.record_decision': expandPolicyRecordDecision,
+  'state.snapshot': expandStateSnapshot,
+  'state.version': expandStateVersion,
   'state.diff': expandStateDiff,
+  'state.merge': expandStateMerge,
+  'process.retry': expandProcessRetry,
+  'process.await.any': expandProcessAwaitAny,
+  'process.await.all': expandProcessAwaitAll,
+  'process.timeout': expandProcessTimeout,
+  'process.saga': expandProcessSaga,
   'process.schedule': expandProcessSchedule,
 };
 

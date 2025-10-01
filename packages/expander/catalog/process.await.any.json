@@ -1,0 +1,14 @@
+{
+  "macro": "process.await.any",
+  "domain": "process",
+  "summary": "Fan-in multiple reply_to channels and pick the first delivered message deterministically.",
+  "expansion": {
+    "pattern": "pure+subscribe",
+    "nodes": ["Subscribe*", "Transform(await.any)"]
+  },
+  "laws": [],
+  "notes": [
+    "Subscriptions listen on provided reply_to channels optionally filtered by corr.",
+    "await.any transform chooses the first non-null event in declaration order (deterministic)."
+  ]
+}

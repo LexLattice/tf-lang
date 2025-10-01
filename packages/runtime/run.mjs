@@ -1,6 +1,17 @@
 import { createHash } from 'node:crypto';
 import { blake3 } from '@noble/hashes/blake3.js';
+import { stableStringify, encodeBase58 } from '../util/encoding.mjs';
 import { deepClone } from '../util/clone.mjs';
+import {
+  applyJsonPatch,
+  mergeGCounter,
+  parseTimestampInput,
+  resolveIntervalMs,
+  alignTimestamp,
+  formatIso,
+  computeSagaId,
+} from '../ops/xforms.mjs';
+import { mintTokenDeterministic, checkTokenDeterministic } from '../ops/auth.mjs';
 import createMemoryBus from './bus.memory.mjs';
 
 export const DETERMINISTIC_TRANSFORMS = new Set([
@@ -13,20 +24,72 @@ export const DETERMINISTIC_TRANSFORMS = new Set([
   'encode_base58',
   'model_infer',
   'policy_eval',
+  'state_diff',
+  'jsonpatch.apply',
+  'crdt.gcounter.merge',
+  'await.any',
+  'await.all',
+  'time.parseTimestamp',
+  'time.align',
+  'time.windowKey',
+  'auth.sign',
+  'auth.verify',
+  'auth.mint_token',
+  'auth.check_token',
+  'process.saga.plan',
 ]);
 
-export function stableStringify(value) {
-  if (value === null || typeof value !== 'object') {
-    return JSON.stringify(value);
-  }
-  if (Array.isArray(value)) {
-    return `[${value.map((item) => stableStringify(item)).join(',')}]`;
-  }
-  const entries = Object.keys(value)
-    .sort()
-    .map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`);
-  return `{${entries.join(',')}}`;
+export { stableStringify };
+
+function isPlainObject(value) {
+  if (!value || typeof value !== 'object') return false;
+  if (Array.isArray(value)) return false;
+  if (value instanceof Uint8Array) return false;
+  if (Buffer.isBuffer(value)) return false;
+  return true;
 }
+
+function stateDiff(base, target) {
+  const result = { added: {}, removed: {}, changed: {} };
+  if (!isPlainObject(base) || !isPlainObject(target)) {
+    // Non-object inputs are treated as leaf states; differences surface as a root "" change entry.
+    if (stableStringify(base) !== stableStringify(target)) {
+      result.changed[''] = { from: base, to: target };
+    }
+    return result;
+  }
+  for (const key of Object.keys(target)) {
+    if (!(key in base)) {
+      result.added[key] = deepClone(target[key]);
+    }
+  }
+  for (const key of Object.keys(base)) {
+    if (!(key in target)) {
+      result.removed[key] = deepClone(base[key]);
+    }
+  }
+  for (const key of Object.keys(target)) {
+    if (!(key in base)) continue;
+    const left = base[key];
+    const right = target[key];
+    if (isPlainObject(left) && isPlainObject(right)) {
+      const nested = stateDiff(left, right);
+      if (
+        Object.keys(nested.added).length
+        || Object.keys(nested.removed).length
+        || Object.keys(nested.changed).length
+      ) {
+        result.changed[key] = nested;
+      }
+      continue;
+    }
+    if (stableStringify(left) !== stableStringify(right)) {
+      result.changed[key] = { from: deepClone(left), to: deepClone(right) };
+    }
+  }
+  return result;
+}
+
 
 function toBuffer(value) {
   if (Buffer.isBuffer(value)) {
@@ -140,30 +203,6 @@ function evaluateWhen(condition, context) {
   }
 }
 
-function encodeBase58(value) {
-  const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-  const input = Buffer.from(String(value ?? ''), 'utf8');
-  if (input.length === 0) {
-    return '';
-  }
-  let zeros = 0;
-  for (const byte of input) {
-    if (byte === 0) {
-      zeros += 1;
-    } else {
-      break;
-    }
-  }
-  let num = BigInt(`0x${input.toString('hex')}`);
-  let encoded = '';
-  while (num > 0n) {
-    const rem = Number(num % 58n);
-    encoded = alphabet[rem] + encoded;
-    num /= 58n;
-  }
-  return '1'.repeat(zeros) + encoded;
-}
-
 function makeKeypair(node) {
   const algorithm = node.algorithm ?? 'Keypair';
   const label = node.id ?? algorithm;
@@ -225,6 +264,75 @@ function evaluateTransform(node, context) {
         reason: 'stub-allow',
         input,
       };
+    case 'state_diff':
+      return stateDiff(input.base ?? {}, input.target ?? {});
+    case 'jsonpatch.apply':
+      return applyJsonPatch(input.base ?? {}, input.patch ?? input.operations ?? []);
+    case 'crdt.gcounter.merge':
+      return mergeGCounter(input.base ?? {}, input.patch ?? {});
+    case 'await.any': {
+      const events = Array.isArray(input.events) ? input.events : [];
+      for (let i = 0; i < events.length; i += 1) {
+        const event = events[i];
+        if (event !== undefined && event !== null) {
+          return { index: i, event };
+        }
+      }
+      return { index: -1, event: null };
+    }
+    case 'await.all':
+      return (Array.isArray(input.events) ? input.events : []).map((event) => (event === undefined ? null : event));
+    case 'time.parseTimestamp': {
+      const epochMs = parseTimestampInput(input.value ?? input.timestamp ?? input.time);
+      return { epoch_ms: epochMs, iso: formatIso(epochMs) };
+    }
+    case 'time.align': {
+      const epochMs = parseTimestampInput(input.value ?? input.timestamp ?? input.time);
+      const intervalMs = resolveIntervalMs(spec);
+      const aligned = alignTimestamp(epochMs, intervalMs);
+      return { epoch_ms: aligned, iso: formatIso(aligned), interval_ms: intervalMs };
+    }
+    case 'time.windowKey': {
+      const epochMs = parseTimestampInput(input.value ?? input.timestamp ?? input.time);
+      const intervalMs = resolveIntervalMs(spec);
+      const start = alignTimestamp(epochMs, intervalMs);
+      const end = start + intervalMs;
+      return {
+        start_ms: start,
+        end_ms: end,
+        key: `${formatIso(start)}/${formatIso(end)}`,
+        interval_ms: intervalMs,
+      };
+    }
+    case 'auth.sign': {
+      const alg = spec.alg ?? 'blake3';
+      const payload = stableStringify({ key: input.key, payload: input.payload, alg });
+      return { signature: hashPayload(payload, { alg }), alg };
+    }
+    case 'auth.verify': {
+      const alg = spec.alg ?? 'blake3';
+      const payload = stableStringify({ key: input.key, payload: input.payload, alg });
+      const expected = hashPayload(payload, { alg });
+      const provided = String(input.signature ?? '');
+      return { valid: expected === provided, expected, provided, alg };
+    }
+    case 'auth.mint_token': {
+      const alg = spec.alg ?? 'blake3';
+      return mintTokenDeterministic({ secret: input.secret, claims: input.claims, alg });
+    }
+    case 'auth.check_token': {
+      const alg = spec.alg ?? 'blake3';
+      const { token: expected } = mintTokenDeterministic({ secret: input.secret, claims: input.claims, alg });
+      const provided = String(input.token ?? '');
+      const valid = checkTokenDeterministic(provided, { secret: input.secret, claims: input.claims, alg });
+      return { valid, expected, provided, alg };
+    }
+    case 'process.saga.plan': {
+      const steps = Array.isArray(input.steps) ? deepClone(input.steps) : [];
+      const compensations = Array.isArray(input.compensations) ? deepClone(input.compensations) : [];
+      const sagaId = computeSagaId(steps, compensations);
+      return { saga_id: sagaId, steps, compensations };
+    }
     default:
       throw new Error(`unsupported transform op: ${op}`);
   }

@@ -8,35 +8,35 @@ inputs:
   - quote: interaction.receive(endpoint: "api/quote/submit", qos: "at_least_once")
 
 steps:
-  - validate_request: transform.validate(schema: "AutoQuoteRequestV2", input: "@quote.body")
+  - validate_request: transform.validate(schema: "AutoQuoteRequestV2", input: "@quote.body") # types: in.value={schemaRef:"AutoQuoteRequestV2",format:"json"}; out={schemaRef:"AutoQuoteRequestV2",format:"json"}
 
-  - rate: transform.model_infer(model: "auto.quote.rate.v2", input: "@quote.body")
+  - rate: transform.model_infer(model: "auto.quote.rate.v2", input: "@quote.body") # types: in.input={schemaRef:"AutoQuoteRequestV2",format:"json"}; out={schemaRef:"AutoQuoteRateV2",format:"json"}
 
   - risk_rules: policy.evaluate(policy: "auto.quote.risk_rules.v2",
-                                input: { quote: "@quote.body", rate: "@rate_out" })
+                                input: { quote: "@quote.body", rate: "@rate_out" }) # out={schemaRef:"AutoQuoteRiskRulesV2",format:"json"}
 
   - offer: transform.compose(template: { quote_id: "@quote.body.quote_id",
                                           premium: "@rate_out.premium",
                                           coverages: "@risk_rules_out.coverages",
-                                          terms: "@risk_rules_out.terms" })
+                                          terms: "@risk_rules_out.terms" }) # out={schemaRef:"AutoQuoteOfferV2",format:"json"}
 
   - bind: interaction.request(endpoint: "api/bindings/sign", method: "POST",
                                body: { quote_id: "@quote.body.quote_id",
                                        applicant: "@quote.body.applicant",
-                                       offer: "@offer_out" })
+                                       offer: "@offer_out" }) # body type={schemaRef:"AutoQuoteBindingRequestV2",format:"json"}
 
   - issue: interaction.request(endpoint: "api/policy/issue", method: "POST",
                                 body: { quote_id: "@quote.body.quote_id",
-                                        binding_id: "@bind.response.binding_id" })
+                                        binding_id: "@bind.response.binding_id" }) # body type={schemaRef:"AutoPolicyIssueRequestV2",format:"json"}
 
   - schedule_first_payment: interaction.request(endpoint: "api/payments/schedule", method: "POST",
                                                  body: { policy_id: "@issue.response.policy_id",
                                                          amount: "@offer_out.premium",
-                                                         due_at: "@issue.response.first_due_at" })
+                                                         due_at: "@issue.response.first_due_at" }) # body type={schemaRef:"AutoPaymentScheduleV1",format:"json"}
 
   - metric: obs.emit_metric(name: "quote.bind.issue.completed", value: 1,
                              tags: { product: "@quote.body.product",
-                                     policy_id: "@issue.response.policy_id" })
+                                     policy_id: "@issue.response.policy_id" }) # tags type={schemaRef:"QuoteBindMetricTagsV1",format:"json"}
 
 outputs:
-  - ack: interaction.reply(to: "@quote", status: "accepted")
+  - ack: interaction.reply(to: "@quote", status: "accepted") # reply type={schemaRef:"AutoQuoteAckV2",format:"json"}

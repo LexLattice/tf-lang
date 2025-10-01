@@ -1,0 +1,8 @@
+{
+  "default": "@Memory",
+  "rules": [
+    { "when": { "domain": "interaction", "channel": "rpc:req:*" }, "use": "@HTTP" },
+    { "when": { "domain": "obs", "channel": "metric:*" }, "use": "@MetricsMemory" },
+    { "when": { "domain": "policy" }, "use": "@Memory" }
+  ]
+}

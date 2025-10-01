@@ -1,0 +1,15 @@
+{
+  "macro": "process.saga",
+  "domain": "process",
+  "summary": "Plan saga steps/compensations as a pure transform.",
+  "expansion": {
+    "pattern": "pure-transform",
+    "transform": "process.saga.plan",
+    "inputs": ["steps", "compensations"],
+    "output": "{saga_id, steps, compensations}"
+  },
+  "laws": [],
+  "notes": [
+    "saga_id computed via blake3 hash of canonical step lists; no external IO."
+  ]
+}

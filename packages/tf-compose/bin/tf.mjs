@@ -26,11 +26,11 @@ async function run() {
   function arg(k) { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : null; }
 
   const cmd = args[0];
-  if (!cmd || ['parse', 'check', 'canon', 'emit', 'manifest', 'fmt', 'show'].indexOf(cmd) < 0) {
-    console.error('Usage: tf <parse|check|canon|emit|manifest|fmt|show> <flow.tf> [--out path] [--lang ts|rs] [--write|-w]');
+  if (!cmd || ['parse', 'check', 'canon', 'emit', 'manifest', 'fmt', 'show', 'typecheck'].indexOf(cmd) < 0) {
+    console.error('Usage: tf <parse|check|canon|emit|manifest|fmt|show|typecheck> <flow.tf> [--out path] [--lang ts|rs] [--write|-w]');
     process.exit(2);
   }
-  const optionKeys = new Set(['--out', '-o', '--lang', '--base']);
+  const optionKeys = new Set(['--out', '-o', '--lang', '--base', '--registry']);
   let file = null;
   for (let i = 1; i < args.length; i++) {
     const token = args[i];
@@ -54,6 +54,64 @@ async function run() {
     await writeFile(target, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
     console.log(`wrote ${target} (${report.status})`);
     process.exit(report.status === 'GREEN' ? 0 : 1);
+  }
+
+  if (cmd === 'typecheck') {
+    if (!file.endsWith('.l0.json')) {
+      console.error('typecheck expects an .l0.json file');
+      process.exit(2);
+    }
+    let registryPath = null;
+    for (let i = 1; i < args.length; i += 1) {
+      const token = args[i];
+      if (token === '--registry') {
+        registryPath = args[i + 1] ?? null;
+        break;
+      }
+      if (token.startsWith('--registry=')) {
+        registryPath = token.slice('--registry='.length);
+        break;
+      }
+    }
+    if (registryPath && registryPath.startsWith('-')) {
+      console.error('missing value for --registry');
+      process.exit(2);
+    }
+    const { typecheckFile } = await import('../../typechecker/typecheck.mjs');
+    const result = await typecheckFile(file, { registryPath: registryPath ?? undefined });
+    const describe = typeof result.describe === 'function'
+      ? result.describe
+      : (value) => JSON.stringify(value);
+    if (result.status === 'ok') {
+      console.log(`typecheck: ok (${result.checkedNodes} nodes checked)`);
+    } else if (result.status === 'needs-adapter') {
+      console.log(`typecheck: adapters suggested for ${result.mismatches.length} mismatch(es)`);
+      for (const mismatch of result.mismatches) {
+        if (!mismatch.adapter) {
+          continue;
+        }
+        const portLabel = mismatch.port && mismatch.port !== 'default'
+          ? `${mismatch.nodeId}.${mismatch.port}`
+          : `${mismatch.nodeId}`;
+        console.log(
+          ` - ${portLabel}: ${mismatch.sourceVar} (${describe(mismatch.actual)}) → ${describe(mismatch.expected)} via Transform(op: ${mismatch.adapter.op})`
+        );
+      }
+    } else {
+      console.log(`typecheck: ${result.mismatches.length} mismatch(es) found`);
+      for (const mismatch of result.mismatches) {
+        const portLabel = mismatch.port && mismatch.port !== 'default'
+          ? `${mismatch.nodeId}.${mismatch.port}`
+          : `${mismatch.nodeId}`;
+        const adapterHint = mismatch.adapter
+          ? ` (suggested Transform(op: ${mismatch.adapter.op}))`
+          : '';
+        console.log(
+          ` - ${portLabel}: ${mismatch.sourceVar} (${describe(mismatch.actual)}) → ${describe(mismatch.expected)}${adapterHint}`
+        );
+      }
+    }
+    process.exit(result.status === 'error' ? 1 : 0);
   }
 
   const src = await readFile(file, 'utf8');
@@ -159,7 +217,7 @@ async function run() {
     process.exit(0);
   }
 
-  console.error('Usage: tf <parse|check|canon|emit|manifest|fmt|show> <flow.tf> [--out path] [--lang ts|rs] [--write|-w]');
+  console.error('Usage: tf <parse|check|canon|emit|manifest|fmt|show|typecheck> <flow.tf> [--out path] [--lang ts|rs] [--write|-w]');
   process.exit(2);
 }
 

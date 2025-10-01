@@ -1,0 +1,22 @@
+{
+  "macro": "state.snapshot",
+  "domain": "state",
+  "summary": "Fetch a canonical state snapshot via RPC using corr/reply_to flow.",
+  "expansion": {
+    "pattern": "rpc",
+    "request_channel": "rpc:req:state/snapshot",
+    "reply_pattern": "corr/reply_to",
+    "nodes": ["Keypair", "Transform(hash blake3)", "Transform(concat)", "Publish", "Subscribe"]
+  },
+  "laws": [
+    {
+      "kind": "idempotent",
+      "by": "stable corr hash",
+      "description": "Stable corr hashed from canonical request makes retries idempotent."
+    }
+  ],
+  "notes": [
+    "Expander materializes an Ed25519 keypair for signing the canonical request body.",
+    "corr is derived from hash(blake3) of {k,e,m,body}; reply_to is rpc:reply:<corr>."
+  ]
+}

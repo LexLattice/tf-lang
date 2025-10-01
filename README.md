@@ -1,8 +1,22 @@
-# TF‑Lang (v0.5) — True Functions, Algebra & Deterministic Pipelines
+# TF‑Lang (v0.6) — True Functions, Algebra & Deterministic Pipelines
 
 [![Pages](https://github.com/LexLattice/tf-lang/actions/workflows/pages.yml/badge.svg?branch=main)](https://github.com/LexLattice/tf-lang/actions/workflows/pages.yml)
 
 **Live site:** [https://LexLattice.github.io/tf-lang/](https://LexLattice.github.io/tf-lang/)
+
+## TF-Lang v0.6 — What’s new
+
+- Minimal **L0 kernel** (Transform, Publish, Subscribe, Keypair) + computed effects
+- **L1 macro growth**: state/process/policy/time/auth with jsonpatch/crdt merge strategies
+- **Checker & laws**: idempotency (by corr), RPC pairing, branch exclusivity, monotonic log, confidential envelope
+- **Type system**: light port typing, adapter suggestions (`tf typecheck`)
+- **Instance planning**: registry v2 + `tf plan-instances` (domain/scheme views)
+- **Examples & monitors**: FNOL fast-track, Quote→Bind→Issue, 24h SLA monitors
+- **Studio UI (preview)**: graph, laws, typecheck, instance plan, playground
+
+Entry points: [v0.6 review](out/0.6/review/README.md), [Top issues roll-up](out/0.6/review/_summary/ALL.md), [Track proposals](out/0.6/review/_proposals/INDEX.md), [Examples index](examples/v0.6/).
+
+---
 
 **CI:**
 [CI: T4 Plan/Scaffold/Compare](.github/workflows/t4-plan-scaffold-compare.yml) •

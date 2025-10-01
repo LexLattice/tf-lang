@@ -1,0 +1,22 @@
+{
+  "macro": "state.version",
+  "domain": "state",
+  "summary": "Submit a changeset for versioning an entity via the state/version RPC endpoint.",
+  "expansion": {
+    "pattern": "rpc",
+    "request_channel": "rpc:req:state/version",
+    "reply_pattern": "corr/reply_to",
+    "payload": "POST body {entity_id, changeset}",
+    "nodes": ["Keypair", "Transform(hash blake3)", "Transform(concat)", "Publish", "Subscribe"]
+  },
+  "laws": [
+    {
+      "kind": "idempotent",
+      "by": "stable corr hash",
+      "description": "Hash(blake3) of the canonical request stabilizes corr for retries."
+    }
+  ],
+  "notes": [
+    "changeset payload is passed through unchanged; macro emits kernel-only graph."
+  ]
+}

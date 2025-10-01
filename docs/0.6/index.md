@@ -14,4 +14,11 @@
 
 ---
 
+## Macro laws
+
+- `state.merge@crdt.gcounter` – associative, commutative, idempotent merge of grow-only counters.
+- `process.retry` – retry-safe when the wrapped RPC produces a stable `corr` (idempotent-by-corr).
+
+---
+
 [Back to top](#tf-lang-v06-specification)

@@ -1,0 +1,23 @@
+{
+  "macro": "process.timeout",
+  "domain": "process",
+  "summary": "Schedule a timeout trigger via rpc:req:scheduler.request using corr/reply_to envelope.",
+  "expansion": {
+    "pattern": "rpc",
+    "request_channel": "rpc:req:scheduler.request",
+    "reply_pattern": "corr/reply_to",
+    "payload": {
+      "body": "trigger = {kind: timeout, ms, reply_to}"
+    },
+    "nodes": ["Keypair", "Transform(hash blake3)", "Transform(concat)", "Publish", "Subscribe"]
+  },
+  "laws": [
+    {
+      "kind": "idempotent",
+      "description": "Stable corr derived from canonical hash proves retry-safe scheduling."
+    }
+  ],
+  "notes": [
+    "Deterministic trigger planning only; scheduling handshake stays within kernel primitives."
+  ]
+}

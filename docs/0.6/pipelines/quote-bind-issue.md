@@ -4,8 +4,12 @@ The quote pipeline validates incoming requests, prices the risk, applies underwr
 rules, and composes a bindable offer. Once the applicant signs, it issues the policy,
 schedules the first payment, and emits operational telemetry for tracking.
 
-If generated, open [diagrams/auto.quote.bind.issue.v2.svg](../../diagrams/auto.quote.bind.issue.v2.svg)
-for a zoomable view of the graph.
+Render the [source DOT file](../../../diagrams/auto.quote.bind.issue.v2.dot) with Graphviz to
+produce an SVG when you need a zoomable view of the graph:
+
+```bash
+dot -Tsvg diagrams/auto.quote.bind.issue.v2.dot -o out/0.6/tmp/auto.quote.bind.issue.v2.svg
+```
 
 ```dot
 digraph G {

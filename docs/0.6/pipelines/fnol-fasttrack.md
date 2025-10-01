@@ -5,8 +5,12 @@ assesses severity and fraud, and routes the claim directly to payout when the el
 policy allows it. Otherwise, the claim is routed to an adjuster while decisions and
 metrics are recorded for audit.
 
-If generated, open [diagrams/auto.fnol.fasttrack.v1.svg](../../diagrams/auto.fnol.fasttrack.v1.svg)
-for a zoomable view of the graph.
+Render the [source DOT file](../../../diagrams/auto.fnol.fasttrack.v1.dot) with Graphviz to
+produce an SVG when you need a zoomable view of the graph:
+
+```bash
+dot -Tsvg diagrams/auto.fnol.fasttrack.v1.dot -o out/0.6/tmp/auto.fnol.fasttrack.v1.svg
+```
 
 ```dot
 digraph G {

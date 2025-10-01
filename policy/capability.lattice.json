@@ -1,11 +1,17 @@
 {
   "publish": [
     { "pattern": "rpc:req:*", "capability": "cap:publish:rpc:req:*" },
-    { "pattern": "rpc:reply:*", "capability": "cap:publish:rpc:reply:*" }
+    { "pattern": "rpc:reply:*", "capability": "cap:publish:rpc:reply:*" },
+    { "pattern": "metric:*", "capability": "cap:publish:metric:*" },
+    { "pattern": "policy:*", "capability": "cap:publish:policy:*" },
+    { "pattern": "auth:*", "capability": "cap:publish:auth:*" }
   ],
   "subscribe": [
     { "pattern": "rpc:req:*", "capability": "cap:subscribe:rpc:req:*" },
-    { "pattern": "rpc:reply:*", "capability": "cap:subscribe:rpc:reply:*" }
+    { "pattern": "rpc:reply:*", "capability": "cap:subscribe:rpc:reply:*" },
+    { "pattern": "metric:*", "capability": "cap:subscribe:metric:*" },
+    { "pattern": "policy:*", "capability": "cap:subscribe:policy:*" },
+    { "pattern": "auth:*", "capability": "cap:subscribe:auth:*" }
   ],
   "keypair": {
     "Ed25519": "cap:keypair:Ed25519",

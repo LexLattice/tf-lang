@@ -228,6 +228,32 @@ function parseErrorRow(text) {
   }
   if (!row.fix) row.fix = row.cause || 'Document mitigation';
   if (!row.cause) row.cause = 'Investigate root cause';
+
+  const normalize = (value) => (value || '').replace(/\s+/g, ' ').trim();
+  row.symptom = normalize(row.symptom);
+  row.cause = normalize(row.cause);
+  row.fix = normalize(row.fix);
+
+  if (!row.symptom || !row.cause || !row.fix) {
+    return null;
+  }
+  if (row.cause.toLowerCase() === 'investigate root cause') {
+    return null;
+  }
+
+  const lowerSymptom = row.symptom.toLowerCase();
+  const lowerCause = row.cause.toLowerCase();
+  const lowerFix = row.fix.toLowerCase();
+  if (lowerSymptom === lowerCause) {
+    row.cause = `Cause — ${row.cause}`;
+  }
+  if (lowerCause === lowerFix) {
+    row.fix = `Resolve cause: ${row.fix}`;
+  }
+  if (lowerSymptom === lowerFix) {
+    row.fix = `Mitigate symptom: ${row.fix}`;
+  }
+
   return row;
 }
 
@@ -421,6 +447,7 @@ function structureIssues(julesIssues, codexIssues) {
   const uniqueCodex = [];
   for (const entry of map.values()) {
     const record = {
+      key: entry.key,
       title: entry.text,
       evidence: [],
       severity: heuristicSeverity(entry.text),
@@ -547,7 +574,7 @@ async function main() {
     const improvementsRaw = dedupe(gatherBulletsFromSections(merged.get('next-improvements') || [])).slice(0, 3);
     const improvements = improvementsRaw.map(tidyImprovement);
 
-    const errorRowsAll = errors.map(parseErrorRow);
+    const errorRowsAll = errors.map(parseErrorRow).filter(Boolean);
     const seenSymptoms = new Set();
     const errorRows = [];
     for (const row of errorRowsAll) {
@@ -614,7 +641,7 @@ async function main() {
     finalLines.push('');
 
     const finalPath = `${pair.base}.final.md`;
-    await fs.writeFile(finalPath, finalLines.join('\n'));
+    await fs.writeFile(finalPath, `${finalLines.join('\n')}\n`);
 
     const synthLines = [];
     synthLines.push(`# Track ${trackKey} · synthesis`);
@@ -647,7 +674,7 @@ async function main() {
 
     await ensureDir(path.join(REVIEW_ROOT, '_synthesis'));
     const synthPath = path.join(REVIEW_ROOT, '_synthesis', `${trackKey}.synth.md`);
-    await fs.writeFile(synthPath, synthLines.join('\n'));
+    await fs.writeFile(synthPath, `${synthLines.join('\n')}\n`);
 
     synthesisIndex.push({ track: trackKey, finalPath: path.relative(path.join(REVIEW_ROOT, '_synthesis'), finalPath), synthPath: `${trackKey}.synth.md` });
 
@@ -663,7 +690,7 @@ async function main() {
       });
     }
     const proposalPath = path.join(REVIEW_ROOT, '_proposals', `${trackKey}-proposals.tf.md`);
-    await fs.writeFile(proposalPath, proposalLines.join('\n'));
+    await fs.writeFile(proposalPath, `${proposalLines.join('\n')}\n`);
     proposalIndex.push({ track: trackKey, path: path.relative(path.join(REVIEW_ROOT, '_proposals'), proposalPath) });
   }
 
@@ -673,7 +700,7 @@ async function main() {
   for (const item of synthesisIndex) {
     indexLines.push(`| ${item.track} | [${item.track}.synth.md](${item.synthPath}) | [${path.basename(item.finalPath)}](${item.finalPath}) |`);
   }
-  await fs.writeFile(path.join(REVIEW_ROOT, '_synthesis', 'INDEX.md'), indexLines.join('\n'));
+  await fs.writeFile(path.join(REVIEW_ROOT, '_synthesis', 'INDEX.md'), `${indexLines.join('\n')}\n`);
 
   await ensureDir(path.join(REVIEW_ROOT, '_proposals'));
   const proposalIdxLines = ['# v0.6 proposals index', '', '| Track | Proposal file | Area |', '| --- | --- | --- |'];
@@ -681,7 +708,7 @@ async function main() {
   for (const item of proposalIndex) {
     proposalIdxLines.push(`| ${item.track} | [${path.basename(item.path)}](${item.path}) | mixed |`);
   }
-  await fs.writeFile(path.join(REVIEW_ROOT, '_proposals', 'INDEX.md'), proposalIdxLines.join('\n'));
+  await fs.writeFile(path.join(REVIEW_ROOT, '_proposals', 'INDEX.md'), `${proposalIdxLines.join('\n')}\n`);
 }
 
 main().catch((err) => {

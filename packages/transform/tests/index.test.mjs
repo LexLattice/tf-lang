@@ -34,6 +34,14 @@ test('get traverses nested path', () => {
   assert.equal(result, 'Ada');
 });
 
+test('get honors legacy spec/input aliases', () => {
+  const target = { config: { feature: { flag: true } } };
+  assert.equal(runTransform({ op: 'get', key: 'config.feature.flag' }, { value: target }), true);
+  assert.equal(runTransform({ op: 'get', path: 'config.feature.flag' }, { source: target }), true);
+  assert.equal(runTransform({ op: 'get', path: 'config.feature.flag' }, { obj: target }), true);
+  assert.equal(runTransform({ op: 'get', path: 'config.feature.flag' }, { from: target }), true);
+});
+
 test('jsonschema.validate uses ajv', () => {
   const schema = {
     type: 'object',

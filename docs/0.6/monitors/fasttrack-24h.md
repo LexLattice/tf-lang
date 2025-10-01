@@ -5,8 +5,12 @@ and watch for payout acknowledgements. If the payout confirmation is missing whe
 scheduled timer fires, the monitors publish a breach metric and alert; otherwise they
 record an on-time metric.
 
-If generated, open [diagrams/monitors.fasttrack-24h.svg](../../diagrams/monitors.fasttrack-24h.svg)
-for a zoomable view of the graph.
+Render the [source DOT file](../../../diagrams/monitors.fasttrack-24h.dot) with Graphviz to
+produce an SVG when you need a zoomable view of the monitor graph:
+
+```bash
+dot -Tsvg diagrams/monitors.fasttrack-24h.dot -o out/0.6/tmp/monitors.fasttrack-24h.svg
+```
 
 ```dot
 digraph G {

@@ -77,23 +77,48 @@ function matchRuleWhen(when = {}, ctx = {}) {
   return true;
 }
 
-/** Return the first matching rule's instance hint; rule order matters. */
-export function selectInstance(node, override = {}) {
+function evaluateInstanceSelection(node, override = {}) {
   const registry = override.registry ?? loadRegistry();
   const context = {
     domain: override.domain ?? node.runtime?.domain ?? inferDomainFromNode(node) ?? 'default',
     channel: normalizeChannel(override.channel ?? node.channel),
     qos: normalizeQos(override.qos ?? node.qos)
   };
-  for (const rule of registry.rules || []) {
+  const rules = registry.rules || [];
+  for (let index = 0; index < rules.length; index += 1) {
+    const rule = rules[index];
     if (matchRuleWhen(rule.when, context)) {
-      return rule.use || (registry.default ?? '@Memory');
+      return {
+        instance: rule.use || (registry.default ?? '@Memory'),
+        source: 'rule',
+        rule,
+        ruleIndex: index,
+        context,
+      };
     }
   }
   if (registry.domains?.[context.domain]) {
-    return registry.domains[context.domain];
+    return {
+      instance: registry.domains[context.domain],
+      source: 'domain',
+      context,
+    };
   }
-  return registry.default ?? '@Memory';
+  return {
+    instance: registry.default ?? '@Memory',
+    source: 'default',
+    context,
+  };
+}
+
+/** Return the first matching rule's instance hint; rule order matters. */
+export function selectInstance(node, override = {}) {
+  const selection = evaluateInstanceSelection(node, override);
+  return selection.instance;
+}
+
+export function explainInstanceSelection(node, override = {}) {
+  return evaluateInstanceSelection(node, override);
 }
 
 function inferDomainFromNode(node) {
@@ -121,6 +146,7 @@ function inferDomainFromNode(node) {
 export function annotateInstances({ nodes = [], domainOf, registry } = {}) {
   for (const node of nodes) {
     const runtime = { ...(node.runtime || {}) };
+    const hintedInstance = runtime.hint ?? runtime.instance;
     let domain = runtime.domain;
 
     if (typeof domain !== 'string' || domain.length === 0) {
@@ -135,11 +161,21 @@ export function annotateInstances({ nodes = [], domainOf, registry } = {}) {
     runtime.domain = domain ?? 'default';
     node.runtime = runtime;
 
-    const instance = selectInstance(node, { domain: runtime.domain, registry });
-    node.runtime = {
+    const selection = explainInstanceSelection(node, { domain: runtime.domain, registry });
+    const finalRuntime = {
       ...runtime,
-      instance,
+      domain: runtime.domain,
+      instance: selection.instance,
     };
+
+    if (hintedInstance) {
+      finalRuntime.hint = hintedInstance;
+      if (hintedInstance !== selection.instance) {
+        finalRuntime.resolved = selection.instance;
+      }
+    }
+
+    node.runtime = finalRuntime;
   }
   return nodes;
 }

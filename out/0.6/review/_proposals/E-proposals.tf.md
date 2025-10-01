@@ -1,6 +1,7 @@
 # Track E · proposals
 
 ### Release Blocker (Disconnected Law Checking): The law verification system is fundamentally flawed. The `state.merge` macro attaches law IDs to L0 nodes, but the corresponding law checker (`laws/crdt-merge.mjs`) does not read or use them. Instead, it runs a few hardcoded, static examples. This creates a dangerous illusion of verification; the system is not actually checking the algebraic properties of the code being submitted
+> ✅ Implemented via G1 — the checker now reads `meta.law` tags from `state.merge`, reports node IDs, and surfaces merge-law mismatches.
 **Context:** Addresses release blocker (disconnected law checking): the law verification system is fundamentally flawed. the `state.merge` macro attaches law ids to l0 nodes, but the corresponding law checker (`laws/crdt-merge.mjs`) does not read or use them. instead, it runs a few hardcoded, static examples. this creates a dangerous illusion of verification; the system is not actually checking the algebraic properties of the code being submitted noted in docs.jules.md §Gaps.
 **Proposal:**
 ```yaml
@@ -39,6 +40,7 @@ tf-checker
 **Law intent:** Guarantee repeatable outcomes for the described workflow.
 
 ### Documentation (Law System): The mechanism for attaching laws and the process for creating a new law checker are completely undocumented. It's unclear how a contributor would add verification for a new algebraic property
+> ✅ Documented in `docs/0.6/laws-authoring.md`, covering expansion tags, checker hooks, CLI usage, and evidence output.
 **Context:** Addresses documentation (law system): the mechanism for attaching laws and the process for creating a new law checker are completely undocumented. it's unclear how a contributor would add verification for a new algebraic property noted in docs.jules.md §Gaps.
 **Proposal:**
 ```yaml

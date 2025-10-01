@@ -1,0 +1,11 @@
+{
+  "default": "@Memory",
+  "domains": {
+    "transform": "@Memory",
+    "policy": "@Memory"
+  },
+  "rules": [
+    { "when": { "domain": "interaction", "channel": "rpc:req:*" }, "use": "@HTTPPrimary" },
+    { "when": { "domain": "obs", "channel": "metric:*" }, "use": "@MetricsMemory" }
+  ]
+}

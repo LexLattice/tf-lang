@@ -37,6 +37,27 @@ const pipeline = {
         },
       },
     },
+    {
+      id: 'P_metric',
+      kind: 'Publish',
+      channel: 'metric:orders.processed',
+      qos: 'at_most_once',
+      payload: { count: 1 },
+    },
+    {
+      id: 'S_policy',
+      kind: 'Subscribe',
+      channel: 'policy:enforce',
+      qos: 'at_least_once',
+      out: { var: 'policy_msg' },
+    },
+    {
+      id: 'P_auth',
+      kind: 'Publish',
+      channel: 'auth:audit',
+      qos: 'at_least_once',
+      payload: { event: 'login' },
+    },
   ],
 };
 
@@ -55,11 +76,25 @@ test('capability lattice marks missing capabilities when none provided', async (
   assert.equal(report.capabilities.ok, false);
   assert.deepEqual(
     sortStrings(report.capabilities.required),
-    ['cap:keypair:Ed25519', 'cap:publish:rpc:reply:*', 'cap:subscribe:rpc:req:*']
+    [
+      'cap:keypair:Ed25519',
+      'cap:publish:auth:*',
+      'cap:publish:metric:*',
+      'cap:publish:rpc:reply:*',
+      'cap:subscribe:policy:*',
+      'cap:subscribe:rpc:req:*',
+    ]
   );
   assert.deepEqual(
     sortStrings(report.capabilities.missing),
-    ['cap:keypair:Ed25519', 'cap:publish:rpc:reply:*', 'cap:subscribe:rpc:req:*']
+    [
+      'cap:keypair:Ed25519',
+      'cap:publish:auth:*',
+      'cap:publish:metric:*',
+      'cap:publish:rpc:reply:*',
+      'cap:subscribe:policy:*',
+      'cap:subscribe:rpc:req:*',
+    ]
   );
 });
 
@@ -69,7 +104,14 @@ test('capability lattice turns report green when capabilities are provided', asy
   await fs.writeFile(
     allowCapsPath,
     JSON.stringify(
-      ['cap:keypair:Ed25519', 'cap:publish:rpc:reply:*', 'cap:subscribe:rpc:req:*'],
+      [
+        'cap:keypair:Ed25519',
+        'cap:publish:auth:*',
+        'cap:publish:metric:*',
+        'cap:publish:rpc:reply:*',
+        'cap:subscribe:policy:*',
+        'cap:subscribe:rpc:req:*',
+      ],
       null,
       2
     ),
@@ -82,7 +124,14 @@ test('capability lattice turns report green when capabilities are provided', asy
   assert.equal(report.capabilities.ok, true);
   assert.deepEqual(
     sortStrings(report.capabilities.required),
-    ['cap:keypair:Ed25519', 'cap:publish:rpc:reply:*', 'cap:subscribe:rpc:req:*']
+    [
+      'cap:keypair:Ed25519',
+      'cap:publish:auth:*',
+      'cap:publish:metric:*',
+      'cap:publish:rpc:reply:*',
+      'cap:subscribe:policy:*',
+      'cap:subscribe:rpc:req:*',
+    ]
   );
   assert.deepEqual(report.capabilities.missing, []);
 });

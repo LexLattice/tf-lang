@@ -18,7 +18,7 @@ assert.notDeepEqual(result, reversed, 'patch application order must matter for j
 
 assert.throws(
   () => runTransform({ op: 'jsonpatch.apply' }, { base, patch: [{ op: 'replace', path: '', value: {} }] }),
-  /root operations are not supported/,
+  /root operations are not supported by this implementation/,
   'root replacements must be rejected',
 );
 

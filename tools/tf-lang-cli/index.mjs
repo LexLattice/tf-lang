@@ -10,6 +10,7 @@ import Ajv from "ajv";
 import { loadRulebookPlan, rulesForPhaseFromPlan } from "./expand.mjs";
 import { summarizeEffects } from "./lib/effects.mjs";
 import { buildDotGraph } from "./lib/dot.mjs";
+import { typecheckFile } from "../../packages/typechecker/typecheck.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..", "..");
@@ -27,6 +28,123 @@ async function loadJsonFile(targetPath) {
   const filePath = path.resolve(targetPath);
   const content = await readFile(filePath, "utf8");
   return JSON.parse(content);
+}
+
+function formatPortPath(segments = []) {
+  const parts = ["in"];
+  for (const segment of segments ?? []) {
+    if (typeof segment === "number") {
+      parts.push(String(segment));
+    } else if (segment !== undefined && segment !== null) {
+      parts.push(String(segment));
+    }
+  }
+  return parts.join(".");
+}
+
+function formatType(descriptor) {
+  if (!descriptor || typeof descriptor !== "object") {
+    return "unknown";
+  }
+  const schemaRef = descriptor.schemaRef;
+  if (typeof schemaRef !== "string" || schemaRef.length === 0) {
+    return "unknown";
+  }
+  let result = schemaRef;
+  const fmt = descriptor.format ?? null;
+  if (fmt) {
+    result += ` (${fmt})`;
+  }
+  const extras = Object.entries(descriptor)
+    .filter(([key]) => key !== "schemaRef" && key !== "format")
+    .sort(([a], [b]) => a.localeCompare(b));
+  if (extras.length > 0) {
+    const extraText = extras
+      .map(([key, value]) => `${key}=${JSON.stringify(value)}`)
+      .join(", ");
+    result += ` {${extraText}}`;
+  }
+  return result;
+}
+
+function defaultAdapterRegistry() {
+  return path.join(repoRoot, "adapters", "registry.json");
+}
+
+async function runTypecheckCommand(rawArgs) {
+  const argv = Array.isArray(rawArgs) ? [...rawArgs] : rawArgs ? [rawArgs] : [];
+  let registryPath = defaultAdapterRegistry();
+  const files = [];
+
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === "--adapters") {
+      const next = argv[i + 1];
+      if (!next) {
+        console.error("usage: tf typecheck <L0_FILE> [--adapters <registry.json>]");
+        return 2;
+      }
+      registryPath = next;
+      i += 1;
+      continue;
+    }
+    const match = /^--adapters=(.+)$/u.exec(arg);
+    if (match) {
+      registryPath = match[1];
+      continue;
+    }
+    files.push(arg);
+  }
+
+  if (files.length !== 1) {
+    console.error("usage: tf typecheck <L0_FILE> [--adapters <registry.json>]");
+    return 2;
+  }
+
+  const [file] = files;
+
+  let report;
+  try {
+    report = await typecheckFile(file, { registryPath });
+  } catch (error) {
+    console.error(`${file}: ${error?.message ?? error}`);
+    return 1;
+  }
+
+  const describe = typeof report.describe === "function"
+    ? report.describe
+    : formatType;
+
+  if (report.status === "ok" && report.mismatches.length === 0) {
+    console.log("OK");
+    return 0;
+  }
+
+  if (report.status === "needs-adapter") {
+    const suggestions = report.suggestions ?? report.mismatches ?? [];
+    const count = suggestions.length;
+    console.log(`OK with ${count} suggestion(s)`);
+    for (const mismatch of suggestions) {
+      const portLabel = mismatch.port ?? formatPortPath(mismatch.portPath);
+      const actual = describe(mismatch.actual);
+      const expected = describe(mismatch.expected);
+      const op = mismatch.adapter?.op ?? "<unknown>";
+      console.log(`- ${mismatch.nodeId} ${portLabel} from @${mismatch.sourceVar}:`);
+      console.log(`  ${actual} → ${expected} (use Transform(op: ${op}))`);
+    }
+    return 0;
+  }
+
+  const mismatches = report.mismatches ?? [];
+  console.log(`FAILED with ${mismatches.length} mismatch(es)`);
+  for (const mismatch of mismatches) {
+    const portLabel = mismatch.port ?? formatPortPath(mismatch.portPath);
+    const actual = describe(mismatch.actual);
+    const expected = describe(mismatch.expected);
+    console.log(`- ${mismatch.nodeId} ${portLabel} from @${mismatch.sourceVar}:`);
+    console.log(`  ${actual} ≠ ${expected}`);
+  }
+  return 1;
 }
 
 function inferKindFromFile(filePath) {
@@ -213,7 +331,7 @@ function explainPlan(plan, targetPhase) {
 }
 
 function usage() {
-  console.log("usage: tf <validate|effects|graph|open|run|explain> ...");
+  console.log("usage: tf <validate|effects|graph|typecheck|open|run|explain> ...");
   process.exit(2);
 }
 
@@ -233,6 +351,11 @@ function usage() {
 
   if (cmd === "graph") {
     const code = await runGraphCommand(argv);
+    process.exit(code);
+  }
+
+  if (cmd === "typecheck") {
+    const code = await runTypecheckCommand(argv);
     process.exit(code);
   }
 

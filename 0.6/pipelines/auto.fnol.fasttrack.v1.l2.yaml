@@ -9,38 +9,38 @@ inputs:
   - receive: interaction.receive(endpoint: "api/fnol/submit", qos: "at_least_once")
 
 steps:
-  - validate_fnol: transform.validate(schema: "FnolV1", input: "@receive.body")
+  - validate_fnol: transform.validate(schema: "FnolV1", input: "@receive.body") # types: in.input={schemaRef:"FnolV1",format:"json"}; out={schemaRef:"FnolV1",format:"json"}
 
   - get_policy: interaction.request(endpoint: "api/policy/snapshot", method: "GET",
-                                    query: { policy_id: "@receive.body.policy_id" })
+                                    query: { policy_id: "@receive.body.policy_id" }) # response type={schemaRef:"PolicySnapshotV1",format:"json"}
 
-  - score_severity: transform.model_infer(model: "auto.severity.v3", input: "@receive.body")
-  - score_fraud:    transform.model_infer(model: "fraud.v7",         input: "@receive.body")
+  - score_severity: transform.model_infer(model: "auto.severity.v3", input: "@receive.body") # types: in.input={schemaRef:"FnolV1",format:"json"}; out={schemaRef:"SeverityScoreV3",format:"json"}
+  - score_fraud:    transform.model_infer(model: "fraud.v7",         input: "@receive.body") # types: in.input={schemaRef:"FnolV1",format:"json"}; out={schemaRef:"FraudScoreV7",format:"json"}
 
   - eligibility: policy.evaluate(policy: "fasttrack.policy.v1",
                                  input: { severity: "@score_severity",
                                           fraud:    "@score_fraud",
-                                          policy:   "@get_policy.response" })
+                                          policy:   "@get_policy.response" }) # out={schemaRef:"FastTrackEligibilityV1",format:"json"}
 
   - branch:
       when: "@eligibility.decision == 'allow'"
       then:
         - consent: interaction.request(endpoint: "api/consent/sign", method: "POST",
-                                       body: { doc: "fasttrack.pdf", claimant: "@receive.body.party" })
+                                       body: { doc: "fasttrack.pdf", claimant: "@receive.body.party" }) # body type={schemaRef:"ConsentRequestV1",format:"json"}
         - payout: interaction.request(endpoint: "api/payments/payout", method: "POST",
                                       body: { claim: "@receive.body.claim_id",
                                               amount: "@eligibility.amount",
-                                              channel: "SEPA" })
+                                              channel: "SEPA" }) # body type={schemaRef:"FastTrackPayoutV1",format:"json"}
         - emit_metric: obs.emit_metric(name: "claims.fasttrack.success", value: 1,
-                                       tags: { region: "@get_policy.response.region" })
+                                       tags: { region: "@get_policy.response.region" }) # tags type={schemaRef:"FastTrackMetricTagsV1",format:"json"}
       else:
         - assign: interaction.request(endpoint: "api/adjuster/assign", method: "POST",
                                       body: { claim: "@receive.body.claim_id",
-                                              priority: "@score_severity.bucket" })
+                                              priority: "@score_severity.bucket" }) # body type={schemaRef:"AdjusterAssignmentV1",format:"json"}
 
 outputs:
-  - ack: interaction.reply(to: "@receive", status: "accepted")
-  - record: policy.record_decision(kind: "fasttrack.route", payload: "@eligibility")
+  - ack: interaction.reply(to: "@receive", status: "accepted") # reply type={schemaRef:"FnolAckV1",format:"json"}
+  - record: policy.record_decision(kind: "fasttrack.route", payload: "@eligibility") # payload type={schemaRef:"FastTrackDecisionV1",format:"json"}
 slas:
   - name: "fasttrack-24h"
     ensures: "payout within 24h when eligibility=allow"

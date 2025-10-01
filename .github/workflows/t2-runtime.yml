@@ -19,7 +19,6 @@ jobs:
           install: 'true'
           frozen: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'merge_group' }}
           prepare: 'true'
-          prepare: 'true'
       - run: pnpm --filter @tf-lang/tf-check run build
       - run: pnpm --filter @tf-lang/tf-check run test
       - run: pnpm --filter @tf-lang/tf-check run artifacts
@@ -74,7 +73,6 @@ jobs:
           node-version: '20'
           install: 'true'
           frozen: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'merge_group' }}
-          prepare: 'true'
           prepare: 'true'
       - run: pnpm --filter @tf-lang/adapter-execution-ts run build
       - run: pnpm --filter @tf-lang/adapter-execution-ts run test

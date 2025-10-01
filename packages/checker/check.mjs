@@ -4,6 +4,9 @@ import { fileURLToPath } from 'node:url';
 import { DETERMINISTIC_TRANSFORMS } from '../runtime/run.mjs';
 import { checkIdempotency } from '../../laws/idempotency.mjs';
 import checkSampleCrdtMerge from '../../laws/crdt-merge.mjs';
+import checkBranchExclusive from '../../laws/branch_exclusive.mjs';
+import checkMonotonicLog from '../../laws/monotonic_log.mjs';
+import checkConfidentialEnvelope from '../../laws/confidential_envelope.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -371,6 +374,9 @@ async function runChecks(l0, options = {}) {
     idempotency: { ok: true, results: [] },
     crdt_merge: { ok: true, results: [] },
     rpc_pairing: { ok: true, results: [] },
+    branch_exclusive: { ok: true, results: [] },
+    monotonic_log: { ok: true, results: [] },
+    confidential_envelope: { ok: true, results: [] },
   };
 
   try {
@@ -397,6 +403,36 @@ async function runChecks(l0, options = {}) {
   }
 
   try {
+    laws.branch_exclusive = await checkBranchExclusive({ nodes: l0.nodes ?? [] });
+  } catch (error) {
+    laws.branch_exclusive = {
+      ok: false,
+      results: [],
+      error: error.message,
+    };
+  }
+
+  try {
+    laws.monotonic_log = checkMonotonicLog({ publishNodes: analysis.publishNodes, nodes: l0.nodes ?? [] });
+  } catch (error) {
+    laws.monotonic_log = {
+      ok: false,
+      results: [],
+      error: error.message,
+    };
+  }
+
+  try {
+    laws.confidential_envelope = checkConfidentialEnvelope({ publishNodes: analysis.publishNodes, nodes: l0.nodes ?? [] });
+  } catch (error) {
+    laws.confidential_envelope = {
+      ok: false,
+      results: [],
+      error: error.message,
+    };
+  }
+
+  try {
     laws.crdt_merge = checkSampleCrdtMerge();
   } catch (error) {
     laws.crdt_merge = {
@@ -412,6 +448,9 @@ async function runChecks(l0, options = {}) {
     && capabilities.ok
     && laws.rpc_pairing.ok
     && laws.idempotency.ok
+    && laws.branch_exclusive.ok
+    && laws.monotonic_log.ok
+    && laws.confidential_envelope.ok
     && laws.crdt_merge.ok;
 
   return {

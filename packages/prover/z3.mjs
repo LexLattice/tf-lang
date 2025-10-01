@@ -58,6 +58,44 @@ export async function proveStableCorrImpliesIdempotent(flags) {
   }
 }
 
+function sanitizeSymbol(name) {
+  if (!name) {
+    return 'guard';
+  }
+  const cleaned = String(name)
+    .trim()
+    .replace(/[^A-Za-z0-9_]/g, '_')
+    .replace(/_{2,}/g, '_');
+  const symbol = cleaned.length > 0 ? cleaned : 'guard';
+  return symbol.length > 64 ? symbol.slice(0, 64) : symbol;
+}
+
+export async function proveGuardExclusive({ guardVar, positiveNegated = false, negativeNegated = true }) {
+  if (!guardVar) {
+    throw new Error('guardVar-required');
+  }
+  try {
+    const ctx = await getContext();
+    const solver = new ctx.Solver();
+    const guard = ctx.Bool.const(sanitizeSymbol(guardVar));
+    const positiveExpr = positiveNegated ? ctx.Not(guard) : guard;
+    const negativeExpr = negativeNegated ? ctx.Not(guard) : guard;
+
+    solver.push();
+    solver.add(positiveExpr);
+    solver.add(negativeExpr);
+    const result = await solver.check();
+    solver.pop();
+
+    return result === 'unsat';
+  } catch (error) {
+    const failure = new Error('solver-failed');
+    failure.cause = error;
+    throw failure;
+  }
+}
+
 export default {
   proveStableCorrImpliesIdempotent,
+  proveGuardExclusive,
 };

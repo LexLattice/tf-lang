@@ -4,6 +4,16 @@
 - [Auto Quote → Bind → Issue](pipelines/quote-bind-issue.md)
 - [Fast-Track 24h SLA Monitors](monitors/fasttrack-24h.md)
 
+# Prover roadmap
+
+- [Lean 4 prover skeleton](../../prover/lean/README.md)
+
+## Law checks
+
+- Run human-readable checks with `tf laws --check <pipeline.l0.json> --goal branch-exclusive` to review PASS/WARN/ERROR entries and any counterexamples found within the boolean bound (`--max-bools N`, default 8).
+- Use machine-readable mode with `tf laws --check <pipeline.l0.json> --goal branch-exclusive --json [--policy path] [--caps path]` to feed the same policy/capability inputs as CI and capture structured results.
+- `WARN` entries document gaps (e.g., missing metadata or plaintext alongside ciphertext) but do not fail builds; teams can layer stricter policies later if needed.
+
 # TF-Lang v0.6 Specification
 
 > Generated from `spec/v0.6`

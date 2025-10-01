@@ -1,22 +1,8 @@
-# TF‑Lang (v0.5) — True Functions, Algebra & Deterministic Pipelines
+# TF‑Lang (v0.6) — True Functions, Algebra & Deterministic Pipelines
 
 [![Pages](https://github.com/LexLattice/tf-lang/actions/workflows/pages.yml/badge.svg?branch=main)](https://github.com/LexLattice/tf-lang/actions/workflows/pages.yml)
 
 **Live site:** [https://LexLattice.github.io/tf-lang/](https://LexLattice.github.io/tf-lang/)
-
-**CI:**
-[CI: T4 Plan/Scaffold/Compare](.github/workflows/t4-plan-scaffold-compare.yml) •
-[CI: T3 Trace & Perf](.github/workflows/t3-trace-and-perf.yml) •
-[CI: L0 Runtime Verify](.github/workflows/l0-runtime-verify.yml) •
-[CI: L0 Docs (Sync)](.github/workflows/l0-docs.yml) •
-[CI: L0 Proofs (Emit)](.github/workflows/l0-proofs.yml) •
-[CI: L0 Audit](.github/workflows/l0-audit.yml)
-
-Version: **v0.5**
-
-See the [0.5 Overview](docs/0.5/overview.md#quickstarts) for per-track guides, commands, and troubleshooting.
-
----
 
 ## TF-Lang v0.6 — What’s new
 
@@ -29,6 +15,20 @@ See the [0.5 Overview](docs/0.5/overview.md#quickstarts) for per-track guides, c
 - **Studio UI (preview)**: graph, laws, typecheck, instance plan, playground
 
 Entry points: [v0.6 review](out/0.6/review/README.md), [Top issues roll-up](out/0.6/review/_summary/ALL.md), [Track proposals](out/0.6/review/_proposals/INDEX.md), [Examples index](examples/v0.6/).
+
+---
+
+**CI:**
+[CI: T4 Plan/Scaffold/Compare](.github/workflows/t4-plan-scaffold-compare.yml) •
+[CI: T3 Trace & Perf](.github/workflows/t3-trace-and-perf.yml) •
+[CI: L0 Runtime Verify](.github/workflows/l0-runtime-verify.yml) •
+[CI: L0 Docs (Sync)](.github/workflows/l0-docs.yml) •
+[CI: L0 Proofs (Emit)](.github/workflows/l0-proofs.yml) •
+[CI: L0 Audit](.github/workflows/l0-audit.yml)
+
+Version: **v0.5**
+
+See the [0.5 Overview](docs/0.5/overview.md#quickstarts) for per-track guides, commands, and troubleshooting.
 
 ---
 

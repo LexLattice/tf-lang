@@ -14,6 +14,7 @@ on:
       - 'schemas/**'
       - 'tools/tf-lang-cli/**'
       - 'spec/v0.6/**'
+      - 'examples/v0.6/**'
   pull_request:
     paths:
       - '**/*.l0.json'
@@ -25,6 +26,7 @@ on:
       - 'schemas/**'
       - 'tools/tf-lang-cli/**'
       - 'spec/v0.6/**'
+      - 'examples/v0.6/**'
   workflow_dispatch:
 
 jobs:

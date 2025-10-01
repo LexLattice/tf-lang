@@ -7,8 +7,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..');
 
-const inputPath = path.resolve(repoRoot, '0.6/pipelines/auto.fnol.fasttrack.v1.l2.yaml');
-const outputPath = path.resolve(repoRoot, '0.6/build/auto.fnol.fasttrack.v1.l0.json');
+const inputPath = path.resolve(repoRoot, 'examples/v0.6/pipelines/auto.fnol.fasttrack.v1.l2.yaml');
+const outputPath = path.resolve(repoRoot, 'examples/v0.6/build/auto.fnol.fasttrack.v1.l0.json');
 
 const l0 = expandPipelineFromFile(inputPath);
 

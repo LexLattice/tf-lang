@@ -10,6 +10,7 @@ import Ajv from "ajv";
 import { loadRulebookPlan, rulesForPhaseFromPlan } from "./expand.mjs";
 import { summarizeEffects } from "./lib/effects.mjs";
 import { buildDotGraph } from "./lib/dot.mjs";
+import annotateInstances from "../../packages/expander/resolve.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..", "..");
@@ -212,8 +213,148 @@ function explainPlan(plan, targetPhase) {
   process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
 }
 
+function normalizeChannelValue(channel) {
+  if (typeof channel === "string") return channel;
+  if (channel && typeof channel === "object") {
+    if (typeof channel.var === "string") return `@${channel.var}`;
+    if (channel.value != null) return String(channel.value);
+  }
+  return "";
+}
+
+function channelScheme(channel) {
+  const value = normalizeChannelValue(channel);
+  if (!value) return "none";
+  if (value.startsWith("@")) return "dynamic";
+  const [primary, remainder] = value.split(":", 2);
+  if (primary === "rpc" && remainder) {
+    const direction = remainder.split(":", 1)[0];
+    return `${primary}:${direction}`;
+  }
+  return primary;
+}
+
+function cloneNodes(input) {
+  return Array.isArray(input) ? JSON.parse(JSON.stringify(input)) : [];
+}
+
+function collectNodes(doc) {
+  const nodes = [];
+  nodes.push(...cloneNodes(doc?.nodes));
+  if (Array.isArray(doc?.monitors)) {
+    for (const monitor of doc.monitors) {
+      nodes.push(...cloneNodes(monitor?.nodes));
+    }
+  }
+  return nodes;
+}
+
+function sortObject(obj, mapFn = (value) => value) {
+  return Object.fromEntries(
+    Object.keys(obj)
+      .sort()
+      .map((key) => [key, mapFn(obj[key])])
+  );
+}
+
+function finalizeDomainSummary(domains) {
+  return sortObject(domains, (value) => ({
+    total: value.total,
+    instances: sortObject(value.instances)
+  }));
+}
+
+function finalizeSchemeSummary(schemes) {
+  return sortObject(schemes, (value) => ({
+    total: value.total,
+    instances: sortObject(value.instances)
+  }));
+}
+
+async function runPlanInstancesCommand(rawArgs) {
+  const argv = Array.isArray(rawArgs) ? [...rawArgs] : rawArgs != null ? [rawArgs] : [];
+  let registryPath;
+  let groupBy = "domain";
+  const files = [];
+
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === "--registry") {
+      registryPath = argv[i + 1];
+      i += 1;
+      continue;
+    }
+    if (arg?.startsWith("--registry=")) {
+      registryPath = arg.split("=", 2)[1];
+      continue;
+    }
+    if (arg === "--group-by") {
+      groupBy = argv[i + 1] ?? groupBy;
+      i += 1;
+      continue;
+    }
+    if (arg?.startsWith("--group-by=")) {
+      groupBy = arg.split("=", 2)[1];
+      continue;
+    }
+    files.push(arg);
+  }
+
+  if (files.length !== 1) {
+    console.error("usage: tf plan-instances [--registry <path>] [--group-by domain|scheme] <FILE>");
+    return 2;
+  }
+
+  if (!["domain", "scheme"].includes(groupBy)) {
+    console.error("--group-by must be one of: domain, scheme");
+    return 2;
+  }
+
+  const [file] = files;
+
+  try {
+    const doc = await loadJsonFile(file);
+    const nodes = collectNodes(doc);
+    const registry = registryPath ? JSON.parse(await readFile(registryPath, "utf8")) : undefined;
+    annotateInstances({ nodes, registry });
+
+    const domains = {};
+    const schemes = {};
+
+    for (const node of nodes) {
+      const domain = node.runtime?.domain ?? "default";
+      const instance = node.runtime?.instance ?? "@Memory";
+      const scheme = channelScheme(node.channel);
+
+      if (!domains[domain]) {
+        domains[domain] = { total: 0, instances: {} };
+      }
+      domains[domain].total += 1;
+      domains[domain].instances[instance] = (domains[domain].instances[instance] || 0) + 1;
+
+      if (!schemes[scheme]) {
+        schemes[scheme] = { total: 0, instances: {} };
+      }
+      schemes[scheme].total += 1;
+      schemes[scheme].instances[instance] = (schemes[scheme].instances[instance] || 0) + 1;
+    }
+
+    const summary =
+      groupBy === "domain"
+        ? { domains: finalizeDomainSummary(domains), channels: finalizeSchemeSummary(schemes) }
+        : { schemes: finalizeSchemeSummary(schemes), domains: finalizeDomainSummary(domains) };
+
+    console.log(JSON.stringify(summary, null, 2));
+    return 0;
+  } catch (err) {
+    console.error(`${file}: ${err?.message ?? err}`);
+    return 1;
+  }
+}
+
 function usage() {
-  console.log("usage: tf <validate|effects|graph|open|run|explain> ...");
+  console.log("usage: tf <validate|effects|graph|open|run|explain|plan-instances> ...");
+  console.log("       tf plan-instances [--registry <path>] [--group-by domain|scheme] <FILE>");
   process.exit(2);
 }
 
@@ -233,6 +374,11 @@ function usage() {
 
   if (cmd === "graph") {
     const code = await runGraphCommand(argv);
+    process.exit(code);
+  }
+
+  if (cmd === "plan-instances") {
+    const code = await runPlanInstancesCommand(argv);
     process.exit(code);
   }
 

@@ -4,6 +4,10 @@
 - [Auto Quote → Bind → Issue](pipelines/quote-bind-issue.md)
 - [Fast-Track 24h SLA Monitors](monitors/fasttrack-24h.md)
 
+## Tools
+
+- `tf plan-instances <L0>` summarizes instance hints by domain and channel scheme; use `--registry` to simulate different deployments.
+
 # TF-Lang v0.6 Specification
 
 > Generated from `spec/v0.6`

@@ -4,13 +4,33 @@ let cachedRegistry;
 
 function loadRegistry() {
   if (!cachedRegistry) {
-    const url = new URL('../../instances/registry.json', import.meta.url);
-    const raw = readFileSync(url, 'utf-8');
-    cachedRegistry = JSON.parse(raw);
+    const baseUrl = new URL('../../instances/', import.meta.url);
+    const urls = [
+      new URL('registry.v2.json', baseUrl),
+      new URL('registry.json', baseUrl)
+    ];
+    let raw;
+    for (const url of urls) {
+      try {
+        raw = readFileSync(url, 'utf-8');
+        if (raw) {
+          cachedRegistry = JSON.parse(raw);
+          break;
+        }
+      } catch (err) {
+        if (url.pathname.endsWith('registry.json')) {
+          throw err;
+        }
+      }
+    }
+    if (!cachedRegistry) {
+      cachedRegistry = { default: '@Memory', rules: [] };
+    }
   }
   return cachedRegistry;
 }
 
+/** Normalize a channel value into a comparable string token. */
 function normalizeChannel(channel) {
   if (typeof channel === 'string') {
     return channel;
@@ -24,6 +44,58 @@ function normalizeChannel(channel) {
     }
   }
   return '';
+}
+
+/** Normalize QoS objects into a single comparable string. */
+function normalizeQos(q) {
+  if (!q) return '';
+  if (typeof q === 'string') return q;
+  if (typeof q === 'object') {
+    return String(q.delivery ?? q.delivery_guarantee ?? q.mode ?? q.level ?? '');
+  }
+  return '';
+}
+
+function asArray(x) {
+  return Array.isArray(x) ? x : x != null ? [x] : [];
+}
+
+function globMatch(pattern, value) {
+  const text = String(value ?? '');
+  const pat = String(pattern ?? '');
+  if (!pat.includes('*')) return pat === text;
+  const re = new RegExp(`^${pat.split('*').map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*')}$`, 'u');
+  return re.test(text);
+}
+
+function matchRuleWhen(when = {}, ctx = {}) {
+  const domains = asArray(when.domain);
+  const qoses = asArray(when.qos).map(String);
+  const channels = asArray(when.channel);
+
+  if (domains.length && !domains.includes(ctx.domain)) return false;
+  if (qoses.length && !qoses.includes(ctx.qos)) return false;
+  if (channels.length && !channels.some((p) => globMatch(p, ctx.channel))) return false;
+  return true;
+}
+
+/** Return the first matching rule's instance hint; rule order matters. */
+export function selectInstance(node, override = {}) {
+  const registry = override.registry ?? loadRegistry();
+  const context = {
+    domain: override.domain ?? node.runtime?.domain ?? inferDomainFromNode(node) ?? 'default',
+    channel: normalizeChannel(override.channel ?? node.channel),
+    qos: normalizeQos(override.qos ?? node.qos)
+  };
+  for (const rule of registry.rules || []) {
+    if (matchRuleWhen(rule.when, context)) {
+      return rule.use || (registry.default ?? '@Memory');
+    }
+  }
+  if (registry.domains?.[context.domain]) {
+    return registry.domains[context.domain];
+  }
+  return registry.default ?? '@Memory';
 }
 
 function inferDomainFromNode(node) {
@@ -48,22 +120,27 @@ function inferDomainFromNode(node) {
   }
 }
 
-export function annotateInstances({ nodes = [], domainOf } = {}) {
-  const registry = loadRegistry();
-  const defaultInstance = registry.default || '@Memory';
+export function annotateInstances({ nodes = [], domainOf, registry } = {}) {
   for (const node of nodes) {
-    let domain = typeof domainOf === 'function' ? domainOf(node) : undefined;
-    if (!domain) {
-      domain = inferDomainFromNode(node);
+    const runtime = { ...(node.runtime || {}) };
+    let domain = runtime.domain;
+
+    if (typeof domain !== 'string' || domain.length === 0) {
+      const explicit = typeof domainOf === 'function' ? domainOf(node) : undefined;
+      if (typeof explicit === 'string' && explicit.length > 0) {
+        domain = explicit;
+      } else {
+        domain = inferDomainFromNode(node) ?? 'default';
+      }
     }
-    if (!domain) {
-      domain = 'default';
-    }
-    const instance = registry.domains?.[domain] || defaultInstance;
+
+    runtime.domain = domain ?? 'default';
+    node.runtime = runtime;
+
+    const instance = selectInstance(node, { domain: runtime.domain, registry });
     node.runtime = {
-      ...(node.runtime || {}),
+      ...runtime,
       instance,
-      domain,
     };
   }
   return nodes;

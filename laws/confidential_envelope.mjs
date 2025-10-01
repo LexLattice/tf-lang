@@ -1,7 +1,31 @@
 import { ensurePublishNodes } from './_util.mjs';
 
+const GOAL_ID = 'confidential-envelope';
+const SAFE_PAYLOAD_KEYS = new Set(['envelope', 'aad', 'headers', 'metadata', 'tags']);
+
 function hasProperty(object, key) {
   return Object.prototype.hasOwnProperty.call(object ?? {}, key);
+}
+
+function collectPlaintextPaths(payload) {
+  const paths = [];
+  if (!payload || typeof payload !== 'object') {
+    return paths;
+  }
+  for (const [key, value] of Object.entries(payload)) {
+    if (SAFE_PAYLOAD_KEYS.has(key)) {
+      continue;
+    }
+    if (value !== undefined && value !== null) {
+      paths.push(key);
+    }
+  }
+  if (payload.envelope && typeof payload.envelope === 'object') {
+    if (hasProperty(payload.envelope, 'plaintext')) {
+      paths.push('envelope.plaintext');
+    }
+  }
+  return paths;
 }
 
 export function checkConfidentialEnvelope(options = {}) {
@@ -18,21 +42,33 @@ export function checkConfidentialEnvelope(options = {}) {
     if (!envelope || !hasProperty(envelope, 'ciphertext')) {
       continue;
     }
-    const hasPlaintext = payload ? hasProperty(payload, 'plaintext') : false;
-    const satisfied = !hasPlaintext;
-    const status = satisfied ? 'PASS' : 'WARN';
+
+    const plaintextPaths = collectPlaintextPaths(payload);
+    const ciphertextRef = envelope.ciphertext ?? null;
+    const ciphertextValid = typeof ciphertextRef === 'string' && ciphertextRef.length > 0;
+    const status = plaintextPaths.length === 0 && ciphertextValid ? 'PASS' : plaintextPaths.length > 0 ? 'ERROR' : 'WARN';
+    const ok = status !== 'ERROR';
+
     results.push({
+      goal: GOAL_ID,
       id: node.id ?? null,
       channel: typeof node.channel === 'string' ? node.channel : null,
       status,
-      ok: status !== 'ERROR',
-      satisfied,
-      reason: satisfied ? null : 'plaintext-present',
+      ok,
+      satisfied: plaintextPaths.length === 0 && ciphertextValid,
+      reason:
+        plaintextPaths.length > 0
+          ? `plaintext-present:${plaintextPaths.join(',')}`
+          : ciphertextValid
+            ? null
+            : 'ciphertext-missing',
+      plaintextPaths,
+      ciphertext: ciphertextRef ?? null,
     });
   }
 
   const ok = results.every((entry) => entry.ok);
-  return { ok, results };
+  return { goal: GOAL_ID, ok, results };
 }
 
 export default checkConfidentialEnvelope;

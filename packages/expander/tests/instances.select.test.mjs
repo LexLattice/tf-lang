@@ -2,7 +2,8 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import annotateInstances, { selectInstance } from '../resolve.mjs';
+import annotateInstances, { selectInstance, explainInstanceSelection } from '../resolve.mjs';
+import expandL2ObjectToL0 from '../expand.mjs';
 
 test('selectInstance uses registry v2 channel rules', () => {
   const node = { kind: 'Publish', channel: 'rpc:req:claims/submit', qos: 'at_least_once' };
@@ -44,4 +45,44 @@ test('annotateInstances respects explicit domains', () => {
 
   assert.equal(explicit.runtime.domain, 'custom');
   assert.equal(hinted.runtime.domain, 'observer');
+});
+
+test('annotateInstances preserves instance hints and records resolution', () => {
+  const nodes = [
+    { kind: 'Publish', channel: 'rpc:req:claims/submit', runtime: { instance: '@Hinted' } }
+  ];
+  annotateInstances({ nodes });
+
+  assert.equal(nodes[0].runtime.instance, '@HTTP');
+  assert.equal(nodes[0].runtime.hint, '@Hinted');
+  assert.equal(nodes[0].runtime.resolved, '@HTTP');
+});
+
+test('explainInstanceSelection reports rule metadata', () => {
+  const node = { kind: 'Publish', channel: 'rpc:req:claims/submit', qos: 'at_least_once' };
+  const details = explainInstanceSelection(node);
+  assert.equal(details.instance, '@HTTP');
+  assert.equal(details.source, 'rule');
+  assert.equal(details.ruleIndex, 0);
+  assert.ok(details.rule);
+});
+
+test('expandL2ObjectToL0 threads instance hints into runtime metadata', () => {
+  const doc = {
+    pipeline: 'demo.pipeline',
+    steps: [
+      {
+        receive: "interaction.receive(endpoint: 'api/demo', qos: 'at_least_once')"
+      }
+    ],
+    instance_hints: {
+      receive: '@Hinted'
+    }
+  };
+
+  const l0 = expandL2ObjectToL0(doc, { createdAt: '2024-01-01T00:00:00.000Z' });
+  const node = l0.nodes.find((entry) => entry.id === 'S_receive');
+  assert(node, 'expected receive node');
+  assert.equal(node.runtime.hint, '@Hinted');
+  assert.equal(node.runtime.instance, '@HTTP');
 });

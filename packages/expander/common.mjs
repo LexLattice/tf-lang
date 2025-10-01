@@ -4,6 +4,51 @@ function parenBalance(str) {
   return (str.match(/\(/g) || []).length - (str.match(/\)/g) || []).length;
 }
 
+function stripInlineComment(call) {
+  let depth = 0;
+  let inSingle = false;
+  let inDouble = false;
+  for (let i = 0; i < call.length; i += 1) {
+    const ch = call[i];
+    if (inSingle) {
+      if (ch === "'" && call[i - 1] !== '\\') inSingle = false;
+      continue;
+    }
+    if (inDouble) {
+      if (ch === '"') {
+        let escapes = 0;
+        let back = i - 1;
+        while (back >= 0 && call[back] === '\\') {
+          escapes += 1;
+          back -= 1;
+        }
+        if (escapes % 2 === 0) inDouble = false;
+      }
+      continue;
+    }
+    if (ch === "'") {
+      inSingle = true;
+      continue;
+    }
+    if (ch === '"') {
+      inDouble = true;
+      continue;
+    }
+    if (ch === '(') {
+      depth += 1;
+      continue;
+    }
+    if (ch === ')') {
+      if (depth > 0) depth -= 1;
+      continue;
+    }
+    if (ch === '#' && depth === 0) {
+      return call.slice(0, i).trimEnd();
+    }
+  }
+  return call.trimEnd();
+}
+
 export function quoteCalls(src) {
   const lines = src.split(/\r?\n/);
   const out = [];
@@ -19,6 +64,7 @@ export function quoteCalls(src) {
         depth += parenBalance(next);
       }
       call = call.replace(/\s*\n\s*/g, ' ');
+      call = stripInlineComment(call);
       call = call.replace(/"/g, '\\"');
       out.push(`${match[1]}"${call}"`);
       continue;

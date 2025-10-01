@@ -1,54 +1,43 @@
 import { readFileSync } from 'node:fs';
 import * as YAML from 'yaml';
 import { annotateInstances } from './resolve.mjs';
+import { loadYamlDocument } from './yaml-loader.mjs';
 
-const MACRO_PREFIXES = ['interaction.', 'transform.', 'policy.', 'obs.', 'state.', 'process.'];
 const KERNEL_KINDS = new Set(['Transform', 'Publish', 'Subscribe', 'Keypair']);
 
-function preprocessL2Yaml(source) {
-  const lines = source.split(/\r?\n/);
-  const result = [];
-  let capturing = false;
-  let depth = 0;
-  for (const line of lines) {
-    if (!capturing) {
-      const match = line.match(/^(\s*[^:#]+:\s+)([^\s].*)$/);
-      if (match) {
-        const [, prefix, rest] = match;
-        const trimmed = rest.trimStart();
-        if (MACRO_PREFIXES.some((p) => trimmed.startsWith(p))) {
-          capturing = true;
-          depth = countParens(rest);
-          let rewritten = prefix + "'" + rest;
-          if (depth <= 0) {
-            rewritten += "'";
-            capturing = false;
-          }
-          result.push(rewritten);
-          continue;
-        }
-      }
-      result.push(line);
+function normalizeInstanceHints(hints) {
+  const map = new Map();
+  if (!hints || typeof hints !== 'object') {
+    return map;
+  }
+  for (const [key, value] of Object.entries(hints)) {
+    if (typeof key !== 'string' || key.length === 0) continue;
+    if (typeof value === 'string' && value.length > 0) {
+      map.set(key, value);
       continue;
     }
-    depth += countParens(line);
-    if (depth <= 0) {
-      result.push(line + "'");
-      capturing = false;
-    } else {
-      result.push(line);
+    if (value && typeof value === 'object') {
+      const instance = typeof value.instance === 'string' ? value.instance : undefined;
+      if (instance) {
+        map.set(key, instance);
+      }
     }
   }
-  if (capturing) {
-    throw new Error('Unbalanced macro invocation in L2 YAML');
-  }
-  return result.join('\n');
+  return map;
 }
 
-function countParens(str) {
-  const opens = (str.match(/\(/g) || []).length;
-  const closes = (str.match(/\)/g) || []).length;
-  return opens - closes;
+function resolveInstanceHint(ctx, nodeId) {
+  if (!ctx.instanceHints || ctx.instanceHints.size === 0) {
+    return undefined;
+  }
+  const alias = ctx.aliasStack[ctx.aliasStack.length - 1];
+  if (alias && ctx.instanceHints.has(alias)) {
+    return ctx.instanceHints.get(alias);
+  }
+  if (nodeId && ctx.instanceHints.has(nodeId)) {
+    return ctx.instanceHints.get(nodeId);
+  }
+  return undefined;
 }
 
 function parseCall(value) {
@@ -84,6 +73,10 @@ function pushNode(ctx, node, when, domainOverride) {
   const gating = combineWhen(when, node.when);
   if (gating) {
     final.when = gating;
+  }
+  const hintedInstance = resolveInstanceHint(ctx, final.id);
+  if (hintedInstance) {
+    final.runtime = { ...(final.runtime || {}), instance: hintedInstance };
   }
   ctx.nodes.push(final);
   const domain = domainOverride ?? ctx.domainStack[ctx.domainStack.length - 1];
@@ -133,6 +126,122 @@ function expandTransformModelInfer(ctx, alias, args, when) {
     out: { var: alias },
   };
   pushNode(ctx, node, when);
+}
+
+function expandAuthSign(ctx, alias, args, when) {
+  if (!('key' in args)) {
+    throw new Error('auth.sign requires key');
+  }
+  if (!('payload' in args)) {
+    throw new Error('auth.sign requires payload');
+  }
+  const spec = { op: 'auth.sign' };
+  if (args.alg) {
+    spec.alg = args.alg;
+  }
+  pushNode(
+    ctx,
+    {
+      id: `T_${alias}`,
+      kind: 'Transform',
+      spec,
+      in: {
+        key: args.key,
+        payload: args.payload,
+      },
+      out: { var: alias },
+    },
+    when,
+  );
+}
+
+function expandAuthVerify(ctx, alias, args, when) {
+  if (!('key' in args)) {
+    throw new Error('auth.verify requires key');
+  }
+  if (!('payload' in args)) {
+    throw new Error('auth.verify requires payload');
+  }
+  if (!('signature' in args)) {
+    throw new Error('auth.verify requires signature');
+  }
+  const spec = { op: 'auth.verify' };
+  if (args.alg) {
+    spec.alg = args.alg;
+  }
+  pushNode(
+    ctx,
+    {
+      id: `T_${alias}`,
+      kind: 'Transform',
+      spec,
+      in: {
+        key: args.key,
+        payload: args.payload,
+        signature: args.signature,
+      },
+      out: { var: alias },
+    },
+    when,
+  );
+}
+
+function expandAuthMintToken(ctx, alias, args, when) {
+  if (!('secret' in args)) {
+    throw new Error('auth.mint_token requires secret');
+  }
+  if (!('claims' in args)) {
+    throw new Error('auth.mint_token requires claims');
+  }
+  const spec = { op: 'auth.mint_token' };
+  if (args.alg) {
+    spec.alg = args.alg;
+  }
+  pushNode(
+    ctx,
+    {
+      id: `T_${alias}`,
+      kind: 'Transform',
+      spec,
+      in: {
+        secret: args.secret,
+        claims: args.claims,
+      },
+      out: { var: alias },
+    },
+    when,
+  );
+}
+
+function expandAuthCheckToken(ctx, alias, args, when) {
+  if (!('secret' in args)) {
+    throw new Error('auth.check_token requires secret');
+  }
+  if (!('claims' in args)) {
+    throw new Error('auth.check_token requires claims');
+  }
+  if (!('token' in args)) {
+    throw new Error('auth.check_token requires token');
+  }
+  const spec = { op: 'auth.check_token' };
+  if (args.alg) {
+    spec.alg = args.alg;
+  }
+  pushNode(
+    ctx,
+    {
+      id: `T_${alias}`,
+      kind: 'Transform',
+      spec,
+      in: {
+        secret: args.secret,
+        claims: args.claims,
+        token: args.token,
+      },
+      out: { var: alias },
+    },
+    when,
+  );
 }
 
 function expandPolicyEvaluate(ctx, alias, args, when) {
@@ -460,7 +569,11 @@ function expandStateMerge(ctx, alias, args, when) {
     throw new Error(`state.merge: unsupported strategy ${strategy}`);
   }
 
-  node.meta = { ...(node.meta || {}), strategy };
+  node.meta = {
+    ...(node.meta || {}),
+    strategy,
+    law: { goal: 'state-merge', strategy },
+  };
   pushNode(ctx, node, when);
 }
 
@@ -670,6 +783,10 @@ const MACROS = {
   'interaction.receive': expandInteractionReceive,
   'transform.validate': expandTransformValidate,
   'transform.model_infer': expandTransformModelInfer,
+  'auth.sign': expandAuthSign,
+  'auth.verify': expandAuthVerify,
+  'auth.mint_token': expandAuthMintToken,
+  'auth.check_token': expandAuthCheckToken,
   'policy.evaluate': expandPolicyEvaluate,
   'policy.enforce': expandPolicyEnforce,
   'interaction.request': expandInteractionRequest,
@@ -696,9 +813,11 @@ function expandCall(ctx, alias, value, when) {
   }
   const domain = name.includes('.') ? name.split('.')[0] : undefined;
   ctx.domainStack.push(domain);
+  ctx.aliasStack.push(alias);
   try {
     handler(ctx, alias, args, when);
   } finally {
+    ctx.aliasStack.pop();
     ctx.domainStack.pop();
   }
 }
@@ -745,7 +864,9 @@ export function expandL2ObjectToL0(doc, options = {}) {
     createdAt,
     nodes: [],
     domainStack: [undefined],
+    aliasStack: [undefined],
     nodeDomains: new WeakMap(),
+    instanceHints: normalizeInstanceHints(doc.instance_hints),
   };
 
   expandSteps(ctx, doc.inputs || [], undefined);
@@ -767,8 +888,7 @@ export function expandL2ObjectToL0(doc, options = {}) {
 }
 
 export function expandPipelineFromYaml(yamlSource, options = {}) {
-  const prepared = preprocessL2Yaml(yamlSource);
-  const l2 = YAML.parse(prepared);
+  const l2 = loadYamlDocument(yamlSource);
   return expandL2ObjectToL0(l2, options);
 }
 

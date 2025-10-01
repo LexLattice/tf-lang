@@ -74,6 +74,9 @@ test("tf laws --json emits deterministic keys and GREEN status", () => {
     "branch_exclusive",
     "monotonic_log",
     "confidential_envelope",
+    "idempotency",
+    "rpc_pairing",
+    "crdt_merge",
   ]);
   assert.ok(!("counterexample" in payload));
 });

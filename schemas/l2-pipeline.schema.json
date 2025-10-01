@@ -31,6 +31,29 @@
         "$ref": "#/$defs/ioEntry"
       }
     },
+    "instance_hints": {
+      "type": "object",
+      "description": "Optional instance preferences keyed by alias or node identifier.",
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1
+          },
+          {
+            "type": "object",
+            "required": ["instance"],
+            "properties": {
+              "instance": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
     "slas": {
       "type": "array",
       "items": {

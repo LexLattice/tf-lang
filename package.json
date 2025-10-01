@@ -3,6 +3,11 @@
   "private": true,
   "version": "0.0.2",
   "packageManager": "pnpm@10.16.1",
+  "bin": {
+    "tf": "./tools/tf-lang-cli/index.mjs",
+    "tf-plan": "./tools/tf-lang-cli/index.mjs",
+    "tf-expand": "./tools/tf-lang-cli/index.mjs"
+  },
   "dependencies": {
     "@noble/hashes": "^1.4.0"
   },
@@ -39,7 +44,7 @@
     "proofs:coverage": "node scripts/proofs/coverage.mjs && cat out/0.4/proofs/coverage.json | jq .",
     "proofs:coverage:docs": "node scripts/proofs/coverage.mjs --docs docs/l0-proof-coverage.md",
     "proofs:emit-missing": "node scripts/proofs/emit-missing-laws.mjs",
-    "tf": "node packages/tf-compose/bin/tf.mjs",
+    "tf": "node tools/tf-lang-cli/index.mjs",
     "validate:l0": "node tools/tf-lang-cli/scripts/validate.mjs l0",
     "validate:l2": "node tools/tf-lang-cli/scripts/validate.mjs l2",
     "codegen:rs:signing": "node scripts/generate-rs-run.mjs out/0.4/ir/signing.ir.json -o out/0.4/codegen-rs/signing",

@@ -1,17 +1,52 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DETERMINISTIC_TRANSFORMS } from '../runtime/run.mjs';
+import { DETERMINISTIC_TRANSFORMS } from '../transform/index.mjs';
 import { checkIdempotency } from '../../laws/idempotency.mjs';
 import checkBranchExclusive from '../../laws/branch_exclusive.mjs';
 import checkMonotonicLog from '../../laws/monotonic_log.mjs';
 import checkConfidentialEnvelope from '../../laws/confidential_envelope.mjs';
+import { LAW_GOALS_BY_KEY } from './law-goals.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const EFFECT_ORDER = ['Outbound', 'Inbound', 'Entropy', 'Pure'];
 const CAPABILITY_LATTICE_DEFAULT = path.resolve(__dirname, '../../policy/capability.lattice.json');
+const DEFAULT_PIPELINE_ID = 'unknown';
+
+function sanitizePathSegment(value, fallback = DEFAULT_PIPELINE_ID) {
+  const raw = typeof value === 'string' && value.length > 0 ? value : fallback;
+  const cleaned = raw.replace(/[^A-Za-z0-9_.-]/g, '_');
+  return cleaned.length > 0 ? cleaned : fallback;
+}
+
+function createEvidenceLogger(pipelineId) {
+  const safePipeline = sanitizePathSegment(pipelineId);
+  return async (goalId, content) => {
+    if (!goalId || !content) {
+      return null;
+    }
+    const safeGoal = sanitizePathSegment(goalId, 'goal');
+    const targetDir = path.join(LAWS_OUTPUT_ROOT, safePipeline);
+    await fs.mkdir(targetDir, { recursive: true });
+    const targetPath = path.join(targetDir, `${safeGoal}.smt2`);
+    await fs.writeFile(targetPath, `${String(content).trim()}\n`);
+    return targetPath;
+  };
+}
+
+function withGoalMetadata(key, report = {}) {
+  const goal = LAW_GOALS_BY_KEY.get(key);
+  if (goal && !report.goal) {
+    report.goal = goal.id;
+  }
+  if (goal && !report.name) {
+    report.name = goal.name;
+  }
+  return report;
+}
+const LAWS_OUTPUT_ROOT = path.resolve(__dirname, '../../out/laws');
 
 /* --------------------------- small analysis utils ------------------------- */
 
@@ -96,21 +131,35 @@ function checkCrdtMerge(nodes = []) {
   }
 
   const results = metas.map(({ node, strategy }) => {
+    const lawMeta = node.meta && typeof node.meta === 'object' ? node.meta.law : null;
+    const metaGoal = lawMeta && typeof lawMeta.goal === 'string' ? lawMeta.goal : null;
+    const metaStrategy = lawMeta && typeof lawMeta.strategy === 'string' ? lawMeta.strategy : null;
+    const issues = [];
+    if (!lawMeta) issues.push('law-metadata-missing');
+    if (metaGoal && metaGoal !== 'state-merge') issues.push('law-goal-mismatch');
+    if (metaStrategy && metaStrategy !== strategy) issues.push('law-strategy-mismatch');
+
     if (strategy === 'crdt.gcounter') {
+      const baseStatus = issues.length > 0 ? 'WARN' : 'PASS';
       return {
         id: node.id,
         strategy,
-        status: 'PASS',
-        ok: true,
+        status: baseStatus,
+        ok: issues.length === 0,
         laws: ['associative', 'commutative', 'idempotent'],
+        issues,
+        law: lawMeta ?? null,
       };
     }
+    const baseStatus = issues.length > 0 ? 'WARN' : 'NEUTRAL';
     return {
       id: node.id,
       strategy,
-      status: 'NEUTRAL',
-      ok: true,
+      status: baseStatus,
+      ok: issues.length === 0,
       notes: 'order-sensitive; no algebraic laws',
+      issues,
+      law: lawMeta ?? null,
     };
   });
 
@@ -386,6 +435,8 @@ async function runChecks(l0, options = {}) {
   const capsPath = options.capsPath ? path.resolve(options.capsPath) : policyPath;
   const capabilityLattice = compileCapabilityLattice(await loadCapabilityLattice());
   const analysis = analyzePipeline(l0, capabilityLattice);
+  const pipelineId = typeof l0.pipeline_id === 'string' && l0.pipeline_id.length > 0 ? l0.pipeline_id : DEFAULT_PIPELINE_ID;
+  const logEvidence = createEvidenceLogger(pipelineId);
 
   // Effects
   const declaredEffects = normalizeEffects(l0.effects);
@@ -437,48 +488,63 @@ async function runChecks(l0, options = {}) {
 
   // Laws
   const laws = {
-    idempotency: { ok: true, results: [] },
-    crdt_merge: { ok: true, results: [] },
-    rpc_pairing: { ok: true, results: [] },
-    branch_exclusive: { ok: true, results: [] },
-    monotonic_log: { ok: true, results: [] },
-    confidential_envelope: { ok: true, results: [] },
+    idempotency: withGoalMetadata('idempotency', { ok: true, results: [] }),
+    crdt_merge: withGoalMetadata('crdt_merge', { ok: true, results: [] }),
+    rpc_pairing: withGoalMetadata('rpc_pairing', { ok: true, results: [] }),
+    branch_exclusive: withGoalMetadata('branch_exclusive', { ok: true, results: [] }),
+    monotonic_log: withGoalMetadata('monotonic_log', { ok: true, results: [] }),
+    confidential_envelope: withGoalMetadata('confidential_envelope', { ok: true, results: [] }),
   };
 
   try {
-    laws.rpc_pairing = computeRpcPairing({ publishNodes: analysis.publishNodes, subsByChannelVar: analysis.subsByChannelVar });
+    laws.rpc_pairing = withGoalMetadata(
+      'rpc_pairing',
+      computeRpcPairing({ publishNodes: analysis.publishNodes, subsByChannelVar: analysis.subsByChannelVar }),
+    );
   } catch (error) {
-    laws.rpc_pairing = { ok: false, results: [], error: error.message };
+    laws.rpc_pairing = withGoalMetadata('rpc_pairing', { ok: false, results: [], error: error.message });
   }
 
   try {
-    laws.idempotency = await checkIdempotency({ publishNodes: analysis.publishNodes });
+    laws.idempotency = withGoalMetadata(
+      'idempotency',
+      await checkIdempotency({ publishNodes: analysis.publishNodes, logEvidence, pipelineId }),
+    );
   } catch (error) {
-    laws.idempotency = { ok: false, results: [], error: error.message };
+    laws.idempotency = withGoalMetadata('idempotency', { ok: false, results: [], error: error.message });
   }
 
   try {
-    laws.branch_exclusive = await checkBranchExclusive({ nodes: l0.nodes ?? [] });
+    laws.branch_exclusive = withGoalMetadata(
+      'branch_exclusive',
+      await checkBranchExclusive({ nodes: l0.nodes ?? [], logEvidence, pipelineId }),
+    );
   } catch (error) {
-    laws.branch_exclusive = { ok: false, results: [], error: error.message };
+    laws.branch_exclusive = withGoalMetadata('branch_exclusive', { ok: false, results: [], error: error.message });
   }
 
   try {
-    laws.monotonic_log = checkMonotonicLog({ publishNodes: analysis.publishNodes, nodes: l0.nodes ?? [] });
+    laws.monotonic_log = withGoalMetadata(
+      'monotonic_log',
+      checkMonotonicLog({ publishNodes: analysis.publishNodes, nodes: l0.nodes ?? [], varMeta: analysis.varMeta }),
+    );
   } catch (error) {
-    laws.monotonic_log = { ok: false, results: [], error: error.message };
+    laws.monotonic_log = withGoalMetadata('monotonic_log', { ok: false, results: [], error: error.message });
   }
 
   try {
-    laws.confidential_envelope = checkConfidentialEnvelope({ publishNodes: analysis.publishNodes, nodes: l0.nodes ?? [] });
+    laws.confidential_envelope = withGoalMetadata(
+      'confidential_envelope',
+      checkConfidentialEnvelope({ publishNodes: analysis.publishNodes, nodes: l0.nodes ?? [] }),
+    );
   } catch (error) {
-    laws.confidential_envelope = { ok: false, results: [], error: error.message };
+    laws.confidential_envelope = withGoalMetadata('confidential_envelope', { ok: false, results: [], error: error.message });
   }
 
   try {
-    laws.crdt_merge = checkCrdtMerge(l0.nodes ?? []);
+    laws.crdt_merge = withGoalMetadata('crdt_merge', checkCrdtMerge(l0.nodes ?? []));
   } catch (error) {
-    laws.crdt_merge = { ok: false, results: [], error: error.message };
+    laws.crdt_merge = withGoalMetadata('crdt_merge', { ok: false, results: [], error: error.message });
   }
 
   const overallGreen =

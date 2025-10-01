@@ -44,4 +44,5 @@ test('executeL0 runs subscribe -> transform -> publish pipeline', async () => {
   assert.equal(result.trace.publishes.length, 1);
   assert.equal(result.trace.publishes[0].channel, 'rpc:req:test/output');
   assert.equal(result.trace.publishes[0].payload.body.value, 'hello');
+  assert.equal(result.trace.transforms[0].deterministic, true);
 });

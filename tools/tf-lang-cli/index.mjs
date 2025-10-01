@@ -12,7 +12,8 @@ import { summarizeEffects } from "./lib/effects.mjs";
 import { buildDotGraph } from "./lib/dot.mjs";
 
 // Track G (instances)
-import annotateInstances, { normalizeChannel } from "../../packages/expander/resolve.mjs";
+import annotateInstances, { normalizeChannel, explainInstanceSelection } from "../../packages/expander/resolve.mjs";
+import { expandPipelineFromFile } from "../../packages/expander/expand.mjs";
 
 // Track F (typecheck)
 import { typecheckFile, formatPortPath } from "../../packages/typechecker/typecheck.mjs";
@@ -20,6 +21,9 @@ import { typecheckFile, formatPortPath } from "../../packages/typechecker/typech
 // Track H (laws)
 import { checkL0 } from "../../packages/checker/check.mjs";
 import { findCounterexample } from "../../packages/prover/counterexample.mjs";
+import { LAW_GOALS, LAW_GOALS_BY_ID, LAW_GOALS_BY_KEY } from "../../packages/checker/law-goals.mjs";
+import executeL0 from "../../packages/runtime/run.mjs";
+import { registerTransform, getTransform } from "../../packages/transform/index.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..", "..");
@@ -67,6 +71,7 @@ function formatMismatchLine(mismatch, describe) {
 async function runTypecheckCommand(rawArgs) {
   const argv = Array.isArray(rawArgs) ? [...rawArgs] : rawArgs ? [rawArgs] : [];
   let registryPath = defaultAdapterRegistry();
+  let emitDir = null;
   const files = [];
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -86,11 +91,25 @@ async function runTypecheckCommand(rawArgs) {
       registryPath = match[1];
       continue;
     }
+    if (arg === "--emit-adapters") {
+      const next = argv[i + 1];
+      if (!next || next.startsWith("--")) {
+        console.error("usage: tf typecheck <L0_FILE> [--adapters <registry.json>] [--emit-adapters <dir>]");
+        return 2;
+      }
+      emitDir = next;
+      i += 1;
+      continue;
+    }
+    if (arg?.startsWith("--emit-adapters=")) {
+      emitDir = arg.split("=", 2)[1];
+      continue;
+    }
     files.push(arg);
   }
 
   if (files.length !== 1) {
-    console.error("usage: tf typecheck <L0_FILE> [--adapters <registry.json>]");
+    console.error("usage: tf typecheck <L0_FILE> [--adapters <registry.json>] [--emit-adapters <dir>]");
     return 2;
   }
 
@@ -98,7 +117,9 @@ async function runTypecheckCommand(rawArgs) {
 
   let report;
   try {
-    report = await typecheckFile(file, { registryPath });
+    const options = { registryPath };
+    if (emitDir) options.emitAdaptersDir = emitDir;
+    report = await typecheckFile(file, options);
   } catch (error) {
     console.error(`${file}: ${error?.message ?? error}`);
     return 1;
@@ -108,6 +129,12 @@ async function runTypecheckCommand(rawArgs) {
 
   if (report.status === "ok" && report.mismatches.length === 0) {
     console.log("OK");
+    if (report.emittedAdapters?.length) {
+      console.log(`Emitted ${report.emittedAdapters.length} adapter stub(s) to ${emitDir}`);
+      for (const entry of report.emittedAdapters) {
+        console.log(` - ${entry.op} → ${entry.file}`);
+      }
+    }
     return 0;
   }
 
@@ -118,6 +145,12 @@ async function runTypecheckCommand(rawArgs) {
     for (const mismatch of suggestions) {
       console.log(formatMismatchLine(mismatch, describe));
     }
+    if (report.emittedAdapters?.length) {
+      console.log(`Emitted ${report.emittedAdapters.length} adapter stub(s) to ${emitDir}`);
+      for (const entry of report.emittedAdapters) {
+        console.log(` - ${entry.op} → ${entry.file}`);
+      }
+    }
     return 0;
   }
 
@@ -125,6 +158,12 @@ async function runTypecheckCommand(rawArgs) {
   console.log(`FAILED with ${mismatches.length} mismatch(es)`);
   for (const mismatch of mismatches) {
     console.log(formatMismatchLine(mismatch, describe));
+  }
+  if (report.emittedAdapters?.length) {
+    console.log(`Emitted ${report.emittedAdapters.length} adapter stub(s) to ${emitDir}`);
+    for (const entry of report.emittedAdapters) {
+      console.log(` - ${entry.op} → ${entry.file}`);
+    }
   }
   return 1;
 }
@@ -385,10 +424,144 @@ function finalizeSchemeSummary(schemes) {
   }));
 }
 
+function buildPlanSummary(nodes) {
+  const domains = {};
+  const schemes = {};
+
+  for (const node of nodes) {
+    const domain = node.runtime?.domain ?? "default";
+    const instance = node.runtime?.instance ?? "@Memory";
+    const scheme = channelScheme(node.channel);
+
+    if (!domains[domain]) {
+      domains[domain] = { total: 0, instances: {} };
+    }
+    domains[domain].total += 1;
+    domains[domain].instances[instance] = (domains[domain].instances[instance] || 0) + 1;
+
+    if (!schemes[scheme]) {
+      schemes[scheme] = { total: 0, instances: {} };
+    }
+    schemes[scheme].total += 1;
+    schemes[scheme].instances[instance] = (schemes[scheme].instances[instance] || 0) + 1;
+  }
+
+  return {
+    domains: finalizeDomainSummary(domains),
+    schemes: finalizeSchemeSummary(schemes)
+  };
+}
+
+function summarizeGroupForTable(entries) {
+  const rows = [];
+  for (const [groupName, entry] of Object.entries(entries)) {
+    const instanceEntries = Object.entries(entry.instances);
+    instanceEntries.sort(([a], [b]) => a.localeCompare(b));
+    rows.push({ group: groupName, instance: "TOTAL", count: entry.total, isTotal: true });
+    for (const [instance, count] of instanceEntries) {
+      rows.push({ group: groupName, instance, count, isTotal: false });
+    }
+  }
+  return rows;
+}
+
+function formatGroupTable(title, groupLabel, entries) {
+  const rows = summarizeGroupForTable(entries);
+  if (rows.length === 0) {
+    return `${title}\n( no entries )`;
+  }
+  const groupWidth = Math.max(groupLabel.length, ...rows.map((row) => row.group.length));
+  const instanceWidth = Math.max("Instance".length, ...rows.map((row) => row.instance.length));
+  const countWidth = Math.max("Count".length, ...rows.map((row) => String(row.count).length));
+
+  const lines = [];
+  lines.push(title);
+  lines.push(
+    `${groupLabel.padEnd(groupWidth)}  ${"Instance".padEnd(instanceWidth)}  ${"Count".padStart(countWidth)}`
+  );
+  lines.push(
+    `${"-".repeat(groupWidth)}  ${"-".repeat(instanceWidth)}  ${"-".repeat(countWidth)}`
+  );
+
+  for (const row of rows) {
+    const displayGroup = row.isTotal ? row.group : "";
+    const groupCell = displayGroup.padEnd(groupWidth);
+    const instanceCell = row.instance.padEnd(instanceWidth);
+    const countCell = String(row.count).padStart(countWidth);
+    lines.push(`${groupCell}  ${instanceCell}  ${countCell}`);
+  }
+
+  return lines.join("\n");
+}
+
+function describeWhenClause(when = {}) {
+  const parts = [];
+  if ("domain" in when) parts.push(`domain=${JSON.stringify(when.domain)}`);
+  if ("channel" in when) parts.push(`channel=${JSON.stringify(when.channel)}`);
+  if ("qos" in when) parts.push(`qos=${JSON.stringify(when.qos)}`);
+  return parts.join(", ");
+}
+
+function buildPlanDetails(nodes, registry) {
+  const details = [];
+  for (const node of nodes) {
+    const runtime = node.runtime || {};
+    const selection = explainInstanceSelection(node, {
+      registry,
+      domain: runtime.domain
+    });
+    details.push({
+      id: node.id,
+      kind: node.kind,
+      domain: runtime.domain ?? selection.context?.domain ?? "default",
+      scheme: channelScheme(node.channel),
+      instance: runtime.instance ?? selection.instance,
+      hint: runtime.hint ?? null,
+      resolved: selection.instance,
+      source: selection.source,
+      ruleIndex: selection.ruleIndex,
+      rule: selection.rule || null
+    });
+  }
+  details.sort((a, b) => a.id.localeCompare(b.id));
+  return details;
+}
+
+function formatPlanDetails(details) {
+  if (!details.length) {
+    return "Details:\n( no kernel nodes )";
+  }
+  const lines = ["Details:"];
+  for (const detail of details) {
+    lines.push(
+      `- ${detail.id} (${detail.kind}) → ${detail.instance} [domain=${detail.domain}, scheme=${detail.scheme}]`
+    );
+    let sourceLine = "  source: ";
+    if (detail.source === "rule") {
+      const clause = describeWhenClause(detail.rule?.when ?? {});
+      const suffix = clause ? ` (${clause})` : "";
+      sourceLine += `registry rule ${detail.ruleIndex + 1}${suffix}`;
+    } else if (detail.source === "domain") {
+      sourceLine += "registry domain override";
+    } else {
+      sourceLine += "registry default";
+    }
+    lines.push(sourceLine);
+    if (detail.hint) {
+      const matches = detail.hint === detail.instance;
+      const note = matches ? "matches selection" : `differs → resolved ${detail.resolved}`;
+      lines.push(`  hint: ${detail.hint} (${note})`);
+    }
+  }
+  return lines.join("\n");
+}
+
 async function runPlanInstancesCommand(rawArgs) {
   const argv = Array.isArray(rawArgs) ? [...rawArgs] : rawArgs != null ? [rawArgs] : [];
   let registryPath;
   let groupBy = "domain";
+  let format = "json";
+  let explain = false;
   const files = [];
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -421,16 +594,41 @@ async function runPlanInstancesCommand(rawArgs) {
       groupBy = arg.split("=", 2)[1];
       continue;
     }
+    if (arg === "--format") {
+      const value = argv[i + 1];
+      if (value === undefined || value.startsWith("--")) {
+        console.error("Error: --format requires a value.");
+        return 2;
+      }
+      format = value;
+      i += 1;
+      continue;
+    }
+    if (arg?.startsWith("--format=")) {
+      format = arg.split("=", 2)[1];
+      continue;
+    }
+    if (arg === "--explain") {
+      explain = true;
+      continue;
+    }
     files.push(arg);
   }
 
   if (files.length !== 1) {
-    console.error("usage: tf plan-instances [--registry <path>] [--group-by domain|scheme] <FILE>");
+    console.error(
+      "usage: tf plan-instances [--registry <path>] [--group-by domain|scheme] [--format json|table] [--explain] <FILE>"
+    );
     return 2;
   }
 
   if (!["domain", "scheme"].includes(groupBy)) {
     console.error("--group-by must be one of: domain, scheme");
+    return 2;
+  }
+
+  if (!["json", "table"].includes(format)) {
+    console.error("--format must be one of: json, table");
     return 2;
   }
 
@@ -442,33 +640,37 @@ async function runPlanInstancesCommand(rawArgs) {
     const registry = registryPath ? JSON.parse(await readFile(registryPath, "utf8")) : undefined;
     annotateInstances({ nodes, registry });
 
-    const domains = {};
-    const schemes = {};
+    const summary = buildPlanSummary(nodes);
+    const payload =
+      groupBy === "domain"
+        ? { domains: summary.domains, schemes: summary.schemes }
+        : { schemes: summary.schemes, domains: summary.domains };
 
-    for (const node of nodes) {
-      const domain = node.runtime?.domain ?? "default";
-      const instance = node.runtime?.instance ?? "@Memory";
-      const scheme = channelScheme(node.channel);
-
-      if (!domains[domain]) {
-        domains[domain] = { total: 0, instances: {} };
-      }
-      domains[domain].total += 1;
-      domains[domain].instances[instance] = (domains[domain].instances[instance] || 0) + 1;
-
-      if (!schemes[scheme]) {
-        schemes[scheme] = { total: 0, instances: {} };
-      }
-      schemes[scheme].total += 1;
-      schemes[scheme].instances[instance] = (schemes[scheme].instances[instance] || 0) + 1;
+    if (groupBy === "domain") {
+      payload.channels = summary.schemes;
     }
 
-    const summary =
-      groupBy === "domain"
-        ? { domains: finalizeDomainSummary(domains), channels: finalizeSchemeSummary(schemes) }
-        : { schemes: finalizeSchemeSummary(schemes), domains: finalizeDomainSummary(domains) };
+    if (format === "json") {
+      if (explain) {
+        payload.details = buildPlanDetails(nodes, registry);
+      }
+      payload.groupBy = groupBy;
+      console.log(JSON.stringify(payload, null, 2));
+    } else {
+      const primaryLabel = groupBy === "domain" ? "Domain" : "Scheme";
+      const primarySummary = groupBy === "domain" ? summary.domains : summary.schemes;
+      const secondaryLabel = groupBy === "domain" ? "Scheme" : "Domain";
+      const secondarySummary = groupBy === "domain" ? summary.schemes : summary.domains;
 
-    console.log(JSON.stringify(summary, null, 2));
+      console.log(formatGroupTable(`${primaryLabel} → Instance plan`, primaryLabel, primarySummary));
+      console.log("");
+      console.log(formatGroupTable(`${secondaryLabel} coverage`, secondaryLabel, secondarySummary));
+
+      if (explain) {
+        console.log("");
+        console.log(formatPlanDetails(buildPlanDetails(nodes, registry)));
+      }
+    }
     return 0;
   } catch (err) {
     console.error(`${file}: ${err?.message ?? err}`);
@@ -488,6 +690,125 @@ function summarizeLawStatus(report) {
   return entries[0]?.status ?? "NEUTRAL";
 }
 
+function displayPath(p) {
+  if (!p || typeof p !== "string") return null;
+  const relative = path.relative(process.cwd(), p);
+  if (!relative || relative.startsWith("..")) return p;
+  return relative;
+}
+
+function formatSummaryRow(label, status, details) {
+  const labelWidth = 22;
+  const statusWidth = 8;
+  const safeLabel = String(label ?? "");
+  const safeStatus = String(status ?? "N/A");
+  const safeDetails = details ? String(details) : "";
+  return `${safeLabel.padEnd(labelWidth)} ${safeStatus.padEnd(statusWidth)} ${safeDetails}`.trimEnd();
+}
+
+function describeEffectsSummary(effects) {
+  if (!effects || typeof effects !== "object") return "no data";
+  const parts = [];
+  if (effects.declared) parts.push(`declared=${effects.declared}`);
+  if (effects.computed && effects.computed !== effects.declared) {
+    parts.push(`computed=${effects.computed}`);
+  }
+  const missing = Array.isArray(effects.missing) ? effects.missing.length : 0;
+  if (missing > 0) parts.push(`missing=${missing}`);
+  const extra = Array.isArray(effects.extra) ? effects.extra.length : 0;
+  if (extra > 0) parts.push(`extra=${extra}`);
+  if (parts.length === 0) parts.push("matched");
+  return parts.join(" ");
+}
+
+function describePolicySummary(policy) {
+  if (!policy || typeof policy !== "object") return "no data";
+  const violations = Array.isArray(policy.violations) ? policy.violations.length : 0;
+  const dynamic = Array.isArray(policy.dynamic) ? policy.dynamic.length : 0;
+  const parts = [`violations=${violations}`];
+  if (dynamic > 0) parts.push(`dynamic=${dynamic}`);
+  return parts.join(" ");
+}
+
+function describeCapabilitiesSummary(caps) {
+  if (!caps || typeof caps !== "object") return "no data";
+  const required = Array.isArray(caps.required) ? caps.required.length : 0;
+  const missing = Array.isArray(caps.missing) ? caps.missing.length : 0;
+  const parts = [`required=${required}`];
+  if (missing > 0) parts.push(`missing=${missing}`);
+  if (Array.isArray(caps.extras) && caps.extras.length > 0) {
+    parts.push(`extras=${caps.extras.length}`);
+  }
+  return parts.join(" ");
+}
+
+function lawEntryStatus(entry) {
+  const status = summarizeLawStatus(entry);
+  return status ?? "NEUTRAL";
+}
+
+function describeLawSummary(entry) {
+  if (!entry || typeof entry !== "object") return "no data";
+  const results = Array.isArray(entry.results) ? entry.results : [];
+  const flagged = results.filter((item) => {
+    if (item?.ok === false) return true;
+    if (typeof item?.status === "string") {
+      const normalized = item.status.toUpperCase();
+      return !["PASS", "OK", "GREEN", "SAT"].includes(normalized);
+    }
+    return false;
+  }).length;
+  const parts = [`${results.length} result(s)`];
+  if (flagged > 0) parts.push(`${flagged} flagged`);
+  const evidencePath = displayPath(entry?.evidence?.path);
+  if (evidencePath) parts.push(`evidence=${evidencePath}`);
+  return parts.join(", ");
+}
+
+function formatCheckSummary(report, { file } = {}) {
+  if (!report || typeof report !== "object") return "No report";
+  const lines = [];
+  const location = displayPath(file);
+  const pipelineId = report.pipeline_id ?? "unknown";
+  const overallStatus = report.status ?? "UNKNOWN";
+  lines.push(`Check summary${location ? ` for ${location}` : ""}`);
+  lines.push(`Pipeline: ${pipelineId}`);
+  lines.push(`Overall: ${overallStatus}`);
+  lines.push("");
+
+  const effectsStatus = report.effects?.ok === false ? "RED" : report.effects?.ok === true ? "GREEN" : "NEUTRAL";
+  lines.push(formatSummaryRow("Effects", effectsStatus, describeEffectsSummary(report.effects)));
+
+  const publish = report.policy?.publish ?? null;
+  const publishStatus = publish?.ok === false ? "RED" : publish?.ok === true ? "GREEN" : "NEUTRAL";
+  lines.push(formatSummaryRow("Policy publish", publishStatus, describePolicySummary(publish)));
+
+  const subscribe = report.policy?.subscribe ?? null;
+  const subscribeStatus = subscribe?.ok === false ? "RED" : subscribe?.ok === true ? "GREEN" : "NEUTRAL";
+  lines.push(formatSummaryRow("Policy subscribe", subscribeStatus, describePolicySummary(subscribe)));
+
+  const caps = report.capabilities ?? null;
+  let capsStatus = "NEUTRAL";
+  if (caps?.ok === false || (Array.isArray(caps?.missing) && caps.missing.length > 0)) capsStatus = "RED";
+  else if (caps?.ok === true) capsStatus = "GREEN";
+  lines.push(formatSummaryRow("Capabilities", capsStatus, describeCapabilitiesSummary(caps)));
+
+  lines.push("");
+  lines.push("Laws:");
+  const lawEntries = Object.entries(report.laws ?? {});
+  if (lawEntries.length === 0) {
+    lines.push("  (none)");
+  } else {
+    for (const [key, entry] of lawEntries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
+      const label = entry?.name ?? key;
+      const status = lawEntryStatus(entry);
+      lines.push(formatSummaryRow(`  ${label}`, status, describeLawSummary(entry)));
+    }
+  }
+
+  return lines.join("\n");
+}
+
 function printBranchEntry(entry) {
   const label = entry.branch || entry.guardVar || "(branch)";
   const parts = [`  - ${label}: ${entry.status}`];
@@ -502,6 +823,10 @@ function printMonotonicEntry(entry) {
   const parts = [`  - ${entry.id ?? "(node)"}: ${entry.status}`];
   if (entry.assumption) parts.push(`assumption=${entry.assumption}`);
   if (entry.reason) parts.push(`reason=${entry.reason}`);
+  if (Array.isArray(entry.issues) && entry.issues.length > 0) {
+    parts.push(`issues=${entry.issues.join('|')}`);
+  }
+  if (entry.indexSource) parts.push(`index=${entry.indexSource}`);
   console.log(parts.join(" "));
 }
 
@@ -510,6 +835,9 @@ function printConfidentialEntry(entry) {
   if (entry.reason) parts.push(`reason=${entry.reason}`);
   if (entry.satisfied === true) parts.push("satisfied=true");
   else if (entry.satisfied === false) parts.push("satisfied=false");
+  if (Array.isArray(entry.plaintextPaths) && entry.plaintextPaths.length > 0) {
+    parts.push(`plaintext=${entry.plaintextPaths.join('|')}`);
+  }
   console.log(parts.join(" "));
 }
 
@@ -563,6 +891,18 @@ function sortNodeResults(entries = []) {
   });
 }
 
+function goalMetadataForInput(value) {
+  if (!value) return null;
+  return LAW_GOALS_BY_ID.get(value) ?? LAW_GOALS_BY_KEY.get(value);
+}
+
+function printLawGoals() {
+  console.log("Available law goals:");
+  for (const goal of LAW_GOALS) {
+    console.log(` - ${goal.id.padEnd(20)} ${goal.description}`);
+  }
+}
+
 function consumeFlagWithValue(argv, i, long) {
   const arg = argv[i];
   if (arg === `--${long}`) {
@@ -597,19 +937,34 @@ function evaluateBranchEntry(entry, assignment) {
 
 async function runLawsCommand(rawArgs) {
   const argv = Array.isArray(rawArgs) ? [...rawArgs] : [];
+  if (argv.length === 0) {
+    console.error(
+      "usage: tf laws --check <L0_FILE> [--goal <id>] [--verbose] [--max-bools N] [--json] [--policy <path>] [--caps <path>]"
+    );
+    console.error("       tf laws --list-goals");
+    return 2;
+  }
+
+  if (argv[0] === "--list-goals") {
+    printLawGoals();
+    return 0;
+  }
+
   if (argv[0] !== "--check" || !argv[1]) {
     console.error(
-      "usage: tf laws --check <L0_FILE> [--goal branch-exclusive] [--max-bools N] [--json] [--policy <path>] [--caps <path>]"
+      "usage: tf laws --check <L0_FILE> [--goal <id>] [--verbose] [--max-bools N] [--json] [--policy <path>] [--caps <path>]"
     );
+    console.error("       tf laws --list-goals");
     return 2;
   }
 
   const file = argv[1];
-  let goal = null;
+  let goalId = null;
   let maxBools = 8;
   let jsonMode = false;
   let policyPath;
   let capsPath;
+  let verbose = false;
 
   for (let i = 2; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -618,7 +973,12 @@ async function runLawsCommand(rawArgs) {
     const goalHit = consumeFlagWithValue(argv, i, "goal");
     if (goalHit) {
       if (goalHit.err) return goalHit.err;
-      goal = goalHit.value;
+      const meta = goalMetadataForInput(goalHit.value);
+      if (!meta) {
+        console.error(`unknown goal: ${goalHit.value}`);
+        return 2;
+      }
+      goalId = meta.id;
       i = goalHit.i;
       continue;
     }
@@ -633,6 +993,11 @@ async function runLawsCommand(rawArgs) {
 
     if (arg === "--json") {
       jsonMode = true;
+      continue;
+    }
+
+    if (arg === "--verbose") {
+      verbose = true;
       continue;
     }
 
@@ -656,10 +1021,6 @@ async function runLawsCommand(rawArgs) {
     return 2;
   }
 
-  if (goal && goal !== "branch-exclusive") {
-    console.error(`unknown goal: ${goal}`);
-    return 2;
-  }
   if (!Number.isInteger(maxBools) || Number.isNaN(maxBools) || maxBools < 1) {
     console.error("invalid --max-bools value");
     return 2;
@@ -672,25 +1033,44 @@ async function runLawsCommand(rawArgs) {
 
     const report = await checkL0(file, options);
     const lawReports = report?.laws ?? {};
-    const order = ["branch_exclusive", "monotonic_log", "confidential_envelope"];
-    const normalized = {};
+    const lawsList = [];
     let overallGreen = true;
 
-    for (const name of order) {
-      const source = lawReports[name];
+    for (const goal of LAW_GOALS) {
+      const source = lawReports[goal.key];
       const snapshot = source ? { ...source } : { ok: true, results: [] };
       snapshot.results = Array.isArray(snapshot.results) ? snapshot.results : [];
+      if (!snapshot.goal) snapshot.goal = goal.id;
+      if (!snapshot.name) snapshot.name = goal.name;
+      if (!snapshot.key) snapshot.key = goal.key;
       const errorEntry = snapshot.results.some((entry) => entry?.status === "ERROR");
       if (snapshot.ok === undefined) snapshot.ok = !errorEntry;
       if (snapshot.ok === false || errorEntry) overallGreen = false;
-      normalized[name] = snapshot;
+      lawsList.push({ meta: goal, report: snapshot });
+    }
+
+    for (const [rawKey, source] of Object.entries(lawReports)) {
+      if (LAW_GOALS_BY_KEY.has(rawKey)) continue;
+      const snapshot = source ? { ...source } : { ok: true, results: [] };
+      snapshot.results = Array.isArray(snapshot.results) ? snapshot.results : [];
+      if (snapshot.ok === undefined) {
+        const hasError = snapshot.results.some((entry) => entry?.status === "ERROR");
+        snapshot.ok = !hasError;
+      }
+      if (snapshot.ok === false || snapshot.results.some((entry) => entry?.status === "ERROR")) overallGreen = false;
+      const meta = { id: rawKey, key: rawKey, name: rawKey, description: rawKey };
+      if (!snapshot.goal) snapshot.goal = meta.id;
+      if (!snapshot.name) snapshot.name = meta.name;
+      if (!snapshot.key) snapshot.key = meta.key;
+      lawsList.push({ meta, report: snapshot });
     }
 
     const status = overallGreen ? "GREEN" : "RED";
 
     let counterexample = null;
-    if (!overallGreen && goal === "branch-exclusive") {
-      const branchReport = normalized.branch_exclusive;
+    if (!overallGreen && goalId === 'branch-exclusive') {
+      const branchEntry = lawsList.find((entry) => entry.meta.id === 'branch-exclusive');
+      const branchReport = branchEntry?.report;
       const failing = branchReport?.results?.find((entry) => entry.status === "ERROR");
       if (failing) {
         const variables = collectBranchVariables(failing);
@@ -719,36 +1099,42 @@ async function runLawsCommand(rawArgs) {
         status,
         laws: {}
       };
-      for (const name of order) output.laws[name] = normalized[name];
-      if (status === "RED" && goal === "branch-exclusive" && counterexample) {
+      for (const entry of lawsList) {
+        output.laws[entry.meta.key] = entry.report;
+      }
+      if (status === "RED" && goalId === 'branch-exclusive' && counterexample) {
         output.counterexample = counterexample;
       }
       console.log(JSON.stringify(output, null, 2));
     } else {
       console.log(`Laws for ${file}:`);
       console.log(`status: ${status}`);
-      for (const name of order) {
-        const law = normalized[name];
+      for (const entry of lawsList) {
+        const { meta, report: law } = entry;
         const summary = summarizeLawStatus(law);
-        console.log(`${name}: ${summary}`);
+        const label = meta.id;
+        console.log(`${label}: ${summary}`);
+        if (verbose && law.evidence?.path) {
+          console.log(`  evidence: ${law.evidence.path}`);
+        }
         const entries = Array.isArray(law.results) ? law.results : [];
         if (entries.length === 0) {
           console.log("  (no matches)");
           continue;
         }
         let sorted = entries;
-        if (name === "branch_exclusive") sorted = sortBranchResults(entries);
+        if (meta.key === "branch_exclusive") sorted = sortBranchResults(entries);
         else sorted = sortNodeResults(entries);
 
         for (const entry of sorted) {
-          if (name === "branch_exclusive") printBranchEntry(entry);
-          else if (name === "monotonic_log") printMonotonicEntry(entry);
-          else if (name === "confidential_envelope") printConfidentialEntry(entry);
+          if (meta.key === "branch_exclusive") printBranchEntry(entry);
+          else if (meta.key === "monotonic_log") printMonotonicEntry(entry);
+          else if (meta.key === "confidential_envelope") printConfidentialEntry(entry);
           else console.log(`  - ${JSON.stringify(entry)}`);
         }
       }
 
-      if (status === "RED" && goal === "branch-exclusive") {
+      if (status === "RED" && goalId === 'branch-exclusive') {
         if (counterexample) {
           const guardText = counterexample.guard ? ` guard=${counterexample.guard}` : "";
           console.log(
@@ -778,28 +1164,386 @@ async function runLawsCommand(rawArgs) {
   }
 }
 
+function runExpandCommand(argv) {
+  if (argv.length === 0) {
+    console.error("usage: tf expand <PIPELINE.l2.yaml> --out <PIPELINE.l0.json>");
+    return 2;
+  }
+  const [input, ...rest] = argv;
+  let outPath = null;
+  let createdAt = null;
+  for (let i = 0; i < rest.length; i += 1) {
+    const arg = rest[i];
+    if (arg === "--out") {
+      outPath = rest[i + 1];
+      if (!outPath) {
+        console.error("missing value for --out");
+        return 2;
+      }
+      i += 1;
+      continue;
+    }
+    if (typeof arg === "string" && arg.startsWith("--out=")) {
+      outPath = arg.slice(6);
+      continue;
+    }
+    if (arg === "--created-at") {
+      createdAt = rest[i + 1];
+      if (!createdAt) {
+        console.error("missing value for --created-at");
+        return 2;
+      }
+      i += 1;
+      continue;
+    }
+    if (typeof arg === "string" && arg.startsWith("--created-at=")) {
+      createdAt = arg.slice("--created-at=".length);
+      continue;
+    }
+    console.error(`unrecognized option for expand: ${arg}`);
+    return 2;
+  }
+  if (!outPath) {
+    console.error("tf expand requires --out <FILE>");
+    return 2;
+  }
+
+  let existing = null;
+  if (fs.existsSync(outPath)) {
+    try {
+      existing = JSON.parse(fs.readFileSync(outPath, "utf8"));
+    } catch {
+      existing = null;
+    }
+  }
+
+  const options = {};
+  if (createdAt) {
+    options.createdAt = createdAt;
+  } else if (existing?.created_at) {
+    options.createdAt = existing.created_at;
+  }
+
+  const pipeline = expandPipelineFromFile(input, options);
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
+  fs.writeFileSync(outPath, `${JSON.stringify(pipeline, null, 2)}\n`, "utf8");
+  return 0;
+}
+
+async function runCheckCommand(rawArgs) {
+  const argv = Array.isArray(rawArgs) ? [...rawArgs] : [];
+  if (argv.length === 0) {
+    console.error(
+      "usage: tf check <L0_FILE> [--summary] [--json] [--policy <path>] [--caps <path>] [--out <path>]"
+    );
+    return 2;
+  }
+
+  let summaryMode = false;
+  let jsonMode = false;
+  let policyPath;
+  let capsPath;
+  let outPath;
+  const files = [];
+
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === "--summary") {
+      summaryMode = true;
+      continue;
+    }
+    if (arg === "--json") {
+      jsonMode = true;
+      continue;
+    }
+
+    const policyHit = consumeFlagWithValue(argv, i, "policy");
+    if (policyHit) {
+      if (policyHit.err) return policyHit.err;
+      policyPath = policyHit.value;
+      i = policyHit.i;
+      continue;
+    }
+
+    const capsHit = consumeFlagWithValue(argv, i, "caps");
+    if (capsHit) {
+      if (capsHit.err) return capsHit.err;
+      capsPath = capsHit.value;
+      i = capsHit.i;
+      continue;
+    }
+
+    const outHit = consumeFlagWithValue(argv, i, "out");
+    if (outHit) {
+      if (outHit.err) return outHit.err;
+      outPath = outHit.value;
+      i = outHit.i;
+      continue;
+    }
+
+    files.push(arg);
+  }
+
+  if (files.length !== 1) {
+    console.error(
+      "usage: tf check <L0_FILE> [--summary] [--json] [--policy <path>] [--caps <path>] [--out <path>]"
+    );
+    return 2;
+  }
+
+  const [file] = files;
+  const options = {};
+  if (policyPath) options.policyPath = policyPath;
+  if (capsPath) options.capsPath = capsPath;
+
+  let report;
+  try {
+    report = await checkL0(file, options);
+  } catch (error) {
+    console.error(`${file}: ${error?.message ?? error}`);
+    return 1;
+  }
+
+  if (outPath) {
+    try {
+      fs.mkdirSync(path.dirname(outPath), { recursive: true });
+      fs.writeFileSync(outPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+    } catch (error) {
+      console.error(`failed to write report to ${outPath}: ${error?.message ?? error}`);
+      return 1;
+    }
+  }
+
+  if (jsonMode) {
+    console.log(JSON.stringify(report, null, 2));
+  } else if (summaryMode) {
+    console.log(formatCheckSummary(report, { file }));
+  } else {
+    const location = displayPath(file);
+    const label = location ? `${location}` : file;
+    console.log(`Check ${label}: ${report.status ?? "UNKNOWN"}`);
+    console.log("Use --summary or --json for detailed output.");
+  }
+
+  return report.status === "GREEN" ? 0 : 1;
+}
+
+function formatTraceValue(value) {
+  if (value === undefined) return "undefined";
+  try {
+    const serialized = JSON.stringify(value);
+    if (!serialized) {
+      return String(value);
+    }
+    return serialized.length > 160 ? `${serialized.slice(0, 157)}...` : serialized;
+  } catch {
+    return String(value);
+  }
+}
+
+async function runRuntimeExecCommand(argv) {
+  const args = Array.isArray(argv) ? [...argv] : [];
+  let traceMode = false;
+  const files = [];
+
+  for (const arg of args) {
+    if (arg === "--trace") {
+      traceMode = true;
+      continue;
+    }
+    files.push(arg);
+  }
+
+  if (files.length !== 1) {
+    console.error("usage: tf runtime exec <L0_FILE> [--trace]");
+    return 2;
+  }
+
+  const [file] = files;
+
+  let pipeline;
+  try {
+    pipeline = await loadJsonFile(file);
+  } catch (error) {
+    console.error(`${file}: ${error?.message ?? error}`);
+    return 1;
+  }
+
+  const sanitized = JSON.parse(JSON.stringify(pipeline));
+  const schemaNotes = [];
+  if (Array.isArray(sanitized.nodes)) {
+    for (const node of sanitized.nodes) {
+      if (
+        node
+        && node.kind === "Transform"
+        && node.spec?.op === "jsonschema.validate"
+        && typeof node.spec.schema === "string"
+      ) {
+        schemaNotes.push({ id: node.id ?? null, schema: node.spec.schema });
+      }
+    }
+  }
+
+  const restoreHandlers = [];
+  if (schemaNotes.length > 0) {
+    const original = getTransform("jsonschema.validate");
+    if (typeof original === "function") {
+      const unregister = registerTransform("jsonschema.validate", (spec, input) => {
+        if (typeof spec.schema === "string") {
+          return input?.value ?? input?.data ?? input;
+        }
+        return original(spec, input);
+      });
+      restoreHandlers.push(unregister);
+    }
+  }
+
+  try {
+    const { trace } = await executeL0(sanitized, { ignoreTimeouts: true });
+    console.log("Runtime execution OK");
+    if (!traceMode) {
+      return 0;
+    }
+
+    if (schemaNotes.length > 0) {
+      console.log(
+        `Schema placeholders applied for ${schemaNotes
+          .map((entry) => `${entry.id ?? '(node)'}→${entry.schema}`)
+          .join(', ')}`
+      );
+    }
+
+    console.log(`Variables (${trace.variables.length})`);
+    for (const entry of trace.variables ?? []) {
+      const parts = [` - ${entry.var}`];
+      if (entry.node) parts.push(`← ${entry.node}`);
+      if (entry.kind) parts.push(`[${entry.kind}]`);
+      if (entry.op) parts.push(`op=${entry.op}`);
+      parts.push(`value=${formatTraceValue(entry.value)}`);
+      console.log(parts.join(' '));
+    }
+
+    console.log(`Transforms (${trace.transforms.length})`);
+    for (const transform of trace.transforms ?? []) {
+      const label = transform.outVar ? `${transform.id ?? '(node)'} → ${transform.outVar}` : transform.id ?? '(node)';
+      const opText = transform.op ? ` op=${transform.op}` : '';
+      const determinism = transform.deterministic === false
+        ? ' [non-deterministic]'
+        : transform.deterministic === true
+          ? ' [deterministic]'
+          : '';
+      console.log(` - ${label}${opText}${determinism} result=${formatTraceValue(transform.result)}`);
+    }
+
+    console.log(`Subscribes (${trace.subscribes.length})`);
+    for (const sub of trace.subscribes ?? []) {
+      const varText = sub.outVar ? ` → ${sub.outVar}` : '';
+      const errorText = sub.error ? ` error=${sub.error}` : '';
+      console.log(` - ${sub.id ?? '(node)'}${varText} channel=${sub.channel}${errorText}`);
+    }
+
+    console.log(`Publishes (${trace.publishes.length})`);
+    for (const pub of trace.publishes ?? []) {
+      const errorText = pub.error ? ` error=${pub.error}` : '';
+      console.log(` - ${pub.id ?? '(node)'} → ${pub.channel}${errorText}`);
+    }
+
+    console.log(`Keypairs (${trace.keypairs.length})`);
+    for (const kp of trace.keypairs ?? []) {
+      const varText = kp.outVar ? ` → ${kp.outVar}` : '';
+      console.log(` - ${kp.id ?? '(node)'}${varText} algorithm=${kp.algorithm}`);
+    }
+
+    return 0;
+  } catch (error) {
+    console.error(`runtime exec failed: ${error?.message ?? error}`);
+    return 1;
+  } finally {
+    for (const restore of restoreHandlers) {
+      try {
+        restore();
+      } catch {
+        /* noop */
+      }
+    }
+  }
+}
+
 /* --------------------------------- Usage ---------------------------------- */
 
-function usage() {
-  console.log(
-    "usage: tf <validate|effects|graph|typecheck|plan-instances|laws|open|run|explain> ..."
-  );
-  console.log("       tf validate [l0|l2] <FILE...>");
-  console.log("       tf effects <FILE>");
-  console.log("       tf graph [--strict-graph[=true|false]] <FILE>");
-  console.log("       tf typecheck <L0_FILE> [--adapters <registry.json>]");
-  console.log("       tf plan-instances [--registry <path>] [--group-by domain|scheme] <FILE>");
-  console.log(
-    "       tf laws --check <L0_FILE> [--goal branch-exclusive] [--max-bools N] [--json] [--policy <path>] [--caps <path>]"
-  );
-  process.exit(2);
+function printMainHelp(exitCode = 0) {
+  const lines = [
+    "usage: tf <command> [options]",
+    "",
+    "Core commands:",
+    "  plan             Summarize runtime instance selections (alias: plan-instances)",
+    "  expand           Expand an L2 YAML pipeline into L0 JSON",
+    "  check            Validate an L0 pipeline against policy, capabilities, and laws",
+    "  typecheck        Verify port bindings and suggest/emit adapters",
+    "  laws             Inspect prover goals or capture solver evidence",
+    "  runtime exec     Execute an L0 pipeline with in-memory adapters",
+    "",
+    "Utilities:",
+    "  validate         Validate L0/L2 JSON against schemas",
+    "  effects          Summarize declared vs computed effects",
+    "  graph            Emit a DOT graph for an L0 pipeline",
+    "  open             List checkpoint phases for a rulebook node",
+    "  explain          Explain which checkpoint rules fire for a phase",
+    "  run              Execute checkpoint rules and emit TFREPORT.json",
+    "",
+    "Run `tf <command> --help` for command-specific usage."
+  ];
+  console.log(lines.join("\n"));
+  process.exit(exitCode);
+}
+
+function printPlanHelp(exitCode = 0) {
+  const lines = [
+    "usage: tf plan [--registry <path>] [--group-by domain|scheme] [--format json|table] [--explain] <L0_FILE>",
+    "       tf plan-instances … (alias)",
+    "",
+    "Summarize runtime.instance selections by domain or channel scheme.",
+    "Use --registry to try alternate deployment registries and --explain for per-node details."
+  ];
+  console.log(lines.join("\n"));
+  process.exit(exitCode);
+}
+
+function printExpandHelp(exitCode = 0) {
+  const lines = [
+    "usage: tf expand <PIPELINE.l2.yaml> --out <PIPELINE.l0.json> [--created-at <iso8601>]",
+    "",
+    "Compile an L2 YAML pipeline into an immutable L0 DAG.",
+    "If --created-at is omitted, the previous artifact timestamp is reused when available."
+  ];
+  console.log(lines.join("\n"));
+  process.exit(exitCode);
+}
+
+function printCheckHelp(exitCode = 0) {
+  const lines = [
+    "usage: tf check <L0_FILE> [--summary] [--json] [--policy <path>] [--caps <path>] [--out <path>]",
+    "",
+    "Validate effects, policy bindings, capabilities, and law goals for an L0 pipeline.",
+    "--summary prints a human-readable rollup; --json emits the full report to stdout."
+  ];
+  console.log(lines.join("\n"));
+  process.exit(exitCode);
 }
 
 /* --------------------------------- Main ----------------------------------- */
 
 (async function main() {
   const [cmd, ...argv] = process.argv.slice(2);
-  if (!cmd) usage();
+  if (!cmd) printMainHelp(2);
+
+  if (cmd === "--help" || cmd === "-h") {
+    printMainHelp(0);
+  }
+
+  if (cmd === "help") {
+    printMainHelp(0);
+  }
 
   if (cmd === "validate") {
     const code = await runValidateCommand(argv);
@@ -821,13 +1565,45 @@ function usage() {
     process.exit(code);
   }
 
-  if (cmd === "plan-instances") {
+  if ((cmd === "plan" || cmd === "plan-instances") && argv.length === 1 && ["--help", "-h"].includes(argv[0])) {
+    printPlanHelp(0);
+  }
+
+  if (cmd === "plan" || cmd === "plan-instances") {
     const code = await runPlanInstancesCommand(argv);
+    process.exit(code);
+  }
+
+  if (cmd === "check" && argv.length === 1 && ["--help", "-h"].includes(argv[0])) {
+    printCheckHelp(0);
+  }
+
+  if (cmd === "check") {
+    const code = await runCheckCommand(argv);
     process.exit(code);
   }
 
   if (cmd === "laws") {
     const code = await runLawsCommand(argv);
+    process.exit(code);
+  }
+
+  if (cmd === "expand" && argv.length === 1 && ["--help", "-h"].includes(argv[0])) {
+    printExpandHelp(0);
+  }
+
+  if (cmd === "expand") {
+    const code = runExpandCommand(argv);
+    process.exit(code);
+  }
+
+  if (cmd === "runtime") {
+    const [subcmd, ...rest] = argv;
+    if (subcmd !== "exec") {
+      console.error("usage: tf runtime exec <L0_FILE> [--trace]");
+      process.exit(2);
+    }
+    const code = await runRuntimeExecCommand(rest);
     process.exit(code);
   }
 
@@ -927,7 +1703,7 @@ function usage() {
     process.exit(ok ? 0 : 3);
   }
 
-  usage();
+  printMainHelp(2);
 })().catch((e) => {
   console.error(e?.message ?? e);
   process.exit(99);

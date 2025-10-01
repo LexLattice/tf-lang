@@ -10,7 +10,7 @@ test('monotonic log law records append-only assumption for policy:record channel
       kind: 'Publish',
       channel: 'policy:record',
       qos: 'at_least_once',
-      payload: { entry: { id: 'abc' } },
+      payload: { record_id: '@recordId', index: '@index' },
     },
     {
       id: 'P_metric',
@@ -30,5 +30,7 @@ test('monotonic log law records append-only assumption for policy:record channel
   assert.equal(entry.status, 'PASS');
   assert.equal(entry.ok, true);
   assert.equal(entry.reason, null);
-  assert.equal(entry.assumption, 'consumer-append-only');
+  assert.equal(entry.assumption, 'producer-strict-index');
+  assert.deepEqual(entry.issues, []);
+  assert.equal(entry.indexSource, 'payload.index');
 });

@@ -1,5 +1,7 @@
 import { proveGuardExclusive } from '../packages/prover/z3.mjs';
 
+const GOAL_ID = 'branch-exclusive';
+
 const POSITIVE_PATHS = new Set(['then', 'true', 'yes', 'allow', 'positive']);
 const NEGATIVE_PATHS = new Set(['else', 'false', 'no', 'deny', 'negative']);
 
@@ -317,6 +319,7 @@ function buildGroups(nodes = []) {
 
 function formatEntry(entry) {
   return {
+    goal: GOAL_ID,
     id: entry.id,
     path: entry.path ?? null,
     guard: {
@@ -333,7 +336,7 @@ function formatEntry(entry) {
   };
 }
 
-export async function checkBranchExclusive({ nodes = [] } = {}) {
+export async function checkBranchExclusive({ nodes = [], logEvidence } = {}) {
   const groups = buildGroups(nodes).sort((a, b) => {
     const aKey = `${a.source}:${a.key ?? ''}`;
     const bKey = `${b.source}:${b.key ?? ''}`;
@@ -342,6 +345,7 @@ export async function checkBranchExclusive({ nodes = [] } = {}) {
     return 0;
   });
   const results = [];
+  const scripts = [];
 
   for (const group of groups) {
     if (group.positive.length === 0 && group.negative.length === 0) {
@@ -349,6 +353,7 @@ export async function checkBranchExclusive({ nodes = [] } = {}) {
     }
 
     const result = {
+      goal: GOAL_ID,
       branch: group.source === 'metadata' ? group.key : null,
       guardVar: group.guardVars.size === 1 ? [...group.guardVars][0] : null,
       source: group.source,
@@ -409,14 +414,26 @@ export async function checkBranchExclusive({ nodes = [] } = {}) {
       return null;
     };
 
+    const flags = {
+      guardVar: result.guardVar,
+      positiveNegated: Boolean(positiveGuard?.negated),
+      negativeNegated: Boolean(negativeGuard?.negated),
+    };
+
     try {
-      const proved = await proveGuardExclusive({
+      const proof = await proveGuardExclusive({
         guardVar: result.guardVar,
         positiveNegated: Boolean(positiveGuard.negated),
         negativeNegated: Boolean(negativeGuard.negated),
       });
-      result.proved = proved;
-      if (proved) {
+      result.proved = proof?.proved ?? false;
+      if (proof?.script) {
+        scripts.push({
+          label: result.branch ?? result.guardVar ?? '(branch)',
+          script: proof.script,
+        });
+      }
+      if (result.proved) {
         const warningReason = selectWarningReason();
         if (warningReason) {
           result.status = 'WARN';
@@ -432,9 +449,20 @@ export async function checkBranchExclusive({ nodes = [] } = {}) {
     } catch (error) {
       result.status = 'ERROR';
       result.reason = 'solver-failed';
-      result.error = error?.message ?? 'solver-failed';
+      result.error = {
+        message: error?.message ?? 'solver-failed',
+        detail: error?.cause?.message ?? null,
+        flags: error?.flags ?? flags,
+      };
+      if (error?.script) {
+        scripts.push({
+          label: result.branch ?? result.guardVar ?? '(branch)',
+          script: error.script,
+        });
+      }
     }
 
+    result.flags = flags;
     result.warnings = [...warnings];
     result.ok = result.status !== 'ERROR';
 
@@ -442,7 +470,18 @@ export async function checkBranchExclusive({ nodes = [] } = {}) {
   }
 
   const ok = results.every((entry) => entry.ok);
-  return { ok, results };
+  let evidence = null;
+  if (typeof logEvidence === 'function' && scripts.length > 0) {
+    const body = scripts
+      .map((entry, index) => `; case ${index + 1}: ${entry.label}\n${entry.script.trim()}`)
+      .join('\n\n');
+    const path = await logEvidence(GOAL_ID, body);
+    if (path) {
+      evidence = { kind: 'smt2', path };
+    }
+  }
+
+  return { goal: GOAL_ID, ok, results, evidence };
 }
 
 export default checkBranchExclusive;

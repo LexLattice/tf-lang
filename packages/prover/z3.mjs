@@ -1,6 +1,10 @@
 let contextFactoryPromise = null;
 let initFactory = null;
 
+function boolLiteral(value) {
+  return value ? 'true' : 'false';
+}
+
 async function loadInit() {
   if (initFactory) {
     return initFactory;
@@ -32,6 +36,7 @@ async function getContext() {
 }
 
 export async function proveStableCorrImpliesIdempotent(flags) {
+  const script = buildIdempotencyScript(flags);
   try {
     const ctx = await getContext();
     const solver = new ctx.Solver();
@@ -50,10 +55,12 @@ export async function proveStableCorrImpliesIdempotent(flags) {
     const result = await solver.check();
     solver.pop();
 
-    return result === 'unsat';
+    return { proved: result === 'unsat', script };
   } catch (error) {
     const failure = new Error('solver-failed');
     failure.cause = error;
+    failure.flags = { ...flags };
+    failure.script = script;
     throw failure;
   }
 }
@@ -70,14 +77,47 @@ function sanitizeSymbol(name) {
   return symbol.length > 64 ? symbol.slice(0, 64) : symbol;
 }
 
+function buildGuardExclusiveScript({ symbol, positiveNegated, negativeNegated }) {
+  const guard = symbol || 'guard';
+  const positive = positiveNegated ? `(not ${guard})` : guard;
+  const negative = negativeNegated ? `(not ${guard})` : guard;
+  return [
+    '(set-logic QF_UF)',
+    `(declare-const ${guard} Bool)`,
+    `(assert ${positive})`,
+    `(assert ${negative})`,
+    '(check-sat)',
+  ].join('\n');
+}
+
+function buildIdempotencyScript(flags) {
+  return [
+    '(set-logic QF_UF)',
+    '(declare-const hasCorr Bool)',
+    '(declare-const corrStable Bool)',
+    '(declare-const idempotent Bool)',
+    `(assert (= hasCorr ${boolLiteral(flags.hasCorr)}))`,
+    `(assert (= corrStable ${boolLiteral(flags.corrStable)}))`,
+    '(assert (= idempotent (and hasCorr corrStable)))',
+    '(push)',
+    '(assert hasCorr)',
+    '(assert corrStable)',
+    '(assert (not idempotent))',
+    '(check-sat)',
+    '(pop)',
+  ].join('\n');
+}
+
 export async function proveGuardExclusive({ guardVar, positiveNegated = false, negativeNegated = true }) {
   if (!guardVar) {
     throw new Error('guardVar-required');
   }
+  const symbol = sanitizeSymbol(guardVar);
+  const script = buildGuardExclusiveScript({ symbol, positiveNegated, negativeNegated });
   try {
     const ctx = await getContext();
     const solver = new ctx.Solver();
-    const guard = ctx.Bool.const(sanitizeSymbol(guardVar));
+    const guard = ctx.Bool.const(symbol);
     const positiveExpr = positiveNegated ? ctx.Not(guard) : guard;
     const negativeExpr = negativeNegated ? ctx.Not(guard) : guard;
 
@@ -87,10 +127,12 @@ export async function proveGuardExclusive({ guardVar, positiveNegated = false, n
     const result = await solver.check();
     solver.pop();
 
-    return result === 'unsat';
+    return { proved: result === 'unsat', script };
   } catch (error) {
     const failure = new Error('solver-failed');
     failure.cause = error;
+    failure.flags = { guardVar, positiveNegated, negativeNegated };
+    failure.script = script;
     throw failure;
   }
 }

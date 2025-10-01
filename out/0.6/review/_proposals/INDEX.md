@@ -1,12 +1,13 @@
 # v0.6 proposals index
 
-| Track | Proposal file | Area |
+Cross-reference the [v0.6 enhancement plan](../_synthesis/enhancement-plan.local.md) for bundle ownership and sequencing.
+
+| Group | Plan anchor | Proposals |
 | --- | --- | --- |
-| A | [A-proposals.tf.md](A-proposals.tf.md) | mixed |
-| B | [B-proposals.tf.md](B-proposals.tf.md) | mixed |
-| C | [C-proposals.tf.md](C-proposals.tf.md) | mixed |
-| D | [D-proposals.tf.md](D-proposals.tf.md) | mixed |
-| E | [E-proposals.tf.md](E-proposals.tf.md) | mixed |
-| F | [F-proposals.tf.md](F-proposals.tf.md) | mixed |
-| G | [G-proposals.tf.md](G-proposals.tf.md) | mixed |
-| H | [H-proposals.tf.md](H-proposals.tf.md) | mixed |
+| G1 | [Law & Prover Integrity](../_synthesis/enhancement-plan.local.md#group-1--law--prover-integrity) | [Track E · Release Blocker (Disconnected Law Checking)](E-proposals.tf.md#release-blocker-disconnected-law-checking)<br>[Track E · Documentation (Law System)](E-proposals.tf.md#documentation-law-system)<br>[Track H · DX (Opaque Prover)](H-proposals.tf.md#dx-opaque-prover)<br>[Track H · Incompleteness (Shallow Law Checks)](H-proposals.tf.md#incompleteness-shallow-law-checks)<br>[Track H · Documentation (Goals)](H-proposals.tf.md#documentation-goals) |
+| G2 | [Macro & Example Pipeline Reliability](../_synthesis/enhancement-plan.local.md#group-2--macro--example-pipeline-reliability) | [Track B · Code Clarity (Expander)](B-proposals.tf.md#code-clarity-expander)<br>[Track D · Release Blocker (Broken Examples)](D-proposals.tf.md#release-blocker-broken-examples)<br>[Track D · DX (Fragile Parser)](D-proposals.tf.md#dx-fragile-parser)<br>[Track E · Missing Macros (Auth)](E-proposals.tf.md#missing-macros-auth) |
+| G3 | [Runtime & Capability Platform](../_synthesis/enhancement-plan.local.md#group-3--runtime--capability-platform) | [Track B · Extensibility (Transform Runner)](B-proposals.tf.md#extensibility-transform-runner)<br>[Track C · Code Duplication (Runtime)](C-proposals.tf.md#code-duplication-runtime)<br>[Track C · Discoverability (Runtime)](C-proposals.tf.md#discoverability-runtime)<br>[Track F · DX (No Autofix/Codegen for Adapters)](F-proposals.tf.md#dx-no-autofixcodegen-for-adapters)<br>[Track F · Incompleteness (Capability Lattice)](F-proposals.tf.md#incompleteness-capability-lattice) |
+| G4 | [Instance Planning Experience](../_synthesis/enhancement-plan.local.md#group-4--instance-planning-experience) | [Track G · DX (Output Format)](G-proposals.tf.md#dx-output-format)<br>[Track G · Documentation (Registry v2)](G-proposals.tf.md#documentation-registry-v2)<br>[Track G · Missing "Instance Hints"](G-proposals.tf.md#missing-instance-hints) |
+| G5 | [Developer Workflow & CLI Cohesion](../_synthesis/enhancement-plan.local.md#group-5--developer-workflow--cli-cohesion) | [Track A · DX Friction (CLI)](A-proposals.tf.md#dx-friction-cli)<br>[Track B · Discoverability (Expander)](B-proposals.tf.md#discoverability-expander)<br>[Track C · DX (Checker)](C-proposals.tf.md#dx-checker) |
+| G6 | [Core Docs & Onboarding](../_synthesis/enhancement-plan.local.md#group-6--core-docs--onboarding) | [Track A · Documentation (Onboarding)](A-proposals.tf.md#documentation-onboarding)<br>[Track A · Documentation (Gaps)](A-proposals.tf.md#documentation-gaps)<br>[Track D · Documentation (Missing Guidance)](D-proposals.tf.md#documentation-missing-guidance)<br>[Track F · Documentation (Port Typing Syntax)](F-proposals.tf.md#documentation-port-typing-syntax) |
+

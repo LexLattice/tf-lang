@@ -16,7 +16,10 @@
 
 ## Tools
 
-- `tf plan-instances <L0>` summarizes instance hints by domain and channel scheme; use `--registry` to simulate different deployments.
+- `pnpm tf plan <L0>` (alias `plan-instances`) summarizes instance hints by domain and channel scheme; use `--registry` to simulate different deployments and see [instance planning guidance](instance-planning.md) for table/explain output options.
+- `pnpm tf expand <PIPELINE.l2.yaml> --out <PIPELINE.l0.json>` promotes macro expansion to a first-class CLI flow. Add `--created-at` to preserve historical timestamps when re-emitting artifacts.
+- `pnpm tf check <L0> --summary` validates effects, policy, capabilities, and prover goals with a human-readable rollup. Use `--json` for the full report.
+- `pnpm tf --help` lists all available subcommands and per-command usage snippets.
 
 # TF-Lang v0.6 Specification
 
@@ -48,4 +51,7 @@ The command exits `0` when all bindings match (including cases where adapters ar
 custom adapter registry; otherwise `adapters/registry.json` is loaded.
 
 Adapter suggestions are reported inline:
+
+See the [port type metadata reference](port-types.md) for descriptor shapes, wildcard semantics,
+and authoring tips that keep adapter hints accurate.
 

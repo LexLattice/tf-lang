@@ -3,11 +3,13 @@
     "rpc:req:*",
     "rpc:reply:*",
     "metric:*",
-    "policy:*"
+    "policy:*",
+    "auth:*"
   ],
   "subscribe": [
     "rpc:req:*",
-    "rpc:reply:*"
+    "rpc:reply:*",
+    "policy:*"
   ],
   "keypair": [
     "*"

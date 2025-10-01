@@ -1,5 +1,16 @@
 # TF-Lang v0.6 · Top issues roll-up
 
+## v0.6 Enhancement Progress
+
+| Group | Owner | Target (date) | Status | Notes |
+| --- | --- | --- | --- | --- |
+| [G1 — Law & Prover Integrity](../_synthesis/enhancement-plan.local.md#group-1--law--prover-integrity) | Track E/H | 2024-06-07 | GREEN | SMT evidence logging, CLI goal listing shipped |
+| [G2 — Macro & Example Pipeline Reliability](../_synthesis/enhancement-plan.local.md#group-2--macro--example-pipeline-reliability) | TBD | TBD | RED | Tracking initialized |
+| [G3 — Runtime & Capability Platform](../_synthesis/enhancement-plan.local.md#group-3--runtime--capability-platform) | TBD | TBD | RED | Tracking initialized |
+| [G4 — Instance Planning Experience](../_synthesis/enhancement-plan.local.md#group-4--instance-planning-experience) | TBD | TBD | RED | Tracking initialized |
+| [G5 — Developer Workflow & CLI Cohesion](../_synthesis/enhancement-plan.local.md#group-5--developer-workflow--cli-cohesion) | TBD | TBD | RED | Tracking initialized |
+| [G6 — Core Docs & Onboarding](../_synthesis/enhancement-plan.local.md#group-6--core-docs--onboarding) | TBD | TBD | RED | Tracking initialized |
+
 | Issue | Repro | Owner | Target |
 | --- | --- | --- | --- |
 | Inline comment parsing crashes expander & examples (`tasks/run-examples.sh`) | `bash tasks/run-examples.sh` | Platform (Tracks A/B/D) | 2024-05-31 |

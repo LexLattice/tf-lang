@@ -8,7 +8,7 @@ import { join } from "node:path";
 import os from "node:os";
 
 function runCli(args) {
-  return spawnSync("node", ["tools/tf-lang-cli/index.mjs", "plan-instances", ...args], {
+  return spawnSync("node", ["tools/tf-lang-cli/index.mjs", "plan-instances", "--format", "json", ...args], {
     encoding: "utf8"
   });
 }

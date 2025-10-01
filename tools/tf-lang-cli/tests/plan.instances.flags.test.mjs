@@ -27,7 +27,7 @@ test("plan-instances honors registry override", () => {
   const registry = { default: "@Custom", rules: [] };
   writeFileSync(registryPath, JSON.stringify(registry, null, 2));
 
-  const res = runCli(["--registry", registryPath, file]);
+  const res = runCli([`--registry=${registryPath}`, file]);
   assert.equal(res.status, 0, res.stderr || res.stdout);
   const summary = JSON.parse(res.stdout);
   assert.equal(summary.domains.transform.instances["@Custom"], 1);
@@ -66,4 +66,24 @@ test("plan-instances groups by scheme, merges monitors, and sorts keys", () => {
 
   assert(summary.domains.interaction.total >= 1);
   assert.equal(summary.domains.transform.total, 1);
+});
+
+test("plan-instances errors when --registry value is missing", () => {
+  const dir = mkdtempSync(join(os.tmpdir(), "tf-plan-instances-missing-reg-"));
+  const file = join(dir, "dag.json");
+  writeFileSync(file, JSON.stringify({ nodes: [] }, null, 2));
+
+  const res = runCli([file, "--registry"]);
+  assert.equal(res.status, 2);
+  assert.match(res.stderr.trim(), /^Error: --registry requires a value\.?$/u);
+});
+
+test("plan-instances errors when --group-by value is missing", () => {
+  const dir = mkdtempSync(join(os.tmpdir(), "tf-plan-instances-missing-group-"));
+  const file = join(dir, "dag.json");
+  writeFileSync(file, JSON.stringify({ nodes: [] }, null, 2));
+
+  const res = runCli([file, "--group-by"]);
+  assert.equal(res.status, 2);
+  assert.match(res.stderr.trim(), /^Error: --group-by requires a value\.?$/u);
 });

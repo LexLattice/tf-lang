@@ -9,17 +9,15 @@ function loadRegistry() {
       new URL('registry.v2.json', baseUrl),
       new URL('registry.json', baseUrl)
     ];
-    let raw;
     for (const url of urls) {
       try {
-        raw = readFileSync(url, 'utf-8');
-        if (raw) {
-          cachedRegistry = JSON.parse(raw);
-          break;
-        }
+        const raw = readFileSync(url, 'utf-8');
+        if (!raw) continue;
+        cachedRegistry = JSON.parse(raw);
+        break;
       } catch (err) {
-        if (url.pathname.endsWith('registry.json')) {
-          throw err;
+        if (err?.code !== 'ENOENT' && typeof console !== 'undefined' && typeof console.warn === 'function') {
+          console.warn(`instances: failed to load ${url.pathname}: ${err?.message ?? err}`);
         }
       }
     }
@@ -31,7 +29,7 @@ function loadRegistry() {
 }
 
 /** Normalize a channel value into a comparable string token. */
-function normalizeChannel(channel) {
+export function normalizeChannel(channel) {
   if (typeof channel === 'string') {
     return channel;
   }

@@ -10,7 +10,7 @@ import Ajv from "ajv";
 import { loadRulebookPlan, rulesForPhaseFromPlan } from "./expand.mjs";
 import { summarizeEffects } from "./lib/effects.mjs";
 import { buildDotGraph } from "./lib/dot.mjs";
-import annotateInstances from "../../packages/expander/resolve.mjs";
+import annotateInstances, { normalizeChannel } from "../../packages/expander/resolve.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..", "..");
@@ -213,17 +213,8 @@ function explainPlan(plan, targetPhase) {
   process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
 }
 
-function normalizeChannelValue(channel) {
-  if (typeof channel === "string") return channel;
-  if (channel && typeof channel === "object") {
-    if (typeof channel.var === "string") return `@${channel.var}`;
-    if (channel.value != null) return String(channel.value);
-  }
-  return "";
-}
-
 function channelScheme(channel) {
-  const value = normalizeChannelValue(channel);
+  const value = normalizeChannel(channel);
   if (!value) return "none";
   if (value.startsWith("@")) return "dynamic";
   const [primary, remainder] = value.split(":", 2);
@@ -280,7 +271,12 @@ async function runPlanInstancesCommand(rawArgs) {
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--registry") {
-      registryPath = argv[i + 1];
+      const value = argv[i + 1];
+      if (value === undefined || value.startsWith("--")) {
+        console.error("Error: --registry requires a value.");
+        return 2;
+      }
+      registryPath = value;
       i += 1;
       continue;
     }
@@ -289,7 +285,12 @@ async function runPlanInstancesCommand(rawArgs) {
       continue;
     }
     if (arg === "--group-by") {
-      groupBy = argv[i + 1] ?? groupBy;
+      const value = argv[i + 1];
+      if (value === undefined || value.startsWith("--")) {
+        console.error("Error: --group-by requires a value.");
+        return 2;
+      }
+      groupBy = value;
       i += 1;
       continue;
     }

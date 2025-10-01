@@ -4,6 +4,16 @@
 - [Auto Quote → Bind → Issue](pipelines/quote-bind-issue.md)
 - [Fast-Track 24h SLA Monitors](monitors/fasttrack-24h.md)
 
+# Prover roadmap
+
+- [Lean 4 prover skeleton](../../prover/lean/README.md)
+
+## Law checks
+
+- Run human-readable checks with `tf laws --check <pipeline.l0.json> --goal branch-exclusive` to review PASS/WARN/ERROR entries and any counterexamples found within the boolean bound (`--max-bools N`, default 8).
+- Use machine-readable mode with `tf laws --check <pipeline.l0.json> --goal branch-exclusive --json [--policy path] [--caps path]` to feed the same policy/capability inputs as CI and capture structured results.
+- `WARN` entries document gaps (e.g., missing metadata or plaintext alongside ciphertext) but do not fail builds; teams can layer stricter policies later if needed.
+
 ## Tools
 
 - `tf plan-instances <L0>` summarizes instance hints by domain and channel scheme; use `--registry` to simulate different deployments.
@@ -28,8 +38,6 @@ Auth tokens are minted as `base58(blake3 bytes)` of the canonical payload (secre
 
 ---
 
-[Back to top](#tf-lang-v06-specification)
-
 ## Tools
 
 ### `tf typecheck`
@@ -41,13 +49,3 @@ custom adapter registry; otherwise `adapters/registry.json` is loaded.
 
 Adapter suggestions are reported inline:
 
-```
-OK with 1 suggestion(s)
-- T_needs_json in.payload.claim from @fnol_csv:
-  FnolV1 (csv) → FnolV1 (json) (use Transform(op: adapter.fnol_csv_to_json))
-```
-
-## Capabilities
-
-Capability allow lists may now include wildcard entries (e.g. `cap:keypair:*`).
-Any required capability matching that pattern is treated as satisfied when computing the checker report.

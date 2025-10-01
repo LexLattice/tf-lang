@@ -18,6 +18,20 @@ See the [0.5 Overview](docs/0.5/overview.md#quickstarts) for per-track guides, c
 
 ---
 
+## TF-Lang v0.6 — What’s new
+
+- Minimal **L0 kernel** (Transform, Publish, Subscribe, Keypair) + computed effects
+- **L1 macro growth**: state/process/policy/time/auth with jsonpatch/crdt merge strategies
+- **Checker & laws**: idempotency (by corr), RPC pairing, branch exclusivity, monotonic log, confidential envelope
+- **Type system**: light port typing, adapter suggestions (`tf typecheck`)
+- **Instance planning**: registry v2 + `tf plan-instances` (domain/scheme views)
+- **Examples & monitors**: FNOL fast-track, Quote→Bind→Issue, 24h SLA monitors
+- **Studio UI (preview)**: graph, laws, typecheck, instance plan, playground
+
+Entry points: [v0.6 review](out/0.6/review/README.md), [Top issues roll-up](out/0.6/review/_summary/ALL.md), [Track proposals](out/0.6/review/_proposals/INDEX.md), [Examples index](examples/v0.6/).
+
+---
+
 ## What’s in 0.4
 
 **L0 end‑to‑end** (spec → checker → DSL/IR → codegen → provenance/verify → proofs → parity):

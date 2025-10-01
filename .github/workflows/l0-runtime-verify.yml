@@ -2,6 +2,13 @@ name: L0 Runtime Verify
 
 on:
   pull_request:
+    paths:
+      - 'packages/**'
+      - 'examples/**'
+      - 'schemas/**'
+      - 'scripts/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/l0-runtime-verify.yml'
   workflow_dispatch:
 
 concurrency:

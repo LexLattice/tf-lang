@@ -2,6 +2,14 @@ name: L0 Proof Artifacts
 
 on:
   pull_request:
+    paths:
+      - 'packages/**'
+      - 'schemas/**'
+      - 'examples/**'
+      - 'scripts/**'
+      - 'docs/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/l0-proofs.yml'
   workflow_dispatch:
 
 jobs:

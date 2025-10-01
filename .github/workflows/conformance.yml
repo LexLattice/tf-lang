@@ -3,7 +3,21 @@ name: Conformance (TS ↔ Rust)
 on:
   push:
     branches: [main]
+    paths:
+      - 'packages/tf-lang-l0-ts/**'
+      - 'packages/tf-lang-l0-rs/**'
+      - 'packages/tf-trace/**'
+      - 'tests/**'
+      - 'scripts/**'
+      - 'pnpm-lock.yaml'
   pull_request:
+    paths:
+      - 'packages/tf-lang-l0-ts/**'
+      - 'packages/tf-lang-l0-rs/**'
+      - 'packages/tf-trace/**'
+      - 'tests/**'
+      - 'scripts/**'
+      - 'pnpm-lock.yaml'
 
 jobs:
   conformance:

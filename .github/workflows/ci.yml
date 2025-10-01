@@ -1,4 +1,3 @@
-
 name: ci
 
 on:
@@ -11,31 +10,47 @@ permissions:
   packages: write
 
 jobs:
-  ts:
-    name: TypeScript build & test
+  core:
+    name: ${{ matrix.target }} checks
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [ts, rust]
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup-pnpm
+
+      - name: Setup pnpm
+        if: matrix.target == 'ts'
+        uses: ./.github/actions/setup-pnpm
         with:
           node-version: '20'
           install: 'true'
           frozen: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'merge_group' }}
-      - run: pnpm -r --filter "./packages/tf-lang-l0-ts" test
 
-  rust:
-    name: Rust build & test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
-      - name: Install Rust
+      - name: Install Rust toolchain
+        if: matrix.target == 'rust'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        if: matrix.target == 'rust'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            crates/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('crates/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: pnpm tests
+        if: matrix.target == 'ts'
+        run: pnpm --filter ./packages/tf-lang-l0-ts run test
+
+      - name: cargo build & test
+        if: matrix.target == 'rust'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y curl build-essential pkg-config libssl-dev
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-          echo "${HOME}/.cargo/bin" >> $GITHUB_PATH
-      - run: $HOME/.cargo/bin/cargo build --manifest-path crates/Cargo.toml --workspace --all-targets --verbose
-      - run: $HOME/.cargo/bin/cargo test --manifest-path crates/Cargo.toml --workspace --all-targets --verbose
+          cargo build --manifest-path crates/Cargo.toml --workspace --all-targets --locked --verbose
+          cargo test --manifest-path crates/Cargo.toml --workspace --all-targets --locked --verbose
 
   tf-spec:
     name: tf-spec
@@ -47,11 +62,13 @@ jobs:
           node-version: '20'
           install: 'true'
           frozen: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'merge_group' }}
-          # Ensure the subpackage is built before packing (if your tarball includes dist/)
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            packages/tf-lang-l0-ts/pnpm-lock.yaml
+
       - name: Build tf-lang-l0-ts
         run: pnpm -C packages/tf-lang-l0-ts build
-  
-      # 1) Pack the subpackage and capture the absolute path as a step output
+
       - name: Pack tf-lang-l0 (subpackage)
         id: pack_l0
         shell: bash
@@ -64,30 +81,28 @@ jobs:
           echo "tarball=$ABS" >> "$GITHUB_OUTPUT"
           echo "Packed tarball: $ABS"
 
-        # 2) Export TF_L0_TGZ for all later steps (write ONLY NAME=value)
       - name: Export tarball path
         shell: bash
         run: printf 'TF_L0_TGZ=%s\n' '${{ steps.pack_l0.outputs.tarball }}' >> "$GITHUB_ENV"
-            
+
       - run: ./scripts/validate-tf-spec
-      - run: cp tf-spec/validation.txt tf-spec/validation-run1.txt
-      - run: ./scripts/validate-tf-spec
-      - run: diff tf-spec/validation-run1.txt tf-spec/validation.txt
+      - name: Replay validation determinism
+        run: |
+          cp tf-spec/validation.txt tf-spec/validation.run1.txt
+          ./scripts/validate-tf-spec
+          diff tf-spec/validation.run1.txt tf-spec/validation.txt
+
       - uses: actions/upload-artifact@v4
         if: ${{ !env.ACT }}
         with:
           name: tf-spec
           path: tf-spec/validation.txt
-      - name: Install Rust
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y curl build-essential pkg-config libssl-dev
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-          echo "${HOME}/.cargo/bin" >> $GITHUB_PATH
-      - run: pnpm --filter "./packages/tf-lang-l0-ts" run test -- tests/spec.adapter.test.ts
-      - run: pnpm --filter "./packages/tf-lang-l0-ts" run test -- tests/spec.adapter.test.ts
-      - run: $HOME/.cargo/bin/cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml spec_adapter
-      - run: $HOME/.cargo/bin/cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml spec_adapter
+
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Adapter spec parity (TS)
+        run: pnpm --filter ./packages/tf-lang-l0-ts run test -- tests/spec.adapter.test.ts
+      - name: Adapter spec parity (Rust)
+        run: cargo test --manifest-path packages/tf-lang-l0-rs/Cargo.toml spec_adapter
 
   oracle-core:
     name: oracle-core
@@ -101,10 +116,12 @@ jobs:
           frozen: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'merge_group' }}
       - run: pnpm -C packages/oracles-core-ts build
       - run: pnpm -C packages/oracles-core-ts test
-      - run: ./scripts/oracle-core-results
-      - run: cp oracle-core/results.json oracle-core/results.run1.json
-      - run: ./scripts/oracle-core-results
-      - run: diff oracle-core/results.run1.json oracle-core/results.json
+      - name: Deterministic report
+        run: |
+          ./scripts/oracle-core-results
+          cp oracle-core/results.json oracle-core/results.run1.json
+          ./scripts/oracle-core-results
+          diff oracle-core/results.run1.json oracle-core/results.json
       - uses: actions/upload-artifact@v4
         if: ${{ !env.ACT }}
         with:
@@ -130,7 +147,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository_owner == 'LexLattice'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+      - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3
       - name: Log in to GHCR
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3

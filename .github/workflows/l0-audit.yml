@@ -2,6 +2,15 @@ name: l0-audit
 
 on:
   pull_request:
+    paths:
+      - 'packages/**'
+      - 'schemas/**'
+      - 'scripts/**'
+      - 'examples/**'
+      - 'catalogs/**'
+      - 'docs/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/l0-audit.yml'
 
 concurrency:
   group: l0-audit-${{ github.ref }}

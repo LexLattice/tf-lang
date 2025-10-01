@@ -2,9 +2,25 @@ name: Docs Sync
 
 on:
   pull_request:
+    paths:
+      - 'docs/**'
+      - 'packages/**'
+      - 'scripts/**'
+      - 'examples/**'
+      - 'catalogs/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/l0-docs.yml'
   push:
     branches:
       - main
+    paths:
+      - 'docs/**'
+      - 'packages/**'
+      - 'scripts/**'
+      - 'examples/**'
+      - 'catalogs/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/l0-docs.yml'
   workflow_dispatch:
 
 jobs:

@@ -1,16 +1,30 @@
 name: tf-lang checkpoint
-on: [pull_request]
+
+on:
+  pull_request:
+    paths:
+      - '**/*.l0.json'
+      - '**/*.l0.yaml'
+      - '**/*.l0.yml'
+      - '**/*.l2.json'
+      - '**/*.l2.yaml'
+      - '**/*.l2.yml'
+      - 'schemas/**'
+      - 'tools/tf-lang-cli/**'
+      - 'spec/v0.6/**'
+      - 'examples/v0.6/**'
+      - '.github/workflows/checkpoint.yml'
+
 jobs:
   checkpoint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: ./.github/actions/setup-pnpm
         with:
-          version: 10.16.1
-      - uses: actions/setup-node@v4
-        with: { node-version: 20 }
-      - run: pnpm -w -r install
+          node-version: '20'
+          install: 'true'
+          frozen: 'false'
       - name: "Extract node/cp from PR title (format: 'node:<ID> cp:<PHASE>')"
         id: meta
         run: |

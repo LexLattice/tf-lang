@@ -16,11 +16,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.branch }}
-      - uses: pnpm/action-setup@v3
+      - uses: ./.github/actions/setup-pnpm
         with:
-          version: 10.16.1
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+          node-version: '20'
+          install: 'true'
+          frozen: 'true'
       - name: Run tf-check
         run: pnpm tf-check run --mode=ci
       - name: Upload artifacts

@@ -10,6 +10,7 @@ export default function Home() {
         <div className="flex gap-3">
           <Link href="/examples" className="badge chip-transform border-white/10">Examples</Link>
           <Link href="/playground" className="badge chip-publish border-white/10">Playground</Link>
+          <Link href="/chat" className="badge chip-keypair border-white/10">Game Master</Link>
         </div>
       </div>
       <KernelHero />

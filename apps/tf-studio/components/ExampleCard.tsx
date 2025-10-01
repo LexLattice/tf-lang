@@ -1,18 +1,21 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
+
 import { apiGraph, apiLaws } from "../lib/tools";
 
 type ExampleCardProps = {
   title: string;
-  description: string;
+  description?: string;
   filePath: string;
+  detailHref?: string;
   lawGoal?: "branch-exclusive";
 };
 
 type BusyState = "graph" | "laws" | null;
 
-export default function ExampleCard({ title, description, filePath, lawGoal }: ExampleCardProps) {
+export default function ExampleCard({ title, description, filePath, detailHref, lawGoal }: ExampleCardProps) {
   const [busy, setBusy] = useState<BusyState>(null);
   const [error, setError] = useState<string | null>(null);
   const [graph, setGraph] = useState<string | null>(null);
@@ -51,13 +54,21 @@ export default function ExampleCard({ title, description, filePath, lawGoal }: E
 
   return (
     <article className="card p-5 space-y-3">
-      <div>
+      <div className="space-y-1">
         <h2 className="text-lg font-medium">{title}</h2>
-        <p className="text-sm text-zinc-400 leading-relaxed">{description}</p>
+        {description && <p className="text-sm text-zinc-400 leading-relaxed">{description}</p>}
       </div>
 
       <div className="text-xs text-zinc-500">
         File: <code>{filePath}</code>
+        {detailHref && (
+          <Link
+            href={detailHref}
+            className="badge chip-keypair border-white/10"
+          >
+            Open detail
+          </Link>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-2 pt-2">

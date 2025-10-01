@@ -1,11 +1,15 @@
 "use client";
 
 import { useEffect } from "react";
-import { apiGraph, apiLaws } from "../../lib/tools";
+import { apiEffects, apiExpand, apiGraph, apiLaws, apiPlanInstances, apiTypecheck } from "../../lib/tools";
 
 type PlaygroundHelpers = {
   apiGraph: typeof apiGraph;
   apiLaws: typeof apiLaws;
+  apiEffects: typeof apiEffects;
+  apiTypecheck: typeof apiTypecheck;
+  apiPlanInstances: typeof apiPlanInstances;
+  apiExpand: typeof apiExpand;
 };
 
 export default function PlaygroundBridge() {
@@ -13,6 +17,10 @@ export default function PlaygroundBridge() {
     const helpers: PlaygroundHelpers = {
       apiGraph,
       apiLaws,
+      apiEffects,
+      apiTypecheck,
+      apiPlanInstances,
+      apiExpand,
     };
 
     const win = window as typeof window & { tf?: PlaygroundHelpers };

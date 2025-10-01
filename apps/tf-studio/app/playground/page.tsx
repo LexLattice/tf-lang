@@ -1,5 +1,6 @@
 import Link from "next/link";
 import BrandMark from "../../components/BrandMark";
+import ExpandPanel from "../../components/ExpandPanel";
 import PlaygroundBridge from "./bridge";
 import PlaygroundPanel from "./panel";
 
@@ -20,12 +21,21 @@ export default function PlaygroundPage() {
       <section className="space-y-4">
         <h1 className="text-2xl font-semibold tracking-tight">Interactive Playground</h1>
         <p className="text-sm text-zinc-300 max-w-2xl leading-relaxed">
-          Play with live TF-Lang artifacts straight from the repo. All requests go through the
-          in-process CLI adapters, so you can inspect real effects without any mock services.
+          Experiment with L2 input expansion and call the in-process CLI endpoints directly from
+          your browser. Everything runs against the checked-in repo modules—no shell commands.
         </p>
       </section>
 
-      <PlaygroundPanel />
+      <ExpandPanel />
+
+      <section className="space-y-4">
+        <h2 className="text-xl font-semibold">Quick API helpers</h2>
+        <p className="text-sm text-zinc-300 max-w-2xl leading-relaxed">
+          Use the console-style helpers below (and the <code>window.tf</code> bindings) to run graph
+          renders or law checks without switching tabs.
+        </p>
+        <PlaygroundPanel />
+      </section>
     </main>
   );
 }

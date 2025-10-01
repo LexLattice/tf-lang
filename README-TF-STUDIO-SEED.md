@@ -5,12 +5,15 @@ It includes:
 
 - Next.js app (`apps/tf-studio`) with Tailwind tokens, a hero component (KernelHero), and landing copy.
 - Brand splash SVG assets.
-- Two live API endpoints that import the repo's logic directly (no shelling out):
-  - `/api/cli/graph` → builds DOT from an L0 file via `tools/tf-lang-cli/lib/dot.mjs` (loaded with `webpackIgnore`).
-  - `/api/cli/laws`  → returns JSON law reports + counterexamples, driven by `packages/checker` and `packages/prover`.
+- Live API endpoints that import the repo's logic directly (no shelling out):
+  - `/api/cli/graph`, `/api/cli/laws`, `/api/cli/effects`, `/api/cli/typecheck`, `/api/cli/plan-instances`, `/api/cli/check`.
+  - `/api/cli/expand` (L2 YAML → L0) for the playground editor.
+  - `/api/examples/list` for the gallery.
 - Minimal client helpers (`lib/tools.ts`) plus interactive surfaces:
-  - `/examples` renders cards for curated specs with "View graph" and "Run laws" actions that show live results.
-  - `/playground` offers a form-driven console to run the same APIs against any allowed file path.
+  - `/examples` renders curated quick-action cards (Graph + Laws) and links to the full gallery fed by `/api/examples/list`.
+  - `/examples/[id]` hosts Graph, Effects, Typecheck, Plan, Laws, and the new Game Master dock on a single screen.
+  - `/playground` now combines the CLI helper console with an L2 → L0 editor powered by the expander.
+  - `/chat` exposes the Game Master dock for guided checks against a default pipeline.
 
 ## Install (monorepo)
 
@@ -40,5 +43,5 @@ It includes:
 - The API layer **does not shell out**; it imports ESM modules from the repo at runtime.
 - Paths are restricted to `examples/**` (and `policy/**` for allow‑lists).
 - Graph requests default to `strict=false` so external inputs (like `Memory`) render without extra flags; override by passing `strict: true`.
-- `/examples` and `/playground` are safe client sandboxes that only call the in-repo API routes—use them as templates for richer flows.
-- Add more endpoints following the same pattern for `effects` and `typecheck`.
+- `/examples`, `/examples/[id]`, `/playground`, and `/chat` are safe client sandboxes that only call the in-repo API routes—use them as templates for richer flows.
+- Follow the same `webpackIgnore` pattern when adding more endpoints so Next doesn’t bundle large ESM modules.

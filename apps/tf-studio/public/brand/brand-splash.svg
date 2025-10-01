@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600" role="img" aria-labelledby="tfBrand">
+  <title id="tfBrand">TF-Lang — Four Primitives</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0b0f19"/>
+      <stop offset="100%" stop-color="#0e1221"/>
+    </linearGradient>
+    <radialGradient id="glow-violet" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#8b5cf6" stop-opacity="0.65"/>
+      <stop offset="100%" stop-color="#8b5cf6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-emerald" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#22c55e" stop-opacity="0.65"/>
+      <stop offset="100%" stop-color="#22c55e" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-cyan" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.65"/>
+      <stop offset="100%" stop-color="#06b6d4" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-amber" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.65"/>
+      <stop offset="100%" stop-color="#f59e0b" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="10"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="600" fill="url(#bg)"/>
+  <g opacity="0.5" filter="url(#soft)">
+    <circle cx="250" cy="180" r="140" fill="url(#glow-violet)"/>
+    <circle cx="950" cy="180" r="140" fill="url(#glow-emerald)"/>
+    <circle cx="600" cy="100" r="140" fill="url(#glow-cyan)"/>
+    <circle cx="600" cy="460" r="160" fill="url(#glow-amber)"/>
+  </g>
+
+  <g fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2">
+    <path d="M250,180 Q600,40 950,180"/>
+    <path d="M250,180 Q600,520 950,180"/>
+    <path d="M600,100 Q600,300 600,460"/>
+  </g>
+
+  <g font-family="Inter, system-ui, -apple-system, Segoe UI, Roboto" font-size="18" fill="#fff">
+    <g transform="translate(250,180)">
+      <circle r="18" fill="#8b5cf6" />
+      <text x="28" y="6">Publish</text>
+    </g>
+    <g transform="translate(950,180)">
+      <circle r="18" fill="#22c55e" />
+      <text x="28" y="6">Subscribe</text>
+    </g>
+    <g transform="translate(600,100)">
+      <circle r="18" fill="#06b6d4" />
+      <text x="28" y="6">Transform</text>
+    </g>
+    <g transform="translate(600,460)">
+      <circle r="18" fill="#f59e0b" />
+      <text x="28" y="6">Keypair</text>
+    </g>
+  </g>
+
+  <g fill="#ffffff" opacity="0.9" font-family="Inter, system-ui, -apple-system, Segoe UI, Roboto">
+    <text x="600" y="560" text-anchor="middle" font-size="22" fill="rgba(255,255,255,0.6)">
+      TF-Lang • Compose anything from four primitives
+    </text>
+  </g>
+</svg>

@@ -8,3 +8,4 @@ packages:
   - "packages/coverage/*"
 
   - "services/*"
+  - "apps/*"

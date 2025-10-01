@@ -1,9 +1,0 @@
-track,title,severity(S1–S4),area(docs/dx/release),owner_suggested,effort(S/M/L),notes
-B,Expander drops inline comments causing run-examples to fail,S1,dx,Expander,S,"Reproduce: bash tasks/run-examples.sh → invalid call syntax … # types; strip comments during macro preprocessing so L2→L0 works first try."
-A,L0 schema outdated for structured transform inputs,S1,release,Platform,M,"tf validate fails on examples/v0.6/build/*.l0.json because schemas/l0-dag.schema.json still expects scalar in bindings; regenerate schema + fixtures."
-C,Checker idempotency stays RED on flagship pipelines,S2,release,Checker+Macros,M,"packages/checker/check.mjs reports unstable-corr on rpc:req publishes even with hashed corr; either stabilize corr derivation or downgrade severity before release."
-A,No v0.6 quickstart or README updates,S3,docs,Docs,S,"README still points to 0.5; add install→run-examples→checker quickstart referencing docs/0.6 assets."
-A/B/C,tf CLI missing expand/check entrypoints,S2,dx,Platform CLI,M,"Users must call node scripts directly (scripts/pipeline-expand.mjs, packages/checker/check.mjs); wrap as tf expand/check with exit codes."
-C,Runtime lacks tf run harness,S3,dx/rel,Runtime,M,"Cannot execute L0 on memory bus for demos; add tf run --l0 … using packages/runtime/run.mjs."
-G,Instance registry format undocumented,S3,docs,Instances,S,"No doc for registry.v2 schema; authors guess fields/wildcards; publish docs/0.6/instances.md with examples."
-H,Law tooling hides counterexamples,S3,release/docs,Prover,S,"tf laws --check returns NEUTRAL with no assignments; expose counterexample payloads or add --counterexample flag."

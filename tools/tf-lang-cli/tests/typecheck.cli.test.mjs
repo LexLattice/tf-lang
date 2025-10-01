@@ -91,8 +91,11 @@ test("typecheck surfaces adapter suggestions with nested paths", () => {
   assert.equal(result.status, 0, `expected exit code 0, got ${result.status}`);
   const out = result.stdout.trim().split(/\n/);
   assert.equal(out[0], "OK with 1 suggestion(s)");
-  assert.match(out[1], /- T_needs_json in\.payload\.claim from @fnol_csv:/);
-  assert.match(out[2], /FnolV1 \(csv\) → FnolV1 \(json\) \(use Transform\(op: adapter.fnol_csv_to_json\)\)/);
+  assert.equal(out.length, 2);
+  assert.equal(
+    out[1],
+    " - T_needs_json.in.payload.claim: fnol_csv (FnolV1 (csv)) → FnolV1 (json) via Transform(op: adapter.fnol_csv_to_json)"
+  );
 });
 
 test("typecheck returns failures when adapters are missing", () => {
@@ -148,6 +151,9 @@ test("typecheck returns failures when adapters are missing", () => {
   assert.equal(result.status, 1, `expected exit code 1, got ${result.status}`);
   const out = result.stdout.trim().split(/\n/);
   assert.equal(out[0], "FAILED with 1 mismatch(es)");
-  assert.match(out[1], /- T_needs_xml in\.payload\.claim from @fnol_csv:/);
-  assert.match(out[2], /FnolV1 \(csv\) ≠ FnolV1 \(xml\)/);
+  assert.equal(out.length, 2);
+  assert.equal(
+    out[1],
+    " - T_needs_xml.in.payload.claim: fnol_csv (FnolV1 (csv)) → FnolV1 (xml)"
+  );
 });

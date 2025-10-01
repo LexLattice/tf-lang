@@ -210,17 +210,17 @@ async function loadCapabilityLattice(latticePath = CAPABILITY_LATTICE_DEFAULT) {
 }
 
 function analyzePipeline(l0, capabilityLattice = { publish: [], subscribe: [], keypair: new Map() }) {
+  const {
+    publish: publishCaps,
+    subscribe: subscribeCaps,
+    keypair: keypairCaps,
+  } = capabilityLattice;
   const varMeta = new Map();
   const effectsPresent = new Set();
   const publishNodes = [];
   const subscriptions = [];
   const subscriptionDetails = new Map();
   const capabilities = new Set();
-  const publishCaps = Array.isArray(capabilityLattice.publish) ? capabilityLattice.publish : [];
-  const subscribeCaps = Array.isArray(capabilityLattice.subscribe) ? capabilityLattice.subscribe : [];
-  const keypairCaps = capabilityLattice.keypair instanceof Map
-    ? capabilityLattice.keypair
-    : new Map();
 
   for (const node of l0.nodes ?? []) {
     switch (node.kind) {
@@ -384,8 +384,23 @@ async function loadCapabilities(capsPath) {
     if (Array.isArray(parsed)) {
       return parsed.map((value) => String(value));
     }
-    if (parsed && Array.isArray(parsed.capabilities)) {
-      return parsed.capabilities.map((value) => String(value));
+    if (parsed && typeof parsed === 'object') {
+      const entries = [];
+      if (Array.isArray(parsed.capabilities)) {
+        entries.push(...parsed.capabilities.map((value) => String(value)));
+      }
+      if (Array.isArray(parsed.publish)) {
+        entries.push(...parsed.publish.map((value) => `cap:publish:${String(value)}`));
+      }
+      if (Array.isArray(parsed.subscribe)) {
+        entries.push(...parsed.subscribe.map((value) => `cap:subscribe:${String(value)}`));
+      }
+      if (Array.isArray(parsed.keypair)) {
+        entries.push(...parsed.keypair.map((value) => `cap:keypair:${String(value)}`));
+      }
+      if (entries.length > 0) {
+        return entries;
+      }
     }
     return [];
   } catch (error) {

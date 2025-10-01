@@ -14,6 +14,8 @@
   "scripts": {
     "build": "pnpm run --recursive build",
     "preinstall": "corepack enable pnpm",
+    "verify:dist": "node scripts/verify-dist.mjs",
+    "install:fresh": "node scripts/install-fresh.mjs && pnpm install",
     "check:fixtures": "tsx .codex/scripts/check-fixtures-json.ts",
     "audit": "node scripts/audit/run.mjs",
     "t5:build": "pnpm -w -r build",
@@ -83,6 +85,7 @@
     "@tf-lang/tf-plan-scaffold": "workspace:*",
     "ajv": "^8.17.1",
     "picomatch": "^4.0.3",
+    "tshy": "^1.18.0",
     "typescript": "5.9.2",
     "yaml": "^2.8.1",
     "z3-solver": "^4.12.4"

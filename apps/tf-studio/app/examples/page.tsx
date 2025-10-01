@@ -59,10 +59,10 @@ export default async function ExamplesPage() {
 
   const quickCards = QUICK_EXAMPLES.map((example) => {
     const match = items.find((item) => item.l0Path === example.filePath);
-    const detailHref = match
-      ? `/examples/${encodeURIComponent(match.id)}?l0=${encodeURIComponent(match.l0Path)}`
+    const detail = match
+      ? { id: match.id, l0Path: match.l0Path }
       : undefined;
-    return { ...example, detailHref };
+    return { ...example, detail };
   });
 
   const quickFilePaths = new Set(QUICK_EXAMPLES.map((example) => example.filePath));

@@ -32,11 +32,23 @@ function evaluateGuard(guard: any, assignment: Record<string, boolean>): boolean
   return guard.negated ? !val : val;
 }
 
+type BranchCase = {
+  guard?: {
+    kind?: string;
+    var?: string;
+    negated?: boolean;
+  };
+};
+
+function asBranchCases(value: unknown): BranchCase[] {
+  return Array.isArray(value) ? (value as BranchCase[]) : [];
+}
+
 function evaluateBranchEntry(entry: any, assignment: Record<string, boolean>): boolean {
-  const pos = Array.isArray(entry?.positive) ? entry.positive : [];
-  const neg = Array.isArray(entry?.negative) ? entry.negative : [];
-  const posActive = pos.some((it) => evaluateGuard(it?.guard, assignment));
-  const negActive = neg.some((it) => evaluateGuard(it?.guard, assignment));
+  const pos = asBranchCases(entry?.positive);
+  const neg = asBranchCases(entry?.negative);
+  const posActive = pos.some((candidate) => evaluateGuard(candidate?.guard, assignment));
+  const negActive = neg.some((candidate) => evaluateGuard(candidate?.guard, assignment));
   return !(posActive && negActive);
 }
 

@@ -11,7 +11,7 @@ type ExpandPanelProps = {
 
 export default function ExpandPanel({ initialYaml = "" }: ExpandPanelProps) {
   const [yaml, setYaml] = useState<string>(initialYaml);
-  const [result, setResult] = useState<unknown>(null);
+  const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string>("");
   const [isRunning, setIsRunning] = useState(false);
 
@@ -21,7 +21,8 @@ export default function ExpandPanel({ initialYaml = "" }: ExpandPanelProps) {
       setError("");
       setResult(null);
       const response = await apiExpand(yaml);
-      setResult(response.l0);
+      const value = response.l0;
+      setResult(typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {});
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -41,7 +42,7 @@ export default function ExpandPanel({ initialYaml = "" }: ExpandPanelProps) {
         {isRunning ? "Expanding…" : "Expand"}
       </button>
       {error && <div className="card p-3 text-red-400">{error}</div>}
-      {result && (
+      {result !== null && (
         <div className="grid lg:grid-cols-2 gap-4">
           <div className="card p-3 space-y-2">
             <div className="text-sm text-muted">Expanded L0 (preview):</div>

@@ -45,6 +45,11 @@ export default function LawPanel({ filePath }: LawPanelProps) {
     data.status === "GREEN" ? "badge-pass" : data.status === "RED" ? "badge-fail" : "badge-warn";
   const branchResults = data.laws?.branch_exclusive?.results ?? [];
 
+  const counterexampleValue = data?.counterexample;
+  const counterexampleString = counterexampleValue === undefined
+    ? null
+    : JSON.stringify(counterexampleValue, null, 2);
+
   return (
     <div className="card p-4 space-y-2">
       <div className="flex items-center gap-3">
@@ -64,10 +69,10 @@ export default function LawPanel({ filePath }: LawPanelProps) {
           ))}
         </ul>
       )}
-      {data.counterexample && (
+      {counterexampleString && (
         <div className="mt-3 space-y-1">
           <div className="text-sm text-muted">Counterexample (bounded):</div>
-          <pre className="overflow-auto"><code>{JSON.stringify(data.counterexample, null, 2)}</code></pre>
+          <pre className="overflow-auto"><code>{counterexampleString}</code></pre>
         </div>
       )}
     </div>

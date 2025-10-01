@@ -5,17 +5,22 @@ import { useState } from "react";
 
 import { apiGraph, apiLaws } from "../lib/tools";
 
+type DetailLink = {
+  id: string;
+  l0Path: string;
+};
+
 type ExampleCardProps = {
   title: string;
   description?: string;
   filePath: string;
-  detailHref?: string;
+  detail?: DetailLink;
   lawGoal?: "branch-exclusive";
 };
 
 type BusyState = "graph" | "laws" | null;
 
-export default function ExampleCard({ title, description, filePath, detailHref, lawGoal }: ExampleCardProps) {
+export default function ExampleCard({ title, description, filePath, detail, lawGoal }: ExampleCardProps) {
   const [busy, setBusy] = useState<BusyState>(null);
   const [error, setError] = useState<string | null>(null);
   const [graph, setGraph] = useState<string | null>(null);
@@ -61,9 +66,12 @@ export default function ExampleCard({ title, description, filePath, detailHref, 
 
       <div className="text-xs text-zinc-500">
         File: <code>{filePath}</code>
-        {detailHref && (
+        {detail && (
           <Link
-            href={detailHref}
+            href={{
+              pathname: "/examples/[id]",
+              query: { id: detail.id, l0: detail.l0Path },
+            }}
             className="badge chip-keypair border-white/10"
           >
             Open detail

@@ -1,14 +1,4 @@
-function ensurePublishNodes({ publishNodes = [], nodes = [] }) {
-  if (Array.isArray(publishNodes) && publishNodes.length > 0) {
-    return publishNodes.map((entry) => (entry.node ? entry : { node: entry }));
-  }
-  if (!Array.isArray(nodes)) {
-    return [];
-  }
-  return nodes
-    .filter((node) => node && typeof node === 'object' && node.kind === 'Publish')
-    .map((node) => ({ node }));
-}
+import { ensurePublishNodes } from './_util.mjs';
 
 export function checkMonotonicLog(options = {}) {
   const publishEntries = ensurePublishNodes(options);
@@ -33,7 +23,7 @@ export function checkMonotonicLog(options = {}) {
     });
   }
 
-  const ok = results.every((entry) => entry.status !== 'ERROR');
+  const ok = results.every((entry) => entry.ok);
   return {
     ok,
     results,

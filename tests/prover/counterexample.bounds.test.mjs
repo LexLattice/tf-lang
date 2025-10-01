@@ -15,7 +15,7 @@ test('counterexample search returns structured payload when max bools exceeded',
   });
 
   assert.equal(result.reason, 'max-bools-exceeded');
-  assert.equal(result.assignment, null);
+  assert.deepEqual(result.assignment, {});
   assert.deepEqual(result.triggered, { positive: [], negative: [] });
 });
 

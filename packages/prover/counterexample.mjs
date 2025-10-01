@@ -46,15 +46,21 @@ function makePayload({
   positive,
   negative,
 }) {
+  const hasAssignment = assignment && typeof assignment === 'object';
+  const normalizedAssignment = hasAssignment ? assignment : {};
+  const triggered = hasAssignment
+    ? {
+        positive: collectTriggered(positive, normalizedAssignment),
+        negative: collectTriggered(negative, normalizedAssignment),
+      }
+    : { positive: [], negative: [] };
+
   const payload = {
     goal: goal ?? 'branch-exclusive',
     guard: guard ?? null,
     reason,
-    assignment: assignment ?? null,
-    triggered: {
-      positive: collectTriggered(positive, assignment),
-      negative: collectTriggered(negative, assignment),
-    },
+    assignment: normalizedAssignment,
+    triggered,
   };
   return payload;
 }

@@ -288,6 +288,22 @@ function sortNodeResults(entries = []) {
   });
 }
 
+function consumeFlagWithValue(argv, i, long) {
+  const arg = argv[i];
+  if (arg === `--${long}`) {
+    const value = argv[i + 1];
+    if (value === undefined) {
+      console.error(`missing value for --${long}`);
+      return { i, err: 2 };
+    }
+    return { i: i + 1, value };
+  }
+  if (typeof arg === 'string' && arg.startsWith(`--${long}=`)) {
+    return { i, value: arg.slice(long.length + 3) };
+  }
+  return null;
+}
+
 function evaluateGuard(guard, assignment) {
   if (!guard || guard.kind !== 'var' || typeof guard.var !== 'string') {
     return false;
@@ -323,64 +339,36 @@ async function runLawsCommand(rawArgs) {
     if (!arg) {
       continue;
     }
-    if (arg === '--goal') {
-      const value = argv[i + 1];
-      if (value === undefined) {
-        console.error('missing value for --goal');
-        return 2;
-      }
-      goal = value;
-      i += 1;
+    const goalHit = consumeFlagWithValue(argv, i, 'goal');
+    if (goalHit) {
+      if (goalHit.err) return goalHit.err;
+      goal = goalHit.value;
+      i = goalHit.i;
       continue;
     }
-    if (arg.startsWith('--goal=')) {
-      goal = arg.slice('--goal='.length);
-      continue;
-    }
-    if (arg === '--max-bools') {
-      const value = argv[i + 1];
-      if (value === undefined) {
-        console.error('missing value for --max-bools');
-        return 2;
-      }
-      maxBools = Number(value);
-      i += 1;
-      continue;
-    }
-    if (arg.startsWith('--max-bools=')) {
-      maxBools = Number(arg.slice('--max-bools='.length));
+    const maxBoolsHit = consumeFlagWithValue(argv, i, 'max-bools');
+    if (maxBoolsHit) {
+      if (maxBoolsHit.err) return maxBoolsHit.err;
+      maxBools = Number(maxBoolsHit.value);
+      i = maxBoolsHit.i;
       continue;
     }
     if (arg === '--json') {
       jsonMode = true;
       continue;
     }
-    if (arg === '--policy') {
-      const value = argv[i + 1];
-      if (value === undefined) {
-        console.error('missing value for --policy');
-        return 2;
-      }
-      policyPath = value;
-      i += 1;
+    const policyHit = consumeFlagWithValue(argv, i, 'policy');
+    if (policyHit) {
+      if (policyHit.err) return policyHit.err;
+      policyPath = policyHit.value;
+      i = policyHit.i;
       continue;
     }
-    if (arg.startsWith('--policy=')) {
-      policyPath = arg.slice('--policy='.length);
-      continue;
-    }
-    if (arg === '--caps') {
-      const value = argv[i + 1];
-      if (value === undefined) {
-        console.error('missing value for --caps');
-        return 2;
-      }
-      capsPath = value;
-      i += 1;
-      continue;
-    }
-    if (arg.startsWith('--caps=')) {
-      capsPath = arg.slice('--caps='.length);
+    const capsHit = consumeFlagWithValue(argv, i, 'caps');
+    if (capsHit) {
+      if (capsHit.err) return capsHit.err;
+      capsPath = capsHit.value;
+      i = capsHit.i;
       continue;
     }
     console.error(`unknown option: ${arg}`);

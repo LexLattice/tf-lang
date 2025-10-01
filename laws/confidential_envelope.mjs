@@ -1,14 +1,4 @@
-function ensurePublishNodes({ publishNodes = [], nodes = [] }) {
-  if (Array.isArray(publishNodes) && publishNodes.length > 0) {
-    return publishNodes.map((entry) => (entry.node ? entry : { node: entry }));
-  }
-  if (!Array.isArray(nodes)) {
-    return [];
-  }
-  return nodes
-    .filter((node) => node && typeof node === 'object' && node.kind === 'Publish')
-    .map((node) => ({ node }));
-}
+import { ensurePublishNodes } from './_util.mjs';
 
 function hasProperty(object, key) {
   return Object.prototype.hasOwnProperty.call(object ?? {}, key);
@@ -41,7 +31,7 @@ export function checkConfidentialEnvelope(options = {}) {
     });
   }
 
-  const ok = results.every((entry) => entry.status !== 'ERROR');
+  const ok = results.every((entry) => entry.ok);
   return { ok, results };
 }
 

@@ -441,7 +441,7 @@ export async function checkBranchExclusive({ nodes = [] } = {}) {
     results.push(result);
   }
 
-  const ok = results.every((entry) => entry.ok !== false);
+  const ok = results.every((entry) => entry.ok);
   return { ok, results };
 }
 

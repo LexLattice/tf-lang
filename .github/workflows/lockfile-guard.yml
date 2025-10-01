@@ -17,7 +17,15 @@ jobs:
           BASE_SHA="${{ github.event.pull_request.base.sha }}"
           CHANGED=$(git diff --name-only "$BASE_SHA"...HEAD -- \
             'package.json' 'packages/**/package.json' 'pnpm-workspace.yaml')
-          echo "changed=$CHANGED" >> "$GITHUB_OUTPUT"
+          if [ -n "$CHANGED" ]; then
+            {
+              echo "changed<<EOF"
+              echo "$CHANGED"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=" >> "$GITHUB_OUTPUT"
+          fi
       - name: Require lockfile delta when packages change
         if: steps.diff.outputs.changed != ''
         run: |

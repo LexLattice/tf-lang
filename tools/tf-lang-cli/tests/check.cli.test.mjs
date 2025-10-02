@@ -8,7 +8,7 @@ import path from "node:path";
 
 const CLI = path.resolve("tools/tf-lang-cli/index.mjs");
 const FASTTRACK = path.resolve(
-  "examples/v0.6/build/auto.fnol.fasttrack.v1.l0.json"
+  "examples/v0.6/pipelines/auto.fnol.fasttrack.v1.l0.json"
 );
 
 test("tf check --summary reports aggregate statuses", () => {

@@ -3,7 +3,16 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import process from 'node:process';
 
-import { run } from '../dist/index.js';
+let run;
+try {
+  ({ run } = await import('../dist/index.js'));
+} catch (err) {
+  if (err?.code === 'ERR_MODULE_NOT_FOUND' || err?.code === 'MODULE_NOT_FOUND') {
+    ({ run } = await import('../src/index.mjs'));
+  } else {
+    throw err;
+  }
+}
 
 const USAGE = 'tf-run-wasm --ir <file.ir.json> [--status <status.json>] [--trace <trace.jsonl>] [--json]';
 

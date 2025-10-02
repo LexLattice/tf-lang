@@ -13,10 +13,12 @@ pnpm --filter tf-studio dev
 - Gallery (`/examples`) backed by `/api/examples/list`, plus quick-action cards that hit the graph/law CLI endpoints directly.
 - Example detail (`/examples/[id]`) with Graph, Effects, Typecheck, Instance Plan, Laws, and the Game Master dock on one screen.
 - Playground (`/playground`) combines the console-style helpers with an L2 → L0 expansion editor.
+- Capabilities Explorer (`/capabilities`) visualises `docs/capabilities/capabilities.json` and supports filtering/exporting subsets.
 - Game Master (`/chat`) exposes the interactive dock for guided checks against a default pipeline.
 
 ## Notes
 - API endpoints import repo ESM modules directly (no shelling out) using `webpackIgnore` to avoid bundling.
 - Paths are restricted to `examples/**` (and `policy/**` for law/policy lookups).
 - Set `NEXT_PUBLIC_BASE_URL` if you proxy through a different origin.
+- Copy or symlink `docs/capabilities/capabilities.json` into `apps/tf-studio/public/capabilities.json` (or upload manually from the page) to load live data.
 ```

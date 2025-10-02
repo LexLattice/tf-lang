@@ -39,8 +39,11 @@ jobs:
             pnpm run build >/dev/null
             local filename
             filename="$(pnpm pack --pack-destination "$TAR_DIR" | tail -n1)"
+            if [[ "$filename" != /* ]]; then
+              filename="$TAR_DIR/$filename"
+            fi
             popd >/dev/null
-            echo "$TAR_DIR/$filename"
+            echo "$filename"
           }
 
           TF_TGZ="$(pack_pkg packages/tf-check)"
@@ -52,28 +55,8 @@ jobs:
           tar -tzf "$TF_TGZ" | grep -q 'package/schema/tf-spec.schema.json'
 
           TMP="$(mktemp -d)"
-          node <<'NODE' "$TMP/package.json" "$TF_TGZ" "$UTILS_TGZ" "$L0_TGZ"
-          import { writeFileSync } from 'node:fs';
-
-          const [,, outPath, tfTgz, utilsTgz, l0Tgz] = process.argv;
-          const pkg = {
-            name: 'tf-check-smoke',
-            version: '0.0.0',
-            private: true,
-            type: 'module',
-            dependencies: {
-              '@tf-lang/tf-check': `file:${tfTgz}`,
-            },
-            pnpm: {
-              overrides: {
-                '@tf-lang/utils': `file:${utilsTgz}`,
-                'tf-lang-l0': `file:${l0Tgz}`,
-              },
-            },
-          };
-
-          writeFileSync(outPath, JSON.stringify(pkg, null, 2));
-NODE
+          node -e "const [outPath, tfTgz, utilsTgz, l0Tgz] = process.argv.slice(1); const pkg = { name: 'tf-check-smoke', version: '0.0.0', private: true, type: 'module', dependencies: { '@tf-lang/tf-check': 'file:' + tfTgz }, pnpm: { overrides: { '@tf-lang/utils': 'file:' + utilsTgz, 'tf-lang-l0': 'file:' + l0Tgz } } }; require('node:fs').writeFileSync(outPath, JSON.stringify(pkg, null, 2));" \
+            "$TMP/package.json" "$TF_TGZ" "$UTILS_TGZ" "$L0_TGZ"
 
           pnpm install --dir "$TMP"
           mkdir -p "$TMP/schema"

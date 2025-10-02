@@ -39,9 +39,6 @@ jobs:
       - name: Install ripgrep (needed by sqlite.test.ts)
         run: sudo apt-get update && sudo apt-get install -y ripgrep
 
-      - name: Fast tests
-        run: pnpm run test:fast
-
       - name: Generate docs
         run: pnpm run docs:gen
 

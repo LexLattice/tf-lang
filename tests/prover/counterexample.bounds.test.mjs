@@ -1,3 +1,5 @@
+// @tf-test kind=proofs area=prover speed=fast deps=node
+
 import test from 'node:test';
 import assert from 'node:assert/strict';
 

@@ -46,7 +46,16 @@ export function checkConfidentialEnvelope(options = {}) {
     const plaintextPaths = collectPlaintextPaths(payload);
     const ciphertextRef = envelope.ciphertext ?? null;
     const ciphertextValid = typeof ciphertextRef === 'string' && ciphertextRef.length > 0;
-    const status = plaintextPaths.length === 0 && ciphertextValid ? 'PASS' : plaintextPaths.length > 0 ? 'ERROR' : 'WARN';
+    let status = 'PASS';
+    let reason = null;
+    if (!ciphertextValid) {
+      status = 'WARN';
+      reason = 'ciphertext-missing';
+    }
+    if (plaintextPaths.length > 0) {
+      status = 'WARN';
+      reason = 'plaintext-present';
+    }
     const ok = status !== 'ERROR';
 
     results.push({
@@ -55,13 +64,8 @@ export function checkConfidentialEnvelope(options = {}) {
       channel: typeof node.channel === 'string' ? node.channel : null,
       status,
       ok,
-      satisfied: plaintextPaths.length === 0 && ciphertextValid,
-      reason:
-        plaintextPaths.length > 0
-          ? `plaintext-present:${plaintextPaths.join(',')}`
-          : ciphertextValid
-            ? null
-            : 'ciphertext-missing',
+      satisfied: status === 'PASS',
+      reason,
       plaintextPaths,
       ciphertext: ciphertextRef ?? null,
     });

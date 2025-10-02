@@ -1,3 +1,5 @@
+// @tf-test kind=product area=ops speed=fast deps=node
+
 import assert from 'node:assert/strict';
 import { mintTokenDeterministic, checkTokenDeterministic } from '../auth.mjs';
 import { runTransform } from '../../transform/index.mjs';

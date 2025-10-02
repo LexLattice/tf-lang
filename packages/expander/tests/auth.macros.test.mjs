@@ -1,3 +1,5 @@
+// @tf-test kind=product area=expander speed=fast deps=node
+
 import assert from 'node:assert/strict';
 import { expandPipelineFromYaml } from '../expand.mjs';
 

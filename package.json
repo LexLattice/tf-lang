@@ -2,7 +2,7 @@
   "name": "tf-lang",
   "private": true,
   "version": "0.0.2",
-  "packageManager": "pnpm@10.16.1",
+  "packageManager": "pnpm@10.17.1",
   "bin": {
     "tf": "./tools/tf-lang-cli/index.mjs",
     "tf-plan": "./tools/tf-lang-cli/index.mjs",

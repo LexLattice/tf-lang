@@ -1,3 +1,5 @@
+// @tf-test kind=product area=runtime speed=fast deps=node
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import createMemoryBus from '../../packages/runtime/bus.memory.mjs';

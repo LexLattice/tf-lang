@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
+import path from "node:path";
 
 function parseArgs(argv) {
   const args = {};
@@ -37,15 +38,41 @@ let l2Targets = l2Changed;
 if (schemaChanged.length > 0) {
   const allL0 = execFileSync("git", ["ls-files", "**/*.l0.json", "**/*.l0.yaml", "**/*.l0.yml"], { encoding: "utf8" }).trim();
   const allL2 = execFileSync("git", ["ls-files", "**/*.l2.json", "**/*.l2.yaml", "**/*.l2.yml"], { encoding: "utf8" }).trim();
-  l0Targets = allL0 ? allL0.split(/\r?\n/) : [];
-  l2Targets = allL2 ? allL2.split(/\r?\n/) : [];
+  l0Targets = allL0
+    ? allL0
+        .split(/\r?\n/)
+        .filter(
+          (file) =>
+            !/\.l0\.dev\.json$/.test(file) &&
+            !file.includes(`${path.sep}build${path.sep}`) &&
+            !file.includes(`${path.sep}monitors${path.sep}`)
+        )
+    : [];
+  l2Targets = allL2
+    ? allL2
+        .split(/\r?\n/)
+        .filter((file) => !file.includes(`${path.sep}monitors${path.sep}`))
+    : [];
 }
 
 if (event === "push" && l0Targets.length === 0 && l2Targets.length === 0 && schemaChanged.length === 0) {
   const allL0 = execFileSync("git", ["ls-files", "**/*.l0.json", "**/*.l0.yaml", "**/*.l0.yml"], { encoding: "utf8" }).trim();
   const allL2 = execFileSync("git", ["ls-files", "**/*.l2.json", "**/*.l2.yaml", "**/*.l2.yml"], { encoding: "utf8" }).trim();
-  l0Targets = allL0 ? allL0.split(/\r?\n/) : [];
-  l2Targets = allL2 ? allL2.split(/\r?\n/) : [];
+  l0Targets = allL0
+    ? allL0
+        .split(/\r?\n/)
+        .filter(
+          (file) =>
+            !/\.l0\.dev\.json$/.test(file) &&
+            !file.includes(`${path.sep}build${path.sep}`) &&
+            !file.includes(`${path.sep}monitors${path.sep}`)
+        )
+    : [];
+  l2Targets = allL2
+    ? allL2
+        .split(/\r?\n/)
+        .filter((file) => !file.includes(`${path.sep}monitors${path.sep}`))
+    : [];
 }
 
 const output = process.env.GITHUB_OUTPUT;

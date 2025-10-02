@@ -38,17 +38,42 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup pnpm + Node
+        uses: ./.github/actions/setup-pnpm
         with:
-          node-version: '20'
-          cache: pnpm
+          install: true
+          frozen: true
+          prepare: true
 
-      - name: Install dependencies
+      - name: Ensure canonical examples are up-to-date
+        run: pnpm run l0:check
+
+      - name: Exporter idempotence check
+        run: pnpm run l0:export:idempotent
+
+      - name: Validate monitor bundles
+        run: pnpm run monitors:validate
+
+      - name: Verify monitor pipeline references
+        run: pnpm run monitors:refs
+
+      - name: Verify monitor ID uniqueness
+        run: pnpm run monitors:ids
+
+      - name: Verify manifests
+        run: pnpm run manifests:verify
+
+      - name: Verify DAG invariants
+        run: pnpm run l0:dag
+
+      - name: Guard dev artifacts stay under /build
         run: |
-          set -euo pipefail
-          corepack enable
-          pnpm install --frozen-lockfile
+          BAD=$(git ls-files -- ':(glob)examples/**/*.l0.dev.json' | grep -v '/build/' || true)
+          if [ -n "$BAD" ]; then
+            echo "Instrumented .l0.dev.json leaked outside /build:" >&2
+            echo "$BAD" >&2
+            exit 1
+          fi
 
       - name: Determine base revision
         id: base

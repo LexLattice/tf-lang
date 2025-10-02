@@ -99,3 +99,4 @@ out
 .github/.vars
 /bin/
 packages/tf-trace/dist/
+examples/**/build/**/*.l0.dev.json

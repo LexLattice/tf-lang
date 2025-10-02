@@ -2,6 +2,9 @@
   "bundle_id": "monitors.fasttrack-24h",
   "created_at": "2025-09-30T15:39:24.496Z",
   "effects": "Outbound+Inbound+Entropy+Pure",
+  "meta": {
+    "pipelineRef": "pipelines/auto.fnol.fasttrack.v1.l0.json"
+  },
   "monitors": [
     {
       "monitor_id": "fasttrack.sla.start.v1",

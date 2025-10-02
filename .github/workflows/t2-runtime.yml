@@ -52,23 +52,28 @@ jobs:
           tar -tzf "$TF_TGZ" | grep -q 'package/schema/tf-spec.schema.json'
 
           TMP="$(mktemp -d)"
-          cat >"$TMP/package.json" <<JSON
-          {
-            "name": "tf-check-smoke",
-            "version": "0.0.0",
-            "private": true,
-            "type": "module",
-            "dependencies": {
-              "@tf-lang/tf-check": "file:$TF_TGZ"
+          node <<'NODE' "$TMP/package.json" "$TF_TGZ" "$UTILS_TGZ" "$L0_TGZ"
+          import { writeFileSync } from 'node:fs';
+
+          const [,, outPath, tfTgz, utilsTgz, l0Tgz] = process.argv;
+          const pkg = {
+            name: 'tf-check-smoke',
+            version: '0.0.0',
+            private: true,
+            type: 'module',
+            dependencies: {
+              '@tf-lang/tf-check': `file:${tfTgz}`,
             },
-            "pnpm": {
-              "overrides": {
-                "@tf-lang/utils": "file:$UTILS_TGZ",
-                "tf-lang-l0": "file:$L0_TGZ"
-              }
-            }
-          }
-JSON
+            pnpm: {
+              overrides: {
+                '@tf-lang/utils': `file:${utilsTgz}`,
+                'tf-lang-l0': `file:${l0Tgz}`,
+              },
+            },
+          };
+
+          writeFileSync(outPath, JSON.stringify(pkg, null, 2));
+NODE
 
           pnpm install --dir "$TMP"
           mkdir -p "$TMP/schema"

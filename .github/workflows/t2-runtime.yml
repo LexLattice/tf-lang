@@ -26,31 +26,55 @@ jobs:
           sha256sum out/t2/tf-check/help.txt out/t2/tf-check/result.json > out/t2/tf-check.sha
       - run: pnpm --filter @tf-lang/tf-check run artifacts
       - run: sha256sum --check out/t2/tf-check.sha
-      - name: Pack & run tf-check (bundled tarball)
+      - name: Pack & run tf-check (tarball)
         shell: bash
         run: |
           set -euo pipefail
           ROOT="${GITHUB_WORKSPACE:-$PWD}"
+          TAR_DIR="$(mktemp -d)"
 
-          # pack tf-check (bundled dependencies included)
-          pushd "$ROOT/packages/tf-check" >/dev/null
-          pnpm run build
-          TF_FILE="$(pnpm pack | tail -n1)"
-          TF_ABS="$PWD/$TF_FILE"
-          tar -tzf "$TF_FILE" | grep -q 'node_modules/@tf-lang/utils/package.json'
-          tar -tzf "$TF_FILE" | grep -q 'node_modules/tf-lang-l0/package.json'
-          tar -tzf "$TF_FILE" | grep -q 'package/schema/tf-spec.schema.json'
-          popd >/dev/null
+          pack_pkg() {
+            local pkg_path="$1"
+            pushd "$ROOT/$pkg_path" >/dev/null
+            pnpm run build >/dev/null
+            local filename
+            filename="$(pnpm pack --pack-destination "$TAR_DIR" | tail -n1)"
+            popd >/dev/null
+            echo "$TAR_DIR/$filename"
+          }
 
-          # temp project (stay outside repo; no cd needed)
+          TF_TGZ="$(pack_pkg packages/tf-check)"
+          UTILS_TGZ="$(pack_pkg packages/utils)"
+          L0_TGZ="$(pack_pkg packages/tf-lang-l0-ts)"
+
+          tar -tzf "$TF_TGZ" | grep -q 'package/dist/cli.js'
+          tar -tzf "$TF_TGZ" | grep -q 'package/dist/index.js'
+          tar -tzf "$TF_TGZ" | grep -q 'package/schema/tf-spec.schema.json'
+
           TMP="$(mktemp -d)"
-          npm init -y --prefix "$TMP" >/dev/null
+          cat >"$TMP/package.json" <<JSON
+          {
+            "name": "tf-check-smoke",
+            "version": "0.0.0",
+            "private": true,
+            "type": "module",
+            "dependencies": {
+              "@tf-lang/tf-check": "file:$TF_TGZ"
+            },
+            "pnpm": {
+              "overrides": {
+                "@tf-lang/utils": "file:$UTILS_TGZ",
+                "tf-lang-l0": "file:$L0_TGZ"
+              }
+            }
+          }
+JSON
 
-          # install the bundled CLI tarball (registry-free)
-          pnpm add --prefix "$TMP" "file:$TF_ABS"
+          pnpm install --dir "$TMP"
+          mkdir -p "$TMP/schema"
+          cp "$TMP/node_modules/@tf-lang/tf-check/schema/tf-spec.schema.json" "$TMP/schema/tf-spec.schema.json"
 
-          # run the installed bin
-          pnpm --prefix "$TMP" exec tf-check --help >/dev/null
+          pnpm --dir "$TMP" exec tf-check --help >/dev/null
 
       - name: No URL.pathname in ESM helpers
         run: |

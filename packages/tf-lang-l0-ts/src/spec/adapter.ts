@@ -1,8 +1,36 @@
 import Ajv from "ajv";
-import type { ErrorObject } from "ajv";
+import type { AnySchema, ErrorObject } from "ajv";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-import schema from "../../../../schema/tf-spec.schema.json" with { type: "json" };
 import { canonicalJsonBytes } from "../canon/json.js";
+
+type JsonSchema = Record<string, unknown>;
+
+function loadSchema(): JsonSchema {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    path.join(here, "..", "schema", "tf-spec.schema.json"),
+    path.join(here, "..", "..", "..", "..", "schema", "tf-spec.schema.json"),
+    path.join(process.cwd(), "schema", "tf-spec.schema.json")
+  ];
+  for (const candidate of candidates) {
+    try {
+      const raw = readFileSync(candidate, "utf8");
+      return JSON.parse(raw) as JsonSchema;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException | undefined)?.code !== "ENOENT") {
+        throw error;
+      }
+    }
+  }
+  throw new Error(
+    "tf-spec schema not found (checked package schema/, repo schema/, and cwd schema/)"
+  );
+}
+
+const schema: JsonSchema = loadSchema();
 
 export interface Step {
   op: string;
@@ -18,7 +46,7 @@ export interface TfSpec {
 const decoder = new TextDecoder();
 
 const ajv = new Ajv({ allErrors: true, strict: false });
-const validateSpec = ajv.compile(schema);
+const validateSpec = ajv.compile(schema as AnySchema);
 const ALLOWED_OPS = new Set(["copy", "create_vm", "create_network"]);
 
 function encodePointerSegment(segment: string): string {

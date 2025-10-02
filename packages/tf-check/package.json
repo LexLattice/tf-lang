@@ -31,10 +31,6 @@
     "@tf-lang/utils": "0.1.0",
     "tf-lang-l0": "0.1.1"
   },
-  "bundledDependencies": [
-    "@tf-lang/utils",
-    "tf-lang-l0"
-  ],
   "devDependencies": {
     "@types/node": "^24.3.1",
     "typescript": "^5.5.0",

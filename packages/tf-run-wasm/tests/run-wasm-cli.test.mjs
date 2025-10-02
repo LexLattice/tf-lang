@@ -10,6 +10,7 @@ import test from 'node:test';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -19,6 +20,22 @@ const testDir = fileURLToPath(new URL('.', import.meta.url));
 const packageRoot = join(testDir, '..');
 
 const CLI_PATH = join(packageRoot, 'bin', 'cli.mjs');
+const DIST_ENTRY = join(packageRoot, 'dist', 'index.js');
+
+let buildPromise;
+async function ensureCliBuilt() {
+  if (existsSync(DIST_ENTRY)) return;
+  if (!buildPromise) {
+    buildPromise = execFileAsync('pnpm', ['--filter', '@tf-lang/tf-run-wasm', 'run', 'build'], {
+      cwd: packageRoot,
+      maxBuffer: 2 * 1024 * 1024,
+    }).catch((err) => {
+      buildPromise = undefined;
+      throw err;
+    });
+  }
+  await buildPromise;
+}
 
 test('tf-run-wasm CLI writes normalized status and trace files', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'tf-run-wasm-cli-'));
@@ -35,6 +52,8 @@ test('tf-run-wasm CLI writes normalized status and trace files', async () => {
 
     const statusPath = join(dir, 'status.json');
     const tracePath = join(dir, 'trace.jsonl');
+
+    await ensureCliBuilt();
 
     const { stdout, stderr } = await execFileAsync(
       process.execPath,

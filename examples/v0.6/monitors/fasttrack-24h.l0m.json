@@ -1,0 +1,30 @@
+{
+  "monitors": [
+    {
+      "actions": [
+        "emit-metric"
+      ],
+      "expr": "true",
+      "id": "fasttrack-sla-start-v1",
+      "kind": "metric",
+      "name": "fasttrack.sla.start.v1",
+      "select": "*",
+      "severity": "info",
+      "when": "post"
+    },
+    {
+      "actions": [
+        "emit-metric"
+      ],
+      "expr": "true",
+      "id": "fasttrack-sla-check-v1",
+      "kind": "metric",
+      "name": "fasttrack.sla.check.v1",
+      "select": "*",
+      "severity": "info",
+      "when": "post"
+    }
+  ],
+  "pipelineRef": "pipelines/auto.fnol.fasttrack.v1.l0.json",
+  "schemaVersion": "0.6"
+}

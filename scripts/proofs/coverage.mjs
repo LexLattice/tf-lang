@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { readdir, readFile } from 'node:fs/promises';
-import { resolve, join } from 'node:path';
+import { readdir, readFile, writeFile, mkdir } from 'node:fs/promises';
+import { resolve, join, dirname } from 'node:path';
 
 import { canonicalLawName } from '../../packages/tf-opt/lib/data.mjs';
 
@@ -115,13 +115,54 @@ async function loadUsedLaws(manifestPaths) {
   return laws;
 }
 
+function parseCommutePair(law) {
+  if (!law.startsWith('commute:')) return null;
+  const raw = law.slice('commute:'.length);
+  const [left, right] = raw.split('-with-');
+  if (!left || !right) return null;
+  return [left, right];
+}
+
+function collectMissingPairs(missing) {
+  const entries = new Set();
+  missing.forEach((law) => {
+    const pair = parseCommutePair(law);
+    if (!pair) return;
+    entries.add(JSON.stringify(pair));
+  });
+  const pairs = Array.from(entries, (entry) => JSON.parse(entry));
+  pairs.sort((a, b) => a[0].localeCompare(b[0]) || a[1].localeCompare(b[1]));
+  return pairs;
+}
+
+async function writeCoverageReport({ outRoot, versions, report }) {
+  const serialized = `${JSON.stringify(report, null, 2)}\n`;
+  const uniquePaths = new Set();
+  for (const version of versions) {
+    const candidate = resolve(process.cwd(), outRoot, version, 'proofs', 'coverage.json');
+    uniquePaths.add(candidate);
+  }
+  for (const outputPath of uniquePaths) {
+    await mkdir(dirname(outputPath), { recursive: true });
+    await writeFile(outputPath, serialized, 'utf8');
+  }
+}
+
 async function main() {
   const { outRoot } = parseArgs();
-  const proofsRoot = resolve(process.cwd(), outRoot, '0.5', 'proofs');
-  const [stubCatalog, manifestPaths] = await Promise.all([
-    loadStubCatalog(),
-    collectManifestPaths(proofsRoot),
-  ]);
+  const candidateVersions = ['0.4', '0.5'];
+  let manifestVersion = candidateVersions[0];
+  let manifestPaths = [];
+  for (const version of candidateVersions) {
+    const proofsRoot = resolve(process.cwd(), outRoot, version, 'proofs');
+    const entries = await collectManifestPaths(proofsRoot);
+    if (entries.length > 0) {
+      manifestVersion = version;
+      manifestPaths = entries;
+      break;
+    }
+  }
+  const stubCatalog = await loadStubCatalog();
   const usedLaws = await loadUsedLaws(manifestPaths);
   const missing = [];
   const covered = [];
@@ -138,6 +179,20 @@ async function main() {
     missing,
     covered,
   };
+  const report = {
+    generated_at: '1970-01-01T00:00:00.000Z',
+    ok: payload.ok,
+    manifest_version: manifestVersion,
+    used_laws: sortedUsed,
+    covered_laws: covered,
+    missing_laws: missing,
+    missing_laws_for_used: collectMissingPairs(missing),
+  };
+  await writeCoverageReport({
+    outRoot,
+    versions: new Set([manifestVersion, '0.4']),
+    report,
+  });
   process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
   process.exit(payload.ok ? 0 : 1);
 }

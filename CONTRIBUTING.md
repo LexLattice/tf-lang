@@ -24,6 +24,31 @@ pnpm -w install --frozen-lockfile
 
 The workspace exposes the CLI directly, so `pnpm tf <command>` resolves to `tools/tf-lang-cli/index.mjs`.
 
+### Dependency hygiene
+
+- Declare every **runtime** dependency in the workspace that imports it. If, for example, an app route uses `yaml` at runtime, add it to that app's `package.json` rather than relying on root-level hoisting.
+- `pnpm list --depth -1` (run from the workspace directory) quickly verifies that the package owns its imports. When in doubt, add the dep locally — pnpm will dedupe it across the workspace.
+
+### Keeping pnpm dist artefacts healthy
+
+Some packages ship TypeScript sources and generate their CLI binaries during `prepare`. If those builds are skipped you’ll see warnings such as “Failed to create bin …/dist/…”. Run:
+
+```bash
+pnpm run verify:dist
+```
+
+This script checks the `@tf-lang/tf-plan*` CLI packages and warns if their `dist/**` outputs are missing (rerun the builds with `pnpm --filter @tf-lang/tf-plan* run build`).
+
+### Fresh installs
+
+When syncing large seeds or switching Node versions, start clean:
+
+```bash
+pnpm run install:fresh
+```
+
+The helper removes all workspace `node_modules` directories and then reinstalls using the existing lockfile. If you receive an archive that already contains `node_modules/`, delete it before running the fresh install.
+
 ## Common workflows
 
 ### Expand, check, and summarize a pipeline

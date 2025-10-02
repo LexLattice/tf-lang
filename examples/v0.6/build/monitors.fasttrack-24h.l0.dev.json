@@ -1,0 +1,257 @@
+{
+  "bundle_id": "monitors.fasttrack-24h",
+  "created_at": "2025-09-30T15:39:24.496Z",
+  "effects": "Outbound+Inbound+Entropy+Pure",
+  "meta": {
+    "pipelineRef": "pipelines/auto.fnol.fasttrack.v1.l0.json"
+  },
+  "monitors": [
+    {
+      "monitor_id": "fasttrack.sla.start.v1",
+      "nodes": [
+        {
+          "id": "S_fasttrack_sla_start_v1_event",
+          "kind": "Subscribe",
+          "channel": "claims.eligibility",
+          "qos": "at_least_once",
+          "out": {
+            "var": "event_msg"
+          }
+        },
+        {
+          "id": "T_fasttrack_sla_start_v1_when_cond_1",
+          "kind": "Transform",
+          "spec": {
+            "op": "eq"
+          },
+          "in": {
+            "left": "@event_msg.decision",
+            "right": "allow"
+          },
+          "out": {
+            "var": "fasttrack_sla_start_v1_when_1_value"
+          }
+        },
+        {
+          "id": "K_schedule",
+          "kind": "Keypair",
+          "algorithm": "Ed25519",
+          "out": {
+            "var": "kp_schedule"
+          },
+          "when": "@fasttrack_sla_start_v1_when_1_value"
+        },
+        {
+          "id": "T_schedule_corr",
+          "kind": "Transform",
+          "spec": {
+            "op": "hash",
+            "alg": "blake3"
+          },
+          "in": {
+            "k": "@kp_schedule.public_key_pem",
+            "task_ref": "sla.fasttrack.deadline",
+            "trigger": {
+              "in_hours": 24,
+              "corr": "@event_msg.corr"
+            }
+          },
+          "out": {
+            "var": "corr_schedule"
+          },
+          "when": "@fasttrack_sla_start_v1_when_1_value"
+        },
+        {
+          "id": "T_schedule_reply_to",
+          "kind": "Transform",
+          "spec": {
+            "op": "concat"
+          },
+          "in": {
+            "a": "rpc:reply:",
+            "b": "@corr_schedule"
+          },
+          "out": {
+            "var": "reply_to_schedule"
+          },
+          "when": "@fasttrack_sla_start_v1_when_1_value"
+        },
+        {
+          "id": "P_schedule_request",
+          "kind": "Publish",
+          "channel": "rpc:req:scheduler.request",
+          "qos": "at_least_once",
+          "payload": {
+            "method": "POST",
+            "body": {
+              "task_ref": "sla.fasttrack.deadline",
+              "trigger": {
+                "in_hours": 24,
+                "corr": "@event_msg.corr"
+              }
+            },
+            "corr": "@corr_schedule",
+            "reply_to": "@reply_to_schedule"
+          },
+          "when": "@fasttrack_sla_start_v1_when_1_value"
+        },
+        {
+          "id": "S_schedule_reply",
+          "kind": "Subscribe",
+          "channel": "@reply_to_schedule",
+          "qos": "at_least_once",
+          "filter": "@corr_schedule",
+          "out": {
+            "var": "schedule_reply"
+          },
+          "when": "@fasttrack_sla_start_v1_when_1_value"
+        }
+      ]
+    },
+    {
+      "monitor_id": "fasttrack.sla.check.v1",
+      "nodes": [
+        {
+          "id": "S_fasttrack_sla_check_v1_event",
+          "kind": "Subscribe",
+          "channel": "process:event:sla.fasttrack.deadline",
+          "qos": "at_least_once",
+          "out": {
+            "var": "event_msg"
+          }
+        },
+        {
+          "id": "T_lookup",
+          "kind": "Transform",
+          "spec": {
+            "op": "lookup",
+            "entity": "claim",
+            "field": "payout_ack"
+          },
+          "in": {
+            "key": "@event_msg.corr"
+          },
+          "out": {
+            "var": "lookup_value"
+          }
+        },
+        {
+          "id": "T_branch_1_cond_1",
+          "kind": "Transform",
+          "spec": {
+            "op": "identity"
+          },
+          "in": {
+            "value": "@lookup_value.missing"
+          },
+          "out": {
+            "var": "branch_1_1_value"
+          }
+        },
+        {
+          "id": "P_breach_metric",
+          "kind": "Publish",
+          "channel": "metric:claims.fasttrack.breach",
+          "qos": "at_least_once",
+          "payload": {
+            "value": 1,
+            "unit": "count",
+            "tags": {
+              "corr": "@event_msg.corr"
+            }
+          },
+          "when": "@branch_1_1_value"
+        },
+        {
+          "id": "K_alert",
+          "kind": "Keypair",
+          "algorithm": "Ed25519",
+          "out": {
+            "var": "kp_alert"
+          },
+          "when": "@branch_1_1_value"
+        },
+        {
+          "id": "T_alert_corr",
+          "kind": "Transform",
+          "spec": {
+            "op": "hash",
+            "alg": "blake3"
+          },
+          "in": {
+            "k": "@kp_alert.public_key_pem",
+            "e": "api/alerts/create",
+            "m": "POST",
+            "b": {
+              "kind": "SLA_BREACH",
+              "corr": "@event_msg.corr"
+            }
+          },
+          "out": {
+            "var": "corr_alert"
+          },
+          "when": "@branch_1_1_value"
+        },
+        {
+          "id": "T_alert_reply_to",
+          "kind": "Transform",
+          "spec": {
+            "op": "concat"
+          },
+          "in": {
+            "a": "rpc:reply:",
+            "b": "@corr_alert"
+          },
+          "out": {
+            "var": "reply_to_alert"
+          },
+          "when": "@branch_1_1_value"
+        },
+        {
+          "id": "P_alert_request",
+          "kind": "Publish",
+          "channel": "rpc:req:api/alerts/create",
+          "qos": "at_least_once",
+          "payload": {
+            "method": "POST",
+            "corr": "@corr_alert",
+            "reply_to": "@reply_to_alert",
+            "body": {
+              "kind": "SLA_BREACH",
+              "corr": "@event_msg.corr"
+            }
+          },
+          "when": "@branch_1_1_value"
+        },
+        {
+          "id": "S_alert_reply",
+          "kind": "Subscribe",
+          "channel": "@reply_to_alert",
+          "qos": "at_least_once",
+          "filter": "@corr_alert",
+          "out": {
+            "var": "alert_reply"
+          },
+          "when": "@branch_1_1_value"
+        },
+        {
+          "id": "P_on_time_metric",
+          "kind": "Publish",
+          "channel": "metric:claims.fasttrack.on_time",
+          "qos": "at_least_once",
+          "payload": {
+            "value": 1,
+            "unit": "count",
+            "tags": {
+              "corr": "@event_msg.corr"
+            }
+          },
+          "when": {
+            "op": "not",
+            "var": "branch_1_1_value"
+          }
+        }
+      ]
+    }
+  ]
+}

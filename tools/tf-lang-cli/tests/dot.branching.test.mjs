@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// @tf-test kind=infra area=tools speed=fast deps=node
+
 import assert from "node:assert/strict";
 import { renderPipelineGraph } from "../lib/dot.mjs";
 

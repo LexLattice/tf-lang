@@ -1,3 +1,5 @@
+// @tf-test kind=product area=expander speed=fast deps=node
+
 import assert from 'node:assert/strict';
 import { loadYamlDocument } from '../yaml-loader.mjs';
 

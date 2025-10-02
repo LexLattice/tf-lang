@@ -1,3 +1,5 @@
+// @tf-test kind=product area=checker speed=fast deps=node
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';

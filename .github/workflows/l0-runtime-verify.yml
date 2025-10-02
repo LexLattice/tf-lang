@@ -2,6 +2,13 @@ name: L0 Runtime Verify
 
 on:
   pull_request:
+    paths:
+      - 'packages/**'
+      - 'examples/**'
+      - 'schemas/**'
+      - 'scripts/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/l0-runtime-verify.yml'
   workflow_dispatch:
 
 concurrency:
@@ -22,12 +29,7 @@ jobs:
           cache-dependency-path: |
             pnpm-lock.yaml
             **/pnpm-lock.yaml
-
-      - name: Build
-        run: |
-          pnpm run a0
-          pnpm run a1
-          pnpm -w -r build
+          prepare: 'true'
 
       - name: Product tests
         run: pnpm run test:product

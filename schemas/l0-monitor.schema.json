@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/l0-monitor.schema.json",
+  "title": "TF-Lang L0 Monitor Bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "pipelineRef", "monitors"],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "0.6"
+    },
+    "pipelineRef": {
+      "type": "string",
+      "description": "Relative path to the canonical pipeline JSON (e.g., pipelines/foo.l0.json)."
+    },
+    "monitors": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/Monitor" }
+    },
+    "meta": {
+      "type": "object",
+      "description": "Non-canonical extras (dev-only); exporter should drop this field.",
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "Id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$"
+    },
+    "Severity": {
+      "type": "string",
+      "enum": ["info", "warn", "error"]
+    },
+    "Duration": {
+      "type": "string",
+      "pattern": "^[0-9]+(ms|s|m|h)$"
+    },
+    "Threshold": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "value"],
+      "properties": {
+        "op": { "type": "string", "enum": [">", ">=", "<", "<=", "==", "!="] },
+        "value": { "type": ["number", "string", "boolean"] }
+      }
+    },
+    "Action": {
+      "type": "string",
+      "enum": ["emit-metric", "log", "trace", "fail"]
+    },
+    "Monitor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "select"],
+      "properties": {
+        "id": { "$ref": "#/$defs/Id" },
+        "name": { "type": "string" },
+        "kind": { "type": "string", "enum": ["invariant", "metric", "alert"] },
+        "select": {
+          "description": "Node ids this applies to; '*' means all nodes.",
+          "anyOf": [
+            { "type": "string", "enum": ["*"] },
+            { "type": "array", "minItems": 1, "items": { "type": "string" } }
+          ]
+        },
+        "expr": {
+          "type": "string",
+          "description": "TF expression evaluated in the node/pipeline context."
+        },
+        "when": {
+          "type": "string",
+          "enum": ["pre", "post", "both"],
+          "default": "post"
+        },
+        "window": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["size"],
+          "properties": {
+            "size": { "$ref": "#/$defs/Duration" },
+            "step": { "$ref": "#/$defs/Duration" }
+          }
+        },
+        "threshold": { "$ref": "#/$defs/Threshold" },
+        "severity": { "$ref": "#/$defs/Severity" },
+        "actions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/Action" }
+        },
+        "message": { "type": "string" },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

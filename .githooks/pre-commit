@@ -1,20 +1,8 @@
-
 #!/usr/bin/env bash
-# Pre-commit guard: run golden diff to enforce idempotent purpose.
 set -euo pipefail
-
-ROOT_DIR="$(git rev-parse --show-toplevel)"
-cd "$ROOT_DIR"
-
-# Skip in CI (since CI runs its own job) unless explicitly forced
-if [[ -n "${CI:-}" && "${FORCE_LOCAL_HOOKS:-0}" != "1" ]]; then
-  exit 0
+BAD=$(git diff --cached --name-only | grep -E '\.l0\.dev\.json$' | grep -v '/build/' || true)
+if [ -n "$BAD" ]; then
+  echo "Refusing to commit dev artifacts outside build/:" >&2
+  echo "$BAD" >&2
+  exit 1
 fi
-
-# If pnpm is missing, just warn
-if ! command -v pnpm >/dev/null 2>&1; then
-  echo "[pre-commit] pnpm not found; skipping golden check."
-  exit 0
-fi
-
-./.codex/scripts/golden.sh

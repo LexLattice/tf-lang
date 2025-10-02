@@ -1,3 +1,5 @@
+// @tf-test kind=product area=util speed=fast deps=node
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { hashPayload } from '../../packages/runtime/run.mjs';

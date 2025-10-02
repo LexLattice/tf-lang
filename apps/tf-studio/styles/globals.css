@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== Theme tokens (CSS vars) ===== */
+:root {
+  --bg: 11 15 25;          /* #0b0f19 */
+  --surface: 16 21 34;     /* #101522 */
+  --overlay: 255 255 255;  /* for translucent borders */
+  --text: 226 232 240;     /* slate-200 */
+  --muted: 148 163 184;    /* slate-400 */
+
+  --tf-publish:   139 92 246;  /* #8b5cf6 */
+  --tf-subscribe: 34 197 94;   /* #22c55e */
+  --tf-transform: 6 182 212;   /* #06b6d4 */
+  --tf-keypair:   245 158 11;  /* #f59e0b */
+}
+
+.dark {
+  --bg: 11 15 25;
+  --surface: 16 21 34;
+  --overlay: 255 255 255;
+  --text: 226 232 240;
+  --muted: 148 163 184;
+}
+
+/* ===== App base ===== */
+html, body, #__next { height: 100%; }
+body { @apply bg-[rgb(var(--bg))] text-[rgb(var(--text))] antialiased; }
+
+.card { @apply rounded-xl2 bg-[rgb(var(--surface))] border border-white/10 shadow-soft; }
+
+.badge { @apply inline-flex items-center px-2 py-1 rounded-md text-xs font-medium; }
+.badge-pass { @apply bg-pass/10 text-pass border border-pass/30; }
+.badge-warn { @apply bg-warn/10 text-warn border border-warn/30; }
+.badge-fail { @apply bg-fail/10 text-fail border border-fail/30; }
+
+.chip { @apply inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium border; }
+.chip-publish   { @apply border-tf-publish/30   bg-tf-publish/10   text-tf-publish; }
+.chip-subscribe { @apply border-tf-subscribe/30 bg-tf-subscribe/10 text-tf-subscribe; }
+.chip-transform { @apply border-tf-transform/30 bg-tf-transform/10 text-tf-transform; }
+.chip-keypair   { @apply border-tf-keypair/30   bg-tf-keypair/10   text-tf-keypair; }
+
+code { @apply px-1.5 py-0.5 rounded bg-white/5 text-[0.95em]; }
+pre code { @apply block p-3 rounded bg-black/40 overflow-x-auto; }
+
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 8px; }
+*::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }

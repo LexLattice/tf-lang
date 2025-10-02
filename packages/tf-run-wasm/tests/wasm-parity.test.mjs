@@ -5,6 +5,7 @@ import test from 'node:test';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { mkdtemp, writeFile, rm, readFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,9 +14,26 @@ const execFileAsync = promisify(execFile);
 const testDir = fileURLToPath(new URL('.', import.meta.url));
 const packageRoot = join(testDir, '..');
 const cliPath = join(packageRoot, 'bin', 'cli.mjs');
+const distEntry = join(packageRoot, 'dist', 'index.js');
+
+let buildPromise;
+async function ensureCliBuilt() {
+  if (existsSync(distEntry)) return;
+  if (!buildPromise) {
+    buildPromise = execFileAsync('pnpm', ['--filter', '@tf-lang/tf-run-wasm', 'run', 'build'], {
+      cwd: packageRoot,
+      maxBuffer: 5 * 1024 * 1024,
+    }).catch((err) => {
+      buildPromise = undefined;
+      throw err;
+    });
+  }
+  await buildPromise;
+}
 
 async function runCli(args, envOverrides = {}) {
   const env = { ...process.env, ...envOverrides };
+  await ensureCliBuilt();
   await execFileAsync(process.execPath, [cliPath, ...args], {
     cwd: packageRoot,
     env,

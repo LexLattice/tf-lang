@@ -1,0 +1,424 @@
+{
+  "created_at": "2025-09-30T20:43:20.338Z",
+  "effects": "Outbound+Inbound+Entropy+Pure",
+  "nodes": [
+    {
+      "channel": "rpc:req:api/fnol/submit",
+      "id": "S_receive",
+      "kind": "Subscribe",
+      "out": {
+        "var": "receive"
+      },
+      "qos": "at_least_once"
+    },
+    {
+      "id": "T_validate_fnol",
+      "in": {
+        "value": "@receive.body"
+      },
+      "kind": "Transform",
+      "out": {
+        "var": "validate_fnol"
+      },
+      "spec": {
+        "op": "jsonschema.validate",
+        "schema": "FnolV1"
+      }
+    },
+    {
+      "algorithm": "Ed25519",
+      "id": "K_get_policy_identity",
+      "kind": "Keypair",
+      "out": {
+        "var": "get_policy_identity"
+      }
+    },
+    {
+      "id": "T_get_policy_corr",
+      "in": {
+        "e": "api/policy/snapshot",
+        "k": "@get_policy_identity.public_key_pem",
+        "m": "GET",
+        "query": {
+          "policy_id": "@receive.body.policy_id"
+        }
+      },
+      "kind": "Transform",
+      "out": {
+        "var": "get_policy_corr"
+      },
+      "spec": {
+        "alg": "blake3",
+        "op": "hash"
+      }
+    },
+    {
+      "id": "T_get_policy_reply_to",
+      "in": {
+        "0": "rpc:reply:",
+        "1": "@get_policy_corr"
+      },
+      "kind": "Transform",
+      "out": {
+        "var": "get_policy_reply_to"
+      },
+      "spec": {
+        "op": "concat"
+      }
+    },
+    {
+      "channel": "rpc:req:api/policy/snapshot",
+      "id": "P_get_policy",
+      "kind": "Publish",
+      "payload": {
+        "corr": "@get_policy_corr",
+        "method": "GET",
+        "query": {
+          "policy_id": "@receive.body.policy_id"
+        },
+        "reply_to": "@get_policy_reply_to"
+      },
+      "qos": "at_least_once"
+    },
+    {
+      "channel": "@get_policy_reply_to",
+      "filter": "@get_policy_corr",
+      "id": "S_get_policy",
+      "kind": "Subscribe",
+      "out": {
+        "var": "get_policy"
+      },
+      "qos": "at_least_once"
+    },
+    {
+      "id": "T_score_severity",
+      "in": {
+        "features": "@receive.body"
+      },
+      "kind": "Transform",
+      "out": {
+        "var": "score_severity"
+      },
+      "spec": {
+        "model": "auto.severity.v3",
+        "op": "model_infer"
+      }
+    },
+    {
+      "id": "T_score_fraud",
+      "in": {
+        "features": "@receive.body"
+      },
+      "kind": "Transform",
+      "out": {
+        "var": "score_fraud"
+      },
+      "spec": {
+        "model": "fraud.v7",
+        "op": "model_infer"
+      }
+    },
+    {
+      "id": "T_eligibility",
+      "in": {
+        "input": {
+          "fraud": "@score_fraud",
+          "policy": "@get_policy.response",
+          "severity": "@score_severity"
+        }
+      },
+      "kind": "Transform",
+      "out": {
+        "var": "eligibility"
+      },
+      "spec": {
+        "op": "policy_eval",
+        "policy": "fasttrack.policy.v1"
+      }
+    },
+    {
+      "algorithm": "Ed25519",
+      "id": "K_consent_identity",
+      "kind": "Keypair",
+      "out": {
+        "var": "consent_identity"
+      },
+      "when": "@eligibility.decision == 'allow'"
+    },
+    {
+      "id": "T_consent_corr",
+      "in": {
+        "body": {
+          "claimant": "@receive.body.party",
+          "doc": "fasttrack.pdf"
+        },
+        "e": "api/consent/sign",
+        "k": "@consent_identity.public_key_pem",
+        "m": "POST"
+      },
+      "kind": "Transform",
+      "out": {
+        "var": "consent_corr"
+      },
+      "spec": {
+        "alg": "blake3",
+        "op": "hash"
+      },
+      "when": "@eligibility.decision == 'allow'"
+    },
+    {
+      "id": "T_consent_reply_to",
+      "in": {
+        "0": "rpc:reply:",
+        "1": "@consent_corr"
+      },
+      "kind": "Transform",
+      "out": {
+        "var": "consent_reply_to"
+      },
+      "spec": {
+        "op": "concat"
+      },
+      "when": "@eligibility.decision == 'allow'"
+    },
+    {
+      "channel": "rpc:req:api/consent/sign",
+      "id": "P_consent_request",
+      "kind": "Publish",
+      "payload": {
+        "body": {
+          "claimant": "@receive.body.party",
+          "doc": "fasttrack.pdf"
+        },
+        "corr": "@consent_corr",
+        "method": "POST",
+        "reply_to": "@consent_reply_to"
+      },
+      "qos": "at_least_once",
+      "when": "@eligibility.decision == 'allow'"
+    },
+    {
+      "channel": "@consent_reply_to",
+      "filter": "@consent_corr",
+      "id": "S_consent_reply",
+      "kind": "Subscribe",
+      "out": {
+        "var": "consent"
+      },
+      "qos": "at_least_once",
+      "when": "@eligibility.decision == 'allow'"
+    },
+    {
+      "algorithm": "Ed25519",
+      "id": "K_payout_identity",
+      "kind": "Keypair",
+      "out": {
+        "var": "payout_identity"
+      },
+      "when": "@eligibility.decision == 'allow'"
+    },
+    {
+      "id": "T_payout_corr",
+      "in": {
+        "body": {
+          "amount": "@eligibility.amount",
+          "channel": "SEPA",
+          "claim": "@receive.body.claim_id"
+        },
+        "e": "api/payments/payout",
+        "k": "@payout_identity.public_key_pem",
+        "m": "POST"
+      },
+      "kind": "Transform",
+      "out": {
+        "var": "payout_corr"
+      },
+      "spec": {
+        "alg": "blake3",
+        "op": "hash"
+      },
+      "when": "@eligibility.decision == 'allow'"
+    },
+    {
+      "id": "T_payout_reply_to",
+      "in": {
+        "0": "rpc:reply:",
+        "1": "@payout_corr"
+      },
+      "kind": "Transform",
+      "out": {
+        "var": "payout_reply_to"
+      },
+      "spec": {
+        "op": "concat"
+      },
+      "when": "@eligibility.decision == 'allow'"
+    },
+    {
+      "channel": "rpc:req:api/payments/payout",
+      "id": "P_payout_request",
+      "kind": "Publish",
+      "payload": {
+        "body": {
+          "amount": "@eligibility.amount",
+          "channel": "SEPA",
+          "claim": "@receive.body.claim_id"
+        },
+        "corr": "@payout_corr",
+        "method": "POST",
+        "reply_to": "@payout_reply_to"
+      },
+      "qos": "at_least_once",
+      "when": "@eligibility.decision == 'allow'"
+    },
+    {
+      "channel": "@payout_reply_to",
+      "filter": "@payout_corr",
+      "id": "S_payout_reply",
+      "kind": "Subscribe",
+      "out": {
+        "var": "payout"
+      },
+      "qos": "at_least_once",
+      "when": "@eligibility.decision == 'allow'"
+    },
+    {
+      "channel": "metric:claims.fasttrack.success",
+      "id": "P_emit_metric",
+      "kind": "Publish",
+      "payload": {
+        "tags": {
+          "region": "@get_policy.response.region"
+        },
+        "unit": "count",
+        "value": 1
+      },
+      "qos": "at_least_once",
+      "when": "@eligibility.decision == 'allow'"
+    },
+    {
+      "algorithm": "Ed25519",
+      "id": "K_assign_identity",
+      "kind": "Keypair",
+      "out": {
+        "var": "assign_identity"
+      },
+      "when": "!(@eligibility.decision == 'allow')"
+    },
+    {
+      "id": "T_assign_corr",
+      "in": {
+        "body": {
+          "claim": "@receive.body.claim_id",
+          "priority": "@score_severity.bucket"
+        },
+        "e": "api/adjuster/assign",
+        "k": "@assign_identity.public_key_pem",
+        "m": "POST"
+      },
+      "kind": "Transform",
+      "out": {
+        "var": "assign_corr"
+      },
+      "spec": {
+        "alg": "blake3",
+        "op": "hash"
+      },
+      "when": "!(@eligibility.decision == 'allow')"
+    },
+    {
+      "id": "T_assign_reply_to",
+      "in": {
+        "0": "rpc:reply:",
+        "1": "@assign_corr"
+      },
+      "kind": "Transform",
+      "out": {
+        "var": "assign_reply_to"
+      },
+      "spec": {
+        "op": "concat"
+      },
+      "when": "!(@eligibility.decision == 'allow')"
+    },
+    {
+      "channel": "rpc:req:api/adjuster/assign",
+      "id": "P_assign_request",
+      "kind": "Publish",
+      "payload": {
+        "body": {
+          "claim": "@receive.body.claim_id",
+          "priority": "@score_severity.bucket"
+        },
+        "corr": "@assign_corr",
+        "method": "POST",
+        "reply_to": "@assign_reply_to"
+      },
+      "qos": "at_least_once",
+      "when": "!(@eligibility.decision == 'allow')"
+    },
+    {
+      "channel": "@assign_reply_to",
+      "filter": "@assign_corr",
+      "id": "S_assign_reply",
+      "kind": "Subscribe",
+      "out": {
+        "var": "assign"
+      },
+      "qos": "at_least_once",
+      "when": "!(@eligibility.decision == 'allow')"
+    },
+    {
+      "channel": "@receive.reply_to",
+      "id": "P_ack",
+      "kind": "Publish",
+      "payload": {
+        "corr": "@receive.corr",
+        "status": "accepted"
+      },
+      "qos": "at_least_once"
+    },
+    {
+      "id": "T_record_digest",
+      "in": {
+        "kind": "fasttrack.route",
+        "payload": "@eligibility",
+        "ts": "2025-09-30T20:43:20.338Z"
+      },
+      "kind": "Transform",
+      "out": {
+        "var": "record_digest"
+      },
+      "spec": {
+        "alg": "blake3",
+        "op": "digest"
+      }
+    },
+    {
+      "id": "T_record_id",
+      "in": {
+        "value": "@record_digest"
+      },
+      "kind": "Transform",
+      "out": {
+        "var": "record_id"
+      },
+      "spec": {
+        "op": "encode_base58"
+      }
+    },
+    {
+      "channel": "policy:record",
+      "id": "P_record",
+      "kind": "Publish",
+      "payload": {
+        "kind": "fasttrack.route",
+        "payload": "@eligibility",
+        "record_id": "@record_id",
+        "ts": "2025-09-30T20:43:20.338Z"
+      },
+      "qos": "at_least_once"
+    }
+  ],
+  "pipeline_id": "auto.fnol.fasttrack.v1"
+}
